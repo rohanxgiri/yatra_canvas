@@ -19,6 +19,7 @@ class AppBottomNavigation extends StatelessWidget {
     required this.currentIndex,
     required this.onDestinationSelected,
     this.items = defaultItems,
+    this.prominentIndex,
     super.key,
   }) : assert(items.length >= 2),
        assert(currentIndex >= 0 && currentIndex < items.length);
@@ -49,6 +50,7 @@ class AppBottomNavigation extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
   final List<AppBottomNavigationItem> items;
+  final int? prominentIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -62,17 +64,46 @@ class AppBottomNavigation extends StatelessWidget {
         child: NavigationBar(
           selectedIndex: currentIndex,
           onDestinationSelected: onDestinationSelected,
-          destinations: items
-              .map(
-                (item) => NavigationDestination(
-                  icon: Icon(item.icon),
-                  selectedIcon: Icon(item.selectedIcon),
-                  label: item.label,
-                ),
-              )
-              .toList(growable: false),
+          destinations: List.generate(items.length, (index) {
+            final item = items[index];
+            final prominent = prominentIndex == index;
+            return NavigationDestination(
+              icon: prominent ? _CreateIcon(icon: item.icon) : Icon(item.icon),
+              selectedIcon: prominent
+                  ? _CreateIcon(icon: item.selectedIcon)
+                  : Icon(item.selectedIcon),
+              label: item.label,
+            );
+          }),
         ),
       ),
+    );
+  }
+}
+
+class _CreateIcon extends StatelessWidget {
+  const _CreateIcon({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: AppColors.teal,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x29126E69),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Icon(icon, color: Colors.white, size: 28),
     );
   }
 }

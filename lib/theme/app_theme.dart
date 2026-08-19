@@ -7,25 +7,28 @@ class AppTheme {
   AppTheme._();
 
   static ThemeData get light {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.teal,
-      brightness: Brightness.light,
-      surface: AppColors.surface,
-    ).copyWith(
-      primary: AppColors.teal,
-      onPrimary: Colors.white,
-      secondary: AppColors.marigold,
-      onSecondary: AppColors.charcoal,
-      error: AppColors.error,
-      surface: AppColors.surface,
-      onSurface: AppColors.charcoal,
-      outline: AppColors.border,
-      outlineVariant: AppColors.border,
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.teal,
+          brightness: Brightness.light,
+          surface: AppColors.surface,
+        ).copyWith(
+          primary: AppColors.teal,
+          onPrimary: Colors.white,
+          secondary: AppColors.marigold,
+          onSecondary: AppColors.charcoal,
+          error: AppColors.error,
+          surface: AppColors.surface,
+          onSurface: AppColors.charcoal,
+          outline: AppColors.border,
+          outlineVariant: AppColors.border,
+        );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: 'Segoe UI',
+      fontFamilyFallback: const ['Inter', 'Roboto', 'Arial'],
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.canvas,
       canvasColor: AppColors.canvas,
@@ -54,10 +57,11 @@ class AppTheme {
       cardTheme: const CardThemeData(
         color: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        elevation: 1,
+        shadowColor: Color(0x1514294E),
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
+          borderRadius: BorderRadius.all(Radius.circular(24)),
           side: BorderSide(color: AppColors.border),
         ),
       ),
@@ -67,11 +71,7 @@ class AppTheme {
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
-          shape: const WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(18)),
-            ),
-          ),
+          shape: const WidgetStatePropertyAll(StadiumBorder()),
           textStyle: const WidgetStatePropertyAll(AppTextStyles.button),
           backgroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.disabled)) {
@@ -96,11 +96,7 @@ class AppTheme {
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           ),
-          shape: const WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(18)),
-            ),
-          ),
+          shape: const WidgetStatePropertyAll(StadiumBorder()),
           side: WidgetStateProperty.resolveWith((states) {
             return BorderSide(
               color: states.contains(WidgetState.disabled)
@@ -150,7 +146,7 @@ class AppTheme {
         showCheckmark: false,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 72,
+        height: 76,
         backgroundColor: AppColors.surface,
         indicatorColor: AppColors.tealLight,
         surfaceTintColor: Colors.transparent,

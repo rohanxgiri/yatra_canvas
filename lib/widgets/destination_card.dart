@@ -138,11 +138,7 @@ class _DestinationImage extends StatelessWidget {
     return const DecoratedBox(
       decoration: BoxDecoration(gradient: AppColors.canvasGradient),
       child: Center(
-        child: Icon(
-          Icons.landscape_rounded,
-          size: 48,
-          color: AppColors.teal,
-        ),
+        child: Icon(Icons.landscape_rounded, size: 48, color: AppColors.teal),
       ),
     );
   }

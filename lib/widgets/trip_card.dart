@@ -94,11 +94,15 @@ class TripCard extends StatelessWidget {
                     spacing: 14,
                     runSpacing: 6,
                     children: [
-                      _TripMeta(icon: Icons.calendar_today_outlined, text: dateRange),
+                      _TripMeta(
+                        icon: Icons.calendar_today_outlined,
+                        text: dateRange,
+                      ),
                       if (memberCount != null)
                         _TripMeta(
                           icon: Icons.group_outlined,
-                          text: '$memberCount ${memberCount == 1 ? 'traveler' : 'travelers'}',
+                          text:
+                              '$memberCount ${memberCount == 1 ? 'traveler' : 'travelers'}',
                         ),
                     ],
                   ),
@@ -110,7 +114,9 @@ class TripCard extends StatelessWidget {
                         value: progress,
                         minHeight: 6,
                         backgroundColor: AppColors.tealLight,
-                        valueColor: const AlwaysStoppedAnimation(AppColors.teal),
+                        valueColor: const AlwaysStoppedAnimation(
+                          AppColors.teal,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 7),

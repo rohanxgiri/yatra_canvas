@@ -30,42 +30,33 @@ class ProgressHeader extends StatelessWidget {
       child: Row(
         children: [
           SizedBox.square(
-            dimension: 44,
+            dimension: 48,
             child: onBack == null
                 ? null
-                : IconButton(
+                : IconButton.filledTonal(
                     onPressed: onBack,
                     tooltip: 'Back',
                     icon: const Icon(Icons.arrow_back_rounded),
                   ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 10),
           Expanded(
             child: Semantics(
               label: 'Step $normalizedStep of $totalSteps',
               value: '${(normalizedStep / totalSteps * 100).round()} percent',
-              child: Row(
-                children: List.generate(totalSteps, (index) {
-                  final isComplete = index < normalizedStep;
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: index == totalSteps - 1 ? 0 : 5,
-                      ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 240),
-                        curve: Curves.easeOut,
-                        height: isComplete ? 5 : 3,
-                        decoration: BoxDecoration(
-                          color: isComplete
-                              ? AppColors.teal
-                              : AppColors.border,
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  tween: Tween<double>(end: normalizedStep / totalSteps),
+                  builder: (context, value, _) => LinearProgressIndicator(
+                    value: value,
+                    minHeight: 5,
+                    color: AppColors.teal,
+                    backgroundColor: Colors.white.withValues(alpha: .72),
+                  ),
+                ),
               ),
             ),
           ),

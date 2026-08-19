@@ -8,53 +8,54 @@ class AppTextStyles {
 
   static const TextStyle display = TextStyle(
     color: AppColors.charcoal,
-    fontSize: 36,
-    height: 1.16,
+    fontSize: 40,
+    height: 1.08,
     fontWeight: FontWeight.w800,
-    letterSpacing: -1.1,
+    letterSpacing: -1.45,
   );
 
   static const TextStyle pageTitle = TextStyle(
     color: AppColors.charcoal,
-    fontSize: 30,
-    height: 1.2,
+    fontSize: 32,
+    height: 1.12,
     fontWeight: FontWeight.w800,
-    letterSpacing: -0.8,
+    letterSpacing: -1.0,
   );
 
   static const TextStyle sectionTitle = TextStyle(
     color: AppColors.charcoal,
-    fontSize: 22,
-    height: 1.27,
+    fontSize: 21,
+    height: 1.22,
     fontWeight: FontWeight.w700,
-    letterSpacing: -0.35,
+    letterSpacing: -0.45,
   );
 
   static const TextStyle cardTitle = TextStyle(
     color: AppColors.charcoal,
-    fontSize: 17,
-    height: 1.35,
+    fontSize: 16,
+    height: 1.3,
     fontWeight: FontWeight.w700,
+    letterSpacing: -0.15,
   );
 
   static const TextStyle bodyLarge = TextStyle(
     color: AppColors.charcoal,
     fontSize: 16,
-    height: 1.5,
+    height: 1.55,
     fontWeight: FontWeight.w400,
   );
 
   static const TextStyle body = TextStyle(
     color: AppColors.charcoal,
     fontSize: 14,
-    height: 1.5,
+    height: 1.55,
     fontWeight: FontWeight.w400,
   );
 
   static const TextStyle bodyMuted = TextStyle(
     color: AppColors.textSecondary,
     fontSize: 14,
-    height: 1.45,
+    height: 1.5,
     fontWeight: FontWeight.w400,
   );
 
@@ -62,8 +63,8 @@ class AppTextStyles {
     color: AppColors.charcoal,
     fontSize: 14,
     height: 1.3,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 0.05,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0,
   );
 
   static const TextStyle caption = TextStyle(
@@ -77,6 +78,6 @@ class AppTextStyles {
     fontSize: 15,
     height: 1.2,
     fontWeight: FontWeight.w700,
-    letterSpacing: 0.1,
+    letterSpacing: -0.05,
   );
 }
