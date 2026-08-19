@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yatra_canvas/main.dart';
 import 'package:yatra_canvas/screens/create_trip/destination_selection_screen.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
+import 'package:yatra_canvas/screens/onboarding/login_screen.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
 void main() {
@@ -18,6 +19,21 @@ void main() {
       find.text('Turn your travel ideas\ninto a journey.'),
       findsOneWidget,
     );
+    expect(find.text('Continue as Guest'), findsNothing);
+  });
+
+  testWidgets('login offers phone, Google, Apple, and guest access', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const LoginScreen()),
+    );
+
+    expect(find.text('Mobile number'), findsOneWidget);
+    expect(find.text('Continue with Phone'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
+    expect(find.text('Continue as Guest'), findsOneWidget);
   });
 
   testWidgets('create trip flow advances through all five steps', (

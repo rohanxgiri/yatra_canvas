@@ -17,7 +17,7 @@ class PersonalInterestsScreen extends StatefulWidget {
 }
 
 class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
-  static const _stepCount = 12;
+  static const _stepCount = 11;
   final PageController _pages = PageController();
   final TextEditingController _name = TextEditingController(text: 'Traveller');
   final Set<String> _challenges = {};
@@ -38,7 +38,7 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
     2 => _planningStyle != null,
     3 => _challenges.isNotEmpty,
     4 => _goals.isNotEmpty,
-    11 => _name.text.trim().isNotEmpty,
+    10 => _name.text.trim().isNotEmpty,
     _ => true,
   };
 
@@ -86,7 +86,7 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
                 totalSteps: _stepCount,
                 useSafeArea: false,
                 onBack: _back,
-                onSkip: _step >= 2 && _step < 10 ? _skip : null,
+                onSkip: _step >= 2 && _step < 9 ? _skip : null,
               ),
               Expanded(
                 child: PageView(
@@ -100,7 +100,6 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
                     _challengeStep(),
                     _goalStep(),
                     _itineraryStep(),
-                    _discoveryStep(),
                     _statementStep(),
                     _memoryStep(),
                     _comparisonStep(),
@@ -110,7 +109,7 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
                 ),
               ),
               _BottomBar(
-                child: _step == 7
+                child: _step == 6
                     ? Row(
                         children: [
                           Expanded(
@@ -133,11 +132,11 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
                     : PrimaryButton(
                         label: switch (_step) {
                           1 => 'Let’s Personalise',
-                          10 => 'Set Up My Profile',
-                          11 => 'Enter YatraCanvas',
+                          9 => 'Set Up My Profile',
+                          10 => 'Enter YatraCanvas',
                           _ => 'Continue',
                         },
-                        icon: _step == 11
+                        icon: _step == 10
                             ? Icons.explore_rounded
                             : Icons.arrow_forward_rounded,
                         onPressed: _canContinue ? _next : null,
@@ -261,14 +260,6 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
     title: 'Turn saved ideas into a day that flows',
     subtitle: 'See every stop, travel time, and booking together—without juggling tabs.',
     children: [_MiniItinerary()],
-  );
-
-  Widget _discoveryStep() => const _StepScroll(
-    centered: true,
-    eyebrow: 'DISCOVER WITH INTENT',
-    title: 'Find stories worth travelling for',
-    subtitle: 'Explore guides shaped around food, culture, nature, and local favourites.',
-    children: [_GuidePreview()],
   );
 
   Widget _statementStep() => const _StepScroll(
@@ -547,72 +538,6 @@ class _TravelLine extends StatelessWidget {
         Text(label, style: AppTextStyles.caption),
       ],
     ),
-  );
-}
-
-class _GuidePreview extends StatelessWidget {
-  const _GuidePreview();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: _panelDecoration(),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Wrap(spacing: 8, runSpacing: 8, children: [_Tag('🍜 Food'), _Tag('🎨 Culture'), _Tag('🌿 Nature')]),
-        const SizedBox(height: 20),
-        Text('Guides for curious travellers', style: AppTextStyles.sectionTitle),
-        const SizedBox(height: 14),
-        const Row(
-          children: [
-            Expanded(child: _GuideCard(Icons.fort_rounded, 'Royal Rajasthan', '12 places · 4 days', [Color(0xFFFFE4A3), Color(0xFFE86F51)])),
-            SizedBox(width: 12),
-            Expanded(child: _GuideCard(Icons.terrain_rounded, 'Himalayan calm', '9 places · 3 days', [Color(0xFFD9F2E9), Color(0xFF315EEB)])),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-class _Tag extends StatelessWidget {
-  const _Tag(this.label);
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    decoration: BoxDecoration(color: AppColors.surfaceSoft, borderRadius: BorderRadius.circular(99)),
-    child: Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.charcoal)),
-  );
-}
-
-class _GuideCard extends StatelessWidget {
-  const _GuideCard(this.icon, this.title, this.detail, this.colors);
-  final IconData icon;
-  final String title;
-  final String detail;
-  final List<Color> colors;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      AspectRatio(
-        aspectRatio: .95,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Icon(icon, color: Colors.white, size: 54),
-        ),
-      ),
-      const SizedBox(height: 10),
-      Text(title, maxLines: 2, style: AppTextStyles.cardTitle),
-      Text(detail, style: AppTextStyles.caption),
-    ],
   );
 }
 

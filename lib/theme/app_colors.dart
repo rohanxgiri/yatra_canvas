@@ -36,8 +36,7 @@ class AppColors {
   static const LinearGradient onboardingGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFFF8EF), Color(0xFFF8E8DD), Color(0xFFE8EEFF)],
-    stops: [0, .52, 1],
+    colors: [Colors.white, Colors.white],
   );
 
   static const LinearGradient tealGradient = LinearGradient(
