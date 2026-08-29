@@ -59,7 +59,9 @@ void main() {
     );
     expect(continueButton.onPressed, isNull);
 
-    await tester.tap(find.text('Ujjain').first);
+    await tester.tap(
+      find.widgetWithText(ActionChip, 'Ujjain, Madhya Pradesh'),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Continue'));

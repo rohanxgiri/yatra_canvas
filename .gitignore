@@ -29,6 +29,15 @@ doc/api/
 key.properties
 local.properties
 
+# Python backend tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Project-local temporary SDKs and tool caches
+tmp/
+
 # Android generated files
 android/.gradle/
 android/app/debug/

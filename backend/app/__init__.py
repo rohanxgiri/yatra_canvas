@@ -1,0 +1,1 @@
+"""YatraCanvas backend application package."""
