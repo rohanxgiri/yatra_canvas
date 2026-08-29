@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/app_colors.dart';
 
@@ -11,7 +12,6 @@ class YatraBrand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = light ? Colors.white : AppColors.charcoal;
-    final accent = AppColors.marigold;
     return Semantics(
       label: 'YatraCanvas',
       child: Row(
@@ -21,11 +21,10 @@ class YatraBrand extends StatelessWidget {
             width: compact ? 34 : 54,
             height: compact ? 34 : 54,
             decoration: BoxDecoration(
-              gradient: light ? null : AppColors.tealGradient,
-              color: light ? Colors.white12 : null,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(compact ? 10 : 17),
               border: Border.all(
-                color: light ? Colors.white24 : Colors.white,
+                color: light ? Colors.white38 : AppColors.border,
                 width: light ? 1 : 1.5,
               ),
               boxShadow: light
@@ -38,32 +37,8 @@ class YatraBrand extends StatelessWidget {
                       ),
                     ],
             ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  Icons.route_rounded,
-                  color: Colors.white,
-                  size: compact ? 23 : 34,
-                ),
-                Positioned(
-                  right: compact ? 4 : 7,
-                  top: compact ? 4 : 7,
-                  child: Container(
-                    width: compact ? 7 : 10,
-                    height: compact ? 7 : 10,
-                    decoration: BoxDecoration(
-                      color: accent,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: light ? AppColors.tealDark : AppColors.tealDark,
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            padding: EdgeInsets.all(compact ? 6 : 9),
+            child: SvgPicture.asset('lib/Logo/logo.svg', fit: BoxFit.contain),
           ),
           SizedBox(width: compact ? 9 : 13),
           Text.rich(

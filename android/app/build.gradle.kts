@@ -29,6 +29,20 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "app"
+    productFlavors {
+        create("regular") {
+            dimension = "app"
+            resValue("string", "app_name", "YatraCanvas")
+        }
+        create("admin") {
+            dimension = "app"
+            applicationIdSuffix = ".admin"
+            versionNameSuffix = "-admin"
+            resValue("string", "app_name", "YatraCanvas Admin")
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

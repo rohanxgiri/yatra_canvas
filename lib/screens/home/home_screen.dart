@@ -574,19 +574,19 @@ class _RecommendationList extends StatelessWidget {
 
   static const items = <(String, String, IconData, Color)>[
     (
-      'Spiritual escapes',
+      'Spiritual Escapes',
       'Quiet temples and meaningful routes',
       Icons.temple_hindu_rounded,
       AppColors.marigold,
     ),
     (
-      'Food trails',
+      'Food Trails',
       'Local favourites, one stop at a time',
       Icons.restaurant_rounded,
       AppColors.terracotta,
     ),
     (
-      'Weekend journeys',
+      'Weekend Journeys',
       'Easy plans for a refreshing short break',
       Icons.weekend_rounded,
       AppColors.emerald,

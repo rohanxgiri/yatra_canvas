@@ -13,11 +13,12 @@ class PersonalInterestsScreen extends StatefulWidget {
   const PersonalInterestsScreen({super.key});
 
   @override
-  State<PersonalInterestsScreen> createState() => _PersonalInterestsScreenState();
+  State<PersonalInterestsScreen> createState() =>
+      _PersonalInterestsScreenState();
 }
 
 class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
-  static const _stepCount = 11;
+  static const _stepCount = 10;
   final PageController _pages = PageController();
   final TextEditingController _name = TextEditingController(text: 'Traveller');
   final Set<String> _challenges = {};
@@ -38,7 +39,7 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
     2 => _planningStyle != null,
     3 => _challenges.isNotEmpty,
     4 => _goals.isNotEmpty,
-    10 => _name.text.trim().isNotEmpty,
+    9 => _name.text.trim().isNotEmpty,
     _ => true,
   };
 
@@ -86,7 +87,7 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
                 totalSteps: _stepCount,
                 useSafeArea: false,
                 onBack: _back,
-                onSkip: _step >= 2 && _step < 9 ? _skip : null,
+                onSkip: _step >= 2 && _step < 8 ? _skip : null,
               ),
               Expanded(
                 child: PageView(
@@ -100,7 +101,6 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
                     _challengeStep(),
                     _goalStep(),
                     _itineraryStep(),
-                    _statementStep(),
                     _memoryStep(),
                     _comparisonStep(),
                     _featureStep(),
@@ -109,38 +109,18 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
                 ),
               ),
               _BottomBar(
-                child: _step == 6
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _next,
-                              icon: const Icon(Icons.close_rounded),
-                              label: const Text('Not really'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: _next,
-                              icon: const Icon(Icons.check_rounded),
-                              label: const Text('Yes, that’s me'),
-                            ),
-                          ),
-                        ],
-                      )
-                    : PrimaryButton(
-                        label: switch (_step) {
-                          1 => 'Let’s Personalise',
-                          9 => 'Set Up My Profile',
-                          10 => 'Enter YatraCanvas',
-                          _ => 'Continue',
-                        },
-                        icon: _step == 10
-                            ? Icons.explore_rounded
-                            : Icons.arrow_forward_rounded,
-                        onPressed: _canContinue ? _next : null,
-                      ),
+                child: PrimaryButton(
+                  label: switch (_step) {
+                    1 => 'Let’s Personalise',
+                    8 => 'Set Up My Profile',
+                    9 => 'Enter YatraCanvas',
+                    _ => 'Continue',
+                  },
+                  icon: _step == 9
+                      ? Icons.explore_rounded
+                      : Icons.arrow_forward_rounded,
+                  onPressed: _canContinue ? _next : null,
+                ),
               ),
             ],
           ),
@@ -173,7 +153,11 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
       SizedBox(height: 48),
       _JourneyMedallion(),
       SizedBox(height: 34),
-      Text('Namaste, traveller!', textAlign: TextAlign.center, style: AppTextStyles.display),
+      Text(
+        'Namaste, traveller!',
+        textAlign: TextAlign.center,
+        style: AppTextStyles.display,
+      ),
       SizedBox(height: 12),
       Text(
         'A few quick choices will help us shape YatraCanvas around the way you travel.',
@@ -262,17 +246,6 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
     children: [_MiniItinerary()],
   );
 
-  Widget _statementStep() => const _StepScroll(
-    eyebrow: 'A QUICK CHECK-IN',
-    title: 'Does this sound familiar?',
-    children: [
-      SizedBox(height: 46),
-      _QuoteCard(
-        quote: 'I save travel ideas everywhere, then struggle to turn them into one clear plan.',
-      ),
-    ],
-  );
-
   Widget _memoryStep() => const _StepScroll(
     centered: true,
     eyebrow: 'TRAVEL, REMEMBERED',
@@ -293,10 +266,26 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
     eyebrow: 'READY FOR THE ROAD',
     title: 'Built to guide you from idea to itinerary',
     children: [
-      _FeatureTile(Icons.cloud_done_outlined, 'Offline-ready plans', 'Keep essential details close even when signal is not.'),
-      _FeatureTile(Icons.auto_awesome_rounded, 'Thoughtful assistance', 'Get help shaping a trip around your pace.'),
-      _FeatureTile(Icons.alt_route_rounded, 'Clear route planning', 'See travel time between stops before the day begins.'),
-      _FeatureTile(Icons.groups_2_outlined, 'Shared decisions', 'Collect ideas and plan together.'),
+      _FeatureTile(
+        Icons.cloud_done_outlined,
+        'Offline-ready plans',
+        'Keep essential details close even when signal is not.',
+      ),
+      _FeatureTile(
+        Icons.auto_awesome_rounded,
+        'Thoughtful assistance',
+        'Get help shaping a trip around your pace.',
+      ),
+      _FeatureTile(
+        Icons.alt_route_rounded,
+        'Clear route planning',
+        'See travel time between stops before the day begins.',
+      ),
+      _FeatureTile(
+        Icons.groups_2_outlined,
+        'Shared decisions',
+        'Collect ideas and plan together.',
+      ),
     ],
   );
 
@@ -337,7 +326,13 @@ class _BottomBar extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
     decoration: const BoxDecoration(
       color: Color(0xF2FFFFFF),
-      boxShadow: [BoxShadow(color: Color(0x10142033), blurRadius: 22, offset: Offset(0, -6))],
+      boxShadow: [
+        BoxShadow(
+          color: Color(0x10142033),
+          blurRadius: 22,
+          offset: Offset(0, -6),
+        ),
+      ],
     ),
     child: child,
   );
@@ -364,7 +359,9 @@ class _StepScroll extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
         child: Column(
-          crossAxisAlignment: centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+          crossAxisAlignment: centered
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
           children: [
             if (eyebrow != null) ...[
               Text(
@@ -379,19 +376,30 @@ class _StepScroll extends StatelessWidget {
               const SizedBox(height: 10),
             ],
             if (title != null) ...[
-              Text(title!, textAlign: centered ? TextAlign.center : TextAlign.left, style: AppTextStyles.display),
+              Text(
+                title!,
+                textAlign: centered ? TextAlign.center : TextAlign.left,
+                style: AppTextStyles.display,
+              ),
               const SizedBox(height: 12),
             ],
             if (subtitle != null) ...[
               Text(
                 subtitle!,
                 textAlign: centered ? TextAlign.center : TextAlign.left,
-                style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+                style: AppTextStyles.bodyLarge.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 26),
             ] else if (title != null)
               const SizedBox(height: 22),
-            ...children.map((child) => Padding(padding: const EdgeInsets.only(bottom: 12), child: child)),
+            ...children.map(
+              (child) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: child,
+              ),
+            ),
           ],
         ),
       ),
@@ -400,7 +408,12 @@ class _StepScroll extends StatelessWidget {
 }
 
 class _ChoiceCard extends StatelessWidget {
-  const _ChoiceCard({required this.icon, required this.label, required this.selected, required this.onTap});
+  const _ChoiceCard({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
   final String icon;
   final String label;
   final bool selected;
@@ -421,19 +434,39 @@ class _ChoiceCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(23),
-            border: Border.all(color: selected ? AppColors.teal : Colors.white, width: 1.5),
-            boxShadow: const [BoxShadow(color: Color(0x0E142033), blurRadius: 14, offset: Offset(0, 5))],
+            border: Border.all(
+              color: selected ? AppColors.teal : Colors.white,
+              width: 1.5,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0E142033),
+                blurRadius: 14,
+                offset: Offset(0, 5),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              SizedBox(width: 38, child: Text(icon, style: const TextStyle(fontSize: 25))),
+              SizedBox(
+                width: 38,
+                child: Text(icon, style: const TextStyle(fontSize: 25)),
+              ),
               const SizedBox(width: 12),
               Expanded(child: Text(label, style: AppTextStyles.cardTitle)),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 child: selected
-                    ? const Icon(Icons.check_circle_rounded, key: ValueKey('on'), color: AppColors.teal)
-                    : const Icon(Icons.circle_outlined, key: ValueKey('off'), color: AppColors.borderStrong),
+                    ? const Icon(
+                        Icons.check_circle_rounded,
+                        key: ValueKey('on'),
+                        color: AppColors.teal,
+                      )
+                    : const Icon(
+                        Icons.circle_outlined,
+                        key: ValueKey('off'),
+                        color: AppColors.borderStrong,
+                      ),
               ),
             ],
           ),
@@ -454,14 +487,28 @@ class _JourneyMedallion extends StatelessWidget {
       color: Colors.white.withValues(alpha: .84),
       shape: BoxShape.circle,
       border: Border.all(color: Colors.white, width: 3),
-      boxShadow: const [BoxShadow(color: Color(0x20315EEB), blurRadius: 30, offset: Offset(0, 14))],
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x20315EEB),
+          blurRadius: 30,
+          offset: Offset(0, 14),
+        ),
+      ],
     ),
     child: const Stack(
       alignment: Alignment.center,
       children: [
         Icon(Icons.public_rounded, size: 104, color: AppColors.tealLight),
         Icon(Icons.route_rounded, size: 84, color: AppColors.teal),
-        Positioned(right: 32, top: 34, child: Icon(Icons.location_on_rounded, color: AppColors.terracotta, size: 36)),
+        Positioned(
+          right: 32,
+          top: 34,
+          child: Icon(
+            Icons.location_on_rounded,
+            color: AppColors.terracotta,
+            size: 36,
+          ),
+        ),
       ],
     ),
   );
@@ -476,11 +523,26 @@ class _MiniItinerary extends StatelessWidget {
     decoration: _panelDecoration(),
     child: const Column(
       children: [
-        _PlanStop('1', Icons.temple_hindu_rounded, 'City Palace', '9:30 AM · 90 min'),
+        _PlanStop(
+          '1',
+          Icons.temple_hindu_rounded,
+          'City Palace',
+          '9:30 AM · 90 min',
+        ),
         _TravelLine('12 min · 2.4 km'),
-        _PlanStop('2', Icons.restaurant_rounded, 'Old City lunch', '12:15 PM · Local favourite'),
+        _PlanStop(
+          '2',
+          Icons.restaurant_rounded,
+          'Old City lunch',
+          '12:15 PM · Local favourite',
+        ),
         _TravelLine('8 min · walk'),
-        _PlanStop('3', Icons.shopping_bag_outlined, 'Artisan bazaar', '2:00 PM · Flexible'),
+        _PlanStop(
+          '3',
+          Icons.shopping_bag_outlined,
+          'Artisan bazaar',
+          '2:00 PM · Flexible',
+        ),
       ],
     ),
   );
@@ -496,13 +558,19 @@ class _PlanStop extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: AppColors.surfaceSoft, borderRadius: BorderRadius.circular(19)),
+    decoration: BoxDecoration(
+      color: AppColors.surfaceSoft,
+      borderRadius: BorderRadius.circular(19),
+    ),
     child: Row(
       children: [
         CircleAvatar(
           backgroundColor: AppColors.teal,
           foregroundColor: Colors.white,
-          child: Text(number, style: AppTextStyles.label.copyWith(color: Colors.white)),
+          child: Text(
+            number,
+            style: AppTextStyles.label.copyWith(color: Colors.white),
+          ),
         ),
         const SizedBox(width: 10),
         Icon(icon, color: AppColors.terracotta),
@@ -533,28 +601,13 @@ class _TravelLine extends StatelessWidget {
         const SizedBox(width: 19),
         Container(width: 2, height: 26, color: AppColors.tealLight),
         const SizedBox(width: 28),
-        const Icon(Icons.directions_walk_rounded, size: 17, color: AppColors.textSecondary),
+        const Icon(
+          Icons.directions_walk_rounded,
+          size: 17,
+          color: AppColors.textSecondary,
+        ),
         const SizedBox(width: 6),
         Text(label, style: AppTextStyles.caption),
-      ],
-    ),
-  );
-}
-
-class _QuoteCard extends StatelessWidget {
-  const _QuoteCard({required this.quote});
-  final String quote;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(24, 28, 24, 30),
-    decoration: _panelDecoration(),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('“', style: AppTextStyles.display.copyWith(color: AppColors.terracotta, fontSize: 58)),
-        Text(quote, style: AppTextStyles.sectionTitle.copyWith(height: 1.5)),
       ],
     ),
   );
@@ -566,9 +619,24 @@ class _MemoryStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const places = [
-      ('Hawa Mahal', 'A perfect early-morning stop', Icons.temple_hindu_rounded, AppColors.terracotta),
-      ('Albert Hall', 'Save this for sunset', Icons.account_balance_rounded, AppColors.teal),
-      ('Nahargarh Fort', 'Everyone voted yes', Icons.fort_rounded, AppColors.emerald),
+      (
+        'Hawa Mahal',
+        'A perfect early-morning stop',
+        Icons.temple_hindu_rounded,
+        AppColors.terracotta,
+      ),
+      (
+        'Albert Hall',
+        'Save this for sunset',
+        Icons.account_balance_rounded,
+        AppColors.teal,
+      ),
+      (
+        'Nahargarh Fort',
+        'Everyone voted yes',
+        Icons.fort_rounded,
+        AppColors.emerald,
+      ),
     ];
     return Column(
       children: [
@@ -618,22 +686,22 @@ class _ComparisonPanel extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(16),
               color: AppColors.surfaceSoft,
-              child: const _CompareColumn(
-                'Scattered planning',
-                false,
-                ['Tabs and screenshots', 'Details in many apps', 'More logistics to track'],
-              ),
+              child: const _CompareColumn('Scattered planning', false, [
+                'Tabs and screenshots',
+                'Details in many apps',
+                'More logistics to track',
+              ]),
             ),
           ),
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(16),
               color: Colors.white,
-              child: const _CompareColumn(
-                'YatraCanvas',
-                true,
-                ['Ideas become a route', 'One shared plan', 'More time for the trip'],
-              ),
+              child: const _CompareColumn('YatraCanvas', true, [
+                'Ideas become a route',
+                'One shared plan',
+                'More time for the trip',
+              ]),
             ),
           ),
         ],
@@ -654,7 +722,12 @@ class _CompareColumn extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: AppTextStyles.cardTitle.copyWith(color: good ? AppColors.teal : AppColors.charcoal)),
+        Text(
+          title,
+          style: AppTextStyles.cardTitle.copyWith(
+            color: good ? AppColors.teal : AppColors.charcoal,
+          ),
+        ),
         const SizedBox(height: 18),
         for (final point in points)
           Padding(
@@ -662,9 +735,18 @@ class _CompareColumn extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(good ? Icons.check_rounded : Icons.close_rounded, color: color, size: 19),
+                Icon(
+                  good ? Icons.check_rounded : Icons.close_rounded,
+                  color: color,
+                  size: 19,
+                ),
                 const SizedBox(width: 7),
-                Expanded(child: Text(point, style: AppTextStyles.body.copyWith(height: 1.35))),
+                Expanded(
+                  child: Text(
+                    point,
+                    style: AppTextStyles.body.copyWith(height: 1.35),
+                  ),
+                ),
               ],
             ),
           ),
@@ -688,7 +770,10 @@ class _FeatureTile extends StatelessWidget {
         Container(
           width: 54,
           height: 54,
-          decoration: BoxDecoration(color: AppColors.tealLight, borderRadius: BorderRadius.circular(17)),
+          decoration: BoxDecoration(
+            color: AppColors.tealLight,
+            borderRadius: BorderRadius.circular(17),
+          ),
           child: Icon(icon, color: AppColors.teal),
         ),
         const SizedBox(width: 14),
@@ -732,7 +817,11 @@ class _ProfileAvatar extends StatelessWidget {
         child: Container(
           width: 48,
           height: 48,
-          decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: AppColors.border)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.border),
+          ),
           child: const Icon(Icons.edit_rounded, color: AppColors.teal),
         ),
       ),
@@ -744,5 +833,7 @@ BoxDecoration _panelDecoration({double radius = 28}) => BoxDecoration(
   color: const Color(0xF2FFFFFF),
   borderRadius: BorderRadius.circular(radius),
   border: Border.all(color: Colors.white),
-  boxShadow: const [BoxShadow(color: Color(0x14142033), blurRadius: 22, offset: Offset(0, 10))],
+  boxShadow: const [
+    BoxShadow(color: Color(0x14142033), blurRadius: 22, offset: Offset(0, 10)),
+  ],
 );

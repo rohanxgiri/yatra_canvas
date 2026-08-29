@@ -32,9 +32,9 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
   ];
 
   static const _budgets = <(String, IconData)>[
-    ('Budget', Icons.savings_outlined),
-    ('Moderate', Icons.account_balance_wallet_outlined),
-    ('Comfortable', Icons.workspace_premium_outlined),
+    ('Saver', Icons.savings_outlined),
+    ('Chill', Icons.account_balance_wallet_outlined),
+    ('Boujee', Icons.workspace_premium_outlined),
   ];
 
   static const _transports = <(String, IconData)>[

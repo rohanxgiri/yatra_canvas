@@ -26,7 +26,7 @@ class TripDraft {
     TimeOfDayValue? arrivalTime,
     Set<String>? purposes,
     this.travelPace = 'Balanced',
-    this.budget = 'Moderate',
+    this.budget = 'Chill',
     Set<String>? transportPreferences,
   }) : startDate = startDate ?? DateTime(2026, 8, 25),
        endDate = endDate ?? DateTime(2026, 8, 26),
