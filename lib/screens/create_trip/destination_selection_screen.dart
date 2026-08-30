@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
+import '../../models/city.dart';
 import '../../models/trip_draft.dart';
+import '../../services/city_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/create_trip_scaffold.dart';
@@ -9,9 +12,10 @@ import '../../widgets/search_field.dart';
 import 'select_dates_screen.dart';
 
 class DestinationSelectionScreen extends StatefulWidget {
-  const DestinationSelectionScreen({this.draft, super.key});
+  const DestinationSelectionScreen({this.draft, this.cityService, super.key});
 
   final TripDraft? draft;
+  final CityService? cityService;
 
   @override
   State<DestinationSelectionScreen> createState() =>
@@ -20,37 +24,158 @@ class DestinationSelectionScreen extends StatefulWidget {
 
 class _DestinationSelectionScreenState
     extends State<DestinationSelectionScreen> {
+  static const _debounceDuration = Duration(milliseconds: 400);
+
   late final TripDraft _draft;
+  late final CityService _cityService;
+  late final bool _ownsCityService;
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+
+  Timer? _debounce;
+  List<City> _suggestions = const [];
+  City? _pendingResolution;
   String _query = '';
+  String? _searchError;
+  String? _resolveError;
+  bool _isSearching = false;
+  bool _isResolving = false;
+  int _searchGeneration = 0;
+  int _resolveGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _draft = widget.draft ?? TripDraft();
+    _ownsCityService = widget.cityService == null;
+    _cityService = widget.cityService ?? CityService();
+
+    final selectedCity = _draft.destination;
+    if (selectedCity != null) {
+      _query = selectedCity.displayName;
+      _searchController.text = selectedCity.displayName;
+    }
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
+    if (_ownsCityService) _cityService.close();
     super.dispose();
   }
 
-  List<DestinationOption> get _filteredDestinations {
-    final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return MockData.destinations;
-    return MockData.destinations
-        .where((destination) {
-          return destination.name.toLowerCase().contains(query) ||
-              destination.region.toLowerCase().contains(query) ||
-              destination.tags.any((tag) => tag.toLowerCase().contains(query));
-        })
-        .toList(growable: false);
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _searchGeneration++;
+    _resolveGeneration++;
+
+    final normalizedQuery = value.trim();
+    setState(() {
+      _query = value;
+      _suggestions = const [];
+      _searchError = null;
+      _resolveError = null;
+      _pendingResolution = null;
+      _isResolving = false;
+      _isSearching = normalizedQuery.length >= 2;
+
+      final selectedCity = _draft.destination;
+      if (selectedCity != null && value != selectedCity.displayName) {
+        _draft.destination = null;
+      }
+    });
+
+    if (normalizedQuery.length < 2) return;
+
+    final requestGeneration = _searchGeneration;
+    _debounce = Timer(
+      _debounceDuration,
+      () => _search(normalizedQuery, requestGeneration),
+    );
   }
 
-  void _select(DestinationOption destination) {
-    FocusScope.of(context).unfocus();
-    setState(() => _draft.destination = destination);
+  Future<void> _search(String query, int requestGeneration) async {
+    try {
+      final cities = await _cityService.searchCities(query);
+      if (!mounted || requestGeneration != _searchGeneration) return;
+      setState(() {
+        _suggestions = cities;
+        _isSearching = false;
+      });
+    } on Object catch (error) {
+      if (!mounted || requestGeneration != _searchGeneration) return;
+      setState(() {
+        _isSearching = false;
+        _searchError = _friendlyError(error);
+      });
+    }
+  }
+
+  void _retrySearch() {
+    final normalizedQuery = _query.trim();
+    if (normalizedQuery.length < 2) return;
+
+    final requestGeneration = ++_searchGeneration;
+    setState(() {
+      _searchError = null;
+      _isSearching = true;
+    });
+    _search(normalizedQuery, requestGeneration);
+  }
+
+  Future<void> _selectCity(City city) async {
+    _debounce?.cancel();
+    _searchGeneration++;
+    _searchFocusNode.unfocus();
+    _searchController.text = city.displayName;
+    _searchController.selection = TextSelection.collapsed(
+      offset: _searchController.text.length,
+    );
+
+    final requestGeneration = ++_resolveGeneration;
+    setState(() {
+      _query = city.displayName;
+      _suggestions = const [];
+      _searchError = null;
+      _resolveError = null;
+      _pendingResolution = city;
+      _draft.destination = null;
+      _isSearching = false;
+      _isResolving = true;
+    });
+
+    try {
+      final resolvedCity = await _cityService.resolveCity(city);
+      if (!mounted || requestGeneration != _resolveGeneration) return;
+      setState(() {
+        _draft.destination = resolvedCity;
+        _pendingResolution = null;
+        _isResolving = false;
+        _query = resolvedCity.displayName;
+        _searchController.text = resolvedCity.displayName;
+      });
+    } on Object catch (error) {
+      if (!mounted || requestGeneration != _resolveGeneration) return;
+      setState(() {
+        _isResolving = false;
+        _resolveError = _friendlyError(error);
+      });
+    }
+  }
+
+  void _retryResolve() {
+    final city = _pendingResolution;
+    if (city != null) _selectCity(city);
+  }
+
+  String _friendlyError(Object error) {
+    if (error is TimeoutException) {
+      return 'The server took too long to respond. Check that FastAPI is running.';
+    }
+    if (error is CityServiceException) return error.message;
+    return 'Could not reach the city service. Check your connection and try again.';
   }
 
   void _continue() {
@@ -61,49 +186,142 @@ class _DestinationSelectionScreenState
 
   @override
   Widget build(BuildContext context) {
-    final destinations = _filteredDestinations;
     return CreateTripScaffold(
       step: 1,
       title: 'Where are you\ngoing?',
-      subtitle: 'Search for the city or destination you want to explore.',
-      continueEnabled: _draft.destination != null,
+      subtitle: 'Search cities already available in YatraCanvas.',
+      continueEnabled: _draft.destination != null && !_isResolving,
       onContinue: _continue,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SearchField(
             controller: _searchController,
-            hintText: 'Search destinations',
-            onChanged: (value) => setState(() => _query = value),
+            focusNode: _searchFocusNode,
+            hintText: 'Search by city or state',
+            onChanged: _onSearchChanged,
           ),
-          const SizedBox(height: 26),
-          if (_query.isEmpty) ...[
-            const _SectionLabel('Recent searches'),
-            const SizedBox(height: 10),
-            _RecentDestination(
-              destination: MockData.destinations.first,
-              onTap: () => _select(MockData.destinations.first),
-            ),
-            const SizedBox(height: 28),
-          ],
-          _SectionLabel(_query.isEmpty ? 'Popular destinations' : 'Results'),
           const SizedBox(height: 10),
-          if (destinations.isEmpty)
-            const _NoResults()
-          else
-            ...destinations.map(
-              (destination) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _DestinationResult(
-                  destination: destination,
-                  selected: _draft.destination == destination,
-                  onTap: () => _select(destination),
-                ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: _buildSearchState(),
+          ),
+          if (_draft.destination case final city?) ...[
+            const SizedBox(height: 22),
+            _SelectedCityCard(city: city),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchState() {
+    if (_isResolving) {
+      return const _StatusCard(
+        key: ValueKey('resolving'),
+        icon: Icons.sync_rounded,
+        title: 'Confirming your city',
+        message: 'Saving the city to your trip…',
+        showProgress: true,
+      );
+    }
+    if (_resolveError != null) {
+      return _ErrorCard(
+        key: const ValueKey('resolve-error'),
+        message: _resolveError!,
+        onRetry: _retryResolve,
+      );
+    }
+    if (_draft.destination != null) {
+      return const SizedBox.shrink(key: ValueKey('selected'));
+    }
+    if (_query.trim().length < 2) {
+      return const _StatusCard(
+        key: ValueKey('hint'),
+        icon: Icons.travel_explore_rounded,
+        title: 'Find your destination',
+        message: 'Type at least 2 characters to search saved cities.',
+      );
+    }
+    if (_isSearching) {
+      return const _StatusCard(
+        key: ValueKey('searching'),
+        icon: Icons.location_searching_rounded,
+        title: 'Searching cities',
+        message: 'Looking through destinations in YatraCanvas…',
+        showProgress: true,
+      );
+    }
+    if (_searchError != null) {
+      return _ErrorCard(
+        key: const ValueKey('search-error'),
+        message: _searchError!,
+        onRetry: _retrySearch,
+      );
+    }
+    if (_suggestions.isEmpty) {
+      return const _StatusCard(
+        key: ValueKey('empty'),
+        icon: Icons.location_off_outlined,
+        title: 'No cities found',
+        message: 'Try another city name or search by state.',
+      );
+    }
+    return _SuggestionsPanel(
+      key: const ValueKey('suggestions'),
+      cities: _suggestions,
+      onSelected: _selectCity,
+    );
+  }
+}
+
+class _SuggestionsPanel extends StatelessWidget {
+  const _SuggestionsPanel({
+    required this.cities,
+    required this.onSelected,
+    super.key,
+  });
+
+  final List<City> cities;
+  final ValueChanged<City> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderStrong),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1214294E),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 13, 16, 9),
+            child: Text(
+              '${cities.length} ${cities.length == 1 ? 'city' : 'cities'} found',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.tealDark,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          if (_draft.destination case final destination?) ...[
-            const SizedBox(height: 20),
-            _DestinationPreview(destination: destination),
+          ),
+          const Divider(),
+          for (var index = 0; index < cities.length; index++) ...[
+            _CitySuggestion(
+              city: cities[index],
+              onTap: () => onSelected(cities[index]),
+            ),
+            if (index != cities.length - 1)
+              const Divider(indent: 64, endIndent: 16),
           ],
         ],
       ),
@@ -111,100 +329,50 @@ class _DestinationSelectionScreenState
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label);
+class _CitySuggestion extends StatelessWidget {
+  const _CitySuggestion({required this.city, required this.onTap});
 
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(label, style: AppTextStyles.sectionTitle);
-  }
-}
-
-class _RecentDestination extends StatelessWidget {
-  const _RecentDestination({required this.destination, required this.onTap});
-
-  final DestinationOption destination;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(
-      onPressed: onTap,
-      avatar: const Icon(Icons.history_rounded, size: 18),
-      label: Text('${destination.name}, ${destination.region}'),
-    );
-  }
-}
-
-class _DestinationResult extends StatelessWidget {
-  const _DestinationResult({
-    required this.destination,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final DestinationOption destination;
-  final bool selected;
+  final City city;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.tealLight : AppColors.surface,
-      borderRadius: BorderRadius.circular(18),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: selected ? AppColors.teal : AppColors.border,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.teal : AppColors.surfaceSoft,
-                  borderRadius: BorderRadius.circular(15),
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: AppColors.tealLight,
+                  shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  _iconFor(destination.name),
-                  color: selected ? Colors.white : AppColors.teal,
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: AppColors.teal,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(destination.name, style: AppTextStyles.cardTitle),
-                    const SizedBox(height: 3),
-                    Text(destination.region, style: AppTextStyles.bodyMuted),
+                    Text(city.name, style: AppTextStyles.cardTitle),
+                    const SizedBox(height: 2),
+                    Text(city.locationLabel, style: AppTextStyles.bodyMuted),
                   ],
                 ),
               ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: selected
-                    ? const Icon(
-                        Icons.check_circle_rounded,
-                        key: ValueKey('selected'),
-                        color: AppColors.teal,
-                      )
-                    : const Icon(
-                        Icons.chevron_right_rounded,
-                        key: ValueKey('unselected'),
-                        color: AppColors.textTertiary,
-                      ),
+              const Icon(
+                Icons.north_west_rounded,
+                size: 18,
+                color: AppColors.textTertiary,
               ),
             ],
           ),
@@ -212,21 +380,96 @@ class _DestinationResult extends StatelessWidget {
       ),
     );
   }
+}
 
-  static IconData _iconFor(String name) {
-    return switch (name) {
-      'Goa' => Icons.beach_access_rounded,
-      'Manali' => Icons.landscape_rounded,
-      'Mumbai' => Icons.apartment_rounded,
-      _ => Icons.location_city_rounded,
-    };
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.showProgress = false,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final bool showProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: AppColors.surfaceSoft,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: AppColors.teal, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTextStyles.label),
+                const SizedBox(height: 2),
+                Text(message, style: AppTextStyles.caption),
+                if (showProgress) ...[
+                  const SizedBox(height: 9),
+                  const LinearProgressIndicator(minHeight: 2),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _DestinationPreview extends StatelessWidget {
-  const _DestinationPreview({required this.destination});
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.message, required this.onRetry, super.key});
 
-  final DestinationOption destination;
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.error.withValues(alpha: .35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: AppColors.error),
+          const SizedBox(width: 12),
+          Expanded(child: Text(message, style: AppTextStyles.bodyMuted)),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedCityCard extends StatelessWidget {
+  const _SelectedCityCard({required this.city});
+
+  final City city;
 
   @override
   Widget build(BuildContext context) {
@@ -241,65 +484,49 @@ class _DestinationPreview extends StatelessWidget {
         children: [
           Positioned(
             right: -8,
-            bottom: -14,
+            bottom: -18,
             child: Icon(
               Icons.route_rounded,
-              size: 94,
+              size: 96,
               color: Colors.white.withValues(alpha: .10),
             ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'SELECTED DESTINATION',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.marigold,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: .8,
-                ),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.marigold,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      'CITY ADDED TO YOUR TRIP',
+                      maxLines: 2,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.marigold,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .7,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
               Text(
-                destination.name,
+                city.name,
                 style: AppTextStyles.pageTitle.copyWith(color: Colors.white),
               ),
               const SizedBox(height: 5),
               Text(
-                destination.locationLabel,
+                city.locationLabel,
                 style: AppTextStyles.body.copyWith(color: Colors.white70),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                destination.tags.join('  •  '),
-                style: AppTextStyles.label.copyWith(color: Colors.white),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NoResults extends StatelessWidget {
-  const _NoResults();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.travel_explore_rounded, color: AppColors.textTertiary),
-          SizedBox(height: 8),
-          Text('No local destinations match that search.'),
         ],
       ),
     );

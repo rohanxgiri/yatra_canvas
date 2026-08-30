@@ -56,3 +56,5 @@ macos/Flutter/ephemeral/
 # Desktop generated files
 linux/flutter/ephemeral/
 windows/flutter/ephemeral/
+# Widget Preview related
+.widget_preview/

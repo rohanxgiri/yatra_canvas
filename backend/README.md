@@ -79,12 +79,18 @@ http://127.0.0.1:8000/docs
 | `GET` | `/` | Backend status |
 | `POST` | `/cities` | Create a city |
 | `GET` | `/cities` | List cities |
+| `POST` | `/cities/resolve` | Return or create a city by Google Place ID |
+| `GET` | `/cities/search?query=` | Search stored cities by name or state |
 | `GET` | `/cities/{city_id}` | Get a city |
 | `POST` | `/places` | Create a place |
 | `GET` | `/cities/{city_id}/places` | List a city's places |
 
 List endpoints accept optional `offset` and `limit` query parameters. `limit`
 defaults to 100 and cannot exceed 500.
+
+For an existing database, run `sql/add_cities_google_place_id_unique.sql` once
+in the Supabase SQL Editor before using `/cities/resolve`. New databases receive
+the same uniqueness rule from the SQLModel metadata automatically.
 
 ## Example: create a city
 

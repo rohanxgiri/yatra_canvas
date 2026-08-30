@@ -1,3 +1,5 @@
+import 'city.dart';
+
 class DestinationOption {
   const DestinationOption({
     required this.name,
@@ -34,7 +36,7 @@ class TripDraft {
        purposes = purposes ?? {'Religious / Spiritual'},
        transportPreferences = transportPreferences ?? {'Walking', 'Auto / Cab'};
 
-  DestinationOption? destination;
+  City? destination;
   DateTime startDate;
   DateTime endDate;
   bool datesFlexible;

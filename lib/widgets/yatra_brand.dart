@@ -41,23 +41,30 @@ class YatraBrand extends StatelessWidget {
             child: SvgPicture.asset('lib/Logo/logo.svg', fit: BoxFit.contain),
           ),
           SizedBox(width: compact ? 9 : 13),
-          Text.rich(
-            TextSpan(
-              children: [
-                const TextSpan(text: 'Yatra'),
+          Flexible(
+            fit: FlexFit.loose,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text.rich(
                 TextSpan(
-                  text: 'Canvas',
-                  style: TextStyle(
-                    color: light ? Colors.white : AppColors.teal,
-                  ),
+                  children: [
+                    const TextSpan(text: 'Yatra'),
+                    TextSpan(
+                      text: 'Canvas',
+                      style: TextStyle(
+                        color: light ? Colors.white : AppColors.teal,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            style: TextStyle(
-              color: color,
-              fontSize: compact ? 20 : 34,
-              fontWeight: FontWeight.w800,
-              letterSpacing: compact ? -0.75 : -1.4,
+                style: TextStyle(
+                  color: color,
+                  fontSize: compact ? 20 : 34,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: compact ? -0.75 : -1.4,
+                ),
+              ),
             ),
           ),
         ],

@@ -20,6 +20,10 @@ def created_at_column() -> Column[datetime]:
 class City(SQLModel, table=True):
     __tablename__ = "cities"
     __table_args__ = (
+        UniqueConstraint(
+            "google_place_id",
+            name="uq_cities_google_place_id",
+        ),
         CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_cities_latitude"),
         CheckConstraint(
             "longitude BETWEEN -180 AND 180", name="ck_cities_longitude"

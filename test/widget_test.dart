@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:yatra_canvas/main.dart';
+import 'package:yatra_canvas/models/trip_draft.dart';
 import 'package:yatra_canvas/screens/create_trip/destination_selection_screen.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
 import 'package:yatra_canvas/screens/onboarding/login_screen.dart';
+import 'package:yatra_canvas/services/city_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
 void main() {
@@ -44,24 +48,34 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
+    final cityService = CityService(
+      baseUrl: 'http://api.test',
+      client: MockClient((request) async {
+        return http.Response(
+          request.method == 'GET' ? '[$_ujjainResponse]' : _ujjainResponse,
+          200,
+        );
+      }),
+    );
+
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: const DestinationSelectionScreen(),
+        home: DestinationSelectionScreen(cityService: cityService),
       ),
     );
 
     expect(find.text('Where are you\ngoing?'), findsOneWidget);
-    expect(find.text('Ujjain'), findsWidgets);
 
     final continueButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Continue'),
     );
     expect(continueButton.onPressed, isNull);
 
-    await tester.tap(
-      find.widgetWithText(ActionChip, 'Ujjain, Madhya Pradesh'),
-    );
+    await tester.enterText(find.byType(TextField), 'uj');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    await tester.tap(find.text('Ujjain'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Continue'));
@@ -87,21 +101,100 @@ void main() {
       find.text('Next, YatraCanvas will find places that match your journey.'),
       findsOneWidget,
     );
+
+    await tester.tap(find.text('Back to Home'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HomeScreen), findsOneWidget);
   });
 
-  testWidgets('destination search filters local mock data', (tester) async {
+  testWidgets('city search is debounced and selected city is resolved', (
+    tester,
+  ) async {
+    final requests = <http.Request>[];
+    final draft = TripDraft();
+    final cityService = CityService(
+      baseUrl: 'http://api.test',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(
+          request.method == 'GET'
+              ? '[$_gandhinagarResponse]'
+              : _gandhinagarResponse,
+          200,
+        );
+      }),
+    );
+
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: const DestinationSelectionScreen(),
+        home: DestinationSelectionScreen(
+          draft: draft,
+          cityService: cityService,
+        ),
       ),
     );
 
-    await tester.enterText(find.byType(TextField), 'jai');
+    await tester.enterText(find.byType(TextField), 'g');
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(requests, isEmpty);
+
+    await tester.enterText(find.byType(TextField), 'gandhi');
+    await tester.pump(const Duration(milliseconds: 399));
+    expect(requests, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
 
-    expect(find.text('Jaipur'), findsOneWidget);
-    expect(find.text('Varanasi'), findsNothing);
+    expect(requests, hasLength(1));
+    expect(requests.single.method, 'GET');
+    expect(requests.single.url.path, '/cities/search');
+    expect(requests.single.url.queryParameters['query'], 'gandhi');
+    expect(find.text('Gandhinagar'), findsOneWidget);
+    expect(find.text('Gujarat, India'), findsOneWidget);
+
+    await tester.tap(find.text('Gandhinagar'));
+    await tester.pumpAndSettle();
+
+    expect(requests, hasLength(2));
+    expect(requests.last.method, 'POST');
+    expect(requests.last.url.path, '/cities/resolve');
+    expect(draft.destination?.id, '11111111-1111-1111-1111-111111111111');
+    expect(find.text('CITY ADDED TO YOUR TRIP'), findsOneWidget);
+  });
+
+  testWidgets('city search shows empty and backend error states', (
+    tester,
+  ) async {
+    var shouldFail = false;
+    final cityService = CityService(
+      baseUrl: 'http://api.test',
+      client: MockClient((request) async {
+        if (shouldFail) {
+          return http.Response('{"detail":"Search service unavailable."}', 503);
+        }
+        return http.Response('[]', 200);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: DestinationSelectionScreen(cityService: cityService),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'zz');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(find.text('No cities found'), findsOneWidget);
+
+    shouldFail = true;
+    await tester.enterText(find.byType(TextField), 'gandhi');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    expect(find.text('Search service unavailable.'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
   });
 
   testWidgets('Home create navigation opens and returns from trip setup', (
@@ -126,3 +219,29 @@ void main() {
     expect(find.text('Where are you\ngoing?'), findsOneWidget);
   });
 }
+
+const _gandhinagarResponse = '''
+{
+  "id": "11111111-1111-1111-1111-111111111111",
+  "name": "Gandhinagar",
+  "state": "Gujarat",
+  "country": "India",
+  "latitude": 23.2156,
+  "longitude": 72.6369,
+  "google_place_id": "test_gandhinagar_gujarat_001",
+  "created_at": "2026-08-30T12:00:00Z"
+}
+''';
+
+const _ujjainResponse = '''
+{
+  "id": "22222222-2222-2222-2222-222222222222",
+  "name": "Ujjain",
+  "state": "Madhya Pradesh",
+  "country": "India",
+  "latitude": 23.1765,
+  "longitude": 75.7885,
+  "google_place_id": "test_ujjain_001",
+  "created_at": "2026-08-30T12:00:00Z"
+}
+''';
