@@ -31,5 +31,4 @@ app.include_router(places.router)
 @app.get("/", tags=["status"])
 def backend_status() -> dict[str, str]:
     """Return a lightweight service status response."""
-
     return {"status": "ok", "service": "YatraCanvas API"}
