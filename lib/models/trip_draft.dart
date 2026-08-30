@@ -1,4 +1,5 @@
 import 'city.dart';
+import 'trip_start_location.dart';
 
 class DestinationOption {
   const DestinationOption({
@@ -18,6 +19,7 @@ class DestinationOption {
 
 class TripDraft {
   TripDraft({
+    this.tripId,
     this.destination,
     DateTime? startDate,
     DateTime? endDate,
@@ -25,6 +27,12 @@ class TripDraft {
     this.durationDays = 2,
     this.arrivalMethod = 'Train',
     this.arrivalPoint = 'Ujjain Railway Station',
+    this.arrivalLatitude,
+    this.arrivalLongitude,
+    this.startLocationType = TripStartLocationType.arrival,
+    this.startLocationName,
+    this.startLatitude,
+    this.startLongitude,
     TimeOfDayValue? arrivalTime,
     Set<String>? purposes,
     this.travelPace = 'Balanced',
@@ -36,6 +44,7 @@ class TripDraft {
        purposes = purposes ?? {'Religious / Spiritual'},
        transportPreferences = transportPreferences ?? {'Walking', 'Auto / Cab'};
 
+  String? tripId;
   City? destination;
   DateTime startDate;
   DateTime endDate;
@@ -43,6 +52,12 @@ class TripDraft {
   int durationDays;
   String arrivalMethod;
   String arrivalPoint;
+  double? arrivalLatitude;
+  double? arrivalLongitude;
+  TripStartLocationType startLocationType;
+  String? startLocationName;
+  double? startLatitude;
+  double? startLongitude;
   TimeOfDayValue arrivalTime;
   Set<String> purposes;
   String travelPace;

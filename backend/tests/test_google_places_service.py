@@ -97,6 +97,143 @@ def test_place_details_extracts_city_fields() -> None:
     asyncio.run(run())
 
 
+def test_hotel_autocomplete_restricts_types_and_normalizes_predictions() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/places:autocomplete"
+        body = request.read().decode()
+        assert '"includedRegionCodes":["in"]' in body
+        assert (
+            '"includedPrimaryTypes":["hotel","lodging","hostel",'
+            '"guest_house","resort_hotel"]'
+        ) in body
+        return httpx.Response(
+            200,
+            json={
+                "suggestions": [
+                    {
+                        "placePrediction": {
+                            "placeId": "google-hotel-imperial",
+                            "text": {
+                                "text": "Hotel Imperial, Ujjain, India"
+                            },
+                            "structuredFormat": {
+                                "mainText": {"text": "Hotel Imperial"}
+                            },
+                        }
+                    }
+                ]
+            },
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            service = GooglePlacesService("test-key", client=client)
+            suggestions = await service.autocomplete_locations(
+                "imperial", hotel_only=True
+            )
+
+        assert [item.model_dump() for item in suggestions] == [
+            {
+                "google_place_id": "google-hotel-imperial",
+                "name": "Hotel Imperial",
+                "description": "Hotel Imperial, Ujjain, India",
+            }
+        ]
+
+    asyncio.run(run())
+
+
+def test_location_details_extracts_start_coordinates() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/places/google-hotel-imperial"
+        assert request.headers["X-Goog-FieldMask"] == "id,displayName,location"
+        return httpx.Response(
+            200,
+            json={
+                "id": "google-hotel-imperial",
+                "displayName": {"text": "Hotel Imperial"},
+                "location": {"latitude": 23.1801, "longitude": 75.7812},
+            },
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            service = GooglePlacesService("test-key", client=client)
+            details = await service.get_location_details(
+                "google-hotel-imperial"
+            )
+
+        assert details.model_dump() == {
+            "google_place_id": "google-hotel-imperial",
+            "name": "Hotel Imperial",
+            "latitude": 23.1801,
+            "longitude": 75.7812,
+        }
+
+    asyncio.run(run())
+
+
+def test_nearby_search_constructs_request_and_normalizes_places() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/v1/places:searchNearby"
+        assert request.headers["X-Goog-Api-Key"] == "test-key"
+        assert "places.userRatingCount" in request.headers["X-Goog-FieldMask"]
+        body = request.read().decode()
+        assert '"includedTypes":["hindu_temple","mosque"]' in body
+        assert '"radius":10000' in body
+        assert '"rankPreference":"POPULARITY"' in body
+        return httpx.Response(
+            200,
+            json={
+                "places": [
+                    {
+                        "id": "google-mahakal",
+                        "displayName": {"text": "Mahakaleshwar Temple"},
+                        "location": {
+                            "latitude": 23.1828,
+                            "longitude": 75.7682,
+                        },
+                        "rating": 4.8,
+                        "userRatingCount": 15000,
+                        "primaryType": "hindu_temple",
+                        "types": ["hindu_temple", "place_of_worship"],
+                    }
+                ]
+            },
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            service = GooglePlacesService("test-key", client=client)
+            places = await service.search_nearby_places(
+                latitude=23.1765,
+                longitude=75.7885,
+                included_types=("hindu_temple", "mosque"),
+                radius_meters=10000,
+            )
+
+        assert [item.model_dump() for item in places] == [
+            {
+                "google_place_id": "google-mahakal",
+                "name": "Mahakaleshwar Temple",
+                "latitude": 23.1828,
+                "longitude": 75.7682,
+                "rating": 4.8,
+                "review_count": 15000,
+                "primary_type": "hindu_temple",
+                "types": ["hindu_temple", "place_of_worship"],
+            }
+        ]
+
+    asyncio.run(run())
+
+
 def test_google_timeout_is_normalized() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("timed out", request=request)

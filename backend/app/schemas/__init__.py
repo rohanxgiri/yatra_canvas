@@ -7,7 +7,30 @@ from app.schemas.city import (
     GoogleCitySuggestion,
     GooglePlaceDetails,
 )
-from app.schemas.place import PlaceCreate, PlaceRead
+from app.schemas.place import GoogleNearbyPlace, PlaceCreate, PlaceRead
+from app.schemas.recommendation import (
+    DiscoveryCategory,
+    RecommendationRead,
+    RecommendationRequest,
+)
+from app.schemas.saved_place import (
+    SavedPlaceCreate,
+    SavedPlaceUpdate,
+    SavedPlaceOrder,
+    SavedPlaceRead,
+    SavedPlaceReorder,
+)
+from app.schemas.trip import (
+    LocationDetails,
+    LocationSuggestion,
+    StartLocationType,
+    TripStartLocationRead,
+    TripStartLocationUpdate,
+)
+from app.schemas.route_optimization import (
+    OptimizedPlaceRead,
+    RouteOptimizationRead,
+)
 
 __all__ = [
     "CityCreate",
@@ -15,6 +38,22 @@ __all__ = [
     "CityResolve",
     "GoogleCitySuggestion",
     "GooglePlaceDetails",
+    "GoogleNearbyPlace",
     "PlaceCreate",
     "PlaceRead",
+    "DiscoveryCategory",
+    "RecommendationRead",
+    "RecommendationRequest",
+    "SavedPlaceCreate",
+    "SavedPlaceUpdate",
+    "SavedPlaceOrder",
+    "SavedPlaceRead",
+    "SavedPlaceReorder",
+    "OptimizedPlaceRead",
+    "RouteOptimizationRead",
+    "LocationDetails",
+    "LocationSuggestion",
+    "StartLocationType",
+    "TripStartLocationRead",
+    "TripStartLocationUpdate",
 ]

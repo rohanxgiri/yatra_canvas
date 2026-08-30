@@ -11,7 +11,11 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.database import get_session
 from app.main import app
 from app.routers.cities import get_google_places_service
-from app.schemas import GoogleCitySuggestion, GooglePlaceDetails
+from app.schemas import (
+    GoogleCitySuggestion,
+    GoogleNearbyPlace,
+    GooglePlaceDetails,
+)
 from app.services.google_places_service import GooglePlaceNotFoundError
 
 
@@ -178,6 +182,8 @@ def test_search_cities_requires_non_blank_query(
 
 
 class FakeGooglePlacesService:
+    nearby_call_count = 0
+
     async def autocomplete_cities(
         self, query: str
     ) -> list[GoogleCitySuggestion]:
@@ -203,6 +209,103 @@ class FakeGooglePlacesService:
             google_place_id=place_id,
         )
 
+    async def search_nearby_places(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        included_types: tuple[str, ...],
+        radius_meters: float,
+        max_results: int = 20,
+    ) -> list[GoogleNearbyPlace]:
+        assert latitude == 23.1765
+        assert longitude == 75.7885
+        assert included_types
+        assert radius_meters > 0
+        assert max_results == 20
+        self.nearby_call_count += 1
+        return [
+            GoogleNearbyPlace(
+                google_place_id="google-mahakal",
+                name="Mahakaleshwar Temple",
+                latitude=23.1828,
+                longitude=75.7682,
+                rating=4.8,
+                review_count=15000,
+                primary_type="hindu_temple",
+                types=["hindu_temple", "place_of_worship"],
+            )
+        ]
+
+
+class FakeRecommendationGoogleService:
+    def __init__(self) -> None:
+        self.call_counts = {
+            "religious": 0,
+            "food": 0,
+            "heritage": 0,
+        }
+
+    async def search_nearby_places(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        included_types: tuple[str, ...],
+        radius_meters: float,
+        max_results: int = 20,
+    ) -> list[GoogleNearbyPlace]:
+        assert latitude == 23.1765
+        assert longitude == 75.7885
+        assert radius_meters > 0
+        assert max_results == 20
+
+        if "hindu_temple" in included_types:
+            category = "religious"
+            places = [
+                GoogleNearbyPlace(
+                    google_place_id="google-mahakal",
+                    name="Mahakaleshwar Temple",
+                    latitude=23.1828,
+                    longitude=75.7682,
+                    rating=4.8,
+                    review_count=120000,
+                    primary_type="hindu_temple",
+                    types=["hindu_temple", "historical_place"],
+                )
+            ]
+        elif "restaurant" in included_types:
+            category = "food"
+            places = [
+                GoogleNearbyPlace(
+                    google_place_id="google-ujjain-food",
+                    name="Ujjain Food Street",
+                    latitude=23.179,
+                    longitude=75.781,
+                    rating=4.6,
+                    review_count=20000,
+                    primary_type="restaurant",
+                    types=["restaurant"],
+                )
+            ]
+        else:
+            assert "historical_place" in included_types
+            category = "heritage"
+            places = [
+                GoogleNearbyPlace(
+                    google_place_id="google-mahakal",
+                    name="Mahakaleshwar Temple",
+                    latitude=23.1828,
+                    longitude=75.7682,
+                    rating=4.8,
+                    review_count=120000,
+                    primary_type="historical_place",
+                    types=["historical_place", "hindu_temple"],
+                )
+            ]
+
+        self.call_counts[category] += 1
+        return places
 
 def test_google_city_autocomplete_and_place_details(client: TestClient) -> None:
     app.dependency_overrides[get_google_places_service] = (
@@ -286,6 +389,183 @@ def test_place_routes(client: TestClient) -> None:
         "/places", json={**payload, "city_id": missing_city}
     ).status_code == 404
     assert client.get(f"/cities/{missing_city}/places").status_code == 404
+
+
+def test_discover_places_persists_and_uses_fresh_cache(
+    client: TestClient,
+) -> None:
+    fake_google = FakeGooglePlacesService()
+    app.dependency_overrides[get_google_places_service] = lambda: fake_google
+    city = client.post(
+        "/cities",
+        json={
+            "name": "Ujjain",
+            "state": "Madhya Pradesh",
+            "country": "India",
+            "latitude": 23.1765,
+            "longitude": 75.7885,
+            "google_place_id": "google-ujjain",
+        },
+    ).json()
+
+    path = f"/cities/{city['id']}/discover-places"
+    first = client.get(path, params={"category": "religious"})
+    assert first.status_code == 200
+    assert len(first.json()) == 1
+    assert first.json()[0] == {
+        "id": first.json()[0]["id"],
+        "city_id": city["id"],
+        "name": "Mahakaleshwar Temple",
+        "category": "religious",
+        "latitude": 23.1828,
+        "longitude": 75.7682,
+        "rating": 4.8,
+        "review_count": 15000,
+        "is_popular": True,
+        "is_heritage": False,
+        "is_local_speciality": False,
+        "last_fetched_at": first.json()[0]["last_fetched_at"],
+        "created_at": first.json()[0]["created_at"],
+    }
+
+    second = client.get(path, params={"category": "religious"})
+    assert second.status_code == 200
+    assert second.json() == first.json()
+    assert fake_google.nearby_call_count == 1
+
+    heritage = client.get(path, params={"category": "heritage"})
+    assert heritage.status_code == 200
+    assert heritage.json()[0]["id"] == first.json()[0]["id"]
+    assert heritage.json()[0]["is_heritage"] is True
+    assert fake_google.nearby_call_count == 2
+
+    stored = client.get(f"/cities/{city['id']}/places")
+    assert stored.status_code == 200
+    assert len(stored.json()) == 1
+
+
+def test_discover_places_validates_city_and_category(client: TestClient) -> None:
+    missing_city = uuid4()
+    missing = client.get(
+        f"/cities/{missing_city}/discover-places",
+        params={"category": "religious"},
+    )
+    assert missing.status_code == 404
+
+    city = client.post(
+        "/cities",
+        json={
+            "name": "Ujjain",
+            "state": "Madhya Pradesh",
+            "country": "India",
+            "latitude": 23.1765,
+            "longitude": 75.7885,
+            "google_place_id": "google-ujjain-validation",
+        },
+    ).json()
+    invalid = client.get(
+        f"/cities/{city['id']}/discover-places",
+        params={"category": "shopping"},
+    )
+    assert invalid.status_code == 422
+
+
+def test_recommendations_reuse_each_category_cache_deduplicate_and_rank(
+    client: TestClient,
+) -> None:
+    fake_google = FakeRecommendationGoogleService()
+    app.dependency_overrides[get_google_places_service] = lambda: fake_google
+    city = client.post(
+        "/cities",
+        json={
+            "name": "Ujjain",
+            "state": "Madhya Pradesh",
+            "country": "India",
+            "latitude": 23.1765,
+            "longitude": 75.7885,
+            "google_place_id": "google-ujjain-recommendations",
+        },
+    ).json()
+    discovery_path = f"/cities/{city['id']}/discover-places"
+    recommendation_path = f"/cities/{city['id']}/recommendations"
+
+    prewarm = client.get(
+        discovery_path,
+        params={"category": "religious"},
+    )
+    assert prewarm.status_code == 200
+
+    payload = {
+        "categories": ["religious", "food", "heritage"],
+        "limit": 30,
+    }
+    first = client.post(recommendation_path, json=payload)
+    assert first.status_code == 200
+    assert [item["name"] for item in first.json()] == [
+        "Mahakaleshwar Temple",
+        "Ujjain Food Street",
+    ]
+    assert first.json()[0]["matched_categories"] == [
+        "religious",
+        "heritage",
+    ]
+    assert first.json()[0]["recommendation_score"] > first.json()[1][
+        "recommendation_score"
+    ]
+    assert fake_google.call_counts == {
+        "religious": 1,
+        "food": 1,
+        "heritage": 1,
+    }
+
+    second = client.post(recommendation_path, json=payload)
+    assert second.status_code == 200
+    assert second.json() == first.json()
+    assert fake_google.call_counts == {
+        "religious": 1,
+        "food": 1,
+        "heritage": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"categories": [], "limit": 30},
+        {"categories": ["shopping"], "limit": 30},
+        {"categories": ["religious"], "limit": 0},
+        {"categories": ["religious"], "limit": 101},
+    ],
+)
+def test_recommendations_validate_request(
+    client: TestClient,
+    payload: dict[str, object],
+) -> None:
+    city = client.post(
+        "/cities",
+        json={
+            "name": "Ujjain",
+            "state": "Madhya Pradesh",
+            "country": "India",
+            "latitude": 23.1765,
+            "longitude": 75.7885,
+            "google_place_id": f"google-ujjain-{uuid4()}",
+        },
+    ).json()
+    response = client.post(
+        f"/cities/{city['id']}/recommendations",
+        json=payload,
+    )
+    assert response.status_code == 422
+
+
+def test_recommendations_require_existing_city(client: TestClient) -> None:
+    response = client.post(
+        f"/cities/{uuid4()}/recommendations",
+        json={"categories": ["religious"], "limit": 30},
+    )
+    assert response.status_code == 404
+    assert response.json() == {"detail": "City not found."}
 
 
 @pytest.mark.parametrize(

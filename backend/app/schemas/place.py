@@ -40,3 +40,16 @@ class PlaceRead(PlaceBase):
     id: UUID
     city_id: UUID
     created_at: datetime
+
+
+class GoogleNearbyPlace(SQLModel):
+    """Normalized Google place data used only inside the backend."""
+
+    google_place_id: str = Field(min_length=1, max_length=255)
+    name: str = Field(min_length=1, max_length=200)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    rating: float | None = Field(default=None, ge=0, le=5)
+    review_count: int = Field(default=0, ge=0)
+    primary_type: str | None = None
+    types: list[str] = Field(default_factory=list)

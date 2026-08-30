@@ -12,6 +12,10 @@ class PlaceCard extends StatelessWidget {
     this.meta,
     this.selected = false,
     this.onTap,
+    this.actionLabel,
+    this.actionIcon,
+    this.onAction,
+    this.actionBusy = false,
     super.key,
   });
 
@@ -22,11 +26,15 @@ class PlaceCard extends StatelessWidget {
   final String? meta;
   final bool selected;
   final VoidCallback? onTap;
+  final String? actionLabel;
+  final IconData? actionIcon;
+  final VoidCallback? onAction;
+  final bool actionBusy;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      button: onTap != null,
+      button: onTap != null || onAction != null,
       selected: selected,
       label: name,
       child: Material(
@@ -100,32 +108,60 @@ class PlaceCard extends StatelessWidget {
                             const SizedBox(height: 7),
                             Text(meta!, style: AppTextStyles.caption),
                           ],
+                          if (actionLabel != null) ...[
+                            const SizedBox(height: 7),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                onPressed: actionBusy ? null : onAction,
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(0, 36),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                icon: actionBusy
+                                    ? const SizedBox.square(
+                                        dimension: 15,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Icon(actionIcon ?? Icons.add_rounded),
+                                label: Text(actionLabel!),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: selected ? AppColors.teal : Colors.transparent,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: selected
-                              ? AppColors.teal
-                              : AppColors.borderStrong,
-                          width: 1.5,
+                    if (onTap != null || selected) ...[
+                      const SizedBox(width: 10),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: selected ? AppColors.teal : Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: selected
+                                ? AppColors.teal
+                                : AppColors.borderStrong,
+                            width: 1.5,
+                          ),
                         ),
+                        child: selected
+                            ? const Icon(
+                                Icons.check_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              )
+                            : null,
                       ),
-                      child: selected
-                          ? const Icon(
-                              Icons.check_rounded,
-                              size: 16,
-                              color: Colors.white,
-                            )
-                          : null,
-                    ),
+                    ],
                   ],
                 ),
               );

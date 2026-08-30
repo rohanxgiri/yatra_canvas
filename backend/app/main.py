@@ -6,7 +6,14 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 
 from app.database import create_db_and_tables
-from app.routers import cities, places
+from app.routers import (
+    cities,
+    locations,
+    places,
+    route_optimization,
+    saved_places,
+    trips,
+)
 
 
 @asynccontextmanager
@@ -26,6 +33,10 @@ app = FastAPI(
 
 app.include_router(cities.router)
 app.include_router(places.router)
+app.include_router(saved_places.router)
+app.include_router(route_optimization.router)
+app.include_router(trips.router)
+app.include_router(locations.router)
 
 
 @app.get("/", tags=["status"])

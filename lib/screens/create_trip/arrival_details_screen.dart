@@ -1,16 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../data/mock_data.dart';
 import '../../models/trip_draft.dart';
+import '../../models/trip_start_location.dart';
+import '../../services/device_location_service.dart';
+import '../../services/location_service.dart';
+import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/create_trip_scaffold.dart';
 import 'trip_purpose_screen.dart';
 
 class ArrivalDetailsScreen extends StatefulWidget {
-  const ArrivalDetailsScreen({required this.draft, super.key});
+  const ArrivalDetailsScreen({
+    required this.draft,
+    this.locationService,
+    this.tripService,
+    this.deviceLocationService,
+    super.key,
+  });
 
   final TripDraft draft;
+  final LocationService? locationService;
+  final TripService? tripService;
+  final DeviceLocationService? deviceLocationService;
 
   @override
   State<ArrivalDetailsScreen> createState() => _ArrivalDetailsScreenState();
@@ -21,7 +36,25 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   late String _arrivalPoint;
   late TimeOfDay _arrivalTime;
   late final TextEditingController _pointController;
+  late final TextEditingController _startSearchController;
   final _pointFocus = FocusNode();
+  late final LocationService _locationService;
+  late final TripService _tripService;
+  late final DeviceLocationService _deviceLocationService;
+  late final bool _ownsLocationService;
+  late final bool _ownsTripService;
+  Timer? _searchDebounce;
+  late TripStartLocationType _startType;
+  String? _startName;
+  double? _startLatitude;
+  double? _startLongitude;
+  List<LocationSuggestion> _locationSuggestions = const [];
+  String? _startError;
+  bool _isSearchingLocation = false;
+  bool _isResolvingLocation = false;
+  bool _isGettingCurrentLocation = false;
+  bool _isSavingStart = false;
+  bool _suppressStartSearch = false;
 
   static const _methods = <(String, IconData)>[
     ('Train', Icons.train_rounded),
@@ -41,7 +74,21 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
       minute: widget.draft.arrivalTime.minute,
     );
     _pointController = TextEditingController(text: _arrivalPoint);
+    _startSearchController = TextEditingController();
+    _startType = widget.draft.startLocationType;
+    _startName =
+        widget.draft.startLocationName ??
+        (_startType == TripStartLocationType.arrival ? _arrivalPoint : null);
+    _startLatitude = widget.draft.startLatitude;
+    _startLongitude = widget.draft.startLongitude;
+    _ownsLocationService = widget.locationService == null;
+    _locationService = widget.locationService ?? LocationService();
+    _ownsTripService = widget.tripService == null;
+    _tripService = widget.tripService ?? TripService();
+    _deviceLocationService =
+        widget.deviceLocationService ?? DeviceLocationService();
     _pointController.addListener(_refreshPoint);
+    _startSearchController.addListener(_onStartSearchChanged);
     _pointFocus.addListener(_refresh);
   }
 
@@ -50,6 +97,12 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     _pointController
       ..removeListener(_refreshPoint)
       ..dispose();
+    _startSearchController
+      ..removeListener(_onStartSearchChanged)
+      ..dispose();
+    _searchDebounce?.cancel();
+    if (_ownsLocationService) _locationService.close();
+    if (_ownsTripService) _tripService.close();
     _pointFocus
       ..removeListener(_refresh)
       ..dispose();
@@ -59,7 +112,12 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   void _refresh() => setState(() {});
 
   void _refreshPoint() {
-    setState(() => _arrivalPoint = _pointController.text.trim());
+    setState(() {
+      _arrivalPoint = _pointController.text.trim();
+      if (_startType == TripStartLocationType.arrival) {
+        _startName = _arrivalPoint;
+      }
+    });
   }
 
   List<String> get _suggestions {
@@ -95,17 +153,278 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     if (selected != null && mounted) setState(() => _arrivalTime = selected);
   }
 
-  void _continue() {
+  bool get _canContinue {
+    if (_arrivalPoint.isEmpty || _isSavingStart) return false;
+    if (_startType == TripStartLocationType.arrival) return true;
+    return _startName != null &&
+        _startLatitude != null &&
+        _startLongitude != null &&
+        !_isResolvingLocation &&
+        !_isGettingCurrentLocation;
+  }
+
+  void _selectStartType(TripStartLocationType type) {
+    _searchDebounce?.cancel();
+    _suppressStartSearch = true;
+    _startSearchController.clear();
+    _suppressStartSearch = false;
+    setState(() {
+      _startType = type;
+      _startError = null;
+      _locationSuggestions = const [];
+      if (type == TripStartLocationType.arrival) {
+        _startName = _arrivalPoint;
+        _startLatitude = widget.draft.arrivalLatitude;
+        _startLongitude = widget.draft.arrivalLongitude;
+      } else {
+        _startName = null;
+        _startLatitude = null;
+        _startLongitude = null;
+      }
+    });
+    if (type == TripStartLocationType.currentLocation) {
+      _useCurrentLocation();
+    }
+  }
+
+  void _onStartSearchChanged() {
+    if (_suppressStartSearch) return;
+    _searchDebounce?.cancel();
+    final query = _startSearchController.text.trim();
+    if (query.length < 2 ||
+        (_startType != TripStartLocationType.hotel &&
+            _startType != TripStartLocationType.custom)) {
+      if (mounted) {
+        setState(() {
+          _locationSuggestions = const [];
+          _isSearchingLocation = false;
+        });
+      }
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () async {
+      setState(() {
+        _isSearchingLocation = true;
+        _startError = null;
+      });
+      try {
+        final suggestions = await _locationService.autocomplete(
+          query,
+          hotelOnly: _startType == TripStartLocationType.hotel,
+        );
+        if (!mounted || query != _startSearchController.text.trim()) return;
+        setState(() => _locationSuggestions = suggestions);
+      } on Object catch (error) {
+        if (!mounted) return;
+        setState(() => _startError = _locationError(error));
+      } finally {
+        if (mounted) setState(() => _isSearchingLocation = false);
+      }
+    });
+  }
+
+  Future<void> _selectLocationSuggestion(LocationSuggestion suggestion) async {
+    setState(() {
+      _isResolvingLocation = true;
+      _startError = null;
+      _locationSuggestions = const [];
+      _suppressStartSearch = true;
+      _startSearchController.text = suggestion.description;
+      _suppressStartSearch = false;
+    });
+    try {
+      final details = await _locationService.getDetails(
+        suggestion.googlePlaceId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _startName = details.name;
+        _startLatitude = details.latitude;
+        _startLongitude = details.longitude;
+      });
+    } on Object catch (error) {
+      if (mounted) setState(() => _startError = _locationError(error));
+    } finally {
+      if (mounted) setState(() => _isResolvingLocation = false);
+    }
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() {
+      _isGettingCurrentLocation = true;
+      _startError = null;
+    });
+    try {
+      final position = await _deviceLocationService.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _startName = 'Current location';
+        _startLatitude = position.latitude;
+        _startLongitude = position.longitude;
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _startError = _locationError(error));
+    } finally {
+      if (mounted) setState(() => _isGettingCurrentLocation = false);
+    }
+  }
+
+  String _locationError(Object error) {
+    if (error is DeviceLocationException) return error.message;
+    if (error is LocationServiceException) return error.message;
+    if (error is TimeoutException) return 'Location lookup took too long.';
+    return 'Could not select this start location.';
+  }
+
+  Future<void> _continue() async {
     widget.draft
       ..arrivalMethod = _method
       ..arrivalPoint = _arrivalPoint
       ..arrivalTime = TimeOfDayValue(
         hour: _arrivalTime.hour,
         minute: _arrivalTime.minute,
-      );
+      )
+      ..startLocationType = _startType
+      ..startLocationName = _startName
+      ..startLatitude = _startLatitude
+      ..startLongitude = _startLongitude;
+    final tripId = widget.draft.tripId?.trim();
+    if (tripId != null && tripId.isNotEmpty) {
+      setState(() {
+        _isSavingStart = true;
+        _startError = null;
+      });
+      try {
+        final saved = await _tripService.updateStartLocation(
+          tripId,
+          type: _startType,
+          name: _startName,
+          latitude: _startLatitude,
+          longitude: _startLongitude,
+        );
+        widget.draft
+          ..startLocationName = saved.name
+          ..startLatitude = saved.latitude
+          ..startLongitude = saved.longitude;
+      } on Object catch (error) {
+        if (!mounted) return;
+        setState(() {
+          _startError = error is TripServiceException
+              ? error.message
+              : 'Could not save the trip start.';
+          _isSavingStart = false;
+        });
+        return;
+      }
+    }
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TripPurposeScreen(draft: widget.draft),
+      ),
+    );
+  }
+
+  Widget _buildStartLocationDetails() {
+    if (_startType == TripStartLocationType.arrival) {
+      return _StartLocationStatus(
+        key: const ValueKey('arrival-start'),
+        icon: Icons.flag_outlined,
+        message: _arrivalPoint.isEmpty
+            ? 'Choose your arrival point above.'
+            : 'Sightseeing will begin at $_arrivalPoint.',
+      );
+    }
+    if (_startType == TripStartLocationType.currentLocation) {
+      return _StartLocationStatus(
+        key: const ValueKey('current-start'),
+        icon: Icons.my_location_rounded,
+        loading: _isGettingCurrentLocation,
+        message: _isGettingCurrentLocation
+            ? 'Getting your current position…'
+            : _startLatitude == null
+            ? 'Allow location access to use your current position.'
+            : 'Current position ready: ${_startLatitude!.toStringAsFixed(5)}, ${_startLongitude!.toStringAsFixed(5)}',
+      );
+    }
+    return Material(
+      key: ValueKey(_startType),
+      color: AppColors.surfaceSoft,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _startSearchController,
+              enabled: !_isResolvingLocation,
+              decoration: InputDecoration(
+                hintText: _startType == TripStartLocationType.hotel
+                    ? 'Search hotels in your city'
+                    : 'Search a landmark or address',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _isSearchingLocation || _isResolvingLocation
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+            if (_locationSuggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              for (final suggestion in _locationSuggestions)
+                ListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  leading: const Icon(
+                    Icons.place_outlined,
+                    color: AppColors.teal,
+                  ),
+                  title: Text(suggestion.name, style: AppTextStyles.label),
+                  subtitle: Text(
+                    suggestion.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () => _selectLocationSuggestion(suggestion),
+                ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'Powered by Google',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textTertiary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ] else if (_startName != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.success,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_startName!, style: AppTextStyles.label),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -123,8 +442,8 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     return CreateTripScaffold(
       step: 3,
       title: 'How are you\nreaching $city?',
-      subtitle: 'Your journey will start from where you arrive.',
-      continueEnabled: _arrivalPoint.isNotEmpty,
+      subtitle: 'Set your arrival, then choose where sightseeing begins.',
+      continueEnabled: _canContinue,
       onContinue: _continue,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,10 +512,46 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
           const SizedBox(height: 12),
           _TimeField(value: _formatTime(_arrivalTime), onTap: _pickTime),
           const SizedBox(height: 26),
+          const Text('Start your trip from', style: AppTextStyles.sectionTitle),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = (constraints.maxWidth - 10) / 2;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final type in TripStartLocationType.values)
+                    SizedBox(
+                      width: width,
+                      child: _StartOptionCard(
+                        type: type,
+                        selected: _startType == type,
+                        onTap: () => _selectStartType(type),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: _buildStartLocationDetails(),
+          ),
+          if (_startError case final error?) ...[
+            const SizedBox(height: 10),
+            _StartLocationError(
+              message: error,
+              onRetry: _startType == TripStartLocationType.currentLocation
+                  ? _useCurrentLocation
+                  : null,
+            ),
+          ],
+          const SizedBox(height: 20),
           _StartCard(
-            arrivalPoint: _arrivalPoint.isEmpty
-                ? 'Choose an arrival point'
-                : _arrivalPoint,
+            locationName: _startName ?? 'Choose a start location',
+            locationType: _startType.label,
             arrivalTime: _formatTime(_arrivalTime),
           ),
         ],
@@ -291,10 +646,135 @@ class _TimeField extends StatelessWidget {
   }
 }
 
-class _StartCard extends StatelessWidget {
-  const _StartCard({required this.arrivalPoint, required this.arrivalTime});
+class _StartOptionCard extends StatelessWidget {
+  const _StartOptionCard({
+    required this.type,
+    required this.selected,
+    required this.onTap,
+  });
 
-  final String arrivalPoint;
+  final TripStartLocationType type;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (type) {
+      TripStartLocationType.arrival => Icons.flag_outlined,
+      TripStartLocationType.hotel => Icons.hotel_rounded,
+      TripStartLocationType.currentLocation => Icons.my_location_rounded,
+      TripStartLocationType.custom => Icons.add_location_alt_outlined,
+    };
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          constraints: const BoxConstraints(minHeight: 82),
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.tealLight : AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? AppColors.teal : AppColors.border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                icon,
+                color: selected ? AppColors.teal : AppColors.textSecondary,
+                size: 22,
+              ),
+              const SizedBox(height: 8),
+              Text(type.label, style: AppTextStyles.label),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StartLocationStatus extends StatelessWidget {
+  const _StartLocationStatus({
+    required this.icon,
+    required this.message,
+    this.loading = false,
+    super.key,
+  });
+
+  final IconData icon;
+  final String message;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          if (loading)
+            const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(icon, color: AppColors.teal, size: 21),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message, style: AppTextStyles.caption)),
+        ],
+      ),
+    );
+  }
+}
+
+class _StartLocationError extends StatelessWidget {
+  const _StartLocationError({required this.message, this.onRetry});
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.error.withValues(alpha: .35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: AppColors.error),
+          const SizedBox(width: 9),
+          Expanded(child: Text(message, style: AppTextStyles.caption)),
+          if (onRetry != null)
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+}
+
+class _StartCard extends StatelessWidget {
+  const _StartCard({
+    required this.locationName,
+    required this.locationType,
+    required this.arrivalTime,
+  });
+
+  final String locationName;
+  final String locationType;
   final String arrivalTime;
 
   @override
@@ -332,7 +812,7 @@ class _StartCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(99),
                   ),
                   child: Text(
-                    'START  •  $arrivalTime',
+                    'START  •  ${locationType.toUpperCase()}',
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.marigold,
                       fontWeight: FontWeight.w800,
@@ -342,12 +822,12 @@ class _StartCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  arrivalPoint,
+                  locationName,
                   style: AppTextStyles.cardTitle.copyWith(color: Colors.white),
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'Your itinerary will begin here.',
+                  'Route planning begins here after your $arrivalTime arrival.',
                   style: AppTextStyles.body.copyWith(color: Colors.white70),
                 ),
               ],

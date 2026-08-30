@@ -116,6 +116,11 @@ class PlaceSource(SQLModel, table=True):
         UniqueConstraint(
             "place_id", "source", name="uq_place_sources_place_source"
         ),
+        UniqueConstraint(
+            "source",
+            "external_place_id",
+            name="uq_place_sources_source_external_place",
+        ),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -141,6 +146,19 @@ class Trip(SQLModel, table=True):
             "(arrival_longitude BETWEEN -180 AND 180)",
             name="ck_trips_arrival_longitude",
         ),
+        CheckConstraint(
+            "start_location_type IS NULL OR start_location_type IN "
+            "('arrival', 'hotel', 'current_location', 'custom')",
+            name="ck_trips_start_location_type",
+        ),
+        CheckConstraint(
+            "start_latitude IS NULL OR (start_latitude BETWEEN -90 AND 90)",
+            name="ck_trips_start_latitude",
+        ),
+        CheckConstraint(
+            "start_longitude IS NULL OR (start_longitude BETWEEN -180 AND 180)",
+            name="ck_trips_start_longitude",
+        ),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -152,6 +170,10 @@ class Trip(SQLModel, table=True):
     arrival_place: str | None = Field(default=None, max_length=255)
     arrival_latitude: float | None = None
     arrival_longitude: float | None = None
+    start_location_type: str | None = Field(default=None, max_length=30)
+    start_location_name: str | None = Field(default=None, max_length=255)
+    start_latitude: float | None = None
+    start_longitude: float | None = None
     start_date: date | None = None
     created_at: datetime | None = Field(
         default=None,
@@ -184,16 +206,84 @@ class UserSavedPlace(SQLModel, table=True):
             "custom_order IS NULL OR custom_order >= 0",
             name="ck_user_saved_places_custom_order",
         ),
+        CheckConstraint("priority >= 0", name="ck_user_saved_places_priority"),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     trip_id: UUID = Field(foreign_key="trips.id", index=True)
     place_id: UUID = Field(foreign_key="places.id", index=True)
     custom_order: int | None = None
+    priority: int = Field(default=0)
+    is_locked: bool = Field(default=False)
+    must_visit: bool = Field(default=False)
     notes: str | None = None
     created_at: datetime | None = Field(
         default=None,
         sa_column=created_at_column(),
+    )
+
+
+class RouteMatrixCache(SQLModel, table=True):
+    __tablename__ = "route_matrix_cache"
+    __table_args__ = (
+        UniqueConstraint(
+            "trip_id",
+            "from_key",
+            "to_key",
+            "travel_mode",
+            name="uq_route_matrix_cache_trip_pair_mode",
+        ),
+        CheckConstraint("distance_meters >= 0", name="ck_route_matrix_distance"),
+        CheckConstraint(
+            "static_duration_seconds >= 0",
+            name="ck_route_matrix_static_duration",
+        ),
+        CheckConstraint(
+            "traffic_duration_seconds IS NULL OR traffic_duration_seconds >= 0",
+            name="ck_route_matrix_traffic_duration",
+        ),
+        CheckConstraint(
+            "from_place_id IS NOT NULL OR "
+            "(from_latitude IS NOT NULL AND from_longitude IS NOT NULL)",
+            name="ck_route_matrix_from_location",
+        ),
+        CheckConstraint(
+            "to_place_id IS NOT NULL OR "
+            "(to_latitude IS NOT NULL AND to_longitude IS NOT NULL)",
+            name="ck_route_matrix_to_location",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    trip_id: UUID = Field(foreign_key="trips.id", index=True)
+    from_place_id: UUID | None = Field(
+        default=None, foreign_key="places.id", index=True
+    )
+    to_place_id: UUID | None = Field(
+        default=None, foreign_key="places.id", index=True
+    )
+    from_location_type: str = Field(max_length=30)
+    from_name: str | None = Field(default=None, max_length=255)
+    from_latitude: float | None = None
+    from_longitude: float | None = None
+    to_location_type: str = Field(max_length=30)
+    to_name: str | None = Field(default=None, max_length=255)
+    to_latitude: float | None = None
+    to_longitude: float | None = None
+    # Canonical non-null keys make pair uniqueness reliable even when a
+    # location is coordinate-based and its place UUID is null.
+    from_key: str = Field(max_length=350, index=True)
+    to_key: str = Field(max_length=350, index=True)
+    distance_meters: int
+    static_duration_seconds: int
+    traffic_duration_seconds: int | None = None
+    travel_mode: str = Field(default="driving", max_length=30)
+    calculated_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
+    expires_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True, index=True),
     )
 
 

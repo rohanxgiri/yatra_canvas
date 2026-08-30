@@ -10,6 +10,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/create_trip_scaffold.dart';
 import '../../widgets/search_field.dart';
+import '../place_discovery/place_discovery_screen.dart';
 import 'select_dates_screen.dart';
 
 class DestinationSelectionScreen extends StatefulWidget {
@@ -265,6 +266,24 @@ class _DestinationSelectionScreenState
           if (_draft.destination case final city?) ...[
             const SizedBox(height: 22),
             _SelectedCityCard(city: city),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: city.id == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PlaceDiscoveryScreen(
+                            city: city,
+                            tripId: _draft.tripId,
+                          ),
+                        ),
+                      ),
+                icon: const Icon(Icons.explore_outlined),
+                label: const Text('Discover nearby places'),
+              ),
+            ),
           ],
         ],
       ),

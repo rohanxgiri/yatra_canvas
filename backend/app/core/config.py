@@ -22,6 +22,39 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="GOOGLE_PLACES_API_KEY",
     )
+    google_routes_api_key: str | None = Field(
+        default=None,
+        validation_alias="GOOGLE_ROUTES_API_KEY",
+    )
+    route_matrix_traffic_ttl_minutes: int = Field(
+        default=30,
+        ge=1,
+        le=1440,
+        validation_alias="ROUTE_MATRIX_TRAFFIC_TTL_MINUTES",
+    )
+    place_discovery_cache_ttl_hours: int = Field(
+        default=24,
+        ge=1,
+        le=720,
+        validation_alias="PLACE_DISCOVERY_CACHE_TTL_HOURS",
+    )
+    google_nearby_radius_meters: float = Field(
+        default=10000,
+        gt=0,
+        le=50000,
+        validation_alias="GOOGLE_NEARBY_RADIUS_METERS",
+    )
+    place_popular_min_rating: float = Field(
+        default=4.2,
+        ge=0,
+        le=5,
+        validation_alias="PLACE_POPULAR_MIN_RATING",
+    )
+    place_popular_min_review_count: int = Field(
+        default=100,
+        ge=0,
+        validation_alias="PLACE_POPULAR_MIN_REVIEW_COUNT",
+    )
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
@@ -42,9 +75,9 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
         return value
 
-    @field_validator("google_places_api_key")
+    @field_validator("google_places_api_key", "google_routes_api_key")
     @classmethod
-    def normalize_google_places_api_key(cls, value: str | None) -> str | None:
+    def normalize_google_api_key(cls, value: str | None) -> str | None:
         if value is None:
             return None
         value = value.strip()
