@@ -1,6 +1,6 @@
 class City {
   const City({
-    required this.id,
+    this.id,
     required this.name,
     required this.country,
     required this.latitude,
@@ -9,7 +9,8 @@ class City {
     this.googlePlaceId,
   });
 
-  final String id;
+  /// Null only for normalized Google details before `/cities/resolve` saves it.
+  final String? id;
   final String name;
   final String? state;
   final String country;
@@ -29,7 +30,7 @@ class City {
 
   factory City.fromJson(Map<String, dynamic> json) {
     return City(
-      id: json['id'] as String,
+      id: json['id'] as String?,
       name: json['name'] as String,
       state: json['state'] as String?,
       country: json['country'] as String,

@@ -1,9 +1,9 @@
 # YatraCanvas Backend
 
 This folder contains the initial FastAPI and PostgreSQL backend for
-YatraCanvas. It currently provides city and place storage endpoints. External
-place APIs, authentication, recommendations, and route optimization are not
-part of this phase.
+YatraCanvas. It provides city and place storage endpoints plus server-side
+Google Places city discovery. Authentication, recommendations, and route
+optimization are not part of this phase.
 
 At startup, SQLModel creates any missing tables defined in `app/models`. This
 keeps the first phase migration-free. A proper migration workflow can replace
@@ -47,12 +47,16 @@ Supabase immediately after `DATABASE_URL=`:
 
 ```dotenv
 DATABASE_URL=postgresql://YOUR_DATABASE_USER:YOUR_URL_ENCODED_PASSWORD@YOUR_DATABASE_HOST:5432/postgres
+GOOGLE_PLACES_API_KEY=YOUR_SERVER_SIDE_GOOGLE_PLACES_KEY
 ```
 
 Do not add quotes and do not commit `.env`. The repository's root `.gitignore`
 already excludes it. If the database password contains URL-reserved characters
 such as `@`, `:`, `/`, `#`, or `%`, URL-encode the password before using it in
 the connection string.
+
+Enable Places API (New) in the Google Cloud project that owns the key. Keep the
+key only in `backend/.env`; it must never be added to Flutter or committed.
 
 The backend keeps `trips.user_id` as a UUID but does not create or reference
 Supabase's `auth.users` table. Authentication integration will be added later.
@@ -81,6 +85,8 @@ http://127.0.0.1:8000/docs
 | `GET` | `/cities` | List cities |
 | `POST` | `/cities/resolve` | Return or create a city by Google Place ID |
 | `GET` | `/cities/search?query=` | Search stored cities by name or state |
+| `GET` | `/cities/autocomplete?query=` | Search Google for India city predictions |
+| `GET` | `/cities/place-details/{google_place_id}` | Normalize Google city details |
 | `GET` | `/cities/{city_id}` | Get a city |
 | `POST` | `/places` | Create a place |
 | `GET` | `/cities/{city_id}/places` | List a city's places |

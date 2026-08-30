@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/city.dart';
+import '../models/city_suggestion.dart';
 
 class CityService {
   CityService({http.Client? client, String baseUrl = ApiConfig.baseUrl})
@@ -43,6 +44,68 @@ class CityService {
     } on TypeError catch (error) {
       throw CityServiceException(
         'The city search response was invalid.',
+        error,
+      );
+    }
+  }
+
+  Future<List<CitySuggestion>> autocompleteCities(String query) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2) return const [];
+
+    final uri = Uri.parse('$_baseUrl/cities/autocomplete')
+        .replace(queryParameters: {'query': normalizedQuery});
+    final response = await _client.get(uri).timeout(_requestTimeout);
+
+    if (response.statusCode != 200) {
+      throw CityServiceException(_errorMessage(response));
+    }
+
+    try {
+      final data = jsonDecode(response.body) as List<dynamic>;
+      return data
+          .map(
+            (item) =>
+                CitySuggestion.fromGoogleJson(item as Map<String, dynamic>),
+          )
+          .toList(growable: false);
+    } on FormatException catch (error) {
+      throw CityServiceException(
+        'The external city search response was invalid.',
+        error,
+      );
+    } on TypeError catch (error) {
+      throw CityServiceException(
+        'The external city search response was invalid.',
+        error,
+      );
+    }
+  }
+
+  Future<City> getPlaceDetails(String googlePlaceId) async {
+    final normalizedPlaceId = googlePlaceId.trim();
+    if (normalizedPlaceId.isEmpty) {
+      throw const CityServiceException('Google Place ID must not be blank.');
+    }
+
+    final encodedPlaceId = Uri.encodeComponent(normalizedPlaceId);
+    final uri = Uri.parse('$_baseUrl/cities/place-details/$encodedPlaceId');
+    final response = await _client.get(uri).timeout(_requestTimeout);
+
+    if (response.statusCode != 200) {
+      throw CityServiceException(_errorMessage(response));
+    }
+
+    try {
+      return City.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    } on FormatException catch (error) {
+      throw CityServiceException(
+        'The city details response was invalid.',
+        error,
+      );
+    } on TypeError catch (error) {
+      throw CityServiceException(
+        'The city details response was invalid.',
         error,
       );
     }

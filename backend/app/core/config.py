@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     """
 
     database_url: str = Field(min_length=1, validation_alias="DATABASE_URL")
+    google_places_api_key: str | None = Field(
+        default=None,
+        validation_alias="GOOGLE_PLACES_API_KEY",
+    )
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
@@ -37,6 +41,14 @@ class Settings(BaseSettings):
         if not value.startswith(supported_schemes):
             raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
         return value
+
+    @field_validator("google_places_api_key")
+    @classmethod
+    def normalize_google_places_api_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
 
     @property
     def sqlalchemy_database_url(self) -> str:

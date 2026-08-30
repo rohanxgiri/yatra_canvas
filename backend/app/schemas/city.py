@@ -49,6 +49,18 @@ class CityResolve(CityBase):
         return value.strip()
 
 
+class GoogleCitySuggestion(SQLModel):
+    """Normalized Google city prediction returned to Flutter."""
+
+    google_place_id: str
+    name: str
+    description: str
+
+
+class GooglePlaceDetails(CityResolve):
+    """Normalized Google Place Details response used by city resolution."""
+
+
 class CityRead(CityBase):
     """Public city representation returned by the API."""
 

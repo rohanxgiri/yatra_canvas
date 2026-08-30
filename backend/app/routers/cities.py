@@ -8,13 +8,69 @@ from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from app.core.config import Settings, get_settings
 from app.database import get_session
 from app.models import City
-from app.schemas import CityCreate, CityRead, CityResolve
+from app.schemas import (
+    CityCreate,
+    CityRead,
+    CityResolve,
+    GoogleCitySuggestion,
+    GooglePlaceDetails,
+)
+from app.services.google_places_service import (
+    GooglePlaceNotFoundError,
+    GooglePlacesConfigurationError,
+    GooglePlacesInvalidRequestError,
+    GooglePlacesService,
+    GooglePlacesTimeoutError,
+    GooglePlacesUnavailableError,
+)
 
 
 router = APIRouter(prefix="/cities", tags=["cities"])
 SessionDependency = Annotated[Session, Depends(get_session)]
+SettingsDependency = Annotated[Settings, Depends(get_settings)]
+
+
+def get_google_places_service(settings: SettingsDependency) -> GooglePlacesService:
+    """Build the Google client from backend-only environment settings."""
+
+    return GooglePlacesService(settings.google_places_api_key)
+
+
+GooglePlacesDependency = Annotated[
+    GooglePlacesService, Depends(get_google_places_service)
+]
+
+
+def google_places_http_error(error: Exception) -> HTTPException:
+    """Translate service failures into stable API status codes."""
+
+    if isinstance(error, GooglePlacesInvalidRequestError):
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        )
+    if isinstance(error, GooglePlaceNotFoundError):
+        return HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        )
+    if isinstance(error, GooglePlacesTimeoutError):
+        return HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=str(error),
+        )
+    if isinstance(error, GooglePlacesConfigurationError):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        )
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=str(error),
+    )
 
 
 @router.post("", response_model=CityRead, status_code=status.HTTP_201_CREATED)
@@ -49,6 +105,53 @@ def list_cities(
 
     statement = select(City).order_by(City.name).offset(offset).limit(limit)
     return list(session.exec(statement).all())
+
+
+@router.get("/autocomplete", response_model=list[GoogleCitySuggestion])
+async def autocomplete_cities(
+    google_places: GooglePlacesDependency,
+    query: Annotated[str, Query(min_length=2, max_length=120)],
+) -> list[GoogleCitySuggestion]:
+    """Return normalized India city predictions from Google Places."""
+
+    normalized_query = query.strip()
+    if len(normalized_query) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Autocomplete query must contain at least 2 characters.",
+        )
+
+    try:
+        return await google_places.autocomplete_cities(normalized_query)
+    except (
+        GooglePlacesConfigurationError,
+        GooglePlacesInvalidRequestError,
+        GooglePlacesTimeoutError,
+        GooglePlacesUnavailableError,
+    ) as exc:
+        raise google_places_http_error(exc) from exc
+
+
+@router.get(
+    "/place-details/{google_place_id}",
+    response_model=GooglePlaceDetails,
+)
+async def get_google_place_details(
+    google_place_id: str,
+    google_places: GooglePlacesDependency,
+) -> GooglePlaceDetails:
+    """Return city fields extracted from one Google Place Details result."""
+
+    try:
+        return await google_places.get_place_details(google_place_id)
+    except (
+        GooglePlacesConfigurationError,
+        GooglePlacesInvalidRequestError,
+        GooglePlaceNotFoundError,
+        GooglePlacesTimeoutError,
+        GooglePlacesUnavailableError,
+    ) as exc:
+        raise google_places_http_error(exc) from exc
 
 
 @router.post("/resolve", response_model=CityRead)

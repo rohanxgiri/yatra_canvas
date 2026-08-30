@@ -10,6 +10,9 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.database import get_session
 from app.main import app
+from app.routers.cities import get_google_places_service
+from app.schemas import GoogleCitySuggestion, GooglePlaceDetails
+from app.services.google_places_service import GooglePlaceNotFoundError
 
 
 @pytest.fixture
@@ -172,6 +175,74 @@ def test_search_cities_requires_non_blank_query(
 ) -> None:
     params = {} if query is None else {"query": query}
     assert client.get("/cities/search", params=params).status_code == 422
+
+
+class FakeGooglePlacesService:
+    async def autocomplete_cities(
+        self, query: str
+    ) -> list[GoogleCitySuggestion]:
+        assert query == "gandhi"
+        return [
+            GoogleCitySuggestion(
+                google_place_id="google-gandhinagar",
+                name="Gandhinagar",
+                description="Gandhinagar, Gujarat, India",
+            )
+        ]
+
+    async def get_place_details(self, place_id: str) -> GooglePlaceDetails:
+        if place_id == "missing-place":
+            raise GooglePlaceNotFoundError("Google Place ID was not found.")
+        assert place_id == "google-gandhinagar"
+        return GooglePlaceDetails(
+            name="Gandhinagar",
+            state="Gujarat",
+            country="India",
+            latitude=23.2156,
+            longitude=72.6369,
+            google_place_id=place_id,
+        )
+
+
+def test_google_city_autocomplete_and_place_details(client: TestClient) -> None:
+    app.dependency_overrides[get_google_places_service] = (
+        FakeGooglePlacesService
+    )
+
+    autocomplete = client.get(
+        "/cities/autocomplete", params={"query": "gandhi"}
+    )
+    assert autocomplete.status_code == 200
+    assert autocomplete.json() == [
+        {
+            "google_place_id": "google-gandhinagar",
+            "name": "Gandhinagar",
+            "description": "Gandhinagar, Gujarat, India",
+        }
+    ]
+
+    details = client.get("/cities/place-details/google-gandhinagar")
+    assert details.status_code == 200
+    assert details.json() == {
+        "name": "Gandhinagar",
+        "state": "Gujarat",
+        "country": "India",
+        "latitude": 23.2156,
+        "longitude": 72.6369,
+        "google_place_id": "google-gandhinagar",
+    }
+
+    missing = client.get("/cities/place-details/missing-place")
+    assert missing.status_code == 404
+    assert missing.json() == {"detail": "Google Place ID was not found."}
+
+
+@pytest.mark.parametrize("query", [None, "", "a", "   "])
+def test_google_city_autocomplete_validates_query(
+    client: TestClient, query: str | None
+) -> None:
+    params = {} if query is None else {"query": query}
+    assert client.get("/cities/autocomplete", params=params).status_code == 422
 
 
 def test_place_routes(client: TestClient) -> None:

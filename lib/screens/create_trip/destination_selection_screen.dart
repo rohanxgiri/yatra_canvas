@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/city.dart';
+import '../../models/city_suggestion.dart';
 import '../../models/trip_draft.dart';
 import '../../services/city_service.dart';
 import '../../theme/app_colors.dart';
@@ -33,8 +34,8 @@ class _DestinationSelectionScreenState
   final _searchFocusNode = FocusNode();
 
   Timer? _debounce;
-  List<City> _suggestions = const [];
-  City? _pendingResolution;
+  List<CitySuggestion> _suggestions = const [];
+  CitySuggestion? _pendingSuggestion;
   String _query = '';
   String? _searchError;
   String? _resolveError;
@@ -77,7 +78,7 @@ class _DestinationSelectionScreenState
       _suggestions = const [];
       _searchError = null;
       _resolveError = null;
-      _pendingResolution = null;
+      _pendingSuggestion = null;
       _isResolving = false;
       _isSearching = normalizedQuery.length >= 2;
 
@@ -97,18 +98,113 @@ class _DestinationSelectionScreenState
   }
 
   Future<void> _search(String query, int requestGeneration) async {
+    final localSuggestions = <CitySuggestion>[];
+    Object? localError;
+
     try {
       final cities = await _cityService.searchCities(query);
       if (!mounted || requestGeneration != _searchGeneration) return;
+      localSuggestions.addAll(cities.map(CitySuggestion.local));
       setState(() {
-        _suggestions = cities;
-        _isSearching = false;
+        _suggestions = localSuggestions;
+        _isSearching = localSuggestions.length < 5;
       });
     } on Object catch (error) {
       if (!mounted || requestGeneration != _searchGeneration) return;
+      localError = error;
+    }
+
+    if (localSuggestions.length >= 5) return;
+
+    Object? externalError;
+    List<CitySuggestion> googleSuggestions = const [];
+    try {
+      googleSuggestions = await _cityService.autocompleteCities(query);
+    } on Object catch (error) {
+      externalError = error;
+    }
+
+    if (!mounted || requestGeneration != _searchGeneration) return;
+    final mergedSuggestions = _mergeSuggestions(
+      localSuggestions,
+      googleSuggestions,
+    );
+    final searchFailure = mergedSuggestions.isEmpty
+        ? externalError ?? localError
+        : null;
+    setState(() {
+      _suggestions = mergedSuggestions;
+      _isSearching = false;
+      _searchError = searchFailure == null
+          ? null
+          : _friendlyError(searchFailure);
+    });
+  }
+
+  List<CitySuggestion> _mergeSuggestions(
+    List<CitySuggestion> localSuggestions,
+    List<CitySuggestion> googleSuggestions,
+  ) {
+    final merged = <CitySuggestion>[];
+    final placeIds = <String>{};
+    final locations = <String>{};
+
+    for (final suggestion in [...localSuggestions, ...googleSuggestions]) {
+      final placeId = suggestion.googlePlaceId?.trim();
+      final duplicatePlace =
+          placeId != null && placeId.isNotEmpty && placeIds.contains(placeId);
+      final duplicateLocation = locations.contains(
+        suggestion.normalizedLocation,
+      );
+      if (duplicatePlace || duplicateLocation) continue;
+
+      merged.add(suggestion);
+      if (placeId != null && placeId.isNotEmpty) placeIds.add(placeId);
+      locations.add(suggestion.normalizedLocation);
+    }
+    return merged;
+  }
+
+  Future<void> _selectSuggestion(CitySuggestion suggestion) async {
+    _debounce?.cancel();
+    _searchGeneration++;
+    _searchFocusNode.unfocus();
+    _searchController.text = suggestion.description;
+    _searchController.selection = TextSelection.collapsed(
+      offset: _searchController.text.length,
+    );
+
+    final requestGeneration = ++_resolveGeneration;
+    setState(() {
+      _query = suggestion.description;
+      _suggestions = const [];
+      _searchError = null;
+      _resolveError = null;
+      _pendingSuggestion = suggestion;
+      _draft.destination = null;
+      _isSearching = false;
+      _isResolving = true;
+    });
+
+    try {
+      final city =
+          suggestion.city ??
+          await _cityService.getPlaceDetails(suggestion.googlePlaceId!);
+      final resolvedCity = await _cityService.resolveCity(city);
+      if (!mounted || requestGeneration != _resolveGeneration) return;
       setState(() {
+        _draft.destination = resolvedCity;
+        _pendingSuggestion = null;
         _isSearching = false;
-        _searchError = _friendlyError(error);
+        _isResolving = false;
+        _query = resolvedCity.displayName;
+        _searchController.text = resolvedCity.displayName;
+      });
+    } on Object catch (error) {
+      if (!mounted || requestGeneration != _resolveGeneration) return;
+      setState(() {
+        _isResolving = false;
+        _resolveError = _friendlyError(error);
       });
     }
   }
@@ -125,49 +221,9 @@ class _DestinationSelectionScreenState
     _search(normalizedQuery, requestGeneration);
   }
 
-  Future<void> _selectCity(City city) async {
-    _debounce?.cancel();
-    _searchGeneration++;
-    _searchFocusNode.unfocus();
-    _searchController.text = city.displayName;
-    _searchController.selection = TextSelection.collapsed(
-      offset: _searchController.text.length,
-    );
-
-    final requestGeneration = ++_resolveGeneration;
-    setState(() {
-      _query = city.displayName;
-      _suggestions = const [];
-      _searchError = null;
-      _resolveError = null;
-      _pendingResolution = city;
-      _draft.destination = null;
-      _isSearching = false;
-      _isResolving = true;
-    });
-
-    try {
-      final resolvedCity = await _cityService.resolveCity(city);
-      if (!mounted || requestGeneration != _resolveGeneration) return;
-      setState(() {
-        _draft.destination = resolvedCity;
-        _pendingResolution = null;
-        _isResolving = false;
-        _query = resolvedCity.displayName;
-        _searchController.text = resolvedCity.displayName;
-      });
-    } on Object catch (error) {
-      if (!mounted || requestGeneration != _resolveGeneration) return;
-      setState(() {
-        _isResolving = false;
-        _resolveError = _friendlyError(error);
-      });
-    }
-  }
-
   void _retryResolve() {
-    final city = _pendingResolution;
-    if (city != null) _selectCity(city);
+    final suggestion = _pendingSuggestion;
+    if (suggestion != null) _selectSuggestion(suggestion);
   }
 
   String _friendlyError(Object error) {
@@ -189,7 +245,7 @@ class _DestinationSelectionScreenState
     return CreateTripScaffold(
       step: 1,
       title: 'Where are you\ngoing?',
-      subtitle: 'Search cities already available in YatraCanvas.',
+      subtitle: 'Search saved cities or discover a new destination.',
       continueEnabled: _draft.destination != null && !_isResolving,
       onContinue: _continue,
       child: Column(
@@ -240,10 +296,10 @@ class _DestinationSelectionScreenState
         key: ValueKey('hint'),
         icon: Icons.travel_explore_rounded,
         title: 'Find your destination',
-        message: 'Type at least 2 characters to search saved cities.',
+        message: 'Type at least 2 characters to search cities.',
       );
     }
-    if (_isSearching) {
+    if (_isSearching && _suggestions.isEmpty) {
       return const _StatusCard(
         key: ValueKey('searching'),
         icon: Icons.location_searching_rounded,
@@ -269,21 +325,24 @@ class _DestinationSelectionScreenState
     }
     return _SuggestionsPanel(
       key: const ValueKey('suggestions'),
-      cities: _suggestions,
-      onSelected: _selectCity,
+      suggestions: _suggestions,
+      isLoadingMore: _isSearching,
+      onSelected: _selectSuggestion,
     );
   }
 }
 
 class _SuggestionsPanel extends StatelessWidget {
   const _SuggestionsPanel({
-    required this.cities,
+    required this.suggestions,
+    required this.isLoadingMore,
     required this.onSelected,
     super.key,
   });
 
-  final List<City> cities;
-  final ValueChanged<City> onSelected;
+  final List<CitySuggestion> suggestions;
+  final bool isLoadingMore;
+  final ValueChanged<CitySuggestion> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -306,22 +365,57 @@ class _SuggestionsPanel extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 13, 16, 9),
-            child: Text(
-              '${cities.length} ${cities.length == 1 ? 'city' : 'cities'} found',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.tealDark,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${suggestions.length} ${suggestions.length == 1 ? 'city' : 'cities'} found',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.tealDark,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (isLoadingMore) ...[
+                  const SizedBox(
+                    width: 13,
+                    height: 13,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 7),
+                  Text('Finding more', style: AppTextStyles.caption),
+                ],
+              ],
             ),
           ),
           const Divider(),
-          for (var index = 0; index < cities.length; index++) ...[
+          for (var index = 0; index < suggestions.length; index++) ...[
             _CitySuggestion(
-              city: cities[index],
-              onTap: () => onSelected(cities[index]),
+              suggestion: suggestions[index],
+              onTap: () => onSelected(suggestions[index]),
             ),
-            if (index != cities.length - 1)
+            if (index != suggestions.length - 1)
               const Divider(indent: 64, endIndent: 16),
+          ],
+          if (suggestions.any((suggestion) => suggestion.isExternal)) ...[
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 7, 16, 10),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Semantics(
+                  label: 'Google Maps',
+                  child: Text(
+                    'Google Maps',
+                    maxLines: 1,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -330,9 +424,9 @@ class _SuggestionsPanel extends StatelessWidget {
 }
 
 class _CitySuggestion extends StatelessWidget {
-  const _CitySuggestion({required this.city, required this.onTap});
+  const _CitySuggestion({required this.suggestion, required this.onTap});
 
-  final City city;
+  final CitySuggestion suggestion;
   final VoidCallback onTap;
 
   @override
@@ -363,16 +457,30 @@ class _CitySuggestion extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(city.name, style: AppTextStyles.cardTitle),
+                    Text(suggestion.name, style: AppTextStyles.cardTitle),
                     const SizedBox(height: 2),
-                    Text(city.locationLabel, style: AppTextStyles.bodyMuted),
+                    Text(suggestion.subtitle, style: AppTextStyles.bodyMuted),
                   ],
                 ),
               ),
-              const Icon(
-                Icons.north_west_rounded,
-                size: 18,
-                color: AppColors.textTertiary,
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: suggestion.isExternal
+                      ? AppColors.canvasPeach
+                      : AppColors.surfaceSoft,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  suggestion.isExternal ? 'New' : 'Saved',
+                  style: AppTextStyles.caption.copyWith(
+                    color: suggestion.isExternal
+                        ? AppColors.tealDark
+                        : AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
