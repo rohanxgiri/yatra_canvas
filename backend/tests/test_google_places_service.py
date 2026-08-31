@@ -7,6 +7,7 @@ import pytest
 
 from app.services.google_places_service import (
     GooglePlaceNotFoundError,
+    GooglePlacesConfigurationError,
     GooglePlacesService,
     GooglePlacesTimeoutError,
 )
@@ -26,12 +27,8 @@ def test_autocomplete_cities_normalizes_predictions() -> None:
                     {
                         "placePrediction": {
                             "placeId": "google-gandhinagar",
-                            "text": {
-                                "text": "Gandhinagar, Gujarat, India"
-                            },
-                            "structuredFormat": {
-                                "mainText": {"text": "Gandhinagar"}
-                            },
+                            "text": {"text": "Gandhinagar, Gujarat, India"},
+                            "structuredFormat": {"mainText": {"text": "Gandhinagar"}},
                         }
                     }
                 ]
@@ -39,9 +36,7 @@ def test_autocomplete_cities_normalizes_predictions() -> None:
         )
 
     async def run() -> None:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             service = GooglePlacesService("test-key", client=client)
             suggestions = await service.autocomplete_cities("gandhi")
 
@@ -79,9 +74,7 @@ def test_place_details_extracts_city_fields() -> None:
         )
 
     async def run() -> None:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             service = GooglePlacesService("test-key", client=client)
             details = await service.get_place_details("google-gandhinagar")
 
@@ -113,9 +106,7 @@ def test_hotel_autocomplete_restricts_types_and_normalizes_predictions() -> None
                     {
                         "placePrediction": {
                             "placeId": "google-hotel-imperial",
-                            "text": {
-                                "text": "Hotel Imperial, Ujjain, India"
-                            },
+                            "text": {"text": "Hotel Imperial, Ujjain, India"},
                             "structuredFormat": {
                                 "mainText": {"text": "Hotel Imperial"}
                             },
@@ -126,9 +117,7 @@ def test_hotel_autocomplete_restricts_types_and_normalizes_predictions() -> None
         )
 
     async def run() -> None:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             service = GooglePlacesService("test-key", client=client)
             suggestions = await service.autocomplete_locations(
                 "imperial", hotel_only=True
@@ -159,13 +148,9 @@ def test_location_details_extracts_start_coordinates() -> None:
         )
 
     async def run() -> None:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             service = GooglePlacesService("test-key", client=client)
-            details = await service.get_location_details(
-                "google-hotel-imperial"
-            )
+            details = await service.get_location_details("google-hotel-imperial")
 
         assert details.model_dump() == {
             "google_place_id": "google-hotel-imperial",
@@ -207,9 +192,7 @@ def test_nearby_search_constructs_request_and_normalizes_places() -> None:
         )
 
     async def run() -> None:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             service = GooglePlacesService("test-key", client=client)
             places = await service.search_nearby_places(
                 latitude=23.1765,
@@ -239,9 +222,7 @@ def test_google_timeout_is_normalized() -> None:
         raise httpx.ReadTimeout("timed out", request=request)
 
     async def run() -> None:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             service = GooglePlacesService("test-key", client=client)
             with pytest.raises(GooglePlacesTimeoutError):
                 await service.autocomplete_cities("gandhi")
@@ -249,14 +230,19 @@ def test_google_timeout_is_normalized() -> None:
     asyncio.run(run())
 
 
+def test_missing_google_places_key_fails_without_a_request() -> None:
+    with pytest.raises(GooglePlacesConfigurationError) as captured:
+        asyncio.run(GooglePlacesService(None).autocomplete_cities("Ujjain"))
+
+    assert str(captured.value) == ("Google Places is not configured on the backend.")
+
+
 def test_invalid_place_id_is_normalized() -> None:
     async def handler(_: httpx.Request) -> httpx.Response:
         return httpx.Response(404, json={"error": {"message": "Not found"}})
 
     async def run() -> None:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             service = GooglePlacesService("test-key", client=client)
             with pytest.raises(GooglePlaceNotFoundError):
                 await service.get_place_details("missing-place")

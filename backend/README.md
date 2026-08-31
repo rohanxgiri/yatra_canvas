@@ -33,7 +33,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## 3. Configure the Supabase PostgreSQL connection
+## 3. Configure the backend
 
 Copy the example file:
 
@@ -41,13 +41,13 @@ Copy the example file:
 Copy-Item .env.example .env
 ```
 
-Open `backend/.env` and paste the PostgreSQL connection string supplied by
-Supabase immediately after `DATABASE_URL=`:
+`DATABASE_URL` is the only setting required for the backend to start. Paste a
+PostgreSQL connection string after `DATABASE_URL=`; a Supabase PostgreSQL URL is
+supported, but the repository does not currently use the Supabase client SDK or
+Supabase Auth.
 
 ```dotenv
 DATABASE_URL=postgresql://YOUR_DATABASE_USER:YOUR_URL_ENCODED_PASSWORD@YOUR_DATABASE_HOST:5432/postgres
-GOOGLE_PLACES_API_KEY=YOUR_SERVER_SIDE_GOOGLE_PLACES_KEY
-GEOAPIFY_API_KEY=YOUR_SERVER_SIDE_GEOAPIFY_KEY
 ```
 
 Do not add quotes and do not commit `.env`. The repository's root `.gitignore`
@@ -55,8 +55,26 @@ already excludes it. If the database password contains URL-reserved characters
 such as `@`, `:`, `/`, `#`, or `%`, URL-encode the password before using it in
 the connection string.
 
-Enable Places API (New) in the Google Cloud project that owns the key. Keep the
-key only in `backend/.env`; it must never be added to Flutter or committed.
+Three implemented provider integrations are optional. Add only the keys for the
+features you want to run:
+
+```dotenv
+GOOGLE_PLACES_API_KEY=
+GOOGLE_ROUTES_API_KEY=
+GEOAPIFY_API_KEY=
+```
+
+- `GOOGLE_PLACES_API_KEY` enables Places API (New) city autocomplete/details
+  and cached nearby POI discovery. It is not a Google Maps SDK key; this project
+  has no Google Maps SDK or Android maps metadata.
+- `GOOGLE_ROUTES_API_KEY` enables Google Routes route-matrix calls for itinerary
+  optimization. A separate restricted key is recommended even if one Google
+  Cloud project provides both Google APIs.
+- `GEOAPIFY_API_KEY` enables backend location autocomplete/geocoding.
+
+Keep all three keys only in `backend/.env`; they must never be added to Flutter
+or committed. When a key is absent, its provider-backed endpoint fails with a
+safe configuration response while unrelated backend features remain available.
 
 The backend keeps `trips.user_id` as a UUID but does not create or reference
 Supabase's `auth.users` table. Authentication integration will be added later.
@@ -107,8 +125,10 @@ identity separately. Provider responsibilities are intentionally narrow:
 | PostgreSQL/Supabase | Canonical verified place storage |
 | Geoapify | User-driven runtime autocomplete and geocoding only |
 | Google Places | Existing city discovery and existing cached nearby discovery |
-| Existing route service | Directions and route matrices; Geoapify does not replace it |
-| Existing weather/currency providers | Weather and currency; unchanged by this feature |
+| Google Routes | Implemented route matrices for itinerary optimization |
+| OpenStreetMap/Overpass | Intended additional POI source; no live client is implemented |
+| Open-Meteo | Intended weather provider; not implemented |
+| Frankfurter | Intended currency provider; not implemented |
 
 The Flutter client reads stored POIs from YatraCanvas. It does not query FSQ or
 Geoapify whenever a city opens.
@@ -134,7 +154,7 @@ formatted label, and coordinates. The key is never returned to Flutter.
 
 To disable Geoapify, leave `GEOAPIFY_API_KEY` empty and restart the backend.
 The endpoint will return a safe `503`; stored places, Google city discovery,
-routing, weather, and currency behavior remain available. The UI shows a
+and routing remain available when separately configured. The UI shows a
 recoverable error instead of exposing provider details.
 
 Geoapify's published free plan currently provides 3,000 credits/day and up to

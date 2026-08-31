@@ -27,7 +27,6 @@ from app.services.google_places_service import (
     GooglePlacesUnavailableError,
 )
 
-
 router = APIRouter(prefix="/cities", tags=["cities"])
 SessionDependency = Annotated[Session, Depends(get_session)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
@@ -36,7 +35,7 @@ SettingsDependency = Annotated[Settings, Depends(get_settings)]
 def get_google_places_service(settings: SettingsDependency) -> GooglePlacesService:
     """Build the Google client from backend-only environment settings."""
 
-    return GooglePlacesService(settings.google_places_api_key)
+    return GooglePlacesService(settings.google_places_api_key_value)
 
 
 GooglePlacesDependency = Annotated[
@@ -158,9 +157,7 @@ async def get_google_place_details(
 def resolve_city(city_data: CityResolve, session: SessionDependency) -> City:
     """Return the Google city already stored, or create it once."""
 
-    statement = select(City).where(
-        City.google_place_id == city_data.google_place_id
-    )
+    statement = select(City).where(City.google_place_id == city_data.google_place_id)
     existing_city = session.exec(statement).first()
     if existing_city is not None:
         return existing_city
@@ -203,9 +200,7 @@ def search_cities(
         )
 
     escaped_query = (
-        normalized_query.replace("\\", "\\\\")
-        .replace("%", "\\%")
-        .replace("_", "\\_")
+        normalized_query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     )
     pattern = f"%{escaped_query}%"
     statement = (

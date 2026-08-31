@@ -3,9 +3,8 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -17,16 +16,16 @@ class Settings(BaseSettings):
     must never be committed to source control.
     """
 
-    database_url: str = Field(min_length=1, validation_alias="DATABASE_URL")
-    google_places_api_key: str | None = Field(
+    database_url: SecretStr = Field(min_length=1, validation_alias="DATABASE_URL")
+    google_places_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="GOOGLE_PLACES_API_KEY",
     )
-    google_routes_api_key: str | None = Field(
+    google_routes_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="GOOGLE_ROUTES_API_KEY",
     )
-    geoapify_api_key: str | None = Field(
+    geoapify_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="GEOAPIFY_API_KEY",
     )
@@ -100,29 +99,36 @@ class Settings(BaseSettings):
 
     @field_validator("database_url")
     @classmethod
-    def validate_database_url(cls, value: str) -> str:
-        value = value.strip()
+    def validate_database_url(cls, value: SecretStr) -> SecretStr:
+        normalized = value.get_secret_value().strip()
         supported_schemes = (
             "postgres://",
             "postgresql://",
             "postgresql+psycopg://",
         )
-        if not value.startswith(supported_schemes):
+        if not normalized.startswith(supported_schemes):
             raise ValueError("DATABASE_URL must be a PostgreSQL connection URL")
-        return value
+        return SecretStr(normalized)
 
     @field_validator(
         "google_places_api_key",
         "google_routes_api_key",
         "geoapify_api_key",
-        "fsq_os_places_path",
     )
     @classmethod
-    def normalize_google_api_key(cls, value: str | None) -> str | None:
+    def normalize_optional_secret(cls, value: SecretStr | None) -> SecretStr | None:
         if value is None:
             return None
-        value = value.strip()
-        return value or None
+        normalized = value.get_secret_value().strip()
+        return SecretStr(normalized) if normalized else None
+
+    @field_validator("fsq_os_places_path")
+    @classmethod
+    def normalize_optional_path(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
     @field_validator("geoapify_base_url")
     @classmethod
@@ -136,15 +142,34 @@ class Settings(BaseSettings):
     def sqlalchemy_database_url(self) -> str:
         """Select psycopg 3 even when Supabase returns a generic PG URL."""
 
-        if self.database_url.startswith("postgres://"):
-            return self.database_url.replace(
-                "postgres://", "postgresql+psycopg://", 1
-            )
-        if self.database_url.startswith("postgresql://"):
-            return self.database_url.replace(
-                "postgresql://", "postgresql+psycopg://", 1
-            )
-        return self.database_url
+        database_url = self.database_url.get_secret_value()
+        if database_url.startswith("postgres://"):
+            return database_url.replace("postgres://", "postgresql+psycopg://", 1)
+        if database_url.startswith("postgresql://"):
+            return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return database_url
+
+    @staticmethod
+    def _optional_secret_value(value: SecretStr | None) -> str | None:
+        return value.get_secret_value() if value is not None else None
+
+    @property
+    def google_places_api_key_value(self) -> str | None:
+        """Return the Google Places key only at the backend provider boundary."""
+
+        return self._optional_secret_value(self.google_places_api_key)
+
+    @property
+    def google_routes_api_key_value(self) -> str | None:
+        """Return the Google Routes key only at the backend provider boundary."""
+
+        return self._optional_secret_value(self.google_routes_api_key)
+
+    @property
+    def geoapify_api_key_value(self) -> str | None:
+        """Return the Geoapify key only at the backend provider boundary."""
+
+        return self._optional_secret_value(self.geoapify_api_key)
 
 
 @lru_cache

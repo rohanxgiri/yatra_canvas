@@ -19,7 +19,6 @@ from app.services.location_autocomplete_provider import (
     LocationAutocompleteProvider,
 )
 
-
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
@@ -27,7 +26,7 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 def _cached_geoapify_service() -> GeoapifyService:
     settings = get_settings()
     return GeoapifyService(
-        settings.geoapify_api_key,
+        settings.geoapify_api_key_value,
         base_url=settings.geoapify_base_url,
         timeout_seconds=settings.geoapify_timeout_seconds,
         cache_ttl_seconds=settings.geoapify_autocomplete_cache_ttl_seconds,

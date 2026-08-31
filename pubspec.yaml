@@ -1,5 +1,5 @@
 name: yatra_canvas
-description: A frontend-only college travel-planning application.
+description: A travel-planning Flutter application with a FastAPI backend.
 publish_to: 'none'
 version: 0.1.0+1
 

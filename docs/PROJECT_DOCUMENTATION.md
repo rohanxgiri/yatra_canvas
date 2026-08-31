@@ -1296,7 +1296,7 @@ Contain Flutter-generated platform runners and configuration for supported targe
 | `test/admin_panel_test.dart` | Tests admin Overview rendering and Trips section navigation. |
 | `test/flow_updates_test.dart` | Tests removed quick check-in and Saver/Chill/Boujee labels. |
 
-There is no routing configuration file, service directory, API client, repository layer, or backend file in the current project. Navigation is implemented directly in screen files.
+The current project also includes `lib/config`, `lib/services`, and a FastAPI backend under `backend/`. Navigation remains implemented directly in screen files.
 
 ---
 
@@ -1314,7 +1314,7 @@ There is no routing configuration file, service directory, API client, repositor
 | Web runner | Provides the HTML manifest, index, favicon, and web icons. |
 | Windows runner | Provides a native Windows desktop host. |
 
-The source does **not** use Firebase, Google Maps, REST APIs, FastAPI, a database, Figma integration, or third-party state-management packages.
+The current source uses REST clients, FastAPI, and PostgreSQL. It does **not** include a Google Maps SDK, Firebase integration, Figma integration, or a third-party state-management package.
 
 ---
 
@@ -1329,7 +1329,7 @@ Source: `pubspec.yaml`.
 | `flutter_test` | SDK dev dependency | Provides `testWidgets`, finders, pumps, and interaction simulation. |
 | `flutter_lints: ^6.0.0` | Dev dependency | Adds recommended Flutter/Dart lint rules. |
 
-The project intentionally has a small dependency list and no runtime network package.
+The Flutter client also uses `http` for the YatraCanvas API and `geolocator` for device location; see `pubspec.yaml` for the current versions.
 
 ---
 

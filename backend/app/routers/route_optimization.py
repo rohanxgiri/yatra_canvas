@@ -10,11 +10,6 @@ from sqlmodel import Session
 from app.core.config import get_settings
 from app.database import get_session
 from app.schemas import RouteOptimizationRead
-from app.services.route_optimization_service import (
-    RouteOptimizationService,
-    RouteTripNotFoundError,
-    RouteValidationError,
-)
 from app.services.google_routes_service import (
     GoogleRoutesConfigurationError,
     GoogleRoutesService,
@@ -22,14 +17,18 @@ from app.services.google_routes_service import (
     GoogleRoutesUnavailableError,
 )
 from app.services.route_matrix_service import RouteMatrixService
-
+from app.services.route_optimization_service import (
+    RouteOptimizationService,
+    RouteTripNotFoundError,
+    RouteValidationError,
+)
 
 router = APIRouter(prefix="/trips", tags=["route-optimization"])
 SessionDependency = Annotated[Session, Depends(get_session)]
 
 
 def get_google_routes_service() -> GoogleRoutesService:
-    return GoogleRoutesService(get_settings().google_routes_api_key)
+    return GoogleRoutesService(get_settings().google_routes_api_key_value)
 
 
 def get_route_optimization_service() -> RouteOptimizationService:
@@ -46,9 +45,7 @@ GoogleRoutesDependency = Annotated[
 RouteOptimizationDependency = Annotated[
     RouteOptimizationService, Depends(get_route_optimization_service)
 ]
-RouteMatrixDependency = Annotated[
-    RouteMatrixService, Depends(get_route_matrix_service)
-]
+RouteMatrixDependency = Annotated[RouteMatrixService, Depends(get_route_matrix_service)]
 
 
 @router.post("/{trip_id}/optimize-route", response_model=RouteOptimizationRead)

@@ -1,9 +1,9 @@
 """Route caching, constraints, start location, and offline reuse tests."""
 
 import asyncio
+import json
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
-import json
 from uuid import UUID, uuid4
 
 import httpx
@@ -18,6 +18,7 @@ from app.main import app
 from app.models import RouteMatrixCache, Trip, TripItinerary, UserSavedPlace
 from app.routers.route_optimization import get_google_routes_service
 from app.services.google_routes_service import (
+    GoogleRoutesConfigurationError,
     GoogleRoutesService,
     GoogleRoutesTimeoutError,
     RouteCoordinate,
@@ -57,8 +58,9 @@ class FakeGoogleRoutesService:
 
 
 @pytest.fixture
-def client_engine_routes(
-) -> Generator[tuple[TestClient, Engine, FakeGoogleRoutesService], None, None]:
+def client_engine_routes() -> (
+    Generator[tuple[TestClient, Engine, FakeGoogleRoutesService], None, None]
+):
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -140,9 +142,7 @@ def _seed_trip_and_saved_places(
             arrival_latitude=23.17,
             arrival_longitude=75.78,
             start_location_type="arrival" if start_selected else None,
-            start_location_name=(
-                "Ujjain Railway Station" if start_selected else None
-            ),
+            start_location_name=("Ujjain Railway Station" if start_selected else None),
             start_latitude=23.17 if start_selected else None,
             start_longitude=75.78 if start_selected else None,
         )
@@ -202,19 +202,23 @@ def test_matrix_cache_reuses_removed_places_and_fetches_only_new_edges(
         assert len(session.exec(select(TripItinerary)).all()) == 3
 
     assert client.post(f"/trips/{trip_id}/optimize-route").status_code == 200
-    assert client.delete(
-        f"/trips/{trip_id}/saved-places/{places[2]['id']}"
-    ).status_code == 204
+    assert (
+        client.delete(f"/trips/{trip_id}/saved-places/{places[2]['id']}").status_code
+        == 204
+    )
     assert client.post(f"/trips/{trip_id}/optimize-route").status_code == 200
     assert len(routes.calls) == 4
     with Session(engine) as session:
         assert len(session.exec(select(RouteMatrixCache)).all()) == 12
 
     place_d = _create_place(client, str(city["id"]), "Place D", 23.21)
-    assert client.post(
-        f"/trips/{trip_id}/saved-places",
-        json={"place_id": place_d["id"]},
-    ).status_code == 201
+    assert (
+        client.post(
+            f"/trips/{trip_id}/saved-places",
+            json={"place_id": place_d["id"]},
+        ).status_code
+        == 201
+    )
     assert client.post(f"/trips/{trip_id}/optimize-route").status_code == 200
     assert len(routes.calls) == 8
     with Session(engine) as session:
@@ -363,9 +367,7 @@ def test_google_routes_service_builds_and_parses_static_and_traffic() -> None:
         )
 
     async def run() -> None:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             service = GoogleRoutesService("routes-key", client=client)
             matrix = await service.compute_matrix(
                 [RouteCoordinate(23.17, 75.78)],
@@ -381,9 +383,7 @@ def test_google_routes_timeout_is_normalized() -> None:
         raise httpx.ReadTimeout("timed out", request=request)
 
     async def run() -> None:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             service = GoogleRoutesService("routes-key", client=client)
             with pytest.raises(GoogleRoutesTimeoutError):
                 await service.compute_matrix(
@@ -392,3 +392,15 @@ def test_google_routes_timeout_is_normalized() -> None:
                 )
 
     asyncio.run(run())
+
+
+def test_missing_google_routes_key_fails_without_a_request() -> None:
+    with pytest.raises(GoogleRoutesConfigurationError) as captured:
+        asyncio.run(
+            GoogleRoutesService(None).compute_matrix(
+                [RouteCoordinate(23.1765, 75.7885)],
+                [RouteCoordinate(23.1828, 75.7682)],
+            )
+        )
+
+    assert str(captured.value) == ("Google Routes is not configured on the backend.")

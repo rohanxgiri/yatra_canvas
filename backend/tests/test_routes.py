@@ -16,7 +16,10 @@ from app.schemas import (
     GoogleNearbyPlace,
     GooglePlaceDetails,
 )
-from app.services.google_places_service import GooglePlaceNotFoundError
+from app.services.google_places_service import (
+    GooglePlaceNotFoundError,
+    GooglePlacesService,
+)
 
 
 @pytest.fixture
@@ -184,9 +187,7 @@ def test_search_cities_requires_non_blank_query(
 class FakeGooglePlacesService:
     nearby_call_count = 0
 
-    async def autocomplete_cities(
-        self, query: str
-    ) -> list[GoogleCitySuggestion]:
+    async def autocomplete_cities(self, query: str) -> list[GoogleCitySuggestion]:
         assert query == "gandhi"
         return [
             GoogleCitySuggestion(
@@ -307,14 +308,11 @@ class FakeRecommendationGoogleService:
         self.call_counts[category] += 1
         return places
 
-def test_google_city_autocomplete_and_place_details(client: TestClient) -> None:
-    app.dependency_overrides[get_google_places_service] = (
-        FakeGooglePlacesService
-    )
 
-    autocomplete = client.get(
-        "/cities/autocomplete", params={"query": "gandhi"}
-    )
+def test_google_city_autocomplete_and_place_details(client: TestClient) -> None:
+    app.dependency_overrides[get_google_places_service] = FakeGooglePlacesService
+
+    autocomplete = client.get("/cities/autocomplete", params={"query": "gandhi"})
     assert autocomplete.status_code == 200
     assert autocomplete.json() == [
         {
@@ -338,6 +336,20 @@ def test_google_city_autocomplete_and_place_details(client: TestClient) -> None:
     missing = client.get("/cities/place-details/missing-place")
     assert missing.status_code == 404
     assert missing.json() == {"detail": "Google Place ID was not found."}
+
+
+def test_missing_google_key_returns_safe_api_response(client: TestClient) -> None:
+    app.dependency_overrides[get_google_places_service] = lambda: (
+        GooglePlacesService(None)
+    )
+
+    response = client.get("/cities/autocomplete", params={"query": "Ujjain"})
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Google Places is not configured on the backend."
+    }
+    assert "GOOGLE_PLACES_API_KEY" not in response.text
 
 
 @pytest.mark.parametrize("query", [None, "", "a", "   "])
@@ -385,9 +397,10 @@ def test_place_routes(client: TestClient) -> None:
     assert listed.json() == [place]
 
     missing_city = str(uuid4())
-    assert client.post(
-        "/places", json={**payload, "city_id": missing_city}
-    ).status_code == 404
+    assert (
+        client.post("/places", json={**payload, "city_id": missing_city}).status_code
+        == 404
+    )
     assert client.get(f"/cities/{missing_city}/places").status_code == 404
 
 
@@ -509,9 +522,10 @@ def test_recommendations_reuse_each_category_cache_deduplicate_and_rank(
         "religious",
         "heritage",
     ]
-    assert first.json()[0]["recommendation_score"] > first.json()[1][
-        "recommendation_score"
-    ]
+    assert (
+        first.json()[0]["recommendation_score"]
+        > first.json()[1]["recommendation_score"]
+    )
     assert fake_google.call_counts == {
         "religious": 1,
         "food": 1,
