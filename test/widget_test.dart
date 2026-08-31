@@ -7,7 +7,9 @@ import 'package:yatra_canvas/models/trip_draft.dart';
 import 'package:yatra_canvas/screens/create_trip/destination_selection_screen.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
 import 'package:yatra_canvas/screens/onboarding/login_screen.dart';
+import 'package:yatra_canvas/screens/place_discovery/place_discovery_screen.dart';
 import 'package:yatra_canvas/services/city_service.dart';
+import 'package:yatra_canvas/services/trip_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
 void main() {
@@ -48,6 +50,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
+    final draft = TripDraft();
     final cityService = CityService(
       baseUrl: 'http://api.test',
       client: MockClient((request) async {
@@ -60,11 +63,26 @@ void main() {
         );
       }),
     );
+    final tripService = TripService(
+      baseUrl: 'http://api.test',
+      client: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/trips');
+        return http.Response(
+          '{"trip_id":"22222222-2222-4222-8222-222222222222"}',
+          201,
+        );
+      }),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light,
-        home: DestinationSelectionScreen(cityService: cityService),
+        home: DestinationSelectionScreen(
+          draft: draft,
+          cityService: cityService,
+          tripService: tripService,
+        ),
       ),
     );
 
@@ -98,16 +116,12 @@ void main() {
     expect(find.text('How do you like\nto travel?'), findsOneWidget);
 
     await tester.tap(find.text('Find Places For Me'));
-    await tester.pumpAndSettle();
-    expect(find.text('Trip setup complete'), findsOneWidget);
-    expect(
-      find.text('Next, YatraCanvas will find places that match your journey.'),
-      findsOneWidget,
-    );
+    await tester.pump();
+    await tester.pump();
+    expect(draft.tripId, '22222222-2222-4222-8222-222222222222');
+    expect(find.byType(PlaceDiscoveryScreen), findsOneWidget);
 
-    await tester.tap(find.text('Back to Home'));
-    await tester.pumpAndSettle();
-    expect(find.byType(HomeScreen), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('city search is debounced and selected city is resolved', (

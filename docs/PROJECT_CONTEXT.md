@@ -1,6 +1,6 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-01
 
 This document is the primary overview for humans and agents. Status labels mean:
 
@@ -42,11 +42,11 @@ and a global social network are current non-goals.
 | Journey | Status | Repository reality |
 | --- | --- | --- |
 | Splash, welcome, phone entry, onboarding | `[PARTIAL]` | UI and navigation exist; phone entry does not authenticate. |
-| Select destination and dates | `[PARTIAL]` | UI and Google/stored-city services exist; no complete trip-create API persists the draft. |
-| Choose arrival point | `[PARTIAL]` | Geoapify/device/custom-location UI exists; persistence only works when a pre-existing `trip_id` is supplied. |
-| Choose purpose and preferences | `[PARTIAL]` | UI captures draft values; the normal flow does not persist a new trip/preferences. |
+| Select destination and dates | `[PARTIAL]` | The normal Flutter flow submits the resolved city, dates, and inclusive day count to `POST /trips`; the calendar remains fixed to August 2026. |
+| Choose arrival point | `[PARTIAL]` | Trip creation persists the draft's arrival/start fields. Geoapify/device/custom locations can supply coordinates, but the built-in station/airport suggestions remain destination-specific mock data and may have no coordinates. |
+| Choose purpose and preferences | `[IMPLEMENTED]` | The normal flow persists selected purposes, pace, budget, and transport choices as `TripPreference` rows in the trip-create transaction. |
 | Discover/recommend places | `[IMPLEMENTED]` | Backend endpoints read cached canonical places and can refresh via Google Nearby Search. |
-| Save places | `[PARTIAL]` | API/UI exist for an existing trip; the regular create flow never assigns a trip ID. |
+| Save places | `[IMPLEMENTED]` | After successful trip creation, the returned real `trip_id` is retained in `TripDraft` and passed to Place Discovery for saved-place operations. |
 | Optimize itinerary | `[PARTIAL]` | Google route matrix and constraints exist, but output is day 1 only and requires an existing trip. |
 | Interactive map | `[PLANNED]` | No map SDK/package or interactive map widget is present. Decorative artwork is not a map implementation. |
 | Weather and currency | `[PLANNED]` | No endpoints, clients, models, or settings exist. |
@@ -55,6 +55,13 @@ and a global social network are current non-goals.
 The Flutter repository contains more than twenty visual states when the multi-step onboarding
 and admin sub-pages are counted, but only a smaller set of distinct screen classes. Screen count
 is not treated as evidence that the intended end-to-end product is complete.
+
+`[IMPLEMENTED]` For the current unauthenticated development slice, `POST /trips` creates a `Trip`
+and related `TripPreference` rows transactionally and returns an application-generated UUID.
+`[PARTIAL]` The UUID is retained only in the in-memory `TripDraft`; app-restart persistence,
+trip listing/editing, ownership enforcement, and authentication are not implemented. Until
+authentication exists, the backend assigns a server-owned development-only placeholder
+`user_id` and rejects any client-supplied identity or internal trip fields.
 
 ## Intended direction
 

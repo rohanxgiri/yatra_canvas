@@ -1,6 +1,6 @@
 # YatraCanvas architecture
 
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-01
 
 Status labels are defined in [Project context](PROJECT_CONTEXT.md). This document separates
 repository reality from the intended provider architecture.
@@ -14,10 +14,14 @@ starts a separate admin shell. Screens call small `http` service classes using t
 `lib/config/api_config.dart`. Models are local Dart value objects. Navigation and state are
 widget-local; there is no dependency-injection, router, persistence, or global state layer.
 
-`[PARTIAL]` The trip-building screens share a `TripDraft`, but the normal UI flow never creates
-a `Trip` through the backend or receives a `trip_id`. Saved-place, start-location, and route
-operations therefore work only when code/tests supply a pre-existing trip. The admin shell uses
-hard-coded metrics and rows and has no admin API client.
+`[IMPLEMENTED]` The trip-building screens share a `TripDraft`. After Preferences, `TripService`
+posts the existing city/date/arrival/purpose/preference values to the backend, retains the
+returned `trip_id` in that draft, and passes it to Place Discovery. Submission has loading,
+validation/network/backend/malformed-response handling and a duplicate-tap guard.
+
+`[PARTIAL]` `TripDraft` and its `trip_id` remain widget-local and in memory; they do not survive
+an app restart. Trip listing/editing and authenticated ownership are absent. The admin shell
+uses hard-coded metrics and rows and has no admin API client.
 
 `[PLANNED]` No interactive map package or platform Maps SDK is present. Android location and
 internet permissions support device location and HTTP; they are not evidence of a map SDK.
@@ -33,7 +37,7 @@ internet permissions support device location and HTTP; they are not evidence of 
 | Locations | Geoapify-backed `GET /locations/autocomplete` |
 | Places | create/list, discovery, recommendations |
 | Saved places | list/create/update/reorder/delete under a trip |
-| Trips | get/update start location only |
+| Trips | create a trip; get/update start location |
 | Routing | optimize an existing trip using a cached route matrix |
 
 Provider errors are translated into safe HTTP failures by routers. Settings are read from
@@ -42,8 +46,8 @@ provider boundary.
 
 `[PARTIAL]` `LocationAutocompleteProvider` is a provider-neutral protocol, currently backed by
 Geoapify. Place discovery and route matrices depend directly on Google-specific service classes.
-There are no auth, user-profile, trip-create, weather, currency, admin, ingestion-job, or
-observability endpoints.
+There are no auth, user-profile, trip read/update/list/delete, weather, currency, admin,
+ingestion-job, or observability endpoints.
 
 ### Database and schema changes
 
@@ -165,8 +169,9 @@ Changing the selected provider must not silently change a REST contract or canon
 
 - Flutter's `API_BASE_URL` is public configuration. Database and provider credentials are
   backend secrets. No real value belongs in source control, docs, URLs in logs, or test fixtures.
-- `[PLANNED]` Authenticate users and derive ownership from verified tokens. The current UUID
-  `Trip.user_id` is caller-supplied database data, not an implemented authorization boundary.
+- `[PLANNED]` Authenticate users and derive ownership from verified tokens. Current trip creation
+  rejects client-supplied identity and assigns a server-owned development-only placeholder UUID;
+  this is isolated scaffolding, not an implemented authorization boundary.
 - `[UNKNOWN]` RLS status cannot be inferred from SQLModel. Before any Supabase client accesses
   exposed tables, track and test grants and RLS policies as migrations.
 - Imports and admin corrections are privileged operations. They need authentication,
@@ -185,7 +190,7 @@ only with the deployment architecture; both are currently `[UNKNOWN]`.
 | Concern | Current | Target |
 | --- | --- | --- |
 | Identity/authorization | `[PLANNED]` login UI only | Supabase Auth, server verification, ownership tests, reviewed RLS |
-| Trip lifecycle | `[PARTIAL]` no trip-create flow | persisted creation through multi-day itinerary lifecycle |
+| Trip lifecycle | `[PARTIAL]` create flow and downstream single-session ID handoff; no read/edit/resume/auth | persisted creation through multi-day itinerary lifecycle |
 | Place acquisition | Google runtime refresh plus local FSQ importer | reviewed FSQ/OSM ingestion and optional Wikimedia enrichment |
 | Routing | Google matrix, single-day optimizer | provider-neutral openrouteservice directions/matrix and multi-day planning |
 | Map | `[PLANNED]` | explicit renderer/tiles decision with attribution and offline policy |

@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../models/created_trip.dart';
+import '../models/trip_draft.dart';
 import '../models/trip_start_location.dart';
 
 class TripService {
@@ -16,6 +18,73 @@ class TripService {
   final http.Client _client;
   final bool _ownsClient;
   final String _baseUrl;
+
+  Future<CreatedTrip> createTrip(TripDraft draft) async {
+    final cityId = draft.destination?.id?.trim();
+    if (cityId == null || cityId.isEmpty) {
+      throw const TripServiceException(
+        'Choose and confirm a destination before creating the trip.',
+      );
+    }
+
+    late http.Response response;
+    try {
+      response = await _client
+          .post(
+            Uri.parse('$_baseUrl/trips'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'city_id': cityId,
+              'start_date': _dateValue(draft.startDate),
+              'end_date': _dateValue(draft.endDate),
+              'days': draft.durationDays,
+              'arrival_place': draft.arrivalPoint,
+              'arrival_latitude': draft.arrivalLatitude,
+              'arrival_longitude': draft.arrivalLongitude,
+              'start_location_type': draft.startLocationType.apiValue,
+              'start_location_name': draft.startLocationName,
+              'start_latitude': draft.startLatitude,
+              'start_longitude': draft.startLongitude,
+              'start_location_provider': draft.startLocationProvider,
+              'start_location_provider_place_id':
+                  draft.startLocationProviderPlaceId,
+              'purposes': draft.purposes.toList()..sort(),
+              'preferences': <String>[
+                draft.travelPace,
+                draft.budget,
+                ...(draft.transportPreferences.toList()..sort()),
+              ],
+            }),
+          )
+          .timeout(_timeout);
+    } on TimeoutException catch (error) {
+      throw TripServiceException(
+        'Trip creation took too long. Check your connection and try again.',
+        error,
+      );
+    } on http.ClientException catch (error) {
+      throw TripServiceException(
+        'Could not reach YatraCanvas. Check your connection and try again.',
+        error,
+      );
+    }
+
+    if (response.statusCode != 201) {
+      throw TripServiceException(_createErrorMessage(response));
+    }
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) {
+        throw const FormatException('Trip response must be an object.');
+      }
+      return CreatedTrip.fromJson(body);
+    } on Object catch (error) {
+      throw TripServiceException(
+        'YatraCanvas returned an invalid trip response. Please try again.',
+        error,
+      );
+    }
+  }
 
   Future<TripStartLocation> updateStartLocation(
     String tripId, {
@@ -62,6 +131,36 @@ class TripService {
       // Fall through.
     }
     return 'Could not save the trip start (${response.statusCode}).';
+  }
+
+  String _createErrorMessage(http.Response response) {
+    try {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final detail = body['detail'];
+      if (detail is String && detail.isNotEmpty) return detail;
+      if (detail is List && detail.isNotEmpty) {
+        final first = detail.first;
+        if (first is Map<String, dynamic>) {
+          final message = first['msg'];
+          if (message is String && message.isNotEmpty) {
+            return message.replaceFirst('Value error, ', '');
+          }
+        }
+      }
+    } on Object {
+      // Fall through to a status-specific safe message.
+    }
+    if (response.statusCode == 422) {
+      return 'Check the trip details and try again.';
+    }
+    return 'Could not create the trip (${response.statusCode}).';
+  }
+
+  static String _dateValue(DateTime value) {
+    final year = value.year.toString().padLeft(4, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
   }
 
   void close() {

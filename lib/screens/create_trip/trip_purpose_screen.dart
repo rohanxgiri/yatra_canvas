@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../models/trip_draft.dart';
+import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/create_trip_scaffold.dart';
 import 'trip_preferences_screen.dart';
 
 class TripPurposeScreen extends StatefulWidget {
-  const TripPurposeScreen({required this.draft, super.key});
+  const TripPurposeScreen({required this.draft, this.tripService, super.key});
 
   final TripDraft draft;
+  final TripService? tripService;
 
   @override
   State<TripPurposeScreen> createState() => _TripPurposeScreenState();
@@ -47,7 +49,10 @@ class _TripPurposeScreenState extends State<TripPurposeScreen> {
     widget.draft.purposes = {..._selected};
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TripPreferencesScreen(draft: widget.draft),
+        builder: (_) => TripPreferencesScreen(
+          draft: widget.draft,
+          tripService: widget.tripService,
+        ),
       ),
     );
   }

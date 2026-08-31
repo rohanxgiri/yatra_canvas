@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/trip_draft.dart';
+import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/create_trip_scaffold.dart';
@@ -8,9 +9,10 @@ import '../../widgets/selection_chip.dart';
 import 'arrival_details_screen.dart';
 
 class SelectDatesScreen extends StatefulWidget {
-  const SelectDatesScreen({required this.draft, super.key});
+  const SelectDatesScreen({required this.draft, this.tripService, super.key});
 
   final TripDraft draft;
+  final TripService? tripService;
 
   @override
   State<SelectDatesScreen> createState() => _SelectDatesScreenState();
@@ -62,7 +64,10 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
           );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ArrivalDetailsScreen(draft: widget.draft),
+        builder: (_) => ArrivalDetailsScreen(
+          draft: widget.draft,
+          tripService: widget.tripService,
+        ),
       ),
     );
   }

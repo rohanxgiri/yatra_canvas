@@ -1,4 +1,4 @@
-"""Trip start-location endpoints."""
+"""Trip creation and start-location endpoints."""
 
 from typing import Annotated
 from uuid import UUID
@@ -7,8 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from app.database import get_session
-from app.schemas import TripStartLocationRead, TripStartLocationUpdate
+from app.schemas import (
+    TripCreate,
+    TripRead,
+    TripStartLocationRead,
+    TripStartLocationUpdate,
+)
 from app.services.trip_service import (
+    TripCityNotFoundError,
     TripService,
     TripServiceNotFoundError,
     TripStartLocationError,
@@ -27,12 +33,25 @@ TripServiceDependency = Annotated[TripService, Depends(get_trip_service)]
 
 
 def _trip_error(error: Exception) -> HTTPException:
-    if isinstance(error, TripServiceNotFoundError):
+    if isinstance(error, (TripServiceNotFoundError, TripCityNotFoundError)):
         return HTTPException(status_code=404, detail=str(error))
     return HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail=str(error),
     )
+
+
+@router.post("", response_model=TripRead, status_code=status.HTTP_201_CREATED)
+def create_trip(
+    request: TripCreate,
+    session: SessionDependency,
+    trips: TripServiceDependency,
+) -> TripRead:
+    try:
+        return trips.create(session, request)
+    except TripCityNotFoundError as exc:
+        session.rollback()
+        raise _trip_error(exc) from exc
 
 
 @router.get("/{trip_id}/start-location", response_model=TripStartLocationRead)

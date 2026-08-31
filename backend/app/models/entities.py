@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlmodel import Field, SQLModel
 
@@ -137,7 +138,11 @@ class PlaceSource(SQLModel, table=True):
     source: str = Field(max_length=50, index=True)
     external_place_id: str = Field(max_length=255, index=True)
     source_url: str | None = Field(default=None, max_length=1000)
-    licence_identifier: str = Field(default="unknown", max_length=120)
+    licence_identifier: str = Field(
+        default="unknown",
+        max_length=120,
+        sa_column_kwargs={"server_default": text("'unknown'")},
+    )
     address: str | None = Field(default=None, max_length=500)
     locality: str | None = Field(default=None, max_length=160, index=True)
     region: str | None = Field(default=None, max_length=160)
@@ -148,7 +153,11 @@ class PlaceSource(SQLModel, table=True):
     email: str | None = Field(default=None, max_length=320)
     social_identifiers: dict[str, str] = Field(
         default_factory=dict,
-        sa_column=Column(JSON, nullable=False),
+        sa_column=Column(
+            JSON,
+            nullable=False,
+            server_default=text("'{}'"),
+        ),
     )
     source_date_created: date | None = Field(
         default=None,
@@ -164,14 +173,22 @@ class PlaceSource(SQLModel, table=True):
     )
     unresolved_flags: list[str] = Field(
         default_factory=list,
-        sa_column=Column(JSON, nullable=False),
+        sa_column=Column(
+            JSON,
+            nullable=False,
+            server_default=text("'[]'"),
+        ),
     )
     last_fetched_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False)
     )
     imported_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+        ),
     )
 
 
@@ -324,9 +341,18 @@ class UserSavedPlace(SQLModel, table=True):
     trip_id: UUID = Field(foreign_key="trips.id", index=True)
     place_id: UUID = Field(foreign_key="places.id", index=True)
     custom_order: int | None = None
-    priority: int = Field(default=0)
-    is_locked: bool = Field(default=False)
-    must_visit: bool = Field(default=False)
+    priority: int = Field(
+        default=0,
+        sa_column_kwargs={"server_default": text("0")},
+    )
+    is_locked: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": text("false")},
+    )
+    must_visit: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": text("false")},
+    )
     notes: str | None = None
     created_at: datetime | None = Field(
         default=None,
@@ -366,12 +392,22 @@ class RouteMatrixCache(SQLModel, table=True):
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    trip_id: UUID = Field(foreign_key="trips.id", index=True)
+    trip_id: UUID = Field(
+        foreign_key="trips.id",
+        ondelete="CASCADE",
+        index=True,
+    )
     from_place_id: UUID | None = Field(
-        default=None, foreign_key="places.id", index=True
+        default=None,
+        foreign_key="places.id",
+        ondelete="CASCADE",
+        index=True,
     )
     to_place_id: UUID | None = Field(
-        default=None, foreign_key="places.id", index=True
+        default=None,
+        foreign_key="places.id",
+        ondelete="CASCADE",
+        index=True,
     )
     from_location_type: str = Field(max_length=30)
     from_name: str | None = Field(default=None, max_length=255)
@@ -388,7 +424,11 @@ class RouteMatrixCache(SQLModel, table=True):
     distance_meters: int
     static_duration_seconds: int
     traffic_duration_seconds: int | None = None
-    travel_mode: str = Field(default="driving", max_length=30)
+    travel_mode: str = Field(
+        default="driving",
+        max_length=30,
+        sa_column_kwargs={"server_default": text("'driving'")},
+    )
     calculated_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False)
     )

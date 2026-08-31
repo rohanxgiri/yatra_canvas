@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../models/trip_draft.dart';
+import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/create_trip_scaffold.dart';
 import '../../widgets/selection_chip.dart';
-import '../home/home_screen.dart';
+import '../place_discovery/place_discovery_screen.dart';
 
 class TripPreferencesScreen extends StatefulWidget {
-  const TripPreferencesScreen({required this.draft, super.key});
+  const TripPreferencesScreen({
+    required this.draft,
+    this.tripService,
+    super.key,
+  });
 
   final TripDraft draft;
+  final TripService? tripService;
 
   @override
   State<TripPreferencesScreen> createState() => _TripPreferencesScreenState();
@@ -20,6 +26,10 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
   late String _pace;
   late String _budget;
   late final Set<String> _transport;
+  late final TripService _tripService;
+  late final bool _ownsTripService;
+  bool _isCreating = false;
+  String? _creationError;
 
   static const _paces = <(String, String, IconData)>[
     ('Relaxed', 'Fewer places, more time at each stop', Icons.spa_outlined),
@@ -50,53 +60,51 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
     _pace = widget.draft.travelPace;
     _budget = widget.draft.budget;
     _transport = {...widget.draft.transportPreferences};
+    _ownsTripService = widget.tripService == null;
+    _tripService = widget.tripService ?? TripService();
   }
 
-  void _finish() {
+  @override
+  void dispose() {
+    if (_ownsTripService) _tripService.close();
+    super.dispose();
+  }
+
+  Future<void> _finish() async {
+    if (_isCreating) return;
     widget.draft
       ..travelPace = _pace
       ..budget = _budget
       ..transportPreferences = {..._transport};
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: Container(
-          width: 58,
-          height: 58,
-          decoration: const BoxDecoration(
-            color: AppColors.tealLight,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.check_rounded,
-            color: AppColors.teal,
-            size: 32,
-          ),
+    setState(() {
+      _isCreating = true;
+      _creationError = null;
+    });
+    try {
+      final created = await _tripService.createTrip(widget.draft);
+      widget.draft.tripId = created.tripId;
+      if (!mounted) return;
+      final city = widget.draft.destination;
+      if (city == null) {
+        throw const TripServiceException(
+          'Choose and confirm a destination before creating the trip.',
+        );
+      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              PlaceDiscoveryScreen(city: city, tripId: created.tripId),
         ),
-        title: const Text('Trip setup complete'),
-        content: const Text(
-          'Next, YatraCanvas will find places that match your journey.',
-          textAlign: TextAlign.center,
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Review setup'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text('Back to Home'),
-          ),
-        ],
-      ),
-    );
+      );
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isCreating = false;
+        _creationError = error is TripServiceException
+            ? error.message
+            : 'Could not create the trip. Please try again.';
+      });
+    }
   }
 
   @override
@@ -106,9 +114,9 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
       title: 'How do you like\nto travel?',
       subtitle:
           'These preferences help shape the pace and style of your itinerary.',
-      continueLabel: 'Find Places For Me',
-      continueIcon: Icons.auto_awesome_rounded,
-      continueEnabled: _transport.isNotEmpty,
+      continueLabel: _isCreating ? 'Creating Trip…' : 'Find Places For Me',
+      continueIcon: _isCreating ? null : Icons.auto_awesome_rounded,
+      continueEnabled: _transport.isNotEmpty && !_isCreating,
       onContinue: _finish,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,6 +190,40 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
           ),
           const SizedBox(height: 30),
           _TripSummary(draft: widget.draft, pace: _pace, budget: _budget),
+          if (_isCreating) ...[
+            const SizedBox(height: 14),
+            const LinearProgressIndicator(),
+          ],
+          if (_creationError case final error?) ...[
+            const SizedBox(height: 14),
+            _TripCreationError(message: error),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TripCreationError extends StatelessWidget {
+  const _TripCreationError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.error.withValues(alpha: .35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: AppColors.error),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message, style: AppTextStyles.bodyMuted)),
         ],
       ),
     );

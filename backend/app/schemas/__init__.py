@@ -28,6 +28,8 @@ from app.schemas.trip import (
     LocationDetails,
     LocationSuggestion,
     StartLocationType,
+    TripCreate,
+    TripRead,
     TripStartLocationRead,
     TripStartLocationUpdate,
 )
@@ -60,6 +62,8 @@ __all__ = [
     "LocationAutocompleteResponse",
     "LocationAutocompleteResult",
     "StartLocationType",
+    "TripCreate",
+    "TripRead",
     "TripStartLocationRead",
     "TripStartLocationUpdate",
 ]

@@ -86,7 +86,10 @@ or committed. When a key is absent, its provider-backed endpoint fails with a
 safe configuration response while unrelated backend features remain available.
 
 The backend keeps `trips.user_id` as a UUID but does not create or reference
-Supabase's `auth.users` table. Authentication integration will be added later.
+Supabase's `auth.users` table. Authentication is **not implemented**. `POST /trips`
+temporarily assigns a fixed, server-owned development identity and rejects a
+client-provided `user_id`; replace that isolated dependency with authenticated
+identity before multi-user deployment.
 
 ## 4. Run the API
 
@@ -116,11 +119,39 @@ http://127.0.0.1:8000/docs
 | `GET` | `/cities/place-details/{google_place_id}` | Normalize Google city details |
 | `GET` | `/locations/autocomplete?query=` | Search Geoapify for normalized India locations |
 | `GET` | `/cities/{city_id}` | Get a city |
+| `POST` | `/trips` | Create a trip and its preferences; return a real `trip_id` |
 | `POST` | `/places` | Create a place |
 | `GET` | `/cities/{city_id}/places` | List a city's places |
 
 List endpoints accept optional `offset` and `limit` query parameters. `limit`
 defaults to 100 and cannot exceed 500.
+
+### Create a trip
+
+`POST /trips` accepts only application-owned draft fields. The city must exist,
+dates must define the supplied inclusive `days`, coordinate values must be
+complete latitude/longitude pairs within valid ranges, and a non-arrival start
+location requires a name and coordinates. Unknown fields such as `trip_id`,
+`user_id`, or `created_at` are rejected.
+
+```json
+{
+  "city_id": "11111111-1111-4111-8111-111111111111",
+  "start_date": "2026-09-10",
+  "end_date": "2026-09-12",
+  "days": 3,
+  "arrival_place": "Ujjain Railway Station",
+  "arrival_latitude": 23.1793,
+  "arrival_longitude": 75.7849,
+  "start_location_type": "arrival",
+  "purposes": ["Religious / Spiritual"],
+  "preferences": ["Balanced", "Chill", "Walking"]
+}
+```
+
+A successful `201` response includes the generated `trip_id`, normalized trip
+fields, stored preference values, and the server timestamp. Trip and preference
+rows are committed in one transaction; a related-row failure rolls back both.
 
 ## POI and location-provider architecture
 
@@ -236,6 +267,14 @@ safe migration environment:
 
 - `sql/add_fsq_geoapify_foundation.sql`
 - `sql/rollback_fsq_geoapify_foundation.sql`
+
+For an existing database that has accumulated the current PlaceSource, Trip,
+and route-cache drift, use `sql/repair_current_schema_parity.sql` only after a
+read-only schema audit, explicit development/test classification, and a
+verified backup. It is a transactional forward repair and must not be followed
+by the destructive FSQ rollback after application data uses the repaired
+columns. Do not blindly rerun older forward scripts; there is no migration
+ledger that can prove their execution history.
 
 The forward script extends `place_sources`, creates `place_categories` and
 `place_import_reviews`, and adds selected provider fields to `trips`. New local

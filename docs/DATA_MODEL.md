@@ -1,6 +1,6 @@
 # Data model
 
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-01
 
 The source of truth for the current schema is `backend/app/models/entities.py`. This document
 describes those SQLModel tables and the tracked SQL scripts; it does not assert what exists in
@@ -39,14 +39,19 @@ Deletion/cascade behavior is not specified by these models and must not be assum
 | `place_sources` / `PlaceSource` | `[IMPLEMENTED]` | Provider provenance and external identity. Unique per place/source and globally per source/external ID. Stores source URL, licence identifier, address/contact/social fields, provider lifecycle dates, unresolved flags, fetch/import timestamps. |
 | `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label, unique for place/source/external category. |
 | `place_import_reviews` / `PlaceImportReview` | `[IMPLEMENTED]` schema, `[PARTIAL]` workflow | One review per provider/external place ID. Status is `pending`, `resolved`, or `ignored`; stores candidates, match evidence, and a source snapshot. No connected admin endpoint/UI action exists. |
-| `trips` / `Trip` | `[IMPLEMENTED]` schema, `[PARTIAL]` lifecycle | Destination, UUID `user_id`, name/days/date, arrival and start-location coordinates/type/provider ID. `user_id` is not a foreign key to Supabase Auth. No create endpoint exists. |
-| `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema | Weighted preference unique per trip/preference. Normal UI flow does not persist it. |
+| `trips` / `Trip` | `[IMPLEMENTED]` schema and create API, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. The model has no `end_date`; the request validates it and persists the equivalent `start_date + days`. Read/update/list/delete and authentication remain absent. |
+| `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema/create path | The trip-create transaction stores unique purposes, pace, budget, and transport choices as generic weighted preference rows, unique per trip/preference. |
 | `user_saved_places` / `UserSavedPlace` | `[IMPLEMENTED]` API | Unique trip/place selection with custom order, priority, locked, must-visit, notes. Requires an existing trip. |
 | `route_matrix_cache` / `RouteMatrixCache` | `[IMPLEMENTED]` | Per-trip directed pair/mode cache with place IDs or coordinate snapshots, canonical non-null pair keys, distance, static/traffic duration, calculation and expiry times. |
 | `trip_itinerary` / `TripItinerary` | `[IMPLEMENTED]` schema, `[PARTIAL]` planner | Unique visit order per trip/day, optional times and prior-leg metrics. Current optimizer writes only `day_number = 1`. |
 
 There is no application `User`/`Profile`, weather, currency, media, audit-log, map, or provider-job
 table. These are `[PLANNED]` only where called for by the roadmap.
+
+Authentication is not implemented. `Trip.user_id` is required by the current model but is not a
+foreign key. The create service currently supplies one fixed, server-owned development-only UUID;
+the request schema forbids `user_id`, `trip_id`, timestamps, and other unknown fields. Replace
+this isolated identity dependency with an authenticated principal before multi-user deployment.
 
 ## Canonical place and provenance rules
 
@@ -116,9 +121,12 @@ reviewed SQL changes because `create_all` does not alter columns or constraints.
 | `backend/sql/add_fsq_geoapify_foundation.sql` | Forward |
 | `backend/sql/rollback_fsq_geoapify_foundation.sql` | Reviewed rollback paired with the FSQ/Geoapify foundation |
 | `backend/sql/add_route_matrix_priorities_start_location.sql` | Forward; no dedicated rollback script |
+| `backend/sql/repair_current_schema_parity.sql` | Transactional forward parity repair; recovery is roll-forward or verified backup restore after new-column writes |
 
-No ordered/versioned runner records which scripts ran, and no production schema was inspected.
-Database/RLS parity is therefore `[UNKNOWN]` outside a freshly created test schema.
+No ordered/versioned runner records which scripts ran. A read-only 2026-09-01 audit found the
+configured remote catalog compatible with current model metadata, but its environment
+classification, migration actor, backup status, write behavior, and RLS parity remain `[UNKNOWN]`.
+See `docs/CURRENT_SYSTEM_VERIFICATION.md` for the before/after mismatch inventory.
 
 ## Migration and rollback expectations
 

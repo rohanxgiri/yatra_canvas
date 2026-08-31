@@ -6,6 +6,7 @@ import '../../models/city.dart';
 import '../../models/city_suggestion.dart';
 import '../../models/trip_draft.dart';
 import '../../services/city_service.dart';
+import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/create_trip_scaffold.dart';
@@ -14,10 +15,16 @@ import '../place_discovery/place_discovery_screen.dart';
 import 'select_dates_screen.dart';
 
 class DestinationSelectionScreen extends StatefulWidget {
-  const DestinationSelectionScreen({this.draft, this.cityService, super.key});
+  const DestinationSelectionScreen({
+    this.draft,
+    this.cityService,
+    this.tripService,
+    super.key,
+  });
 
   final TripDraft? draft;
   final CityService? cityService;
+  final TripService? tripService;
 
   @override
   State<DestinationSelectionScreen> createState() =>
@@ -237,7 +244,10 @@ class _DestinationSelectionScreenState
 
   void _continue() {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => SelectDatesScreen(draft: _draft)),
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            SelectDatesScreen(draft: _draft, tripService: widget.tripService),
+      ),
     );
   }
 

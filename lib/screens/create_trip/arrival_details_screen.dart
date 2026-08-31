@@ -343,7 +343,10 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TripPurposeScreen(draft: widget.draft),
+        builder: (_) => TripPurposeScreen(
+          draft: widget.draft,
+          tripService: widget.tripService,
+        ),
       ),
     );
   }

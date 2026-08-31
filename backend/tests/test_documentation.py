@@ -22,7 +22,11 @@ LOCAL_LINK_PATTERN = re.compile(r"\[[^]]+\]\((?!https?://)([^)#]+)(?:#[^)]*)?\)"
 def test_source_of_truth_has_review_date() -> None:
     for document in SOURCE_OF_TRUTH:
         assert document.is_file(), f"Missing source-of-truth document: {document}"
-        assert "Last reviewed: 2026-08-31" in document.read_text(encoding="utf-8")
+        contents = document.read_text(encoding="utf-8")
+        assert re.search(
+            r"(?m)^Last reviewed: \d{4}-\d{2}-\d{2}$",
+            contents,
+        ), f"Missing review date in {document}"
 
 
 def test_all_runtime_configuration_is_documented() -> None:

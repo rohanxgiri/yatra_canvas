@@ -1,5 +1,7 @@
 """Persistence rules for a user's ordered, customized trip places."""
 
+from __future__ import annotations
+
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError

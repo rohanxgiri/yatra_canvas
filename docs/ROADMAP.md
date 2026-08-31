@@ -1,6 +1,6 @@
 # YatraCanvas roadmap
 
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-01
 
 This roadmap is sequenced for reversible, testable changes. A phase is not complete until its
 acceptance criteria pass in a local/test environment and the source-of-truth documents are
@@ -25,7 +25,10 @@ Acceptance criteria:
 
 ## Phase 2 — Versioned migrations, identity, and complete trip lifecycle
 
-Status: `[PLANNED]`.
+Status: `[PARTIAL]`. The first unauthenticated trip-create slice is implemented: Flutter submits
+the existing `TripDraft`, FastAPI creates `Trip` and `TripPreference` rows transactionally, and
+the returned real `trip_id` is retained in memory for Place Discovery. Authentication, ownership,
+read/update/list/delete, restart persistence, and a versioned migration runner remain planned.
 
 Scope: adopt an ordered migration workflow; integrate Supabase Auth; add an application profile
 only if product needs require it; create authenticated trip create/read/update flows; persist
