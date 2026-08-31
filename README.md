@@ -9,6 +9,7 @@ interactive maps, weather, currency, and real admin workflows are not complete.
 Start with [the project context](docs/PROJECT_CONTEXT.md). It is the entry point to the
 evidence-backed source of truth:
 
+- [Single-file ChatGPT project handoff](docs/CHATGPT_PROJECT_HANDOFF.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [APIs and data sources](docs/API_AND_DATA_SOURCES.md)
 - [Data model](docs/DATA_MODEL.md)

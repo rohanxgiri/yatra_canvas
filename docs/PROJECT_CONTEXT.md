@@ -84,6 +84,7 @@ for replacement. Google Maps SDK is assessed independently and is currently not 
 
 ## Source-of-truth map
 
+- [Complete ChatGPT handoff](CHATGPT_PROJECT_HANDOFF.md): self-contained snapshot for a new conversation.
 - [Architecture](ARCHITECTURE.md): current and target components and flows.
 - [APIs and data sources](API_AND_DATA_SOURCES.md): provider ownership, policy, cache, and fallback.
 - [Data model](DATA_MODEL.md): current schema, provenance, and migration expectations.

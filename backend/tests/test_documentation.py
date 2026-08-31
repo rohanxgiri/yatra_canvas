@@ -7,6 +7,7 @@ from app.core.config import Settings
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_OF_TRUTH = (
+    REPOSITORY_ROOT / "docs" / "CHATGPT_PROJECT_HANDOFF.md",
     REPOSITORY_ROOT / "docs" / "PROJECT_CONTEXT.md",
     REPOSITORY_ROOT / "docs" / "ARCHITECTURE.md",
     REPOSITORY_ROOT / "docs" / "API_AND_DATA_SOURCES.md",
