@@ -112,6 +112,10 @@ void main() {
       );
       await tester.tap(find.text('Hotel Imperial'));
       await tester.pumpAndSettle();
+      expect(
+        find.text('Powered by Geoapify • © OpenStreetMap contributors'),
+        findsOneWidget,
+      );
       expect(draft.startLocationType, TripStartLocationType.arrival);
 
       await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));

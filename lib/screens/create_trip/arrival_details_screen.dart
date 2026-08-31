@@ -444,6 +444,19 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
                   ),
                 ],
               ),
+              if (_startProvider == 'geoapify') ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'Powered by Geoapify • © OpenStreetMap contributors',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textTertiary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ],
         ),
