@@ -23,6 +23,8 @@ class TripService {
     String? name,
     double? latitude,
     double? longitude,
+    String? provider,
+    String? providerPlaceId,
   }) async {
     final encodedTripId = Uri.encodeComponent(tripId.trim());
     final response = await _client
@@ -34,6 +36,8 @@ class TripService {
             'start_location_name': name,
             'start_latitude': latitude,
             'start_longitude': longitude,
+            'start_location_provider': provider,
+            'start_location_provider_place_id': providerPlaceId,
           }),
         )
         .timeout(_timeout);

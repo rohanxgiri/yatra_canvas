@@ -33,6 +33,8 @@ class TripDraft {
     this.startLocationName,
     this.startLatitude,
     this.startLongitude,
+    this.startLocationProvider,
+    this.startLocationProviderPlaceId,
     TimeOfDayValue? arrivalTime,
     Set<String>? purposes,
     this.travelPace = 'Balanced',
@@ -58,6 +60,8 @@ class TripDraft {
   String? startLocationName;
   double? startLatitude;
   double? startLongitude;
+  String? startLocationProvider;
+  String? startLocationProviderPlaceId;
   TimeOfDayValue arrivalTime;
   Set<String> purposes;
   String travelPace;

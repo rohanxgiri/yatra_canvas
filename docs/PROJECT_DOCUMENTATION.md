@@ -1,9 +1,11 @@
 # YatraCanvas — Frontend Project Documentation
 
-> **Project status:** Frontend prototype  
+> **Project status:** Flutter client with FastAPI/PostgreSQL backend
 > **Framework:** Flutter and Dart  
 > **Version inspected:** `0.1.0+1`  
-> **Documentation basis:** Current source code in this repository
+> **Documentation basis:** The screen inventory below predates the backend
+> integration. See `backend/README.md` for current POI providers, Geoapify
+> autocomplete, database provenance, and FSQ OS Places import operations.
 
 ## Contents
 

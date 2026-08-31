@@ -18,19 +18,17 @@ void main() {
     final client = MockClient((request) async {
       requests.add(request);
       if (request.url.path == '/locations/autocomplete') {
-        return http.Response('[$_hotelSuggestionJson]', 200);
-      }
-      if (request.url.path ==
-          '/locations/place-details/google-hotel-imperial') {
-        return http.Response(_hotelDetailsJson, 200);
+        return http.Response('{"results":[$_hotelSuggestionJson]}', 200);
       }
       if (request.url.path == '/trips/trip-123/start-location') {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         expect(body, {
           'start_location_type': 'hotel',
-          'start_location_name': 'Hotel Imperial',
+          'start_location_name': 'Hotel Imperial, Ujjain, India',
           'start_latitude': 23.1801,
           'start_longitude': 75.7812,
+          'start_location_provider': 'geoapify',
+          'start_location_provider_place_id': 'geoapify-hotel-imperial',
         });
         return http.Response(_tripStartJson, 200);
       }
@@ -45,21 +43,27 @@ void main() {
     final suggestions = await locations.autocomplete(
       'imperial',
       hotelOnly: true,
+      latitude: 23.1765,
+      longitude: 75.7885,
     );
     expect(suggestions.single.name, 'Hotel Imperial');
-    final details = await locations.getDetails('google-hotel-imperial');
-    expect(details.latitude, 23.1801);
     final saved = await trips.updateStartLocation(
       'trip-123',
       type: TripStartLocationType.hotel,
-      name: details.name,
-      latitude: details.latitude,
-      longitude: details.longitude,
+      name: suggestions.single.formattedAddress,
+      latitude: suggestions.single.latitude,
+      longitude: suggestions.single.longitude,
+      provider: suggestions.single.provider,
+      providerPlaceId: suggestions.single.providerPlaceId,
     );
     expect(saved.type, TripStartLocationType.hotel);
     expect(requests.first.url.queryParameters, {
       'query': 'imperial',
-      'kind': 'hotel',
+      'type': 'amenity',
+      'country_code': 'in',
+      'limit': '5',
+      'latitude': '23.1765',
+      'longitude': '75.7885',
     });
   });
 
@@ -102,7 +106,10 @@ void main() {
 
       expect(locationService.hotelOnly, isTrue);
       expect(find.text('Hotel Imperial'), findsOneWidget);
-      expect(find.text('Powered by Google'), findsOneWidget);
+      expect(
+        find.text('Powered by Geoapify • © OpenStreetMap contributors'),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Hotel Imperial'));
       await tester.pumpAndSettle();
       expect(draft.startLocationType, TripStartLocationType.arrival);
@@ -112,8 +119,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(draft.startLocationType, TripStartLocationType.hotel);
-      expect(draft.startLocationName, 'Hotel Imperial');
+      expect(draft.startLocationName, 'Hotel Imperial, Ujjain, India');
       expect(draft.startLatitude, 23.1801);
+      expect(draft.startLocationProvider, 'geoapify');
+      expect(draft.startLocationProviderPlaceId, 'geoapify-hotel-imperial');
       expect(tripService.savedType, TripStartLocationType.hotel);
       expect(tripService.savedTripId, 'trip-123');
       expect(find.text('What brings you\nto Ujjain?'), findsOneWidget);
@@ -165,25 +174,24 @@ class _FakeLocationService extends LocationService {
   Future<List<LocationSuggestion>> autocomplete(
     String query, {
     required bool hotelOnly,
+    double? latitude,
+    double? longitude,
   }) async {
     this.hotelOnly = hotelOnly;
     return const [
       LocationSuggestion(
-        googlePlaceId: 'google-hotel-imperial',
+        provider: 'geoapify',
+        providerPlaceId: 'geoapify-hotel-imperial',
         name: 'Hotel Imperial',
-        description: 'Hotel Imperial, Ujjain, India',
+        formattedAddress: 'Hotel Imperial, Ujjain, India',
+        latitude: 23.1801,
+        longitude: 75.7812,
+        city: 'Ujjain',
+        state: 'Madhya Pradesh',
+        countryCode: 'in',
+        resultType: 'amenity',
       ),
     ];
-  }
-
-  @override
-  Future<LocationDetails> getDetails(String googlePlaceId) async {
-    return const LocationDetails(
-      googlePlaceId: 'google-hotel-imperial',
-      name: 'Hotel Imperial',
-      latitude: 23.1801,
-      longitude: 75.7812,
-    );
   }
 }
 
@@ -198,6 +206,8 @@ class _FakeTripService extends TripService {
     String? name,
     double? latitude,
     double? longitude,
+    String? provider,
+    String? providerPlaceId,
   }) async {
     savedTripId = tripId;
     savedType = type;
@@ -207,6 +217,8 @@ class _FakeTripService extends TripService {
       name: name!,
       latitude: latitude!,
       longitude: longitude!,
+      provider: provider,
+      providerPlaceId: providerPlaceId,
     );
   }
 }
@@ -229,18 +241,16 @@ class _DeniedDeviceLocationService extends DeviceLocationService {
 
 const _hotelSuggestionJson = '''
 {
-  "google_place_id": "google-hotel-imperial",
+  "provider": "geoapify",
+  "provider_place_id": "geoapify-hotel-imperial",
   "name": "Hotel Imperial",
-  "description": "Hotel Imperial, Ujjain, India"
-}
-''';
-
-const _hotelDetailsJson = '''
-{
-  "google_place_id": "google-hotel-imperial",
-  "name": "Hotel Imperial",
+  "formatted_address": "Hotel Imperial, Ujjain, India",
   "latitude": 23.1801,
-  "longitude": 75.7812
+  "longitude": 75.7812,
+  "city": "Ujjain",
+  "state": "Madhya Pradesh",
+  "country_code": "in",
+  "result_type": "amenity"
 }
 ''';
 
@@ -250,6 +260,8 @@ const _tripStartJson = '''
   "start_location_type": "hotel",
   "start_location_name": "Hotel Imperial",
   "start_latitude": 23.1801,
-  "start_longitude": 75.7812
+  "start_longitude": 75.7812,
+  "start_location_provider": "geoapify",
+  "start_location_provider_place_id": "geoapify-hotel-imperial"
 }
 ''';

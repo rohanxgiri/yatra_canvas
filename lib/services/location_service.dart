@@ -20,13 +20,19 @@ class LocationService {
   Future<List<LocationSuggestion>> autocomplete(
     String query, {
     required bool hotelOnly,
+    double? latitude,
+    double? longitude,
   }) async {
     final normalized = query.trim();
-    if (normalized.length < 2) return const [];
+    if (normalized.length < 3) return const [];
     final uri = Uri.parse('$_baseUrl/locations/autocomplete').replace(
       queryParameters: {
         'query': normalized,
-        'kind': hotelOnly ? 'hotel' : 'custom',
+        'type': 'amenity',
+        'country_code': 'in',
+        'limit': '5',
+        if (latitude != null) 'latitude': '$latitude',
+        if (longitude != null) 'longitude': '$longitude',
       },
     );
     final response = await _client.get(uri).timeout(_timeout);
@@ -34,7 +40,8 @@ class LocationService {
       throw LocationServiceException(_errorMessage(response));
     }
     try {
-      final values = jsonDecode(response.body) as List<dynamic>;
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final values = payload['results'] as List<dynamic>;
       return values
           .map(
             (item) => LocationSuggestion.fromJson(item as Map<String, dynamic>),
@@ -45,23 +52,6 @@ class LocationService {
         'Location suggestions were invalid.',
         error,
       );
-    }
-  }
-
-  Future<LocationDetails> getDetails(String googlePlaceId) async {
-    final encoded = Uri.encodeComponent(googlePlaceId.trim());
-    final response = await _client
-        .get(Uri.parse('$_baseUrl/locations/place-details/$encoded'))
-        .timeout(_timeout);
-    if (response.statusCode != 200) {
-      throw LocationServiceException(_errorMessage(response));
-    }
-    try {
-      return LocationDetails.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
-      );
-    } on Object catch (error) {
-      throw LocationServiceException('Location details were invalid.', error);
     }
   }
 

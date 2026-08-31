@@ -18,20 +18,41 @@ extension TripStartLocationTypeValue on TripStartLocationType {
 
 class LocationSuggestion {
   const LocationSuggestion({
-    required this.googlePlaceId,
+    required this.provider,
+    required this.providerPlaceId,
     required this.name,
-    required this.description,
+    required this.formattedAddress,
+    required this.latitude,
+    required this.longitude,
+    required this.countryCode,
+    required this.resultType,
+    this.city,
+    this.state,
   });
 
-  final String googlePlaceId;
+  final String provider;
+  final String providerPlaceId;
   final String name;
-  final String description;
+  final String formattedAddress;
+  final double latitude;
+  final double longitude;
+  final String? city;
+  final String? state;
+  final String countryCode;
+  final String resultType;
 
   factory LocationSuggestion.fromJson(Map<String, dynamic> json) {
     return LocationSuggestion(
-      googlePlaceId: json['google_place_id'] as String,
+      provider: json['provider'] as String,
+      providerPlaceId: json['provider_place_id'] as String,
       name: json['name'] as String,
-      description: json['description'] as String,
+      formattedAddress: json['formatted_address'] as String,
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
+      city: json['city'] as String?,
+      state: json['state'] as String?,
+      countryCode: json['country_code'] as String,
+      resultType: json['result_type'] as String,
     );
   }
 }
@@ -66,6 +87,8 @@ class TripStartLocation {
     required this.name,
     required this.latitude,
     required this.longitude,
+    this.provider,
+    this.providerPlaceId,
   });
 
   final String tripId;
@@ -73,6 +96,8 @@ class TripStartLocation {
   final String name;
   final double latitude;
   final double longitude;
+  final String? provider;
+  final String? providerPlaceId;
 
   factory TripStartLocation.fromJson(Map<String, dynamic> json) {
     final value = json['start_location_type'] as String;
@@ -84,6 +109,8 @@ class TripStartLocation {
       name: json['start_location_name'] as String,
       latitude: (json['start_latitude'] as num).toDouble(),
       longitude: (json['start_longitude'] as num).toDouble(),
+      provider: json['start_location_provider'] as String?,
+      providerPlaceId: json['start_location_provider_place_id'] as String?,
     );
   }
 }

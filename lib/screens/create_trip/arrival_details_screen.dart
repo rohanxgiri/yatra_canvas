@@ -48,6 +48,8 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   String? _startName;
   double? _startLatitude;
   double? _startLongitude;
+  String? _startProvider;
+  String? _startProviderPlaceId;
   List<LocationSuggestion> _locationSuggestions = const [];
   String? _startError;
   bool _isSearchingLocation = false;
@@ -55,6 +57,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   bool _isGettingCurrentLocation = false;
   bool _isSavingStart = false;
   bool _suppressStartSearch = false;
+  int _searchRevision = 0;
 
   static const _methods = <(String, IconData)>[
     ('Train', Icons.train_rounded),
@@ -81,6 +84,8 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
         (_startType == TripStartLocationType.arrival ? _arrivalPoint : null);
     _startLatitude = widget.draft.startLatitude;
     _startLongitude = widget.draft.startLongitude;
+    _startProvider = widget.draft.startLocationProvider;
+    _startProviderPlaceId = widget.draft.startLocationProviderPlaceId;
     _ownsLocationService = widget.locationService == null;
     _locationService = widget.locationService ?? LocationService();
     _ownsTripService = widget.tripService == null;
@@ -176,10 +181,14 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
         _startName = _arrivalPoint;
         _startLatitude = widget.draft.arrivalLatitude;
         _startLongitude = widget.draft.arrivalLongitude;
+        _startProvider = null;
+        _startProviderPlaceId = null;
       } else {
         _startName = null;
         _startLatitude = null;
         _startLongitude = null;
+        _startProvider = null;
+        _startProviderPlaceId = null;
       }
     });
     if (type == TripStartLocationType.currentLocation) {
@@ -190,16 +199,22 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   void _onStartSearchChanged() {
     if (_suppressStartSearch) return;
     _searchDebounce?.cancel();
+    final revision = ++_searchRevision;
     final query = _startSearchController.text.trim();
-    if (query.length < 2 ||
+    setState(() {
+      // Editing after a selection makes the value raw text again. Coordinates
+      // and provider identity return only when a suggestion is selected.
+      _startName = null;
+      _startLatitude = null;
+      _startLongitude = null;
+      _startProvider = null;
+      _startProviderPlaceId = null;
+      _locationSuggestions = const [];
+      _isSearchingLocation = false;
+    });
+    if (query.length < 3 ||
         (_startType != TripStartLocationType.hotel &&
             _startType != TripStartLocationType.custom)) {
-      if (mounted) {
-        setState(() {
-          _locationSuggestions = const [];
-          _isSearchingLocation = false;
-        });
-      }
       return;
     }
     _searchDebounce = Timer(const Duration(milliseconds: 400), () async {
@@ -211,42 +226,41 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
         final suggestions = await _locationService.autocomplete(
           query,
           hotelOnly: _startType == TripStartLocationType.hotel,
+          latitude: widget.draft.destination?.latitude,
+          longitude: widget.draft.destination?.longitude,
         );
-        if (!mounted || query != _startSearchController.text.trim()) return;
+        if (!mounted ||
+            revision != _searchRevision ||
+            query != _startSearchController.text.trim()) {
+          return;
+        }
         setState(() => _locationSuggestions = suggestions);
       } on Object catch (error) {
         if (!mounted) return;
         setState(() => _startError = _locationError(error));
       } finally {
-        if (mounted) setState(() => _isSearchingLocation = false);
+        if (mounted && revision == _searchRevision) {
+          setState(() => _isSearchingLocation = false);
+        }
       }
     });
   }
 
-  Future<void> _selectLocationSuggestion(LocationSuggestion suggestion) async {
+  void _selectLocationSuggestion(LocationSuggestion suggestion) {
+    _searchRevision++;
     setState(() {
-      _isResolvingLocation = true;
+      _isResolvingLocation = false;
       _startError = null;
       _locationSuggestions = const [];
       _suppressStartSearch = true;
-      _startSearchController.text = suggestion.description;
+      _startSearchController.text = suggestion.formattedAddress;
       _suppressStartSearch = false;
+      _startName = suggestion.formattedAddress;
+      _startLatitude = suggestion.latitude;
+      _startLongitude = suggestion.longitude;
+      _startProvider = suggestion.provider;
+      _startProviderPlaceId = suggestion.providerPlaceId;
     });
-    try {
-      final details = await _locationService.getDetails(
-        suggestion.googlePlaceId,
-      );
-      if (!mounted) return;
-      setState(() {
-        _startName = details.name;
-        _startLatitude = details.latitude;
-        _startLongitude = details.longitude;
-      });
-    } on Object catch (error) {
-      if (mounted) setState(() => _startError = _locationError(error));
-    } finally {
-      if (mounted) setState(() => _isResolvingLocation = false);
-    }
   }
 
   Future<void> _useCurrentLocation() async {
@@ -289,6 +303,9 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
       ..startLocationName = _startName
       ..startLatitude = _startLatitude
       ..startLongitude = _startLongitude;
+    widget.draft
+      ..startLocationProvider = _startProvider
+      ..startLocationProviderPlaceId = _startProviderPlaceId;
     final tripId = widget.draft.tripId?.trim();
     if (tripId != null && tripId.isNotEmpty) {
       setState(() {
@@ -302,11 +319,16 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
           name: _startName,
           latitude: _startLatitude,
           longitude: _startLongitude,
+          provider: _startProvider,
+          providerPlaceId: _startProviderPlaceId,
         );
         widget.draft
           ..startLocationName = saved.name
           ..startLatitude = saved.latitude
           ..startLongitude = saved.longitude;
+        widget.draft
+          ..startLocationProvider = saved.provider
+          ..startLocationProviderPlaceId = saved.providerPlaceId;
       } on Object catch (error) {
         if (!mounted) return;
         setState(() {
@@ -391,7 +413,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
                   ),
                   title: Text(suggestion.name, style: AppTextStyles.label),
                   subtitle: Text(
-                    suggestion.description,
+                    suggestion.formattedAddress,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -400,7 +422,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  'Powered by Google',
+                  'Powered by Geoapify • © OpenStreetMap contributors',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textTertiary,
                     fontWeight: FontWeight.w600,
