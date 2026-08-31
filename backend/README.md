@@ -4,9 +4,16 @@ This folder contains the FastAPI and PostgreSQL backend for YatraCanvas. It
 provides city and place storage, server-side city discovery, runtime location
 autocomplete, recommendations, saved places, and route optimization.
 
-At startup, SQLModel creates any missing tables defined in `app/models`. This
-keeps the first phase migration-free. A proper migration workflow can replace
-this when the schema starts evolving.
+At startup, SQLModel creates missing tables defined in `app/models`. It does
+not alter an existing database to match changed models. Existing schema changes
+currently rely on reviewed scripts in `sql/`; adopting an ordered migration
+workflow is still planned.
+
+For the evidence-backed project overview and target direction, start with
+[`docs/PROJECT_CONTEXT.md`](../docs/PROJECT_CONTEXT.md), then see the
+[architecture](../docs/ARCHITECTURE.md),
+[provider matrix](../docs/API_AND_DATA_SOURCES.md), and
+[environment inventory](../docs/ENVIRONMENT_VARIABLES.md).
 
 Python 3.10 or newer is required.
 
@@ -66,10 +73,12 @@ GEOAPIFY_API_KEY=
 
 - `GOOGLE_PLACES_API_KEY` enables Places API (New) city autocomplete/details
   and cached nearby POI discovery. It is not a Google Maps SDK key; this project
-  has no Google Maps SDK or Android maps metadata.
+  has no Google Maps SDK or Android maps metadata. Places is transitional but
+  cannot be disabled until city and discovery replacements are verified.
 - `GOOGLE_ROUTES_API_KEY` enables Google Routes route-matrix calls for itinerary
   optimization. A separate restricted key is recommended even if one Google
-  Cloud project provides both Google APIs.
+  Cloud project provides both Google APIs. It remains current until the planned
+  openrouteservice adapter passes parity and fallback tests.
 - `GEOAPIFY_API_KEY` enables backend location autocomplete/geocoding.
 
 Keep all three keys only in `backend/.env`; they must never be added to Flutter
@@ -157,8 +166,8 @@ The endpoint will return a safe `503`; stored places, Google city discovery,
 and routing remain available when separately configured. The UI shows a
 recoverable error instead of exposing provider details.
 
-Geoapify's published free plan currently provides 3,000 credits/day and up to
-5 requests/second. Confirm current terms before launch. Autocomplete is
+Geoapify uses a freemium credit model; plans, quotas, and terms are volatile and
+must be re-checked in the official documentation before launch. Autocomplete is
 debounced in Flutter and cached briefly in the backend to control usage.
 Whenever suggestions are displayed, the UI shows `Powered by Geoapify` and
 `© OpenStreetMap contributors`; existing OSM attribution must also remain on
@@ -245,6 +254,10 @@ Official references:
 - [FSQ OS Places schema](https://docs.foursquare.com/data-products/docs/places-os-data-schema)
 - [Geoapify autocomplete](https://apidocs.geoapify.com/docs/geocoding/address-autocomplete/)
 - [Geoapify pricing and attribution](https://www.geoapify.com/pricing/)
+
+Provider facts in this section were last verified on 2026-08-31. The complete
+policy and fallback inventory is maintained in
+[`docs/API_AND_DATA_SOURCES.md`](../docs/API_AND_DATA_SOURCES.md).
 
 For an existing database, run `sql/add_cities_google_place_id_unique.sql` once
 in the Supabase SQL Editor before using `/cities/resolve`. New databases receive
