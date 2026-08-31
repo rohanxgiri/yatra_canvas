@@ -19,6 +19,8 @@ class TripStartLocationUpdate(SQLModel):
     start_location_name: str | None = Field(default=None, max_length=255)
     start_latitude: float | None = Field(default=None, ge=-90, le=90)
     start_longitude: float | None = Field(default=None, ge=-180, le=180)
+    start_location_provider: str | None = Field(default=None, max_length=50)
+    start_location_provider_place_id: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def validate_location(self) -> "TripStartLocationUpdate":
@@ -29,6 +31,22 @@ class TripStartLocationUpdate(SQLModel):
         if not self.start_location_name or not self.start_location_name.strip():
             raise ValueError("The selected start location requires a name.")
         self.start_location_name = self.start_location_name.strip()
+        if (self.start_location_provider is None) != (
+            self.start_location_provider_place_id is None
+        ):
+            raise ValueError(
+                "Location provider and provider place ID must be supplied together."
+            )
+        if self.start_location_provider is not None:
+            self.start_location_provider = self.start_location_provider.strip()
+            self.start_location_provider_place_id = (
+                self.start_location_provider_place_id or ""
+            ).strip()
+            if (
+                not self.start_location_provider
+                or not self.start_location_provider_place_id
+            ):
+                raise ValueError("Location provider identifiers must not be blank.")
         return self
 
 
@@ -38,6 +56,8 @@ class TripStartLocationRead(SQLModel):
     start_location_name: str
     start_latitude: float
     start_longitude: float
+    start_location_provider: str | None = None
+    start_location_provider_place_id: str | None = None
 
 
 class LocationSuggestion(SQLModel):

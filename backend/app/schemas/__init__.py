@@ -8,6 +8,10 @@ from app.schemas.city import (
     GooglePlaceDetails,
 )
 from app.schemas.place import GoogleNearbyPlace, PlaceCreate, PlaceRead
+from app.schemas.location import (
+    LocationAutocompleteResponse,
+    LocationAutocompleteResult,
+)
 from app.schemas.recommendation import (
     DiscoveryCategory,
     RecommendationRead,
@@ -53,6 +57,8 @@ __all__ = [
     "RouteOptimizationRead",
     "LocationDetails",
     "LocationSuggestion",
+    "LocationAutocompleteResponse",
+    "LocationAutocompleteResult",
     "StartLocationType",
     "TripStartLocationRead",
     "TripStartLocationUpdate",

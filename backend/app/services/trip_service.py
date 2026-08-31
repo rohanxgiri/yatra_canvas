@@ -41,11 +41,14 @@ class TripService:
         if request.start_location_type == StartLocationType.arrival:
             if trip.arrival_latitude is None or trip.arrival_longitude is None:
                 raise TripStartLocationError(
-                    "Save arrival coordinates before using the arrival point as the trip start."
+                    "Save arrival coordinates before using the arrival point "
+                    "as the trip start."
                 )
             name = trip.arrival_place or "Arrival point"
             latitude = trip.arrival_latitude
             longitude = trip.arrival_longitude
+            provider = None
+            provider_place_id = None
         else:
             if (
                 request.start_latitude is None
@@ -58,11 +61,15 @@ class TripService:
             name = request.start_location_name
             latitude = request.start_latitude
             longitude = request.start_longitude
+            provider = request.start_location_provider
+            provider_place_id = request.start_location_provider_place_id
 
         trip.start_location_type = request.start_location_type.value
         trip.start_location_name = name
         trip.start_latitude = latitude
         trip.start_longitude = longitude
+        trip.start_location_provider = provider
+        trip.start_location_provider_place_id = provider_place_id
         session.commit()
         session.refresh(trip)
         return self._to_start_location(trip)
@@ -90,4 +97,8 @@ class TripService:
             start_location_name=name,
             start_latitude=latitude,
             start_longitude=longitude,
+            start_location_provider=trip.start_location_provider,
+            start_location_provider_place_id=(
+                trip.start_location_provider_place_id
+            ),
         )

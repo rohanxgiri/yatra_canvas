@@ -1,61 +1,100 @@
-"""Normalized Google place search for trip start locations."""
+"""Provider-neutral runtime location autocomplete endpoint."""
 
+from functools import lru_cache
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.routers.cities import GooglePlacesDependency, google_places_http_error
-from app.schemas import LocationDetails, LocationSuggestion
-from app.services.google_places_service import (
-    GooglePlaceNotFoundError,
-    GooglePlacesConfigurationError,
-    GooglePlacesInvalidRequestError,
-    GooglePlacesTimeoutError,
-    GooglePlacesUnavailableError,
+from app.core.config import get_settings
+from app.schemas import LocationAutocompleteResponse
+from app.services.geoapify_service import (
+    GeoapifyConfigurationError,
+    GeoapifyInvalidRequestError,
+    GeoapifyRateLimitError,
+    GeoapifyService,
+    GeoapifyTimeoutError,
+    GeoapifyUnavailableError,
+)
+from app.services.location_autocomplete_provider import (
+    LocationAutocompleteProvider,
 )
 
 
 router = APIRouter(prefix="/locations", tags=["locations"])
 
 
-@router.get("/autocomplete", response_model=list[LocationSuggestion])
+@lru_cache
+def _cached_geoapify_service() -> GeoapifyService:
+    settings = get_settings()
+    return GeoapifyService(
+        settings.geoapify_api_key,
+        base_url=settings.geoapify_base_url,
+        timeout_seconds=settings.geoapify_timeout_seconds,
+        cache_ttl_seconds=settings.geoapify_autocomplete_cache_ttl_seconds,
+    )
+
+
+def get_location_autocomplete_provider() -> LocationAutocompleteProvider:
+    return _cached_geoapify_service()
+
+
+LocationProviderDependency = Annotated[
+    LocationAutocompleteProvider,
+    Depends(get_location_autocomplete_provider),
+]
+
+
+@router.get("/autocomplete", response_model=LocationAutocompleteResponse)
 async def autocomplete_locations(
-    google_places: GooglePlacesDependency,
-    query: Annotated[str, Query(min_length=2, max_length=160)],
-    kind: Annotated[Literal["hotel", "custom"], Query()] = "custom",
-) -> list[LocationSuggestion]:
-    normalized_query = query.strip()
-    if len(normalized_query) < 2:
+    provider: LocationProviderDependency,
+    query: Annotated[str, Query(min_length=3, max_length=160)],
+    location_type: Annotated[
+        Literal[
+            "country",
+            "state",
+            "city",
+            "postcode",
+            "street",
+            "amenity",
+            "locality",
+        ]
+        | None,
+        Query(alias="type"),
+    ] = None,
+    country_code: Annotated[str, Query(min_length=2, max_length=2)] = "in",
+    latitude: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    limit: Annotated[int, Query(ge=1, le=10)] = 5,
+) -> LocationAutocompleteResponse:
+    normalized_query = " ".join(query.split())
+    if len(normalized_query) < 3:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Location query must contain at least 2 characters.",
+            detail="Location query must contain at least 3 characters.",
+        )
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Latitude and longitude must be supplied together.",
         )
     try:
-        return await google_places.autocomplete_locations(
+        results = await provider.autocomplete(
             normalized_query,
-            hotel_only=kind == "hotel",
+            location_type=location_type,
+            country_code=country_code,
+            latitude=latitude,
+            longitude=longitude,
+            limit=limit,
         )
-    except (
-        GooglePlacesConfigurationError,
-        GooglePlacesInvalidRequestError,
-        GooglePlacesTimeoutError,
-        GooglePlacesUnavailableError,
-    ) as exc:
-        raise google_places_http_error(exc) from exc
-
-
-@router.get("/place-details/{google_place_id}", response_model=LocationDetails)
-async def get_location_details(
-    google_place_id: str,
-    google_places: GooglePlacesDependency,
-) -> LocationDetails:
-    try:
-        return await google_places.get_location_details(google_place_id)
-    except (
-        GooglePlacesConfigurationError,
-        GooglePlacesInvalidRequestError,
-        GooglePlaceNotFoundError,
-        GooglePlacesTimeoutError,
-        GooglePlacesUnavailableError,
-    ) as exc:
-        raise google_places_http_error(exc) from exc
+        return LocationAutocompleteResponse(results=results)
+    except GeoapifyInvalidRequestError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except GeoapifyConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except GeoapifyTimeoutError as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
+    except GeoapifyRateLimitError as exc:
+        headers = {"Retry-After": exc.retry_after} if exc.retry_after else None
+        raise HTTPException(status_code=429, detail=str(exc), headers=headers) from exc
+    except GeoapifyUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

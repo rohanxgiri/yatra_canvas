@@ -1,9 +1,18 @@
 """SQLModel table definitions for YatraCanvas's initial data model."""
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
+from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, Column, DateTime, UniqueConstraint, func
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    UniqueConstraint,
+    func,
+)
 from sqlmodel import Field, SQLModel
 
 
@@ -127,7 +136,104 @@ class PlaceSource(SQLModel, table=True):
     place_id: UUID = Field(foreign_key="places.id", index=True)
     source: str = Field(max_length=50, index=True)
     external_place_id: str = Field(max_length=255, index=True)
+    source_url: str | None = Field(default=None, max_length=1000)
+    licence_identifier: str = Field(default="unknown", max_length=120)
+    address: str | None = Field(default=None, max_length=500)
+    locality: str | None = Field(default=None, max_length=160, index=True)
+    region: str | None = Field(default=None, max_length=160)
+    postcode: str | None = Field(default=None, max_length=40)
+    country_code: str | None = Field(default=None, max_length=2)
+    telephone: str | None = Field(default=None, max_length=80)
+    website: str | None = Field(default=None, max_length=1000)
+    email: str | None = Field(default=None, max_length=320)
+    social_identifiers: dict[str, str] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+    )
+    source_date_created: date | None = Field(
+        default=None,
+        sa_column=Column(Date, nullable=True),
+    )
+    source_date_refreshed: date | None = Field(
+        default=None,
+        sa_column=Column(Date, nullable=True),
+    )
+    source_date_closed: date | None = Field(
+        default=None,
+        sa_column=Column(Date, nullable=True),
+    )
+    unresolved_flags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+    )
     last_fetched_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
+    imported_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+
+class PlaceCategory(SQLModel, table=True):
+    __tablename__ = "place_categories"
+    __table_args__ = (
+        UniqueConstraint(
+            "place_id",
+            "source",
+            "external_category_id",
+            name="uq_place_categories_place_source_external",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    place_id: UUID = Field(foreign_key="places.id", index=True)
+    source: str = Field(max_length=50, index=True)
+    external_category_id: str = Field(max_length=255, index=True)
+    label: str | None = Field(default=None, max_length=255, index=True)
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+
+
+class PlaceImportReview(SQLModel, table=True):
+    __tablename__ = "place_import_reviews"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider",
+            "external_place_id",
+            name="uq_place_import_reviews_provider_external",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'resolved', 'ignored')",
+            name="ck_place_import_reviews_status",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    city_id: UUID = Field(foreign_key="cities.id", index=True)
+    provider: str = Field(max_length=50, index=True)
+    external_place_id: str = Field(max_length=255, index=True)
+    reason: str = Field(max_length=255)
+    status: str = Field(default="pending", max_length=20, index=True)
+    candidate_place_ids: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+    )
+    match_details: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+    )
+    source_snapshot: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+    )
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+    updated_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False)
     )
 
@@ -174,6 +280,11 @@ class Trip(SQLModel, table=True):
     start_location_name: str | None = Field(default=None, max_length=255)
     start_latitude: float | None = None
     start_longitude: float | None = None
+    start_location_provider: str | None = Field(default=None, max_length=50)
+    start_location_provider_place_id: str | None = Field(
+        default=None,
+        max_length=500,
+    )
     start_date: date | None = None
     created_at: datetime | None = Field(
         default=None,
