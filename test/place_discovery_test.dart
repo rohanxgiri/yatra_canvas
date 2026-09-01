@@ -159,6 +159,7 @@ void main() {
       await tester.tap(find.text('Add'));
       await tester.pumpAndSettle();
       expect(savedPlaceService.addedPlaceIds, ['place-religious']);
+      expect(savedPlaceService.addTripIds, ['trip-123']);
       expect(find.text('1 saved'), findsOneWidget);
 
       final removeButton = find.widgetWithText(TextButton, 'Remove');
@@ -170,6 +171,74 @@ void main() {
       expect(find.text('0 saved'), findsOneWidget);
     },
   );
+
+  testWidgets('duplicate save reloads authoritative backend state', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final savedPlaceService = _FakeSavedPlaceService(conflictOnNextAdd: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripId: 'runtime-trip-id',
+          recommendationService: _FakeRecommendationService(),
+          savedPlaceService: savedPlaceService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Get Recommendations'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Add'), 180);
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+
+    expect(savedPlaceService.addTripIds, ['runtime-trip-id']);
+    expect(savedPlaceService.loadTripIds, [
+      'runtime-trip-id',
+      'runtime-trip-id',
+    ]);
+    expect(find.text('1 saved'), findsOneWidget);
+    expect(find.textContaining('already saved'), findsOneWidget);
+  });
+
+  testWidgets('failed save is not shown as saved', (tester) async {
+    tester.view.physicalSize = const Size(390, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final savedPlaceService = _FakeSavedPlaceService(failAdd: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripId: 'runtime-trip-id',
+          recommendationService: _FakeRecommendationService(),
+          savedPlaceService: savedPlaceService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Get Recommendations'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Add'), 180);
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('0 saved'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Add'), findsOneWidget);
+    expect(find.text('Controlled save failure.'), findsWidgets);
+  });
 
   testWidgets('selected places reorder persists the complete place order', (
     tester,
@@ -208,7 +277,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Add notes').first);
+    final addNotesButton = find.byTooltip('Add notes').first;
+    await tester.ensureVisible(addNotesButton);
+    await tester.pumpAndSettle();
+    await tester.tap(addNotesButton);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Visit before sunrise');
     await tester.tap(find.text('Save preferences'));
@@ -236,7 +308,150 @@ void main() {
     expect(find.text('From arrival · 2.1 km · 8 min'), findsOneWidget);
     expect(find.text('3.5 km · 13 min'), findsOneWidget);
   });
+
+  testWidgets('saved settings use backend response and render all fields', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final savedPlaceService = _FakeSavedPlaceService(
+      initial: [_savedPlace('place-a', 'Place A', 1)],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripId: 'runtime-trip-settings',
+          recommendationService: _FakeRecommendationService(),
+          savedPlaceService: savedPlaceService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Add notes'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Visit before sunrise');
+    tester.widget<Slider>(find.byType(Slider)).onChanged!(7);
+    tester.widget<SwitchListTile>(find.byType(SwitchListTile).at(0)).onChanged!(
+      true,
+    );
+    tester.widget<SwitchListTile>(find.byType(SwitchListTile).at(1)).onChanged!(
+      true,
+    );
+    await tester.pump();
+    await tester.tap(find.text('Save preferences'));
+    await tester.pumpAndSettle();
+
+    final update = savedPlaceService.settingsUpdates.single;
+    expect(update.tripId, 'runtime-trip-settings');
+    expect(update.placeId, 'place-a');
+    expect(update.notes, 'Visit before sunrise');
+    expect(update.priority, 7);
+    expect(update.isLocked, isTrue);
+    expect(update.mustVisit, isTrue);
+    expect(find.text('Priority 7'), findsOneWidget);
+    expect(find.text('Must visit'), findsOneWidget);
+    expect(find.text('Locked'), findsOneWidget);
+    expect(find.text('Visit before sunrise'), findsOneWidget);
+  });
+
+  testWidgets('failed reorder reloads authoritative backend order', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final savedPlaceService = _FakeSavedPlaceService(
+      initial: [
+        _savedPlace('place-a', 'Place A', 1),
+        _savedPlace('place-b', 'Place B', 2),
+        _savedPlace('place-c', 'Place C', 3),
+      ],
+      failReorder: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripId: 'runtime-trip-reorder',
+          recommendationService: _FakeRecommendationService(),
+          savedPlaceService: savedPlaceService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final list = tester.widget<ReorderableListView>(
+      find.byType(ReorderableListView),
+    );
+    list.onReorderItem!(0, 2);
+    await tester.pumpAndSettle();
+
+    expect(savedPlaceService.reorderRequests, [
+      ['place-b', 'place-c', 'place-a'],
+    ]);
+    expect(savedPlaceService.loadTripIds, [
+      'runtime-trip-reorder',
+      'runtime-trip-reorder',
+    ]);
+    expect(find.text('Controlled reorder failure.'), findsWidgets);
+  });
+
+  testWidgets('failed delete keeps the target and unrelated saved places', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final savedPlaceService = _FakeSavedPlaceService(
+      initial: [
+        _savedPlace('place-a', 'Place A', 1),
+        _savedPlace('place-b', 'Place B', 2),
+      ],
+      failRemove: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripId: 'runtime-trip-delete',
+          recommendationService: _FakeRecommendationService(),
+          savedPlaceService: savedPlaceService,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Remove place').first);
+    await tester.pumpAndSettle();
+
+    expect(savedPlaceService.removeTripIds, ['runtime-trip-delete']);
+    expect(find.text('2 saved'), findsOneWidget);
+    expect(find.text('Place A'), findsOneWidget);
+    expect(find.text('Place B'), findsOneWidget);
+    expect(find.text('Controlled delete failure.'), findsWidgets);
+  });
 }
+
+const _city = City(
+  id: 'city-123',
+  name: 'Ujjain',
+  state: 'Madhya Pradesh',
+  country: 'India',
+  latitude: 23.1765,
+  longitude: 75.7885,
+);
 
 class _FakeRecommendationService extends RecommendationService {
   _FakeRecommendationService() : super(baseUrl: 'http://example.test');
@@ -273,18 +488,42 @@ class _FakeRecommendationService extends RecommendationService {
 }
 
 class _FakeSavedPlaceService extends SavedPlaceService {
-  _FakeSavedPlaceService({List<SavedPlace> initial = const []})
-    : savedPlaces = List.of(initial),
-      super(baseUrl: 'http://example.test');
+  _FakeSavedPlaceService({
+    List<SavedPlace> initial = const [],
+    this.conflictOnNextAdd = false,
+    this.failAdd = false,
+    this.failReorder = false,
+    this.failRemove = false,
+  }) : savedPlaces = List.of(initial),
+       super(baseUrl: 'http://example.test');
 
   List<SavedPlace> savedPlaces;
+  bool conflictOnNextAdd;
+  final bool failAdd;
+  final bool failReorder;
+  final bool failRemove;
+  final List<String> loadTripIds = [];
+  final List<String> addTripIds = [];
+  final List<String> removeTripIds = [];
   final List<String> addedPlaceIds = [];
   final List<String> removedPlaceIds = [];
   final List<List<String>> reorderRequests = [];
   final Map<String, String?> noteUpdates = {};
+  final List<
+    ({
+      String tripId,
+      String placeId,
+      String? notes,
+      int priority,
+      bool isLocked,
+      bool mustVisit,
+    })
+  >
+  settingsUpdates = [];
 
   @override
   Future<List<SavedPlace>> getSavedPlaces(String tripId) async {
+    loadTripIds.add(tripId);
     return List.of(savedPlaces);
   }
 
@@ -298,7 +537,14 @@ class _FakeSavedPlaceService extends SavedPlaceService {
     bool mustVisit = false,
     String? notes,
   }) async {
+    addTripIds.add(tripId);
     addedPlaceIds.add(placeId);
+    if (failAdd) {
+      throw const SavedPlaceServiceException(
+        'Controlled save failure.',
+        statusCode: 500,
+      );
+    }
     final saved = _savedPlace(
       placeId,
       'Mahakaleshwar Temple',
@@ -308,13 +554,28 @@ class _FakeSavedPlaceService extends SavedPlaceService {
       isLocked: isLocked,
       mustVisit: mustVisit,
     );
+    if (conflictOnNextAdd) {
+      conflictOnNextAdd = false;
+      savedPlaces = [...savedPlaces, saved];
+      throw const SavedPlaceServiceException(
+        'This place is already saved to the trip.',
+        statusCode: 409,
+      );
+    }
     savedPlaces = [...savedPlaces, saved];
     return saved;
   }
 
   @override
   Future<void> removeSavedPlace(String tripId, String placeId) async {
+    removeTripIds.add(tripId);
     removedPlaceIds.add(placeId);
+    if (failRemove) {
+      throw const SavedPlaceServiceException(
+        'Controlled delete failure.',
+        statusCode: 500,
+      );
+    }
     savedPlaces = [
       for (final savedPlace in savedPlaces)
         if (savedPlace.placeId != placeId) savedPlace,
@@ -327,6 +588,12 @@ class _FakeSavedPlaceService extends SavedPlaceService {
     List<String> placeIds,
   ) async {
     reorderRequests.add(List.of(placeIds));
+    if (failReorder) {
+      throw const SavedPlaceServiceException(
+        'Controlled reorder failure.',
+        statusCode: 500,
+      );
+    }
     final byId = {for (final item in savedPlaces) item.placeId: item};
     savedPlaces = [
       for (var index = 0; index < placeIds.length; index++)
@@ -361,6 +628,14 @@ class _FakeSavedPlaceService extends SavedPlaceService {
     required int customOrder,
     String? notes,
   }) async {
+    settingsUpdates.add((
+      tripId: tripId,
+      placeId: placeId,
+      notes: notes,
+      priority: priority,
+      isLocked: isLocked,
+      mustVisit: mustVisit,
+    ));
     noteUpdates[placeId] = notes;
     final current = savedPlaces.firstWhere((item) => item.placeId == placeId);
     final updated = _copySavedPlace(

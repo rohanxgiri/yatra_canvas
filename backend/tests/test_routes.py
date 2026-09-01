@@ -11,7 +11,9 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.database import get_session
 from app.main import app
 from app.routers.cities import get_google_places_service
+from app.routers.places import get_openstreetmap_places_service
 from app.schemas import (
+    DiscoveryCategory,
     GoogleCitySuggestion,
     GoogleNearbyPlace,
     GooglePlaceDetails,
@@ -20,6 +22,7 @@ from app.services.google_places_service import (
     GooglePlaceNotFoundError,
     GooglePlacesService,
 )
+from app.services.openstreetmap_places_service import OpenStreetMapNearbyPlace
 
 
 @pytest.fixture
@@ -109,23 +112,29 @@ def test_resolve_city_creates_once_and_returns_existing(client: TestClient) -> N
     assert len(listed.json()) == 1
 
 
-@pytest.mark.parametrize("google_place_id", [None, "", "   "])
-def test_resolve_city_requires_google_place_id(
-    client: TestClient, google_place_id: str | None
+def test_resolve_city_without_google_place_id_creates_once(
+    client: TestClient,
 ) -> None:
-    response = client.post(
+    payload = {
+        "name": "Udaipur",
+        "state": "Rajasthan",
+        "country": "India",
+        "latitude": 24.578721,
+        "longitude": 73.6862571,
+        "google_place_id": None,
+    }
+    first = client.post(
         "/cities/resolve",
-        json={
-            "name": "Gandhinagar",
-            "state": "Gujarat",
-            "country": "India",
-            "latitude": 23.2156,
-            "longitude": 72.6369,
-            "google_place_id": google_place_id,
-        },
+        json=payload,
     )
+    second = client.post("/cities/resolve", json=payload)
 
-    assert response.status_code == 422
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json() == first.json()
+    assert client.get("/cities/search", params={"query": "udaipur"}).json() == [
+        first.json()
+    ]
 
 
 def test_search_cities_matches_name_and_state_case_insensitively(
@@ -239,7 +248,7 @@ class FakeGooglePlacesService:
         ]
 
 
-class FakeRecommendationGoogleService:
+class FakeOpenStreetMapPlacesService:
     def __init__(self) -> None:
         self.call_counts = {
             "religious": 0,
@@ -252,60 +261,52 @@ class FakeRecommendationGoogleService:
         *,
         latitude: float,
         longitude: float,
-        included_types: tuple[str, ...],
-        radius_meters: float,
-        max_results: int = 20,
-    ) -> list[GoogleNearbyPlace]:
+        category: DiscoveryCategory,
+        limit: int = 40,
+    ) -> list[OpenStreetMapNearbyPlace]:
         assert latitude == 23.1765
         assert longitude == 75.7885
-        assert radius_meters > 0
-        assert max_results == 20
+        assert limit == 40
 
-        if "hindu_temple" in included_types:
-            category = "religious"
+        if category is DiscoveryCategory.RELIGIOUS:
+            category_name = "religious"
             places = [
-                GoogleNearbyPlace(
-                    google_place_id="google-mahakal",
+                OpenStreetMapNearbyPlace(
+                    external_place_id="node/1001",
+                    source_url="https://www.openstreetmap.org/node/1001",
                     name="Mahakaleshwar Temple",
                     latitude=23.1828,
                     longitude=75.7682,
-                    rating=4.8,
-                    review_count=120000,
-                    primary_type="hindu_temple",
-                    types=["hindu_temple", "historical_place"],
+                    tags={"amenity": "place_of_worship"},
                 )
             ]
-        elif "restaurant" in included_types:
-            category = "food"
+        elif category is DiscoveryCategory.FOOD:
+            category_name = "food"
             places = [
-                GoogleNearbyPlace(
-                    google_place_id="google-ujjain-food",
+                OpenStreetMapNearbyPlace(
+                    external_place_id="node/1002",
+                    source_url="https://www.openstreetmap.org/node/1002",
                     name="Ujjain Food Street",
                     latitude=23.179,
                     longitude=75.781,
-                    rating=4.6,
-                    review_count=20000,
-                    primary_type="restaurant",
-                    types=["restaurant"],
+                    tags={"amenity": "restaurant"},
                 )
             ]
         else:
-            assert "historical_place" in included_types
-            category = "heritage"
+            assert category is DiscoveryCategory.HERITAGE
+            category_name = "heritage"
             places = [
-                GoogleNearbyPlace(
-                    google_place_id="google-mahakal",
+                OpenStreetMapNearbyPlace(
+                    external_place_id="node/1001",
+                    source_url="https://www.openstreetmap.org/node/1001",
                     name="Mahakaleshwar Temple",
                     latitude=23.1828,
                     longitude=75.7682,
-                    rating=4.8,
-                    review_count=120000,
-                    primary_type="historical_place",
-                    types=["historical_place", "hindu_temple"],
+                    tags={"historic": "temple"},
                 )
             ]
 
-        self.call_counts[category] += 1
+        self.call_counts[category_name] += 1
         return places
 
 
@@ -339,8 +340,8 @@ def test_google_city_autocomplete_and_place_details(client: TestClient) -> None:
 
 
 def test_missing_google_key_returns_safe_api_response(client: TestClient) -> None:
-    app.dependency_overrides[get_google_places_service] = lambda: (
-        GooglePlacesService(None)
+    app.dependency_overrides[get_google_places_service] = lambda: GooglePlacesService(
+        None
     )
 
     response = client.get("/cities/autocomplete", params={"query": "Ujjain"})
@@ -486,8 +487,8 @@ def test_discover_places_validates_city_and_category(client: TestClient) -> None
 def test_recommendations_reuse_each_category_cache_deduplicate_and_rank(
     client: TestClient,
 ) -> None:
-    fake_google = FakeRecommendationGoogleService()
-    app.dependency_overrides[get_google_places_service] = lambda: fake_google
+    fake_osm = FakeOpenStreetMapPlacesService()
+    app.dependency_overrides[get_openstreetmap_places_service] = lambda: fake_osm
     city = client.post(
         "/cities",
         json={
@@ -499,14 +500,7 @@ def test_recommendations_reuse_each_category_cache_deduplicate_and_rank(
             "google_place_id": "google-ujjain-recommendations",
         },
     ).json()
-    discovery_path = f"/cities/{city['id']}/discover-places"
     recommendation_path = f"/cities/{city['id']}/recommendations"
-
-    prewarm = client.get(
-        discovery_path,
-        params={"category": "religious"},
-    )
-    assert prewarm.status_code == 200
 
     payload = {
         "categories": ["religious", "food", "heritage"],
@@ -526,7 +520,7 @@ def test_recommendations_reuse_each_category_cache_deduplicate_and_rank(
         first.json()[0]["recommendation_score"]
         > first.json()[1]["recommendation_score"]
     )
-    assert fake_google.call_counts == {
+    assert fake_osm.call_counts == {
         "religious": 1,
         "food": 1,
         "heritage": 1,
@@ -535,7 +529,7 @@ def test_recommendations_reuse_each_category_cache_deduplicate_and_rank(
     second = client.post(recommendation_path, json=payload)
     assert second.status_code == 200
     assert second.json() == first.json()
-    assert fake_google.call_counts == {
+    assert fake_osm.call_counts == {
         "religious": 1,
         "food": 1,
         "heritage": 1,

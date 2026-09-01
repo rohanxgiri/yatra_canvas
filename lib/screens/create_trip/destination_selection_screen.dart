@@ -125,9 +125,9 @@ class _DestinationSelectionScreenState
     if (localSuggestions.length >= 5) return;
 
     Object? externalError;
-    List<CitySuggestion> googleSuggestions = const [];
+    List<CitySuggestion> externalSuggestions = const [];
     try {
-      googleSuggestions = await _cityService.autocompleteCities(query);
+      externalSuggestions = await _cityService.autocompleteCities(query);
     } on Object catch (error) {
       externalError = error;
     }
@@ -135,7 +135,7 @@ class _DestinationSelectionScreenState
     if (!mounted || requestGeneration != _searchGeneration) return;
     final mergedSuggestions = _mergeSuggestions(
       localSuggestions,
-      googleSuggestions,
+      externalSuggestions,
     );
     final searchFailure = mergedSuggestions.isEmpty
         ? externalError ?? localError
@@ -151,23 +151,27 @@ class _DestinationSelectionScreenState
 
   List<CitySuggestion> _mergeSuggestions(
     List<CitySuggestion> localSuggestions,
-    List<CitySuggestion> googleSuggestions,
+    List<CitySuggestion> externalSuggestions,
   ) {
     final merged = <CitySuggestion>[];
-    final placeIds = <String>{};
+    final providerPlaceIds = <String>{};
     final locations = <String>{};
 
-    for (final suggestion in [...localSuggestions, ...googleSuggestions]) {
-      final placeId = suggestion.googlePlaceId?.trim();
+    for (final suggestion in [...localSuggestions, ...externalSuggestions]) {
+      final placeId = suggestion.providerPlaceId?.trim();
       final duplicatePlace =
-          placeId != null && placeId.isNotEmpty && placeIds.contains(placeId);
+          placeId != null &&
+          placeId.isNotEmpty &&
+          providerPlaceIds.contains(placeId);
       final duplicateLocation = locations.contains(
         suggestion.normalizedLocation,
       );
       if (duplicatePlace || duplicateLocation) continue;
 
       merged.add(suggestion);
-      if (placeId != null && placeId.isNotEmpty) placeIds.add(placeId);
+      if (placeId != null && placeId.isNotEmpty) {
+        providerPlaceIds.add(placeId);
+      }
       locations.add(suggestion.normalizedLocation);
     }
     return merged;
@@ -197,8 +201,10 @@ class _DestinationSelectionScreenState
     try {
       final city =
           suggestion.city ??
-          await _cityService.getPlaceDetails(suggestion.googlePlaceId!);
-      final resolvedCity = await _cityService.resolveCity(city);
+          await _cityService.getPlaceDetails(suggestion.providerPlaceId!);
+      final resolvedCity = city.id == null
+          ? await _cityService.resolveCity(city)
+          : city;
       if (!mounted || requestGeneration != _resolveGeneration) return;
       setState(() {
         _draft.destination = resolvedCity;
@@ -433,9 +439,14 @@ class _SuggestionsPanel extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: Semantics(
-                  label: 'Google Maps',
+                  label: suggestions
+                      .firstWhere((suggestion) => suggestion.isExternal)
+                      .attribution,
                   child: Text(
-                    'Google Maps',
+                    suggestions
+                            .firstWhere((suggestion) => suggestion.isExternal)
+                            .attribution ??
+                        '',
                     maxLines: 1,
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,

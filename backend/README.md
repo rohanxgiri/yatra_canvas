@@ -62,8 +62,8 @@ already excludes it. If the database password contains URL-reserved characters
 such as `@`, `:`, `/`, `#`, or `%`, URL-encode the password before using it in
 the connection string.
 
-Three implemented provider integrations are optional. Add only the keys for the
-features you want to run:
+No Google key is required for normal recommendations or route optimization. The
+following keys are optional and should be added only for the flows that need them:
 
 ```dotenv
 GOOGLE_PLACES_API_KEY=
@@ -71,19 +71,18 @@ GOOGLE_ROUTES_API_KEY=
 GEOAPIFY_API_KEY=
 ```
 
-- `GOOGLE_PLACES_API_KEY` enables Places API (New) city autocomplete/details
-  and cached nearby POI discovery. It is not a Google Maps SDK key; this project
-  has no Google Maps SDK or Android maps metadata. Places is transitional but
-  cannot be disabled until city and discovery replacements are verified.
-- `GOOGLE_ROUTES_API_KEY` enables Google Routes route-matrix calls for itinerary
-  optimization. A separate restricted key is recommended even if one Google
-  Cloud project provides both Google APIs. It remains current until the planned
-  openrouteservice adapter passes parity and fallback tests.
-- `GEOAPIFY_API_KEY` enables backend location autocomplete/geocoding.
+- `GOOGLE_PLACES_API_KEY` enables legacy Places API (New) city
+  autocomplete/details and the legacy discovery endpoint. Normal Flutter
+  recommendations do not use it. It is not a Google Maps SDK key; this project
+  has no Google Maps SDK or Android maps metadata.
+- `GOOGLE_ROUTES_API_KEY` is retained for the legacy Google Routes adapter.
+  Normal itinerary optimization uses local coordinate estimates and does not
+  call Google.
+- `GEOAPIFY_API_KEY` enables destination and arrival autocomplete/geocoding.
 
-Keep all three keys only in `backend/.env`; they must never be added to Flutter
-or committed. When a key is absent, its provider-backed endpoint fails with a
-safe configuration response while unrelated backend features remain available.
+Keep keys only in `backend/.env`; they must never be added to Flutter or
+committed. OpenStreetMap recommendations use the keyless, configurable Overpass
+endpoint shown in `.env.example`; public endpoints are best-effort services.
 
 The backend keeps `trips.user_id` as a UUID but does not create or reference
 Supabase's `auth.users` table. Authentication is **not implemented**. `POST /trips`
@@ -113,11 +112,11 @@ http://127.0.0.1:8000/docs
 | `GET` | `/` | Backend status |
 | `POST` | `/cities` | Create a city |
 | `GET` | `/cities` | List cities |
-| `POST` | `/cities/resolve` | Return or create a city by Google Place ID |
+| `POST` | `/cities/resolve` | Return or create a normalized provider city |
 | `GET` | `/cities/search?query=` | Search stored cities by name or state |
 | `GET` | `/cities/autocomplete?query=` | Search Google for India city predictions |
 | `GET` | `/cities/place-details/{google_place_id}` | Normalize Google city details |
-| `GET` | `/locations/autocomplete?query=` | Search Geoapify for normalized India locations |
+| `GET` | `/locations/autocomplete?query=` | Search Geoapify for normalized India destinations and arrival locations |
 | `GET` | `/cities/{city_id}` | Get a city |
 | `POST` | `/trips` | Create a trip and its preferences; return a real `trip_id` |
 | `POST` | `/places` | Create a place |
@@ -164,14 +163,34 @@ identity separately. Provider responsibilities are intentionally narrow:
 | Wikidata/Wikipedia | Future notable-place enrichment |
 | PostgreSQL/Supabase | Canonical verified place storage |
 | Geoapify | User-driven runtime autocomplete and geocoding only |
-| Google Places | Existing city discovery and existing cached nearby discovery |
-| Google Routes | Implemented route matrices for itinerary optimization |
-| OpenStreetMap/Overpass | Intended additional POI source; no live client is implemented |
+| OpenStreetMap/Overpass | Normal bounded, cached POI recommendations; no key required |
+| Local coordinate estimator | Normal approximate route ordering; no key required |
+| Google Places | Retained legacy city and discovery endpoints only |
+| Google Routes | Retained legacy matrix adapter only |
 | Open-Meteo | Intended weather provider; not implemented |
 | Frankfurter | Intended currency provider; not implemented |
 
-The Flutter client reads stored POIs from YatraCanvas. It does not query FSQ or
-Geoapify whenever a city opens.
+The Flutter client reads POIs from YatraCanvas; the backend refreshes a bounded
+city/category cache from Overpass when needed. Flutter does not query Overpass,
+FSQ, or Geoapify whenever a city opens.
+
+### OpenStreetMap recommendations
+
+Normal recommendations require no provider key. The backend queries a bounded
+Overpass area, persists source element provenance, and caches each city/category
+result. The UI shows the required OpenStreetMap attribution. The optional
+settings are:
+
+```dotenv
+OVERPASS_API_URL=https://overpass-api.de/api/interpreter
+OVERPASS_TIMEOUT_SECONDS=25
+OVERPASS_RADIUS_METERS=8000
+```
+
+Public Overpass instances are best-effort and may occasionally time out or rate
+limit. Retry the request during development. A production deployment should
+evaluate regional OSM extracts or a self-hosted instance rather than treating a
+public endpoint as an SLA-backed service.
 
 ### Geoapify configuration
 

@@ -19,6 +19,11 @@ posts the existing city/date/arrival/purpose/preference values to the backend, r
 returned `trip_id` in that draft, and passes it to Place Discovery. Submission has loading,
 validation/network/backend/malformed-response handling and a duplicate-tap guard.
 
+`[IMPLEMENTED]` Destination selection searches canonical `City` rows first and then calls the
+provider-neutral `/locations/autocomplete` endpoint with an India/city filter. A selected
+Geoapify result is normalized through `/cities/resolve`; selecting an existing city performs no
+provider call. `[PARTIAL]` The canonical city row does not yet retain the Geoapify place ID.
+
 `[PARTIAL]` `TripDraft` and its `trip_id` remain widget-local and in memory; they do not survive
 an app restart. Trip listing/editing and authenticated ownership are absent. The admin shell
 uses hard-coded metrics and rows and has no admin API client.
@@ -35,17 +40,19 @@ internet permissions support device location and HTTP; they are not evidence of 
 | Status | `GET /` |
 | Cities | create/list/get/search; Google autocomplete, details, and resolve |
 | Locations | Geoapify-backed `GET /locations/autocomplete` |
-| Places | create/list, discovery, recommendations |
+| Places | create/list; legacy Google discovery; OpenStreetMap recommendations |
 | Saved places | list/create/update/reorder/delete under a trip |
 | Trips | create a trip; get/update start location |
-| Routing | optimize an existing trip using a cached route matrix |
+| Routing | optimize an existing trip using cached local distance/time estimates |
 
 Provider errors are translated into safe HTTP failures by routers. Settings are read from
 `backend/.env` or the process environment. Secrets use `SecretStr` and are unwrapped only at a
 provider boundary.
 
 `[PARTIAL]` `LocationAutocompleteProvider` is a provider-neutral protocol, currently backed by
-Geoapify. Place discovery and route matrices depend directly on Google-specific service classes.
+Geoapify. Normal recommendations use bounded OpenStreetMap/Overpass discovery and the optimizer
+uses offline coordinate estimates. Legacy Google-specific city/discovery and route client code
+remains but is not called by the normal Flutter flow.
 There are no auth, user-profile, trip read/update/list/delete, weather, currency, admin,
 ingestion-job, or observability endpoints.
 
@@ -67,9 +74,10 @@ flowchart LR
     U[Traveller] --> F[Flutter UI]
     F -->|REST, API_BASE_URL| B[FastAPI]
     B --> DB[(PostgreSQL)]
-    B -->|city autocomplete/details\nand nearby POI refresh| GP[Google Places API New]
-    B -->|arrival autocomplete| GA[Geoapify]
-    B -->|route matrix cache miss\nor stale traffic| GR[Google Routes API]
+    B -->|legacy endpoints only| GP[Google Places API New]
+    B -->|destination and arrival\nautocomplete| GA[Geoapify]
+    B -->|bounded POI discovery| OSM[OpenStreetMap / Overpass]
+    B -->|offline distance estimates| LR[Local route estimator]
     DB -->|canonical cities, places,\ntrips, saved places, cache| B
 ```
 
@@ -104,10 +112,9 @@ environment variable.
 - `[IMPLEMENTED]` Geoapify autocomplete uses an in-process TTL cache. It disappears on restart,
   is not shared across replicas, and returns a recoverable provider/configuration error when it
   cannot serve a request.
-- `[IMPLEMENTED]` `RouteMatrixCache` stores distance, static duration, optional traffic duration,
-  coordinates, canonical pair keys, `calculated_at`, and `expires_at`. `expires_at` controls
-  traffic freshness. Complete stored static legs can be used when Google is unavailable; a
-  missing required pair fails rather than inventing travel time.
+- `[IMPLEMENTED]` `RouteMatrixCache` stores coordinate-based local estimates under the
+  `local_estimate` mode. These are approximate straight-line-derived distances/times, not road
+  directions or live traffic.
 - `[PARTIAL]` Place freshness is represented at city/category and source levels, but there is no
   general refresh queue, purge policy, or source deletion/tombstone workflow.
 - `[PLANNED]` Target adapters must define timeout, retry/backoff, cache TTL, stale-data behavior,

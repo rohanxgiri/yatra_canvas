@@ -39,10 +39,10 @@ Deletion/cascade behavior is not specified by these models and must not be assum
 | `place_sources` / `PlaceSource` | `[IMPLEMENTED]` | Provider provenance and external identity. Unique per place/source and globally per source/external ID. Stores source URL, licence identifier, address/contact/social fields, provider lifecycle dates, unresolved flags, fetch/import timestamps. |
 | `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label, unique for place/source/external category. |
 | `place_import_reviews` / `PlaceImportReview` | `[IMPLEMENTED]` schema, `[PARTIAL]` workflow | One review per provider/external place ID. Status is `pending`, `resolved`, or `ignored`; stores candidates, match evidence, and a source snapshot. No connected admin endpoint/UI action exists. |
-| `trips` / `Trip` | `[IMPLEMENTED]` schema and create API, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. The model has no `end_date`; the request validates it and persists the equivalent `start_date + days`. Read/update/list/delete and authentication remain absent. |
-| `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema/create path | The trip-create transaction stores unique purposes, pace, budget, and transport choices as generic weighted preference rows, unique per trip/preference. |
+| `trips` / `Trip` | `[IMPLEMENTED]` schema, create, get, and patch APIs, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. `GET /trips/{trip_id}` returns the complete application trip representation, and `PATCH /trips/{trip_id}` supports partial updates with date/coordinate/preference validation and downstream cache invalidation. List/delete and authentication remain absent. |
+| `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema/create/edit path | The trip-create and trip-edit transactions store unique purposes, pace, budget, and transport choices as generic weighted preference rows, unique per trip/preference. Old rows are cleanly reconciled on update. |
 | `user_saved_places` / `UserSavedPlace` | `[IMPLEMENTED]` API | Unique trip/place selection with custom order, priority, locked, must-visit, notes. Requires an existing trip. |
-| `route_matrix_cache` / `RouteMatrixCache` | `[IMPLEMENTED]` | Per-trip directed pair/mode cache with place IDs or coordinate snapshots, canonical non-null pair keys, distance, static/traffic duration, calculation and expiry times. |
+| `route_matrix_cache` / `RouteMatrixCache` | `[IMPLEMENTED]` | Per-trip directed pair/mode cache with place IDs or coordinate snapshots. The normal path stores approximate offline costs under `local_estimate`; legacy Google rows remain distinguishable by mode. |
 | `trip_itinerary` / `TripItinerary` | `[IMPLEMENTED]` schema, `[PARTIAL]` planner | Unique visit order per trip/day, optional times and prior-leg metrics. Current optimizer writes only `day_number = 1`. |
 
 There is no application `User`/`Profile`, weather, currency, media, audit-log, map, or provider-job
@@ -82,11 +82,14 @@ forward migration, rollback/data-preservation plan, admin authorization, and tes
 
 ## Legacy Google identifiers
 
-- `City.google_place_id` is nullable but current city resolution depends on it. Preserve both the
-  column and `uq_cities_google_place_id` until Geoapify/canonical city identifiers are backfilled,
-  duplicate handling is reviewed, and rollback is tested.
+- `City.google_place_id` is nullable. The normal destination flow can resolve a city without it
+  by exact normalized name/state/country matching, while legacy Google endpoints still use it.
+  Preserve both the column and `uq_cities_google_place_id` until Geoapify/canonical city
+  identifiers are backfilled, duplicate handling is reviewed, and rollback is tested.
 - Google POI IDs belong in `PlaceSource(source="google", external_place_id=...)`, not a new
   canonical `Place` column.
+- OpenStreetMap POIs use `PlaceSource(source="openstreetmap", external_place_id="type/id")`
+  with their element URL and `ODbL-1.0` licence identifier.
 - Start-location provider IDs are stored on `Trip` with their provider name. They are not a
   canonical place foreign key.
 

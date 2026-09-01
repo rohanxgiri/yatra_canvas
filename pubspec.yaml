@@ -19,6 +19,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 flutter:
+  default-flavor: regular
   uses-material-design: true
   assets:
     - lib/Logo/logo.svg

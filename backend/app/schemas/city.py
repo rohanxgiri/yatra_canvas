@@ -37,16 +37,7 @@ class CityCreate(CityBase):
 
 
 class CityResolve(CityBase):
-    """Google city details accepted by the resolve endpoint."""
-
-    google_place_id: str = Field(min_length=1, max_length=255)
-
-    @field_validator("google_place_id")
-    @classmethod
-    def require_google_place_id(cls, value: str | None) -> str:
-        if value is None or not value.strip():
-            raise ValueError("must not be blank")
-        return value.strip()
+    """Normalized provider city accepted by the resolve endpoint."""
 
 
 class GoogleCitySuggestion(SQLModel):

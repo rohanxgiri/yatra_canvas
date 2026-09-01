@@ -7,10 +7,10 @@ import '../config/api_config.dart';
 import '../models/place.dart';
 
 class PlaceService {
-  PlaceService({http.Client? client, String baseUrl = ApiConfig.baseUrl})
+  PlaceService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
       _ownsClient = client == null,
-      _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), '');
+      _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
   static const Duration _requestTimeout = Duration(seconds: 15);
 

@@ -12,10 +12,10 @@ from app.database import get_session
 from app.schemas import RouteOptimizationRead
 from app.services.google_routes_service import (
     GoogleRoutesConfigurationError,
-    GoogleRoutesService,
     GoogleRoutesTimeoutError,
     GoogleRoutesUnavailableError,
 )
+from app.services.local_routes_service import LocalRoutesService
 from app.services.route_matrix_service import RouteMatrixService
 from app.services.route_optimization_service import (
     RouteOptimizationService,
@@ -27,8 +27,8 @@ router = APIRouter(prefix="/trips", tags=["route-optimization"])
 SessionDependency = Annotated[Session, Depends(get_session)]
 
 
-def get_google_routes_service() -> GoogleRoutesService:
-    return GoogleRoutesService(get_settings().google_routes_api_key_value)
+def get_route_provider() -> LocalRoutesService:
+    return LocalRoutesService()
 
 
 def get_route_optimization_service() -> RouteOptimizationService:
@@ -39,9 +39,7 @@ def get_route_matrix_service() -> RouteMatrixService:
     return RouteMatrixService(get_settings().route_matrix_traffic_ttl_minutes)
 
 
-GoogleRoutesDependency = Annotated[
-    GoogleRoutesService, Depends(get_google_routes_service)
-]
+RouteProviderDependency = Annotated[LocalRoutesService, Depends(get_route_provider)]
 RouteOptimizationDependency = Annotated[
     RouteOptimizationService, Depends(get_route_optimization_service)
 ]
@@ -52,7 +50,7 @@ RouteMatrixDependency = Annotated[RouteMatrixService, Depends(get_route_matrix_s
 async def optimize_trip_route(
     trip_id: UUID,
     session: SessionDependency,
-    google_routes: GoogleRoutesDependency,
+    route_provider: RouteProviderDependency,
     optimizer: RouteOptimizationDependency,
     route_matrix: RouteMatrixDependency,
 ) -> RouteOptimizationRead:
@@ -60,7 +58,7 @@ async def optimize_trip_route(
         return await optimizer.optimize(
             session,
             trip_id,
-            google_routes,
+            route_provider,
             route_matrix,
         )
     except RouteTripNotFoundError as exc:

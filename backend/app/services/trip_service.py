@@ -1,16 +1,20 @@
-"""Trip creation and start-location persistence rules."""
+"""Trip creation, retrieval, and editing persistence rules."""
 
+from datetime import timedelta
 from uuid import UUID
 
-from sqlmodel import Session
+from sqlalchemy import delete
+from sqlmodel import Session, select
 
-from app.models import City, Trip, TripPreference
+from app.models import City, RouteMatrixCache, Trip, TripItinerary, TripPreference
 from app.schemas import (
+    CityRead,
     StartLocationType,
     TripCreate,
     TripRead,
     TripStartLocationRead,
     TripStartLocationUpdate,
+    TripUpdate,
 )
 
 
@@ -92,7 +96,224 @@ class TripService:
         except Exception:
             session.rollback()
             raise
-        return self._to_trip_read(trip, preference_values)
+        return self._to_trip_read(trip, preference_values, city=city)
+
+    def get(self, session: Session, trip_id: UUID) -> TripRead:
+        trip = self._require_trip(session, trip_id)
+        city = session.get(City, trip.city_id)
+        preferences = session.exec(
+            select(TripPreference).where(TripPreference.trip_id == trip.id)
+        ).all()
+        preference_values = [p.preference for p in preferences]
+        return self._to_trip_read(trip, preference_values, city=city)
+
+    def update(
+        self,
+        session: Session,
+        trip_id: UUID,
+        request: TripUpdate,
+    ) -> TripRead:
+        trip = self._require_trip(session, trip_id)
+
+        city_changed = False
+        if request.city_id is not None and request.city_id != trip.city_id:
+            new_city = session.get(City, request.city_id)
+            if new_city is None:
+                raise TripCityNotFoundError("City not found.")
+            trip.city_id = new_city.id
+            city_changed = True
+
+        effective_start = (
+            request.start_date
+            if request.start_date is not None
+            else trip.start_date
+        )
+        if (
+            request.start_date is not None
+            or request.end_date is not None
+            or request.days is not None
+        ):
+            if request.start_date is not None and request.end_date is not None:
+                if request.end_date < request.start_date:
+                    raise TripServiceError("End date cannot be before start date.")
+                expected_days = (request.end_date - request.start_date).days + 1
+                if request.days is not None and request.days != expected_days:
+                    raise TripServiceError(
+                        "Days must match the inclusive trip date range."
+                    )
+                trip.start_date = request.start_date
+                trip.days = expected_days
+            elif request.end_date is not None:
+                if effective_start is None:
+                    raise TripServiceError(
+                        "Cannot compute days without a start date."
+                    )
+                if request.end_date < effective_start:
+                    raise TripServiceError("End date cannot be before start date.")
+                expected_days = (request.end_date - effective_start).days + 1
+                if request.days is not None and request.days != expected_days:
+                    raise TripServiceError(
+                        "Days must match the inclusive trip date range."
+                    )
+                trip.days = expected_days
+                if request.start_date is not None:
+                    trip.start_date = request.start_date
+            else:
+                if request.start_date is not None:
+                    trip.start_date = request.start_date
+                if request.days is not None:
+                    if request.days < 1:
+                        raise TripServiceError("Days must be greater than zero.")
+                    trip.days = request.days
+
+        if request.trip_name is not None:
+            trip.trip_name = request.trip_name
+
+        if request.arrival_place is not None:
+            trip.arrival_place = request.arrival_place
+        if (
+            request.arrival_latitude is not None
+            and request.arrival_longitude is not None
+        ):
+            trip.arrival_latitude = request.arrival_latitude
+            trip.arrival_longitude = request.arrival_longitude
+
+        start_coords_changed = False
+        if request.start_location_type is not None:
+            if request.start_location_type == StartLocationType.arrival:
+                start_name = trip.arrival_place
+                start_lat = trip.arrival_latitude
+                start_lng = trip.arrival_longitude
+                start_prov = None
+                start_prov_id = None
+            else:
+                start_name = (
+                    request.start_location_name or trip.start_location_name
+                )
+                start_lat = (
+                    request.start_latitude
+                    if request.start_latitude is not None
+                    else trip.start_latitude
+                )
+                start_lng = (
+                    request.start_longitude
+                    if request.start_longitude is not None
+                    else trip.start_longitude
+                )
+                start_prov = (
+                    request.start_location_provider
+                    if request.start_location_provider is not None
+                    else trip.start_location_provider
+                )
+                start_prov_id = (
+                    request.start_location_provider_place_id
+                    if request.start_location_provider_place_id is not None
+                    else trip.start_location_provider_place_id
+                )
+                if not start_name:
+                    raise TripStartLocationError(
+                        "The selected start location requires a name."
+                    )
+                if start_lat is None or start_lng is None:
+                    raise TripStartLocationError(
+                        "The selected start location requires coordinates."
+                    )
+
+            if (
+                trip.start_latitude != start_lat
+                or trip.start_longitude != start_lng
+                or trip.start_location_type != request.start_location_type.value
+            ):
+                start_coords_changed = True
+
+            trip.start_location_type = request.start_location_type.value
+            trip.start_location_name = start_name
+            trip.start_latitude = start_lat
+            trip.start_longitude = start_lng
+            trip.start_location_provider = start_prov
+            trip.start_location_provider_place_id = start_prov_id
+        else:
+            if request.start_location_name is not None:
+                trip.start_location_name = request.start_location_name
+            if (
+                request.start_latitude is not None
+                and request.start_longitude is not None
+            ):
+                if (
+                    trip.start_latitude != request.start_latitude
+                    or trip.start_longitude != request.start_longitude
+                ):
+                    start_coords_changed = True
+                trip.start_latitude = request.start_latitude
+                trip.start_longitude = request.start_longitude
+            if request.start_location_provider is not None:
+                trip.start_location_provider = request.start_location_provider
+            if request.start_location_provider_place_id is not None:
+                trip.start_location_provider_place_id = (
+                    request.start_location_provider_place_id
+                )
+
+        try:
+            # Invalidation behavior:
+            # If city changed or start coordinates changed, invalidate route matrix cache and itinerary for this trip.
+            # UserSavedPlace rows are strictly preserved.
+            if city_changed or start_coords_changed:
+                session.exec(
+                    delete(RouteMatrixCache).where(
+                        RouteMatrixCache.trip_id == trip.id
+                    )
+                )
+                session.exec(
+                    delete(TripItinerary).where(
+                        TripItinerary.trip_id == trip.id
+                    )
+                )
+
+            # Reconcile preferences transactionally if provided
+            if request.purposes is not None or request.preferences is not None:
+                combined_sources = [
+                    *(request.purposes if request.purposes is not None else []),
+                    *(
+                        request.preferences
+                        if request.preferences is not None
+                        else []
+                    ),
+                ]
+                new_pref_values: list[str] = []
+                seen: set[str] = set()
+                for p in combined_sources:
+                    key = p.casefold()
+                    if key not in seen:
+                        seen.add(key)
+                        new_pref_values.append(p)
+
+                session.exec(
+                    delete(TripPreference).where(
+                        TripPreference.trip_id == trip.id
+                    )
+                )
+                session.add_all(
+                    TripPreference(
+                        trip_id=trip.id,
+                        preference=pref,
+                        weight=1.0,
+                    )
+                    for pref in new_pref_values
+                )
+
+            session.add(trip)
+            session.commit()
+            session.refresh(trip)
+        except Exception:
+            session.rollback()
+            raise
+
+        city = session.get(City, trip.city_id)
+        all_prefs = session.exec(
+            select(TripPreference).where(TripPreference.trip_id == trip.id)
+        ).all()
+        preference_values = [p.preference for p in all_prefs]
+        return self._to_trip_read(trip, preference_values, city=city)
 
     def get_start_location(
         self, session: Session, trip_id: UUID
@@ -133,14 +354,37 @@ class TripService:
             provider = request.start_location_provider
             provider_place_id = request.start_location_provider_place_id
 
+        start_coords_changed = (
+            trip.start_latitude != latitude
+            or trip.start_longitude != longitude
+            or trip.start_location_type != request.start_location_type.value
+        )
+
         trip.start_location_type = request.start_location_type.value
         trip.start_location_name = name
         trip.start_latitude = latitude
         trip.start_longitude = longitude
         trip.start_location_provider = provider
         trip.start_location_provider_place_id = provider_place_id
-        session.commit()
-        session.refresh(trip)
+
+        try:
+            if start_coords_changed:
+                session.exec(
+                    delete(RouteMatrixCache).where(
+                        RouteMatrixCache.trip_id == trip.id
+                    )
+                )
+                session.exec(
+                    delete(TripItinerary).where(
+                        TripItinerary.trip_id == trip.id
+                    )
+                )
+            session.add(trip)
+            session.commit()
+            session.refresh(trip)
+        except Exception:
+            session.rollback()
+            raise
         return self._to_start_location(trip)
 
     @staticmethod
@@ -162,15 +406,36 @@ class TripService:
         return values
 
     @staticmethod
-    def _to_trip_read(trip: Trip, preferences: list[str]) -> TripRead:
+    def _to_trip_read(
+        trip: Trip,
+        preferences: list[str],
+        city: City | None = None,
+    ) -> TripRead:
         if trip.start_date is None or trip.arrival_place is None:
-            raise TripServiceError("Created trip is missing required values.")
+            raise TripServiceError("Trip is missing required values.")
+        end_date = trip.start_date + timedelta(days=trip.days - 1)
+        city_read = (
+            CityRead(
+                id=city.id,
+                name=city.name,
+                state=city.state,
+                country=city.country,
+                latitude=city.latitude,
+                longitude=city.longitude,
+                google_place_id=city.google_place_id,
+                created_at=city.created_at,
+            )
+            if city is not None and city.created_at is not None
+            else None
+        )
         return TripRead(
             trip_id=trip.id,
             city_id=trip.city_id,
+            city=city_read,
             trip_name=trip.trip_name,
             days=trip.days,
             start_date=trip.start_date,
+            end_date=end_date,
             arrival_place=trip.arrival_place,
             arrival_latitude=trip.arrival_latitude,
             arrival_longitude=trip.arrival_longitude,

@@ -130,6 +130,32 @@ void main() {
       ]);
     },
   );
+
+  test('SavedPlaceService exposes duplicate-save conflicts safely', () async {
+    final service = SavedPlaceService(
+      baseUrl: 'http://api.test',
+      client: MockClient(
+        (_) async => http.Response(
+          '{"detail":"This place is already saved to the trip."}',
+          409,
+        ),
+      ),
+    );
+
+    await expectLater(
+      service.addSavedPlace('runtime-trip-id', 'place-1'),
+      throwsA(
+        isA<SavedPlaceServiceException>()
+            .having((error) => error.statusCode, 'statusCode', 409)
+            .having((error) => error.isConflict, 'isConflict', isTrue)
+            .having(
+              (error) => error.message,
+              'message',
+              'This place is already saved to the trip.',
+            ),
+      ),
+    );
+  });
 }
 
 Map<String, Object?> _savedPlaceJson({

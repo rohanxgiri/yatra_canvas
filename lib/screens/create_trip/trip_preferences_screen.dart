@@ -81,8 +81,16 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
       _creationError = null;
     });
     try {
-      final created = await _tripService.createTrip(widget.draft);
-      widget.draft.tripId = created.tripId;
+      final tripId = widget.draft.tripId?.trim();
+      final String effectiveTripId;
+      if (tripId != null && tripId.isNotEmpty) {
+        final updated = await _tripService.updateTrip(tripId, widget.draft);
+        effectiveTripId = updated.tripId ?? tripId;
+      } else {
+        final created = await _tripService.createTrip(widget.draft);
+        effectiveTripId = created.tripId;
+        widget.draft.tripId = effectiveTripId;
+      }
       if (!mounted) return;
       final city = widget.draft.destination;
       if (city == null) {
@@ -93,7 +101,7 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) =>
-              PlaceDiscoveryScreen(city: city, tripId: created.tripId),
+              PlaceDiscoveryScreen(city: city, tripId: effectiveTripId),
         ),
       );
     } on Object catch (error) {
@@ -102,21 +110,25 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
         _isCreating = false;
         _creationError = error is TripServiceException
             ? error.message
-            : 'Could not create the trip. Please try again.';
+            : 'Could not save the trip. Please try again.';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEditing =
+        widget.draft.tripId != null && widget.draft.tripId!.isNotEmpty;
     return CreateTripScaffold(
       step: 5,
       title: 'How do you like\nto travel?',
       subtitle:
-          'These preferences help shape the pace and style of your itinerary.',
-      continueLabel: _isCreating ? 'Creating Trip…' : 'Find Places For Me',
-      continueIcon: _isCreating ? null : Icons.auto_awesome_rounded,
-      continueEnabled: _transport.isNotEmpty && !_isCreating,
+          'Tell us what feels right and we will tune the flow and pace of the trip.',
+      continueLabel: _isCreating
+          ? (isEditing ? 'Saving Trip…' : 'Creating Trip…')
+          : (isEditing ? 'Save & Discover Places' : 'Find Places For Me'),
+      continueIcon: Icons.auto_awesome_rounded,
+      continueEnabled: !_isCreating,
       onContinue: _finish,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

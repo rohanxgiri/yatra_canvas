@@ -7,10 +7,10 @@ import '../config/api_config.dart';
 import '../models/saved_place.dart';
 
 class SavedPlaceService {
-  SavedPlaceService({http.Client? client, String baseUrl = ApiConfig.baseUrl})
+  SavedPlaceService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
       _ownsClient = client == null,
-      _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), '');
+      _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
   static const Duration _requestTimeout = Duration(seconds: 15);
 
@@ -56,7 +56,10 @@ class SavedPlaceService {
         .delete(_itemUri(tripId, placeId))
         .timeout(_requestTimeout);
     if (response.statusCode != 204) {
-      throw SavedPlaceServiceException(_errorMessage(response));
+      throw SavedPlaceServiceException(
+        _errorMessage(response),
+        statusCode: response.statusCode,
+      );
     }
   }
 
@@ -143,7 +146,10 @@ class SavedPlaceService {
 
   List<SavedPlace> _decodeList(http.Response response) {
     if (response.statusCode != 200) {
-      throw SavedPlaceServiceException(_errorMessage(response));
+      throw SavedPlaceServiceException(
+        _errorMessage(response),
+        statusCode: response.statusCode,
+      );
     }
     try {
       final data = jsonDecode(response.body) as List<dynamic>;
@@ -153,19 +159,22 @@ class SavedPlaceService {
     } on FormatException catch (error) {
       throw SavedPlaceServiceException(
         'Saved places response was invalid.',
-        error,
+        cause: error,
       );
     } on TypeError catch (error) {
       throw SavedPlaceServiceException(
         'Saved places response was invalid.',
-        error,
+        cause: error,
       );
     }
   }
 
   SavedPlace _decodeOne(http.Response response, {int expectedStatus = 200}) {
     if (response.statusCode != expectedStatus) {
-      throw SavedPlaceServiceException(_errorMessage(response));
+      throw SavedPlaceServiceException(
+        _errorMessage(response),
+        statusCode: response.statusCode,
+      );
     }
     try {
       return SavedPlace.fromJson(
@@ -174,12 +183,12 @@ class SavedPlaceService {
     } on FormatException catch (error) {
       throw SavedPlaceServiceException(
         'Saved place response was invalid.',
-        error,
+        cause: error,
       );
     } on TypeError catch (error) {
       throw SavedPlaceServiceException(
         'Saved place response was invalid.',
-        error,
+        cause: error,
       );
     }
   }
@@ -201,10 +210,13 @@ class SavedPlaceService {
 }
 
 class SavedPlaceServiceException implements Exception {
-  const SavedPlaceServiceException(this.message, [this.cause]);
+  const SavedPlaceServiceException(this.message, {this.cause, this.statusCode});
 
   final String message;
   final Object? cause;
+  final int? statusCode;
+
+  bool get isConflict => statusCode == 409;
 
   @override
   String toString() => message;

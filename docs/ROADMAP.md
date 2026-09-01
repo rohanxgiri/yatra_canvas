@@ -25,10 +25,11 @@ Acceptance criteria:
 
 ## Phase 2 — Versioned migrations, identity, and complete trip lifecycle
 
-Status: `[PARTIAL]`. The first unauthenticated trip-create slice is implemented: Flutter submits
-the existing `TripDraft`, FastAPI creates `Trip` and `TripPreference` rows transactionally, and
-the returned real `trip_id` is retained in memory for Place Discovery. Authentication, ownership,
-read/update/list/delete, restart persistence, and a versioned migration runner remain planned.
+Status: `[PARTIAL]`. The current unauthenticated slices implement trip create/get/patch plus the
+normal Flutter handoff into persistent saved-place list/add/update/reorder/delete operations.
+The returned real `trip_id` is retained in memory and every saved-place mutation uses it.
+Authentication, ownership, trip list/delete, restart persistence, and a versioned migration
+runner remain planned.
 
 Scope: adopt an ordered migration workflow; integrate Supabase Auth; add an application profile
 only if product needs require it; create authenticated trip create/read/update flows; persist
@@ -63,7 +64,9 @@ Acceptance criteria:
 
 ## Phase 4 — OSM/Overpass supplemental ingestion
 
-Status: `[PLANNED]`.
+Status: `[PARTIAL]`. A bounded, cached runtime Overpass slice now supplies normal POI
+recommendations without a paid key. Extract-based ingestion, update/deletion lifecycle,
+production hosting policy, and broader provenance review remain planned.
 
 Scope: choose bounded regional extracts versus a compliant Overpass/self-hosted workflow,
 normalize selected OSM tags through the same provenance boundary, and preserve ODbL attribution.
@@ -94,7 +97,8 @@ Acceptance criteria:
 
 ## Phase 6 — Geoapify completion and Google Places exit readiness
 
-Status: `[PARTIAL]` (arrival autocomplete exists; Google remains for cities/POIs).
+Status: `[PARTIAL]` (destination and arrival autocomplete use Geoapify; Google remains for
+uncached POI discovery and legacy city endpoints; Geoapify city IDs are not persisted).
 
 Scope: use the existing provider-neutral location boundary for city and arrival geocoding where
 product tests prove parity. Build discovery from reviewed canonical ingestion rather than a new
@@ -112,7 +116,8 @@ Acceptance criteria:
 
 ## Phase 7 — openrouteservice and multi-day itinerary planning
 
-Status: `[PLANNED]` adapter; current Google/single-day implementation is `[PARTIAL]`.
+Status: `[PLANNED]` road-routing adapter; current local-estimate/single-day implementation is
+`[PARTIAL]` and the Google adapter is legacy only.
 
 Scope: introduce a provider-neutral directions/matrix interface, select hosted versus self-hosted
 openrouteservice, migrate cache semantics, and implement actual multi-day scheduling. Keep Google

@@ -54,8 +54,8 @@ void main() {
     final cityService = CityService(
       baseUrl: 'http://api.test',
       client: MockClient((request) async {
-        if (request.url.path == '/cities/autocomplete') {
-          return http.Response('[]', 200);
+        if (request.url.path == '/locations/autocomplete') {
+          return http.Response('{"results":[]}', 200);
         }
         return http.Response(
           request.method == 'GET' ? '[$_ujjainResponse]' : _ujjainResponse,
@@ -133,8 +133,8 @@ void main() {
       baseUrl: 'http://api.test',
       client: MockClient((request) async {
         requests.add(request);
-        if (request.url.path == '/cities/autocomplete') {
-          return http.Response('[$_gandhinagarSuggestion]', 200);
+        if (request.url.path == '/locations/autocomplete') {
+          return http.Response(_gandhinagarLocationResponse, 200);
         }
         return http.Response(
           request.method == 'GET'
@@ -170,7 +170,7 @@ void main() {
     expect(requests.first.method, 'GET');
     expect(requests.first.url.path, '/cities/search');
     expect(requests.first.url.queryParameters['query'], 'gandhi');
-    expect(requests.last.url.path, '/cities/autocomplete');
+    expect(requests.last.url.path, '/locations/autocomplete');
     expect(find.text('Gandhinagar'), findsOneWidget);
     expect(find.text('Gujarat, India'), findsOneWidget);
     expect(find.text('Saved'), findsOneWidget);
@@ -179,14 +179,12 @@ void main() {
     await tester.tap(find.text('Gandhinagar'));
     await tester.pumpAndSettle();
 
-    expect(requests, hasLength(3));
-    expect(requests.last.method, 'POST');
-    expect(requests.last.url.path, '/cities/resolve');
+    expect(requests, hasLength(2));
     expect(draft.destination?.id, '11111111-1111-1111-1111-111111111111');
     expect(find.text('CITY ADDED TO YOUR TRIP'), findsOneWidget);
   });
 
-  testWidgets('external city fetches details then resolves and stores UUID', (
+  testWidgets('Geoapify city resolves and stores UUID', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 640);
@@ -202,12 +200,8 @@ void main() {
         requests.add(request);
         return switch (request.url.path) {
           '/cities/search' => http.Response('[]', 200),
-          '/cities/autocomplete' => http.Response(
-            '[$_gandhinagarSuggestion]',
-            200,
-          ),
-          '/cities/place-details/google-gandhinagar' => http.Response(
-            _gandhinagarDetailsResponse,
+          '/locations/autocomplete' => http.Response(
+            _gandhinagarLocationResponse,
             200,
           ),
           '/cities/resolve' => http.Response(_gandhinagarResponse, 200),
@@ -232,15 +226,14 @@ void main() {
 
     expect(find.text('Gandhinagar'), findsOneWidget);
     expect(find.text('New'), findsOneWidget);
-    expect(find.text('Google Maps'), findsOneWidget);
+    expect(find.text('Geoapify • OpenStreetMap'), findsOneWidget);
 
     await tester.tap(find.text('Gandhinagar'));
     await tester.pumpAndSettle();
 
     expect(requests.map((request) => request.url.path), [
       '/cities/search',
-      '/cities/autocomplete',
-      '/cities/place-details/google-gandhinagar',
+      '/locations/autocomplete',
       '/cities/resolve',
     ]);
     expect(draft.destination?.id, '11111111-1111-1111-1111-111111111111');
@@ -257,7 +250,9 @@ void main() {
         if (shouldFail) {
           return http.Response('{"detail":"Search service unavailable."}', 503);
         }
-        return http.Response('[]', 200);
+        return request.url.path == '/locations/autocomplete'
+            ? http.Response('{"results":[]}', 200)
+            : http.Response('[]', 200);
       }),
     );
 
@@ -317,22 +312,22 @@ const _gandhinagarResponse = '''
 }
 ''';
 
-const _gandhinagarDetailsResponse = '''
+const _gandhinagarLocationResponse = '''
 {
-  "name": "Gandhinagar",
-  "state": "Gujarat",
-  "country": "India",
-  "latitude": 23.2156,
-  "longitude": 72.6369,
-  "google_place_id": "google-gandhinagar"
-}
-''';
-
-const _gandhinagarSuggestion = '''
-{
-  "google_place_id": "google-gandhinagar",
-  "name": "Gandhinagar",
-  "description": "Gandhinagar, Gujarat, India"
+  "results": [
+    {
+      "provider": "geoapify",
+      "provider_place_id": "geoapify-gandhinagar",
+      "name": "Gandhinagar",
+      "formatted_address": "Gandhinagar, GJ, India",
+      "latitude": 23.2156,
+      "longitude": 72.6369,
+      "city": "Gandhinagar",
+      "state": "Gujarat",
+      "country_code": "in",
+      "result_type": "city"
+    }
+  ]
 }
 ''';
 

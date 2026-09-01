@@ -42,12 +42,12 @@ and a global social network are current non-goals.
 | Journey | Status | Repository reality |
 | --- | --- | --- |
 | Splash, welcome, phone entry, onboarding | `[PARTIAL]` | UI and navigation exist; phone entry does not authenticate. |
-| Select destination and dates | `[PARTIAL]` | The normal Flutter flow submits the resolved city, dates, and inclusive day count to `POST /trips`; the calendar remains fixed to August 2026. |
+| Select destination and dates | `[PARTIAL]` | The normal Flutter flow searches stored cities, uses Geoapify city autocomplete when needed, persists a normalized city without requiring Google, and submits its ID, dates, and inclusive day count to `POST /trips`; the calendar remains fixed to August 2026. |
 | Choose arrival point | `[PARTIAL]` | Trip creation persists the draft's arrival/start fields. Geoapify/device/custom locations can supply coordinates, but the built-in station/airport suggestions remain destination-specific mock data and may have no coordinates. |
 | Choose purpose and preferences | `[IMPLEMENTED]` | The normal flow persists selected purposes, pace, budget, and transport choices as `TripPreference` rows in the trip-create transaction. |
-| Discover/recommend places | `[IMPLEMENTED]` | Backend endpoints read cached canonical places and can refresh via Google Nearby Search. |
-| Save places | `[IMPLEMENTED]` | After successful trip creation, the returned real `trip_id` is retained in `TripDraft` and passed to Place Discovery for saved-place operations. |
-| Optimize itinerary | `[PARTIAL]` | Google route matrix and constraints exist, but output is day 1 only and requires an existing trip. |
+| Discover/recommend places | `[PARTIAL]` | The normal recommendation flow performs bounded OpenStreetMap/Overpass queries, persists ODbL source metadata, caches results, and shows attribution. Public Overpass availability and raw OSM data quality are not production guarantees. |
+| Save places | `[IMPLEMENTED]` | Place Discovery uses the real `TripDraft.tripId` to load, add, customize, reorder, and delete persisted saved places. Duplicate conflicts and failed mutations reconcile with backend state instead of leaving optimistic local data. |
+| Optimize itinerary | `[PARTIAL]` | Constraint-aware day-1 ordering works with cached offline coordinate estimates. Distances/times are approximate; road directions and multi-day planning are absent. |
 | Interactive map | `[PLANNED]` | No map SDK/package or interactive map widget is present. Decorative artwork is not a map implementation. |
 | Weather and currency | `[PLANNED]` | No endpoints, clients, models, or settings exist. |
 | Admin review | `[PARTIAL]` | A mock admin shell and import-review schema exist; there are no admin APIs or connected review actions. |
@@ -58,10 +58,20 @@ is not treated as evidence that the intended end-to-end product is complete.
 
 `[IMPLEMENTED]` For the current unauthenticated development slice, `POST /trips` creates a `Trip`
 and related `TripPreference` rows transactionally and returns an application-generated UUID.
-`[PARTIAL]` The UUID is retained only in the in-memory `TripDraft`; app-restart persistence,
-trip listing/editing, ownership enforcement, and authentication are not implemented. Until
-authentication exists, the backend assigns a server-owned development-only placeholder
-`user_id` and rejects any client-supplied identity or internal trip fields.
+`GET /trips/{trip_id}` and `PATCH /trips/{trip_id}` allow loading and partially updating an
+existing trip, including destination, dates/days, arrival/start coordinates, provider IDs, and
+preferences.
+`[PARTIAL]` The UUID is retained in the in-memory `TripDraft` and can be loaded/edited via
+`TripService`; full trip history/listing UI, multi-trip persistence across accounts, ownership
+enforcement, and authentication are not implemented. Until authentication exists, the backend
+assigns a server-owned development-only placeholder `user_id` and rejects any client-supplied
+identity or internal trip fields.
+
+`[IMPLEMENTED]` The selected-places section is backed by `UserSavedPlace` rows rather than mock
+state. It persists `custom_order`, `priority`, `is_locked`, `must_visit`, and `notes`, and reloads
+authoritative order after a failed reorder. `[PARTIAL]` Changing a trip's city currently preserves
+saved places from the prior city. This avoids silent data loss but can leave cross-city selections;
+no automatic deletion or migration policy has been invented.
 
 ## Intended direction
 
@@ -72,9 +82,9 @@ licensing. Geoapify remains narrowly responsible for runtime autocomplete/geocod
 openrouteservice replaces Google Routes after parity and cache tests. Open-Meteo and Frankfurter
 provide weather and exchange-rate information after licensing and product decisions.
 
-Google Places is `[DEPRECATED]` in the target architecture but `[IMPLEMENTED]` and still needed
-by current city resolution and nearby discovery. Google Routes is likewise current but targeted
-for replacement. Google Maps SDK is assessed independently and is currently not installed.
+Google Places and Google Routes are `[DEPRECATED]` legacy adapters. The normal Flutter
+destination, recommendation, trip-create, and route-ordering flow does not require either key.
+Google Maps SDK is assessed independently and is currently not installed.
 
 ## Constraints
 

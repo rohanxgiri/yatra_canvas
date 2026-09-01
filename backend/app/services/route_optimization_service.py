@@ -9,12 +9,14 @@ from sqlmodel import Session, select
 from app.models import Place, Trip, TripItinerary, UserSavedPlace
 from app.schemas import OptimizedPlaceRead, RouteOptimizationRead
 from app.services.google_routes_service import (
-    GoogleRoutesService,
     GoogleRoutesUnavailableError,
     RouteMatrixLeg,
 )
-from app.services.route_matrix_service import RouteMatrixService, RouteNode
-
+from app.services.route_matrix_service import (
+    RouteMatrixProvider,
+    RouteMatrixService,
+    RouteNode,
+)
 
 MAX_SELECTED_PLACES = 24
 
@@ -32,13 +34,13 @@ class RouteValidationError(RouteOptimizationError):
 
 
 class RouteOptimizationService:
-    """Use cached road costs while respecting user route constraints."""
+    """Use cached route estimates while respecting user constraints."""
 
     async def optimize(
         self,
         session: Session,
         trip_id: UUID,
-        google_routes: GoogleRoutesService,
+        route_provider: RouteMatrixProvider,
         route_matrix: RouteMatrixService,
     ) -> RouteOptimizationRead:
         trip = session.get(Trip, trip_id)
@@ -89,7 +91,7 @@ class RouteOptimizationService:
                 session,
                 trip,
                 places,
-                google_routes,
+                route_provider,
             )
         except ValueError as exc:
             raise RouteValidationError(str(exc)) from exc
@@ -123,9 +125,7 @@ class RouteOptimizationService:
             total_minutes += travel_minutes
             current_node = destination
 
-        session.exec(
-            delete(TripItinerary).where(TripItinerary.trip_id == trip_id)
-        )
+        session.exec(delete(TripItinerary).where(TripItinerary.trip_id == trip_id))
         for item in optimized_places:
             session.add(
                 TripItinerary(

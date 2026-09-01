@@ -1,13 +1,14 @@
 # YatraCanvas Current System Verification
 
-Verified: 2026-08-31; database schema parity and trip creation re-verified 2026-09-01
+Verified: 2026-08-31; database schema parity, trip lifecycle, saved places, keyless
+recommendations, and local route estimates re-verified 2026-09-01
 
 Environment: Windows, Python 3.12.14, Flutter 3.47.0, Dart 3.13.0
 Scope: current repository, configured backend environment, isolated SQLite API tests, mocked
-Flutter/backend integration and Google provider responses, one live Geoapify probe, and a
-read-only configured-database audit.
-No authentication was added, no production migration was applied, and no test data was written
-to the configured remote database.
+Flutter/backend integration and legacy Google provider responses, one live Geoapify probe, one
+live OpenStreetMap/Overpass Udaipur recommendation flow, and a configured-database audit.
+No authentication was added and no production migration was applied. The live recommendation
+verification refreshed the existing Udaipur city/category cache and persisted its OSM-backed POIs.
 
 Status labels in this report follow the repository convention: `[IMPLEMENTED]`, `[PARTIAL]`,
 `[PLANNED]`, `[DEPRECATED]`, and `[UNKNOWN]`.
@@ -26,7 +27,12 @@ pass.
 creates a `Trip` plus `TripPreference` rows, returns a generated `trip_id`, and Flutter retains it
 in the in-memory `TripDraft` and passes it to Place Discovery.
 
-`[PARTIAL]` Authentication, ownership enforcement, trip listing/editing, and restart persistence
+`[IMPLEMENTED]` Place Discovery uses that real ID to load, add, update, reorder, and delete
+`UserSavedPlace` rows. Duplicate conflicts reload authoritative state; failed saves do not appear
+saved; update responses replace local state; failed reorder reloads backend order; and delete
+changes local state only after backend success.
+
+`[PARTIAL]` Authentication, ownership enforcement, trip listing/deletion, and restart persistence
 remain absent. The configured remote PostgreSQL target is not proven development/test and has no
 verified recovery path, so this feature's write path was proven against isolated test data but
 was not manually executed against that database.
@@ -37,10 +43,10 @@ PostgreSQL database. Read-only `PlaceSource` and `Trip` ORM probes now pass. The
 during verification even though this task did not execute the repair migration; the actor and
 backup/recovery status are unknown, so no write probe was run against that remote database.
 
-`[PARTIAL]` Geoapify is configured and live-tested. Google Places and Google Routes are not
-configured, so their HTTP adapters and failure behavior were verified with owned mock payloads,
-not paid/live requests. The configured FSQ source path does not resolve to a file, and the
-importer currently supports Ujjain only, not Jaipur.
+`[IMPLEMENTED]` Normal recommendations use keyless OpenStreetMap/Overpass discovery and the
+normal optimizer uses local coordinate estimates. A live Udaipur recommendation request returned
+200 with 30 results. Google adapters remain legacy and were verified only with owned payloads.
+Geoapify is configured and live-tested but remains a freemium autocomplete dependency.
 
 ## Backend
 
@@ -71,51 +77,57 @@ their provider sections.
 | `GET /cities/{city_id}` | 200 | Returned the created city |
 | `GET /cities/autocomplete` | 200 | Normalized fake Google city suggestion |
 | `GET /cities/place-details/{google_place_id}` | 200 | Normalized fake Google details |
-| `POST /cities/resolve` | 200 | Idempotent city resolution is covered by tests |
+| `POST /cities/resolve` | 200 | Idempotent Google and non-Google city resolution is covered by tests |
 | `GET /locations/autocomplete` | 200 | Fake endpoint test and separate live Geoapify test |
 | `POST /places` | 201 | Created a controlled canonical place |
 | `GET /cities/{city_id}/places` | 200 | Returned stored canonical places |
 | `GET /cities/{city_id}/discover-places` | 200 | Persisted fake nearby results and reused cache |
 | `POST /cities/{city_id}/recommendations` | 200 | Deduplicated and ranked three categories |
 | `POST /trips` | 201 | Created a controlled trip and related preferences; returned generated `trip_id` |
+| `GET /trips/{trip_id}` | 200 | Returned the complete application trip representation including destination, dates, arrival/start, provider IDs, and preferences |
+| `PATCH /trips/{trip_id}` | 200 | Partially updated trip fields and reconciled preferences transactionally; invalidated stale route cache |
 | `GET /trips/{trip_id}/saved-places` | 200 | Returned the controlled trip list |
 | `POST /trips/{trip_id}/saved-places` | 201 | Saved three recommended places |
 | `PATCH /trips/{trip_id}/saved-places/reorder` | 200 | Persisted a complete contiguous order |
-| `PATCH /trips/{trip_id}/saved-places/{place_id}` | 200 | Persisted notes, priority, and must-visit |
+| `PATCH /trips/{trip_id}/saved-places/{place_id}` | 200 | Persisted notes, priority, lock, and must-visit and returned authoritative state |
 | `DELETE /trips/{trip_id}/saved-places/{place_id}` | 204 | Removed one place and normalized order |
 | `GET /trips/{trip_id}/start-location` | 200 | Returned selected arrival start |
 | `PATCH /trips/{trip_id}/start-location` | 200 | Persisted selected arrival start |
 | `POST /trips/{trip_id}/optimize-route` | 200 | Wrote route cache and two itinerary rows |
 
-There is no trip read/update/list/delete lifecycle endpoint or standalone trip-preference
-endpoint. Authentication is not implemented.
+Trip listing and trip deletion endpoints remain absent. Authentication is not implemented.
 
 ### Tiny verification fix
 
 - **HIGH — fixed:** Python 3.12 initially could not import `app.main`. Inside
   `SavedPlaceService`, the method named `list` shadowed the built-in `list`, so the later runtime
   annotation `list[SavedPlaceRead]` raised `TypeError: 'function' object is not subscriptable`.
-  `from __future__ import annotations` was added to defer annotation evaluation. This is the only
-  tracked source-code fix made during verification.
+  `from __future__ import annotations` was added to defer annotation evaluation. This was the
+  source-code fix made during the initial verification.
 
 ## Flutter
 
 ### Tool results
 
 - `flutter analyze`: **passed**, no issues.
-- `flutter test`: **26 passed**, 0 failed.
+- `flutter test`: **37 passed**, 0 failed.
+- `flutter build apk --debug`: **passed** and produced
+  `build/app/outputs/flutter-apk/app-regular-debug.apk`.
+- Flutter web-server launch: **passed**; `lib/main.dart` was served successfully and then stopped.
+- `[IMPLEMENTED]` `regular` is the default Flutter flavor, so plain `flutter run`/`flutter build
+  apk` no longer builds both Android flavors and searches for a nonexistent unflavoured APK.
 
 ### Flow trace
 
 | Step | Current behavior | Backend dependency |
 | --- | --- | --- |
-| Destination | Searches stored cities, then Google; resolves selected city and stores it in `TripDraft.destination` | `/cities/search`, `/cities/autocomplete`, `/cities/place-details/...`, `/cities/resolve` |
+| Destination | Searches stored cities, then Geoapify; persists a new normalized city without requiring Google and stores it in `TripDraft.destination` | `/cities/search`, `/locations/autocomplete`, `/cities/resolve` |
 | Dates | Mutates `TripDraft.startDate`, `endDate`, flexibility, and duration | None |
 | Arrival | Mutates arrival/start fields; searches Geoapify for hotel/custom and can use device location | `/locations/autocomplete`; values are included in `POST /trips` |
 | Purpose | Mutates `TripDraft.purposes` | None |
 | Preferences | Mutates pace, budget, and transport, submits the complete draft once, retains the returned ID, and navigates only after success | `POST /trips` |
 | Place Discovery | Receives the resolved city and created `trip_id` from the normal setup flow | `/cities/{city_id}/recommendations` |
-| Saved Places | UI loads/adds/removes/updates/reorders only when `tripId` is non-null | `/trips/{trip_id}/saved-places...` |
+| Saved Places | Loads backend state on entry; adds/removes recommendations; edits priority/lock/must-visit/notes; persists and reconciles reorder | `/trips/{trip_id}/saved-places...` |
 | Route Optimization | Enabled only with non-null `tripId` and at least two saved places | `/trips/{trip_id}/optimize-route` |
 
 `TripDraft` is an in-memory mutable object passed through the five create-trip screens. It is now
@@ -127,7 +139,7 @@ use one when editing an already-created trip.
 ### Flutter issues
 
 - **HIGH:** `TripDraft.tripId` is only retained in memory and is lost when the application
-  process restarts; there is no trip read/list resume path.
+  process restarts; there is no trip-list/resume UI.
 - **HIGH:** The configured remote PostgreSQL database is unsafe for a write probe until its
   development/test classification and recovery path are proven.
 - **HIGH:** `TripDraft` defaults every destination to `Ujjain Railway Station`, and the arrival
@@ -165,6 +177,61 @@ Implemented on branch `feature/trip-creation` without authentication or a new pr
   development/test classification and recovery path remain unproven, and no disposable local
   PostgreSQL, Docker, `psql`, or `pg_dump` installation was available. This is a safety boundary,
   not an automated feature-test failure.
+
+## Trip Loading and Editing Verification
+
+Implemented on branch `feature/trip-editing` without authentication or new providers.
+
+- `[IMPLEMENTED]` `GET /trips/{trip_id}` returns the complete application trip representation
+  including `trip_id`, `city_id`, populated `city` object (`name`, `country`, `state`, etc.),
+  `trip_name`, `days`, `start_date`, `end_date`, arrival/start location fields, provider
+  identifiers, and all persisted `preferences` (purposes, pace, budget, transport). Returns 404
+  for unknown trip UUIDs.
+- `[IMPLEMENTED]` `PATCH /trips/{trip_id}` accepts partial updates for user-editable fields:
+  `city_id`, `trip_name`, `start_date`, `end_date`, `days`, arrival location/coordinates, start
+  location type/name/coordinates/provider, and `purposes`/`preferences`. It rejects forbidden
+  server-owned fields (`id`, `trip_id`, `user_id`, `created_at`).
+- `[IMPLEMENTED]` Preference updates transactionally delete old rows and insert new deduplicated
+  `TripPreference` rows; failure rolls back the entire transaction without leaving partial state.
+- `[IMPLEMENTED]` Downstream data safety: `UserSavedPlace` rows are strictly preserved when
+  updating a trip. If `city_id` or start location coordinates change, stale `RouteMatrixCache` and
+  `TripItinerary` rows for that trip are safely invalidated.
+- `[IMPLEMENTED]` Flutter `TripService` provides `getTrip(tripId)` and `updateTrip(tripId, draft)`.
+  `TripDraft.fromJson` deserializes the API payload into editable state. `TripPreferencesScreen`
+  detects existing `tripId` and executes `updateTrip` (PATCH) instead of `createTrip` (POST),
+  retaining the existing trip ID and proceeding to Place Discovery.
+- `[IMPLEMENTED]` Current combined backend suite passes 118 tests; the Flutter suite passes 37
+  tests and the analyzer reports 0 issues.
+
+## Saved Places Flow Verification
+
+Implemented on branch `feature/saved-places-flow` using the existing schemas and endpoints.
+
+- `[IMPLEMENTED]` `SavedPlaceService` calls list/create/update/reorder/delete with the runtime
+  `trip_id`; there is no production hard-coded trip UUID.
+- `[IMPLEMENTED]` Place Discovery loads persisted saved places on entry. A successful add uses
+  the returned `SavedPlace`; failed adds do not modify the saved list. Concurrent taps for the
+  same recommendation are blocked while its request is active.
+- `[IMPLEMENTED]` Backend duplicate saves return `409`. Flutter exposes the status safely,
+  reloads the collection, and treats the place as saved only if the authoritative response
+  contains it.
+- `[IMPLEMENTED]` The customization dialog persists and renders `priority`, `is_locked`,
+  `must_visit`, and `notes` from the PATCH response.
+- `[IMPLEMENTED]` Reorder sends every saved place with contiguous one-based `custom_order`.
+  Success replaces the list with the API response; failure reloads authoritative backend order,
+  falling back to the previous snapshot only if that reload also fails.
+- `[IMPLEMENTED]` Delete addresses the exact `trip_id`/`place_id`. Local removal occurs only
+  after `204`, then a collection reload confirms normalized order. A failed delete retains the
+  target and all unrelated places.
+- `[IMPLEMENTED]` An isolated full-flow test creates a trip through `POST /trips`, loads three
+  stored places, saves all three, customizes one, reorders, edits trip metadata, confirms all
+  saved rows remain, removes one, and reloads the final two with customization intact.
+- `[PARTIAL]` Trip city edits deliberately preserve saved rows. If the city changes, places from
+  the previous city can remain associated with the trip; this task reports that cross-city state
+  and does not invent a destructive policy.
+- `[UNKNOWN]` The configured remote PostgreSQL target was not mutated because its development/test
+  classification and recovery path remain unproven. Persistence was verified with controlled
+  isolated database records.
 
 ## Database
 
@@ -204,35 +271,36 @@ recorded in [Database Schema Parity Repair](#database-schema-parity-repair).
 - Missing-key behavior is safe: the service raises a stable configuration error without making a
   request or logging the key; the router maps it to 503.
 
-## Google Places
+## OpenStreetMap recommendations and legacy Google Places
 
 - `[IMPLEMENTED]` Adapter and endpoint behavior for city autocomplete, city details, location
   details, nearby discovery, normalization, timeouts, invalid IDs, and missing credentials passes
   owned-payload tests.
-- `[IMPLEMENTED]` Place discovery writes canonical `Place`, `PlaceSource`, and `PlaceTag` records,
-  then uses `CityCategoryCache`. The controlled flow called Google once for two identical
-  religious discovery requests.
+- `[IMPLEMENTED]` Normal recommendations write canonical `Place`, `PlaceSource`, and `PlaceTag`
+  records from bounded Overpass queries, then reuse `CityCategoryCache`.
 - `[IMPLEMENTED]` Recommendations reuse each category cache, deduplicate a place appearing in
   more than one category, and rank results deterministically.
-- `[PARTIAL]` `GOOGLE_PLACES_API_KEY` is missing, so no live city lookup, details, or nearby search
-  was run. Provider-backed endpoints return safe 503 responses while stored city/place reads
-  remain available.
+- `[IMPLEMENTED]` A live Udaipur normal-flow request returned 200 with 30 religious results,
+  retained OSM element provenance, and filtered one malformed OSM business classification.
+- `[DEPRECATED]` Legacy Google city/discovery endpoints still return safe 503 responses without
+  `GOOGLE_PLACES_API_KEY`; Flutter does not call them in the normal journey.
 - `[IMPLEMENTED]` A read-only `PlaceSource` ORM probe now succeeds against the configured
   database; live discovery remains unavailable only because the Google Places key is absent.
 
-## Google Routes
+## Local route estimates and legacy Google Routes
 
 - `[IMPLEMENTED]` Owned-payload tests verify the Compute Route Matrix request URL, field mask,
   traffic-aware request, static/traffic duration parsing, timeout mapping, and missing-key failure.
-- `[IMPLEMENTED]` The controlled trip wrote all 6 directed matrix pairs for a start plus two
-  places and wrote 2 `TripItinerary` rows.
+- `[IMPLEMENTED]` The normal optimizer writes directed `local_estimate` matrix pairs from stored
+  coordinates and requires no external key. The UI labels distance/time as approximate.
 - `[IMPLEMENTED]` Fresh cache rows are reused. Expired traffic rows are refreshed; when the
   provider is unavailable and every static leg exists, optimization uses the complete static
   cache.
 - `[IMPLEMENTED]` An uncached partial provider matrix fails explicitly and, after caller rollback,
   leaves 0 cache rows. A partial refresh over a complete stale cache retained all 6 static pairs;
   omitted refreshed legs had no traffic duration.
-- `[PARTIAL]` `GOOGLE_ROUTES_API_KEY` is missing, so no live Google Routes request was run.
+- `[DEPRECATED]` The Google Routes adapter and its owned-payload tests remain, but the normal
+  route-optimization endpoint no longer injects it or requires `GOOGLE_ROUTES_API_KEY`.
 - `[IMPLEMENTED]` A read-only `Trip` ORM probe now succeeds against the configured database.
   Configured-database route writes were not attempted because its development/test status and
   backup path remain unknown.
@@ -280,15 +348,19 @@ create that prerequisite trip and hand its real ID to Place Discovery with isola
 
 ## Broken Flows
 
-- **HIGH:** A created trip cannot be resumed after app restart because `TripDraft` has no durable
-  client session storage and the backend has no trip read/list endpoint.
+- **HIGH:** A created trip cannot be resumed from a trip list after app restart because
+  `TripDraft` has no durable client session storage and the backend has no trip-list endpoint.
+- **MEDIUM:** Changing `Trip.city_id` preserves existing saved places even when those places
+  belong to the prior city; no cross-city reconciliation policy exists.
 - **HIGH:** The configured remote PostgreSQL write path remains unverified because target safety
   and backup/recovery status are unknown.
 - **HIGH:** Arrival-as-start can be created without coordinates because the existing built-in
   station/airport suggestions provide labels only; start-location reads and route optimization
   still require coordinates.
-- **HIGH:** Google-backed city/discovery and route optimization cannot run live without their two
-  optional provider keys.
+- **MEDIUM:** Public Overpass instances are best-effort and can time out or rate limit; production
+  scale needs reviewed regional extracts or a self-hosted deployment.
+- **MEDIUM:** Destination/arrival autocomplete still uses the freemium Geoapify service, so the
+  full new-city journey is not yet strictly provider-free.
 - **MEDIUM:** Multi-day trips are collapsed into a day-1 itinerary.
 - **MEDIUM:** Date selection and arrival suggestions are prototype-hard-coded.
 
@@ -300,8 +372,11 @@ Secret values were never printed.
 | --- | --- | --- | --- | --- |
 | `DATABASE_URL` | Yes | Yes | Yes | Valid scheme and reachable; remote/non-test-named, environment classification and backup status unknown |
 | `GEOAPIFY_API_KEY` | For Geoapify path | Yes | Yes | Live request passed |
-| `GOOGLE_PLACES_API_KEY` | For Google city/discovery paths | No | Yes | Safe 503; live paths unavailable |
-| `GOOGLE_ROUTES_API_KEY` | For uncached/stale routing | No | Yes | Safe service failure; live route path unavailable |
+| `GOOGLE_PLACES_API_KEY` | Legacy endpoints only | No | Yes | Normal destination and recommendation journey remains available |
+| `GOOGLE_ROUTES_API_KEY` | Legacy adapter only | No | Yes | Normal optimizer uses local estimates |
+| `OVERPASS_API_URL` | No | Default | Yes | Keyless recommendation endpoint; public instance is best-effort |
+| `OVERPASS_TIMEOUT_SECONDS` | No | Default | Yes | Bounded provider timeout |
+| `OVERPASS_RADIUS_METERS` | No | Default | Yes | Bounded Udaipur discovery area |
 | `FSQ_OS_PLACES_PATH` | No; CLI source may override | Yes | Yes | Configured target does not exist/is unavailable |
 | `GEOAPIFY_BASE_URL` | No | Yes | Yes | Settings validation passed |
 | `GEOAPIFY_TIMEOUT_SECONDS` | No | Yes | Yes | Settings validation passed |
@@ -326,6 +401,7 @@ emulator default unless overridden at build time.
 | --- | --- | --- |
 | CRITICAL | Configured database cannot be proven development/test and has no verified recovery evidence | Blocks authorized write/migration verification despite current catalog parity |
 | HIGH | Configured catalog changed during the audit without an execution by this task | Migration actor, review, and backup context are unknown |
+| HIGH | Runtime `ApiConfig.baseUrl` getter was used as seven constructor default values | Fixed; Dart kernel compilation and regular debug APK build now pass |
 | HIGH | Created `TripDraft.tripId` is in-memory only | Trip cannot be resumed after app restart |
 | HIGH | Arrival label suggestions may lack coordinates | Arrival-as-start route optimization can remain blocked |
 | HIGH | Ujjain arrival defaults survive selection of another city | A trip can show/save the wrong arrival label |
@@ -348,7 +424,7 @@ After the tiny fix and trip-creation implementation:
 
 - First sandboxed rerun: 77 passed, 5 FSQ setup errors caused only by pytest trying to use an
   inaccessible user temp directory.
-- Current complete rerun with repository-local `--basetemp`: **97 passed, 0 failed, 1 warning**.
+- Current complete rerun with repository-local `--basetemp`: **118 passed, 0 failed, 1 warning**.
 - Warning: `StarletteDeprecationWarning` says the `httpx` bridge in `starlette.testclient` is
   deprecated in favor of `httpx2`.
 - Additional targeted verification: all listed endpoints passed; live Geoapify passed; configured
@@ -358,7 +434,7 @@ After the tiny fix and trip-creation implementation:
 ### Flutter
 
 - `flutter analyze`: **0 issues**.
-- `flutter test`: **26 passed, 0 failed**.
+- `flutter test`: **37 passed, 0 failed**.
 
 ## Database Schema Parity Repair
 
@@ -522,25 +598,28 @@ the same constraint names and semantics and are classified `MATCH`, not schema d
 1. **CRITICAL:** Explicitly classify the configured database environment and record a verified
    backup/restore path before any future write probe or migration. Do not rely on `create_all` to
    upgrade existing tables.
-2. **HIGH:** Add durable trip read/edit/resume support so the generated `trip_id` and draft are
-   not lost on app restart; retain the isolated development identity until authentication is a
+2. **HIGH:** Add durable trip-list/resume support so the generated `trip_id` and draft are not
+   lost on app restart; retain the isolated development identity until authentication is a
    separately authorized task.
-3. **HIGH:** Replace Ujjain-only arrival defaults with destination-aware or provider-selected
+3. **MEDIUM:** Define and test a non-destructive product policy for saved places when a trip's
+   destination city changes; current behavior preserves potentially cross-city rows.
+4. **HIGH:** Replace Ujjain-only arrival defaults with destination-aware or provider-selected
    arrival values and persist arrival coordinates.
-4. **MEDIUM:** Replace the fixed August 2026 calendar with a current, navigable date range.
-5. **MEDIUM:** Either implement a real hotel-specific location filter or remove the unused
+5. **MEDIUM:** Replace the fixed August 2026 calendar with a current, navigable date range.
+6. **MEDIUM:** Either implement a real hotel-specific location filter or remove the unused
    `hotelOnly` contract.
-6. **MEDIUM:** Keep the current Google dependencies, but configure restricted Places and Routes
+7. **MEDIUM:** Keep the current Google dependencies, but configure restricted Places and Routes
    keys in a test deployment when live-provider verification is desired.
-7. **LOW:** Address the Starlette/TestClient dependency warning during the next dependency update;
+8. **LOW:** Address the Starlette/TestClient dependency warning during the next dependency update;
    it does not block current verification.
 
 ### Final answers
 
 **A. What currently works:** backend configuration loading, read-only startup, transactional trip
 and preference creation on a fresh schema, generated `trip_id` handoff from Flutter to Place
-Discovery, controlled discovery/recommendations, saved-place CRUD/reorder, start-location
-persistence for a seeded trip, route caching/optimization/fallback, Geoapify live autocomplete,
+Discovery, controlled discovery/recommendations, saved-place load/add/customize/reorder/delete
+with failure reconciliation, start-location persistence for a seeded trip, route
+caching/optimization/fallback, Geoapify live autocomplete,
 the Ujjain FSQ importer, Flutter analysis, and all automated tests.
 
 **B. What currently fails:** trip resume after process restart, live Google paths without keys,
@@ -549,7 +628,7 @@ default path, multi-day itinerary generation, general date selection, and destin
 arrival defaults/coordinates.
 
 **C. What needs fixing immediately:** classify and protect the database environment, then add a
-safe trip read/edit/resume path for the real ID now created by the Flutter flow.
+durable trip-list/resume path for the real ID now used by the Flutter flow.
 
 **D. What can wait:** authentication, Google removal, provider replacement, interactive maps,
 admin workflows, multi-day optimization, the TestClient deprecation, and unrelated formatting/type
@@ -559,5 +638,5 @@ debt.
 explicitly excludes Jaipur/static dataset work; schema compatibility alone is not authorization
 or readiness for a city-wide import.
 
-**F. Single best next development task:** implement trip read/edit (`GET/PATCH /trips/{trip_id}`)
-and reconnect it to the existing Flutter draft/session flow, without authentication.
+**F. Single best next development task:** verify and harden route optimization from the normal
+real-trip saved-place flow, without adding multi-day planning or changing providers.

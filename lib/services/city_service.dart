@@ -8,10 +8,10 @@ import '../models/city.dart';
 import '../models/city_suggestion.dart';
 
 class CityService {
-  CityService({http.Client? client, String baseUrl = ApiConfig.baseUrl})
+  CityService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
       _ownsClient = client == null,
-      _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), '');
+      _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
   static const Duration _requestTimeout = Duration(seconds: 10);
 
@@ -51,10 +51,16 @@ class CityService {
 
   Future<List<CitySuggestion>> autocompleteCities(String query) async {
     final normalizedQuery = query.trim();
-    if (normalizedQuery.length < 2) return const [];
+    if (normalizedQuery.length < 3) return const [];
 
-    final uri = Uri.parse('$_baseUrl/cities/autocomplete')
-        .replace(queryParameters: {'query': normalizedQuery});
+    final uri = Uri.parse('$_baseUrl/locations/autocomplete').replace(
+      queryParameters: {
+        'query': normalizedQuery,
+        'type': 'city',
+        'country_code': 'in',
+        'limit': '5',
+      },
+    );
     final response = await _client.get(uri).timeout(_requestTimeout);
 
     if (response.statusCode != 200) {
@@ -62,12 +68,12 @@ class CityService {
     }
 
     try {
-      final data = jsonDecode(response.body) as List<dynamic>;
+      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = payload['results'] as List<dynamic>;
       return data
-          .map(
-            (item) =>
-                CitySuggestion.fromGoogleJson(item as Map<String, dynamic>),
-          )
+          .map((item) => item as Map<String, dynamic>)
+          .where((item) => item['result_type'] == 'city')
+          .map(CitySuggestion.fromGeoapifyJson)
           .toList(growable: false);
     } on FormatException catch (error) {
       throw CityServiceException(
@@ -112,12 +118,6 @@ class CityService {
   }
 
   Future<City> resolveCity(City city) async {
-    if (city.googlePlaceId == null || city.googlePlaceId!.trim().isEmpty) {
-      throw const CityServiceException(
-        'This city is missing its Google Place ID and cannot be resolved.',
-      );
-    }
-
     final response = await _client
         .post(
           Uri.parse('$_baseUrl/cities/resolve'),

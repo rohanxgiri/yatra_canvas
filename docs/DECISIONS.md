@@ -45,8 +45,8 @@ provider, environment, and data-model documentation.
 
 ## ADR-003 — Geoapify has a narrow runtime autocomplete/geocoding role
 
-- **Status:** Accepted; `[IMPLEMENTED]` for arrival/location autocomplete, `[PARTIAL]` for all
-  intended destination flows.
+- **Status:** Accepted; `[IMPLEMENTED]` for destination and arrival/location autocomplete,
+  `[PARTIAL]` for durable non-Google city identity.
 - **Date:** 2026-08-31.
 - **Context:** A user typing an airport, station, address, or city needs current geocoding, while
   POI acquisition, routing, and map rendering have different cost, cache, and data-quality needs.
@@ -62,17 +62,19 @@ provider, environment, and data-model documentation.
 
 ## ADR-004 — openrouteservice is the target routing/matrix provider
 
-- **Status:** Accepted target, `[PLANNED]`; Google Routes remains `[IMPLEMENTED]`.
+- **Status:** Superseded for the normal development path by ADR-008; openrouteservice remains a
+  `[PLANNED]` production-quality routing candidate and Google Routes is legacy `[DEPRECATED]`.
 - **Date:** 2026-08-31.
-- **Context:** The current optimizer needs distance/duration matrices and uses Google-specific
-  services. The target architecture favors an OSM-based provider with hosted and self-hosted
+- **Context:** The optimizer needs distance/duration matrices. It now uses local estimates for
+  keyless development; the target production architecture favors an OSM-based provider with hosted and self-hosted
   options, but those deployment modes have different limits and capabilities.
-- **Decision:** Put routing and matrix requests behind an application-owned interface and target
-  openrouteservice. Select hosted versus self-hosted operation only after capacity, attribution,
-  cost, and support evaluation. Retain Google until parity and fallback tests pass.
-- **Consequences:** No openrouteservice key/config is added yet. Cache rows or keys may need a
-  provider/version dimension through a reversible migration. Multi-day planning is separate from
-  provider replacement and must also be completed.
+- **Decision:** Keep routing and matrix requests behind an application-owned interface and evaluate
+  openrouteservice for production-grade routes. Select hosted versus self-hosted operation only
+  after capacity, attribution, cost, and support evaluation. Do not make Google a normal-flow
+  prerequisite.
+- **Consequences:** No openrouteservice key/config is added yet. The current local estimates are
+  explicitly approximate. Cache rows or keys may need a provider/version dimension through a
+  reversible migration. Multi-day planning is separate and must also be completed.
 - **Evidence:** `backend/app/services/google_routes_service.py`,
   `backend/app/services/route_matrix_service.py`, optimizer tests;
   [openrouteservice API docs](https://openrouteservice.org/dev/#/api-docs) and
@@ -81,18 +83,18 @@ provider, environment, and data-model documentation.
 
 ## ADR-005 — Google Places is transitional, not a target required dependency
 
-- **Status:** Accepted deprecation direction; current adapter is `[IMPLEMENTED]` and cannot yet be
-  removed safely.
+- **Status:** `[DEPRECATED]` for normal flows; legacy adapter and endpoints remain `[IMPLEMENTED]`.
 - **Date:** 2026-08-31.
-- **Context:** Google Places currently performs city autocomplete/details/resolve and nearby POI
-  cache refresh. Target city geocoding and open POI ingestion are not yet complete. Cities retain
-  nullable legacy Google IDs and a uniqueness constraint.
+- **Context:** The normal Flutter destination flow uses Geoapify and recommendations now use
+  OpenStreetMap/Overpass. Google Places retains legacy city autocomplete/details and discovery
+  endpoints. Durable non-Google city identity is not yet complete. Cities retain nullable
+  legacy Google IDs and a uniqueness constraint.
 - **Decision:** Avoid new Google Places responsibilities. Replace city resolution and discovery
   incrementally, verify launch-city coverage, retain provenance/legacy IDs, and disable Places
   only after a test deployment works without its key and a rollback release exists.
-- **Consequences:** `GOOGLE_PLACES_API_KEY` and `GOOGLE_NEARBY_RADIUS_METERS` remain documented.
-  Current Google storage/attribution terms require review during backfill. No column or constraint
-  is dropped merely because the target provider changes.
+- **Consequences:** Legacy Google settings remain documented but may be empty for the normal
+  journey. Current Google storage/attribution terms require review during backfill. No column or
+  constraint is dropped merely because the target provider changes.
 - **Evidence:** `backend/app/services/google_places_service.py`, `place_discovery_service.py`,
   `backend/app/routers/cities.py`, `City.google_place_id`, Google service tests;
   [Places API overview](https://developers.google.com/maps/documentation/places/web-service/overview),
@@ -133,3 +135,26 @@ provider, environment, and data-model documentation.
   provider response is not sufficient proof of canonical quality.
 - **Evidence:** `backend/app/models/entities.py`, `backend/app/importers/fsq_os_places.py`,
   `backend/tests/test_fsq_importer.py`, and [Data model](DATA_MODEL.md).
+
+## ADR-008 — Normal development flows must not require paid provider keys
+
+- **Status:** Accepted and `[PARTIAL]`.
+- **Date:** 2026-09-01.
+- **Context:** Google-backed fakes passed tests while a keyless running app failed at destination,
+  recommendation, and route-matrix boundaries. The product constraint is to avoid paid runtime
+  services.
+- **Decision:** The normal destination and arrival flow uses the existing Geoapify development
+  key for now, POI recommendations use bounded cached OpenStreetMap/Overpass queries, and route
+  ordering uses clearly labelled local coordinate estimates. Google adapters remain legacy and
+  must not be dependencies of the normal Flutter journey. For production scale, use reviewed
+  regional OSM extracts or a self-hosted Overpass deployment rather than assuming a public
+  instance is an SLA-backed service.
+- **Consequences:** POI results carry OpenStreetMap element provenance and `ODbL-1.0`; the UI
+  displays attribution. Local route times are approximate and do not claim road/traffic accuracy.
+  Geoapify remains a freemium dependency to remove for a strict provider-free destination flow.
+- **Evidence:** `backend/app/services/openstreetmap_places_service.py`,
+  `backend/app/services/openstreetmap_discovery_service.py`,
+  `backend/app/services/local_routes_service.py`, related tests;
+  [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) and
+  [OpenStreetMap copyright/licence](https://www.openstreetmap.org/copyright), last verified
+  2026-09-01.

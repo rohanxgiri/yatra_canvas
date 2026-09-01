@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_db_and_tables
 from app.routers import (
@@ -29,6 +30,24 @@ app = FastAPI(
     description="Backend foundation for the YatraCanvas travel planning app.",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+# Allow Flutter web (any localhost port) and the Android emulator to reach the
+# API during local development.  Restrict origins before any public deployment.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost",
+        "http://127.0.0.1",
+        # Flutter web dev server uses a random high port; allow all localhost
+        # ports by accepting the wildcard below.  Replace with explicit origins
+        # once the deployment URL is known.
+        "http://localhost:*",
+    ],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(cities.router)

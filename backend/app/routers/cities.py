@@ -4,7 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -155,9 +155,26 @@ async def get_google_place_details(
 
 @router.post("/resolve", response_model=CityRead)
 def resolve_city(city_data: CityResolve, session: SessionDependency) -> City:
-    """Return the Google city already stored, or create it once."""
+    """Return a matching normalized city, or persist it once."""
 
-    statement = select(City).where(City.google_place_id == city_data.google_place_id)
+    identity_filters = [
+        func.lower(City.name) == city_data.name.casefold(),
+        func.lower(City.country) == city_data.country.casefold(),
+        (
+            City.state.is_(None)
+            if city_data.state is None
+            else func.lower(City.state) == city_data.state.casefold()
+        ),
+    ]
+    if city_data.google_place_id is not None:
+        statement = select(City).where(
+            or_(
+                City.google_place_id == city_data.google_place_id,
+                and_(*identity_filters),
+            )
+        )
+    else:
+        statement = select(City).where(*identity_filters)
     existing_city = session.exec(statement).first()
     if existing_city is not None:
         return existing_city
@@ -167,8 +184,8 @@ def resolve_city(city_data: CityResolve, session: SessionDependency) -> City:
     try:
         session.commit()
     except IntegrityError as exc:
-        # Another request may have inserted the same Google city after our
-        # initial lookup. The unique constraint makes that race safe.
+        # Another request may have inserted the same provider city after the
+        # initial lookup. Re-read before returning a safe conflict.
         session.rollback()
         existing_city = session.exec(statement).first()
         if existing_city is not None:

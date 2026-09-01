@@ -7,10 +7,10 @@ import '../config/api_config.dart';
 import '../models/trip_start_location.dart';
 
 class LocationService {
-  LocationService({http.Client? client, String baseUrl = ApiConfig.baseUrl})
+  LocationService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
       _ownsClient = client == null,
-      _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), '');
+      _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
   static const _timeout = Duration(seconds: 15);
   final http.Client _client;

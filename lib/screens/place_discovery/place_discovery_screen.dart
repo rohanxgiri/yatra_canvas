@@ -201,6 +201,27 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       }
     } on Object catch (error) {
       if (!mounted) return;
+      if (existing == null &&
+          error is SavedPlaceServiceException &&
+          error.isConflict) {
+        try {
+          final authoritative = await _savedPlaceService.getSavedPlaces(tripId);
+          if (!mounted) return;
+          final isSaved = authoritative.any(
+            (item) => item.placeId == recommendation.id,
+          );
+          if (isSaved) {
+            setState(() {
+              _savedPlaces = authoritative;
+              _savedError = null;
+            });
+            _showSavedMessage('${recommendation.name} is already saved.');
+            return;
+          }
+        } on Object {
+          // Keep the original conflict as the actionable error.
+        }
+      }
       final message = _savedPlaceError(error);
       setState(() => _savedError = message);
       _showSavedMessage(message, isError: true);
@@ -224,6 +245,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     try {
       await _savedPlaceService.removeSavedPlace(tripId, savedPlace.placeId);
       if (!mounted) return;
+      setState(() {
+        _savedPlaces = [
+          for (final item in _savedPlaces)
+            if (item.placeId != savedPlace.placeId) item,
+        ];
+        _savedError = null;
+      });
       await _loadSavedPlaces();
     } on Object catch (error) {
       if (!mounted) return;
@@ -381,10 +409,20 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     } on Object catch (error) {
       if (!mounted) return;
       final message = _savedPlaceError(error);
-      setState(() {
-        _savedPlaces = previous;
-        _savedError = message;
-      });
+      try {
+        final authoritative = await _savedPlaceService.getSavedPlaces(tripId);
+        if (!mounted) return;
+        setState(() {
+          _savedPlaces = authoritative;
+          _savedError = message;
+        });
+      } on Object {
+        if (!mounted) return;
+        setState(() {
+          _savedPlaces = previous;
+          _savedError = message;
+        });
+      }
       _showSavedMessage(message, isError: true);
     } finally {
       if (mounted) setState(() => _isReordering = false);
@@ -490,6 +528,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: const Text('Get Recommendations'),
                 ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Place data © OpenStreetMap contributors • ODbL\n'
+                'https://www.openstreetmap.org/copyright',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.caption,
               ),
               const SizedBox(height: 24),
               _buildSavedPlacesSection(),
@@ -609,6 +654,11 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   _isOptimizingRoute ? 'Optimizing…' : 'Optimize Route',
                 ),
               ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              'Route order uses offline distance estimates; times are approximate.',
+              style: AppTextStyles.caption,
             ),
             if (_savedPlaces.length < 2) ...[
               const SizedBox(height: 7),

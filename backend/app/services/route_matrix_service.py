@@ -1,8 +1,9 @@
-"""Persistent pair-wise route cache with sparse Google refreshes."""
+"""Persistent pair-wise route cache with provider-neutral refreshes."""
 
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Protocol
 from uuid import UUID
 
 from sqlmodel import Session, select
@@ -10,15 +11,21 @@ from sqlmodel import Session, select
 from app.models import Place, RouteMatrixCache, Trip
 from app.services.google_routes_service import (
     GoogleRoutesConfigurationError,
-    GoogleRoutesService,
     GoogleRoutesTimeoutError,
     GoogleRoutesUnavailableError,
     RouteCoordinate,
     RouteMatrixLeg,
 )
 
+TRAVEL_MODE = "local_estimate"
 
-TRAVEL_MODE = "driving"
+
+class RouteMatrixProvider(Protocol):
+    async def compute_matrix(
+        self,
+        origins: list[RouteCoordinate],
+        destinations: list[RouteCoordinate],
+    ) -> dict[tuple[int, int], RouteMatrixLeg]: ...
 
 
 @dataclass(frozen=True)
@@ -76,7 +83,7 @@ class RouteMatrixService:
         session: Session,
         trip: Trip,
         places: list[Place],
-        google_routes: GoogleRoutesService,
+        provider: RouteMatrixProvider,
         *,
         now: datetime | None = None,
     ) -> tuple[RouteNode, list[RouteNode], dict[tuple[str, str], RouteMatrixLeg]]:
@@ -115,7 +122,7 @@ class RouteMatrixService:
         for origin_key, destinations in refresh_by_origin.items():
             origin = nodes_by_key[origin_key]
             try:
-                fetched = await google_routes.compute_matrix(
+                fetched = await provider.compute_matrix(
                     [origin.coordinate],
                     [destination.coordinate for destination in destinations],
                 )

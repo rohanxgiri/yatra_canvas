@@ -45,6 +45,22 @@ class Settings(BaseSettings):
         le=3600,
         validation_alias="GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS",
     )
+    overpass_api_url: str = Field(
+        default="https://overpass-api.de/api/interpreter",
+        validation_alias="OVERPASS_API_URL",
+    )
+    overpass_timeout_seconds: float = Field(
+        default=25.0,
+        gt=5,
+        le=60,
+        validation_alias="OVERPASS_TIMEOUT_SECONDS",
+    )
+    overpass_radius_meters: int = Field(
+        default=8000,
+        ge=1000,
+        le=50000,
+        validation_alias="OVERPASS_RADIUS_METERS",
+    )
     fsq_os_places_path: str | None = Field(
         default=None,
         validation_alias="FSQ_OS_PLACES_PATH",
@@ -136,6 +152,14 @@ class Settings(BaseSettings):
         normalized = value.strip().rstrip("/")
         if not normalized.startswith(("https://", "http://")):
             raise ValueError("GEOAPIFY_BASE_URL must be an HTTP(S) URL")
+        return normalized
+
+    @field_validator("overpass_api_url")
+    @classmethod
+    def normalize_overpass_api_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if not normalized.startswith(("https://", "http://")):
+            raise ValueError("OVERPASS_API_URL must be an HTTP(S) URL")
         return normalized
 
     @property

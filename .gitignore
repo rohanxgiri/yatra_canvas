@@ -34,12 +34,14 @@ local.properties
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest_tmp/
 
 # Project-local temporary SDKs and tool caches
 tmp/
 
 # Android generated files
 android/.gradle/
+android/.kotlin/
 android/app/debug/
 android/app/profile/
 android/app/release/

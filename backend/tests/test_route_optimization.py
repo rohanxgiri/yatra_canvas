@@ -16,7 +16,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from app.database import get_session
 from app.main import app
 from app.models import RouteMatrixCache, Trip, TripItinerary, UserSavedPlace
-from app.routers.route_optimization import get_google_routes_service
+from app.routers.route_optimization import get_route_provider
 from app.services.google_routes_service import (
     GoogleRoutesConfigurationError,
     GoogleRoutesService,
@@ -24,6 +24,7 @@ from app.services.google_routes_service import (
     RouteCoordinate,
     RouteMatrixLeg,
 )
+from app.services.local_routes_service import LocalRoutesService
 
 
 class FakeGoogleRoutesService:
@@ -57,10 +58,24 @@ class FakeGoogleRoutesService:
         return result
 
 
+def test_local_route_provider_returns_offline_estimates() -> None:
+    matrix = asyncio.run(
+        LocalRoutesService().compute_matrix(
+            [RouteCoordinate(24.578721, 73.6862571)],
+            [RouteCoordinate(24.5904609, 73.6747719)],
+        )
+    )
+
+    leg = matrix[(0, 0)]
+    assert leg.distance_meters > 0
+    assert leg.static_duration_seconds >= 60
+    assert leg.traffic_duration_seconds is None
+
+
 @pytest.fixture
-def client_engine_routes() -> (
-    Generator[tuple[TestClient, Engine, FakeGoogleRoutesService], None, None]
-):
+def client_engine_routes() -> Generator[
+    tuple[TestClient, Engine, FakeGoogleRoutesService], None, None
+]:
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -74,7 +89,7 @@ def client_engine_routes() -> (
 
     routes = FakeGoogleRoutesService()
     app.dependency_overrides[get_session] = override_session
-    app.dependency_overrides[get_google_routes_service] = lambda: routes
+    app.dependency_overrides[get_route_provider] = lambda: routes
     client = TestClient(app)
     yield client, engine, routes
     client.close()

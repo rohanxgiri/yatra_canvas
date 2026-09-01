@@ -12,10 +12,12 @@ from app.schemas import (
     TripRead,
     TripStartLocationRead,
     TripStartLocationUpdate,
+    TripUpdate,
 )
 from app.services.trip_service import (
     TripCityNotFoundError,
     TripService,
+    TripServiceError,
     TripServiceNotFoundError,
     TripStartLocationError,
 )
@@ -50,6 +52,37 @@ def create_trip(
     try:
         return trips.create(session, request)
     except TripCityNotFoundError as exc:
+        session.rollback()
+        raise _trip_error(exc) from exc
+
+
+@router.get("/{trip_id}", response_model=TripRead)
+def get_trip(
+    trip_id: UUID,
+    session: SessionDependency,
+    trips: TripServiceDependency,
+) -> TripRead:
+    try:
+        return trips.get(session, trip_id)
+    except (TripServiceNotFoundError, TripCityNotFoundError) as exc:
+        raise _trip_error(exc) from exc
+
+
+@router.patch("/{trip_id}", response_model=TripRead)
+def update_trip(
+    trip_id: UUID,
+    request: TripUpdate,
+    session: SessionDependency,
+    trips: TripServiceDependency,
+) -> TripRead:
+    try:
+        return trips.update(session, trip_id, request)
+    except (
+        TripServiceNotFoundError,
+        TripCityNotFoundError,
+        TripStartLocationError,
+        TripServiceError,
+    ) as exc:
         session.rollback()
         raise _trip_error(exc) from exc
 

@@ -9,10 +9,10 @@ import '../models/trip_draft.dart';
 import '../models/trip_start_location.dart';
 
 class TripService {
-  TripService({http.Client? client, String baseUrl = ApiConfig.baseUrl})
+  TripService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
       _ownsClient = client == null,
-      _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), '');
+      _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
   static const _timeout = Duration(seconds: 15);
   final http.Client _client;
@@ -86,6 +86,111 @@ class TripService {
     }
   }
 
+  Future<TripDraft> getTrip(String tripId) async {
+    final encodedTripId = Uri.encodeComponent(tripId.trim());
+    late http.Response response;
+    try {
+      response = await _client
+          .get(
+            Uri.parse('$_baseUrl/trips/$encodedTripId'),
+            headers: const {'Accept': 'application/json'},
+          )
+          .timeout(_timeout);
+    } on TimeoutException catch (error) {
+      throw TripServiceException(
+        'Loading trip took too long. Check your connection and try again.',
+        error,
+      );
+    } on http.ClientException catch (error) {
+      throw TripServiceException(
+        'Could not reach YatraCanvas. Check your connection and try again.',
+        error,
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw TripServiceException(_tripErrorMessage(response, 'load'));
+    }
+
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) {
+        throw const FormatException('Trip response must be an object.');
+      }
+      return TripDraft.fromJson(body);
+    } on Object catch (error) {
+      throw TripServiceException(
+        'YatraCanvas returned an invalid trip representation.',
+        error,
+      );
+    }
+  }
+
+  Future<TripDraft> updateTrip(String tripId, TripDraft draft) async {
+    final encodedTripId = Uri.encodeComponent(tripId.trim());
+    final cityId = draft.destination?.id?.trim();
+
+    final payload = <String, dynamic>{
+      if (cityId != null && cityId.isNotEmpty) 'city_id': cityId,
+      'start_date': _dateValue(draft.startDate),
+      'end_date': _dateValue(draft.endDate),
+      'days': draft.durationDays,
+      'arrival_place': draft.arrivalPoint,
+      'arrival_latitude': draft.arrivalLatitude,
+      'arrival_longitude': draft.arrivalLongitude,
+      'start_location_type': draft.startLocationType.apiValue,
+      'start_location_name': draft.startLocationName,
+      'start_latitude': draft.startLatitude,
+      'start_longitude': draft.startLongitude,
+      'start_location_provider': draft.startLocationProvider,
+      'start_location_provider_place_id': draft.startLocationProviderPlaceId,
+      'purposes': draft.purposes.toList()..sort(),
+      'preferences': <String>[
+        draft.travelPace,
+        draft.budget,
+        ...(draft.transportPreferences.toList()..sort()),
+      ],
+    };
+
+    late http.Response response;
+    try {
+      response = await _client
+          .patch(
+            Uri.parse('$_baseUrl/trips/$encodedTripId'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(_timeout);
+    } on TimeoutException catch (error) {
+      throw TripServiceException(
+        'Updating trip took too long. Check your connection and try again.',
+        error,
+      );
+    } on http.ClientException catch (error) {
+      throw TripServiceException(
+        'Could not reach YatraCanvas. Check your connection and try again.',
+        error,
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw TripServiceException(_tripErrorMessage(response, 'update'));
+    }
+
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) {
+        throw const FormatException('Trip response must be an object.');
+      }
+      return TripDraft.fromJson(body);
+    } on Object catch (error) {
+      throw TripServiceException(
+        'YatraCanvas returned an invalid updated trip response.',
+        error,
+      );
+    }
+  }
+
   Future<TripStartLocation> updateStartLocation(
     String tripId, {
     required TripStartLocationType type,
@@ -134,6 +239,10 @@ class TripService {
   }
 
   String _createErrorMessage(http.Response response) {
+    return _tripErrorMessage(response, 'create');
+  }
+
+  String _tripErrorMessage(http.Response response, String action) {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
       final detail = body['detail'];
@@ -150,10 +259,13 @@ class TripService {
     } on Object {
       // Fall through to a status-specific safe message.
     }
+    if (response.statusCode == 404) {
+      return 'Trip not found.';
+    }
     if (response.statusCode == 422) {
       return 'Check the trip details and try again.';
     }
-    return 'Could not create the trip (${response.statusCode}).';
+    return 'Could not $action the trip (${response.statusCode}).';
   }
 
   static String _dateValue(DateTime value) {

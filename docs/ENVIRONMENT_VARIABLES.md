@@ -11,12 +11,15 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 | Variable | Service/provider | Required? | Owner | Purpose | Public/secret | Status and replacement note |
 | --- | --- | --- | --- | --- | --- | --- |
 | `DATABASE_URL` | PostgreSQL (Supabase URL supported) | Required to start | Backend/deployment | SQLAlchemy/psycopg database connection | Secret | `[IMPLEMENTED]`; remains required in target architecture |
-| `GOOGLE_PLACES_API_KEY` | Google Places API (New) | Optional; required for Google-backed city and nearby discovery endpoints | Backend | Authenticates Autocomplete, Place Details, and Nearby Search | Secret | `[IMPLEMENTED]`, target `[DEPRECATED]`; retain until verified city/POI replacement and backfill |
-| `GOOGLE_ROUTES_API_KEY` | Google Routes API | Optional; required to fetch missing/stale route-matrix legs | Backend | Authenticates `computeRouteMatrix` | Secret | `[IMPLEMENTED]`; planned replacement by openrouteservice after parity |
-| `GEOAPIFY_API_KEY` | Geoapify | Optional; required for `/locations/autocomplete` | Backend | Authenticates runtime autocomplete/geocoding | Secret | `[IMPLEMENTED]`; intended to remain narrowly scoped |
+| `GOOGLE_PLACES_API_KEY` | Google Places API (New) | Optional; legacy endpoints only, not the normal destination/recommendation flow | Backend | Authenticates retained Autocomplete, Place Details, and Nearby Search adapters | Secret | `[DEPRECATED]`; normal Flutter flow does not require it |
+| `GOOGLE_ROUTES_API_KEY` | Google Routes API | Optional; not used by the normal optimizer | Backend | Authenticates the retained legacy adapter | Secret | `[DEPRECATED]`; normal optimization uses local estimates |
+| `GEOAPIFY_API_KEY` | Geoapify | Optional; required for new destination and arrival suggestions through `/locations/autocomplete` | Backend | Authenticates runtime autocomplete/geocoding | Secret | `[IMPLEMENTED]`; intended to remain narrowly scoped |
 | `GEOAPIFY_BASE_URL` | Geoapify | Optional | Backend | Provider base URL; default is the official HTTPS API host | Non-secret | `[IMPLEMENTED]`; useful for controlled testing, validate as HTTP(S) |
 | `GEOAPIFY_TIMEOUT_SECONDS` | Geoapify | Optional | Backend | Outbound request timeout, default 8 seconds | Non-secret | `[IMPLEMENTED]` |
 | `GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS` | Geoapify | Optional | Backend | In-process autocomplete TTL, default 300 seconds | Non-secret | `[IMPLEMENTED]`; cache is not shared/persistent |
+| `OVERPASS_API_URL` | OpenStreetMap / Overpass | Optional | Backend | Bounded runtime POI query endpoint; defaults to the public FOSSGIS instance and may point to a self-hosted instance | Non-secret | `[IMPLEMENTED]` for development/small-scale discovery; public service has no production SLA |
+| `OVERPASS_TIMEOUT_SECONDS` | OpenStreetMap / Overpass | Optional | Backend | Outbound and query timeout, default 25 seconds | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Half-width of the bounded POI discovery box, default 8,000 m | Non-secret | `[IMPLEMENTED]` |
 | `FSQ_OS_PLACES_PATH` | FSQ OS Places | Optional | Backend CLI/operator | Default local CSV/JSONL/NDJSON source path | Usually private path, not a credential | `[IMPLEMENTED]`; portal access token is intentionally not accepted here |
 | `FSQ_DEDUPE_DISTANCE_METERS` | FSQ importer | Optional | Backend CLI | Maximum nearby-candidate distance, default 75 m | Non-secret | `[IMPLEMENTED]`; change conservatively and test dense cities |
 | `FSQ_IMPORT_BATCH_SIZE` | FSQ importer | Optional | Backend CLI | Commit batch size, default 250 | Non-secret | `[IMPLEMENTED]` |
@@ -35,12 +38,10 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 ## What a developer needs today
 
 - Always: a PostgreSQL `DATABASE_URL` for the backend environment.
-- For current city autocomplete/details/resolve or Google-backed nearby refresh:
-  `GOOGLE_PLACES_API_KEY` restricted to Places API (New) and the backend's allowed origins/IPs
-  where feasible.
-- For current route optimization when a complete matrix is not cached:
-  `GOOGLE_ROUTES_API_KEY` restricted to Routes API. A separate restricted key limits blast radius.
-- For current arrival/address/transport autocomplete: `GEOAPIFY_API_KEY`.
+- For the normal destination and arrival autocomplete flow: `GEOAPIFY_API_KEY`.
+- For POI recommendations: no key; the backend uses the configured public or self-hosted
+  `OVERPASS_API_URL` and persists ODbL provenance.
+- For route optimization: no key; the current normal path uses clearly labelled local estimates.
 - For local FSQ import: an operator-exported file and optionally `FSQ_OS_PLACES_PATH`; the app does
   not need a proprietary Foursquare API key or an FSQ portal token.
 

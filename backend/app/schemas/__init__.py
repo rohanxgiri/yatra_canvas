@@ -32,6 +32,7 @@ from app.schemas.trip import (
     TripRead,
     TripStartLocationRead,
     TripStartLocationUpdate,
+    TripUpdate,
 )
 from app.schemas.route_optimization import (
     OptimizedPlaceRead,
@@ -66,4 +67,5 @@ __all__ = [
     "TripRead",
     "TripStartLocationRead",
     "TripStartLocationUpdate",
+    "TripUpdate",
 ]

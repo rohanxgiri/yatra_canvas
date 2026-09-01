@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from math import log10
+from typing import Protocol
 from uuid import UUID
 
 from sqlmodel import Session, select
@@ -12,8 +13,16 @@ from app.schemas import (
     RecommendationRead,
     RecommendationRequest,
 )
-from app.services.google_places_service import GooglePlacesService
-from app.services.place_discovery_service import PlaceDiscoveryService
+
+
+class RecommendationDiscovery(Protocol):
+    async def discover(
+        self,
+        *,
+        session: Session,
+        city: City,
+        category: DiscoveryCategory,
+    ) -> list[Place]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,9 +68,7 @@ def calculate_recommendation_score(
             (1.0 - weights.review_confidence_floor) * review_confidence
         )
         rating_score = (
-            weights.rating_confidence
-            * (place.rating / 5.0)
-            * confidence_multiplier
+            weights.rating_confidence * (place.rating / 5.0) * confidence_multiplier
         )
 
     total = category_score + rating_score
@@ -79,7 +86,7 @@ class RecommendationService:
 
     def __init__(
         self,
-        discovery: PlaceDiscoveryService,
+        discovery: RecommendationDiscovery,
         *,
         weights: RecommendationWeights = DEFAULT_RECOMMENDATION_WEIGHTS,
     ) -> None:
@@ -92,7 +99,6 @@ class RecommendationService:
         session: Session,
         city: City,
         request: RecommendationRequest,
-        google_places: GooglePlacesService,
     ) -> list[RecommendationRead]:
         candidates: dict[UUID, Place] = {}
         for category in request.categories:
@@ -100,7 +106,6 @@ class RecommendationService:
                 session=session,
                 city=city,
                 category=category,
-                google_places=google_places,
             )
             for place in places:
                 candidates[place.id] = place

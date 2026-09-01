@@ -7,12 +7,10 @@ import '../config/api_config.dart';
 import '../models/optimized_route.dart';
 
 class RouteOptimizationService {
-  RouteOptimizationService({
-    http.Client? client,
-    String baseUrl = ApiConfig.baseUrl,
-  }) : _client = client ?? http.Client(),
-       _ownsClient = client == null,
-       _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), '');
+  RouteOptimizationService({http.Client? client, String? baseUrl})
+    : _client = client ?? http.Client(),
+      _ownsClient = client == null,
+      _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
   static const Duration _requestTimeout = Duration(seconds: 45);
 

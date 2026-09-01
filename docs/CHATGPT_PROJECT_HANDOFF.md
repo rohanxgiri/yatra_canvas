@@ -1,6 +1,13 @@
 # YatraCanvas complete ChatGPT project handoff
 
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-01
+
+> **2026-09-01 provider update:** Normal recommendations now use bounded, cached
+> OpenStreetMap/Overpass discovery and normal route optimization uses labelled local coordinate
+> estimates; neither flow requires Google keys. Google Places/Routes adapters are legacy
+> `[DEPRECATED]` paths. Geoapify remains the freemium destination/arrival autocomplete dependency.
+> The modular architecture, API/data-source, environment, and decisions documents are
+> authoritative where older provider descriptions remain later in this snapshot.
 
 ## How to use this file
 
@@ -163,8 +170,8 @@ routers. `create_all` does not upgrade an existing database schema.
 | `GET` | `/cities/{city_id}` | `[IMPLEMENTED]` get one city |
 | `GET` | `/cities/autocomplete` | `[IMPLEMENTED]` Google Places city predictions |
 | `GET` | `/cities/place-details/{google_place_id}` | `[IMPLEMENTED]` Google city details |
-| `POST` | `/cities/resolve` | `[IMPLEMENTED]` find/create city by Google Place ID |
-| `GET` | `/locations/autocomplete` | `[IMPLEMENTED]` Geoapify normalized autocomplete |
+| `POST` | `/cities/resolve` | `[IMPLEMENTED]` find/create normalized Google or non-Google city |
+| `GET` | `/locations/autocomplete` | `[IMPLEMENTED]` Geoapify destination and arrival autocomplete |
 | `POST` | `/places` | `[IMPLEMENTED]` create a canonical place |
 | `GET` | `/cities/{city_id}/places` | `[IMPLEMENTED]` list stored places |
 | `GET` | `/cities/{city_id}/discover-places` | `[IMPLEMENTED]` cache-aware discovery/Google refresh |
