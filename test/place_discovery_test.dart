@@ -510,6 +510,7 @@ class _FakeRecommendationService extends RecommendationService {
     String cityId,
     Iterable<PlaceCategory> categories, {
     int limit = 30,
+    String? tripId,
   }) async {
     requests.add(categories.toList(growable: false));
     return [

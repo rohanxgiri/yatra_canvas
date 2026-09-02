@@ -710,3 +710,33 @@ Automated test results:
 - Backend: 162/162 pytest tests passed (including all 7 smart replanning tests in `tests/test_smart_replanning.py`).
 - Flutter: 56/56 flutter tests passed (including all replanning model and widget tests in `test/smart_replanning_test.dart`).
 - Static analysis: `flutter analyze` passed with 0 issues.
+
+## Place Discovery & Recommendation Quality Verification
+
+Verified: 2026-09-02 on branch `feature/recommendation-quality`.
+
+Scope:
+- Multi-stage recommendation pipeline implemented in `RecommendationService`:
+  1. Candidate Retrieval across requested categories.
+  2. Canonical & Spatial Deduplication (`deduplicate_places`):
+     - Hierarchical resolution: Place.id -> provider source keys (`source:external_id`) -> spatial proximity ($\le 75$m distance threshold with normalized tokenized name similarity).
+     - Distinct branches of the same chain (e.g. 4 km apart) are preserved.
+     - Node and way duplicate representations of the same physical venue are merged.
+  3. Traveller-Suitability & Access Confidence Evaluation (`is_traveller_suitable`):
+     - Context-based classification (`PUBLIC_LIKELY`, `UNKNOWN`, `RESTRICTED_LIKELY`, `RESTRICTED`).
+     - Excludes internal student canteens, college messes, employee cafeterias, and restricted-access venues without hardcoding specific institution names (e.g. general pattern matching for canteen/mess/hostel/staff dining combined with access tags).
+  4. Food Intent Quality & Diversity:
+     - Prioritizes authentic public dining, cafes, bakeries, and street food.
+     - Subcategory diversity prevents returning 10 identical fast-food options.
+     - Explainable, provider-neutral recommendation reasons (e.g. `"Matches your food preferences · Popular dining spot"`).
+  5. Saved Place Integration:
+     - Identifies already-saved places and populates `is_saved` flag.
+- Flutter UI:
+  - Parses `recommendationReason`, `accessConfidence`, and `isSaved`.
+  - Displays recommendation reasons on place cards.
+  - Automatically identifies and handles already-saved places.
+
+Automated test results:
+- Backend: 169/169 pytest tests passed (including all 7 new recommendation quality tests in `tests/test_recommendation_quality.py`).
+- Flutter: 56/56 flutter tests passed.
+- Static analysis: `flutter analyze` passed with 0 issues.

@@ -18,6 +18,7 @@ class DiscoveryCategory(str, Enum):
 class RecommendationRequest(SQLModel):
     categories: list[DiscoveryCategory] = Field(min_length=1, max_length=5)
     limit: int = Field(default=30, ge=1, le=100)
+    trip_id: UUID | None = None
 
     @field_validator("categories")
     @classmethod
@@ -41,3 +42,6 @@ class RecommendationRead(SQLModel):
     is_local_speciality: bool
     matched_categories: list[DiscoveryCategory]
     recommendation_score: float
+    recommendation_reason: str | None = None
+    access_confidence: str = "PUBLIC_LIKELY"
+    is_saved: bool = False

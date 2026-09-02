@@ -72,6 +72,12 @@ provider boundary.
 - `UPDATE_DATES`: marks weather advisories stale and realigns schedule dates without discarding route matrix rows or geometry.
 - `UPDATE_CITY`: purges all route matrix cache and itinerary rows for the trip (`all`).
 
+`[IMPLEMENTED]` Place Discovery & Recommendation Quality Pipeline (`RecommendationService`):
+- Candidate Retrieval: multi-category queries across stored POIs and bounded OpenStreetMap discovery.
+- Canonical & Spatial Deduplication (`deduplicate_places`): identity resolution hierarchy using canonical `Place.id`, provider namespace keys (`source:external_id`), and spatial proximity ($\le 75$m distance threshold with normalized tokenized name similarity). Genuinely separate branches of the same chain (e.g. 4 km apart) are strictly preserved as distinct venues.
+- Traveller-Suitability & Access Confidence (`is_traveller_suitable`): general context-based evaluation classifying venues into `PUBLIC_LIKELY`, `UNKNOWN`, `RESTRICTED_LIKELY`, and `RESTRICTED`. Automatically excludes student messes, institutional canteens, staff cafeterias, and restricted-access venues without blacklisting individual university/company names.
+- Scoring & Diversity: deterministic scoring combining category match, access confidence, verified ratings/reviews, and city center proximity without fabricated data; generates explainable recommendation reasons and flags saved places.
+
 `[PARTIAL]` `LocationAutocompleteProvider`, `RouteGeometryProvider`, and `WeatherProvider` are
 provider-neutral protocols. Normal recommendations use bounded OpenStreetMap/Overpass discovery,
 road geometry uses keyless OSRM (or openrouteservice), and weather advisories use Open-Meteo with

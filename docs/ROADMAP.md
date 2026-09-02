@@ -135,7 +135,7 @@ Acceptance criteria:
 - A test deployment can disable Google Routes with complete cached/static fallback and explicit
   failure for missing legs.
 
-## Phase 8 — Weather-aware trip assistance, realistic itinerary timing, and smart re-planning
+## Phase 8 — Weather-aware trip assistance, realistic itinerary timing, smart re-planning, and recommendation quality
 
 Status: `[IMPLEMENTED]`. Weather-aware trip assistance is implemented with provider-neutral
 `WeatherProvider` protocol, `OpenMeteoWeatherProvider` adapter, in-memory TTL caching, itinerary-aware
@@ -147,12 +147,16 @@ heuristics, opening-hours awareness, must-visit preservation, and Flutter time-w
 Smart re-planning is implemented with `SmartReplanningService`, centralized invalidation rules,
 selective `RouteMatrixCache` purging (`start_only` vs. `all`), non-persisted preview diffs,
 and atomic apply transactions.
+Place discovery and recommendation quality is implemented with `RecommendationService`,
+canonical and spatial deduplication (`deduplicate_places`), and general context-based traveller
+suitability filtering (`is_traveller_suitable`) excluding institutional canteens and staff cafeterias.
 Currency conversion has been removed from the active roadmap.
 
 Scope: make a commercial-use/licensing decision for Open-Meteo before commercial deployment;
 dated forecast caching and CC BY 4.0 attribution are documented. Time-aware itinerary scheduling
 uses route matrix travel times and deterministic category visit heuristics with opening-hours awareness.
 Re-planning engine calculates diffs without destructively modifying saved itineraries until user approval.
+Recommendation engine filters internal institutional dining while preserving separate branches of the same chain.
 
 Acceptance criteria:
 
@@ -164,6 +168,8 @@ Acceptance criteria:
   opening-hour checks without silently dropping must-visit places.
 - Trip edits evaluate precise invalidation impact, reuse valid pairwise route matrix rows, show
   transparent change previews, and apply updates transactionally.
+- Place discovery eliminates institutional dining, resolves node/way duplicates, preserves distinct
+  chain branches, and provides explainable recommendation reasons without fabricating popularity.
 - No secrets are shipped to Flutter.
 
 ## Phase 9 — Authorized admin verification tools

@@ -196,6 +196,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       final recommendations = await _recommendationService.getRecommendations(
         cityId,
         categories,
+        tripId: _tripId,
       );
       if (!mounted || requestGeneration != _requestGeneration) return;
       setState(() {
@@ -1126,7 +1127,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
           Builder(
             builder: (context) {
               final recommendation = _recommendations[index];
-              final selected = _savedPlaceFor(recommendation.id) != null;
+              final selected =
+                  recommendation.isSaved || _savedPlaceFor(recommendation.id) != null;
               final busy = _mutatingPlaceIds.contains(recommendation.id);
               return PlaceCard(
                 name: recommendation.name,
@@ -1156,6 +1158,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   }
 
   String _matchDescription(Recommendation recommendation) {
+    if (recommendation.recommendationReason != null &&
+        recommendation.recommendationReason!.isNotEmpty) {
+      return recommendation.recommendationReason!;
+    }
     final matches = recommendation.matchedCategories
         .map((category) => category.label)
         .join(' + ');

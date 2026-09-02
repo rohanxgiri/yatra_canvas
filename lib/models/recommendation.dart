@@ -14,6 +14,9 @@ class Recommendation {
     required this.matchedCategories,
     required this.recommendationScore,
     this.rating,
+    this.recommendationReason,
+    this.accessConfidence = 'PUBLIC_LIKELY',
+    this.isSaved = false,
   });
 
   final String id;
@@ -28,6 +31,9 @@ class Recommendation {
   final bool isLocalSpeciality;
   final List<PlaceCategory> matchedCategories;
   final double recommendationScore;
+  final String? recommendationReason;
+  final String accessConfidence;
+  final bool isSaved;
 
   factory Recommendation.fromJson(Map<String, dynamic> json) {
     final rawMatchedCategories = json['matched_categories'] as List<dynamic>;
@@ -46,6 +52,9 @@ class Recommendation {
           .map((value) => PlaceCategory.values.byName(value as String))
           .toList(growable: false),
       recommendationScore: (json['recommendation_score'] as num).toDouble(),
+      recommendationReason: json['recommendation_reason'] as String?,
+      accessConfidence: (json['access_confidence'] as String?) ?? 'PUBLIC_LIKELY',
+      isSaved: (json['is_saved'] as bool?) ?? false,
     );
   }
 }

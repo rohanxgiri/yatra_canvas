@@ -23,6 +23,7 @@ class RecommendationService {
     String cityId,
     Iterable<PlaceCategory> categories, {
     int limit = 30,
+    String? tripId,
   }) async {
     final normalizedCityId = cityId.trim();
     final uniqueCategories = categories.toSet().toList(growable: false);
@@ -36,16 +37,21 @@ class RecommendationService {
     }
 
     final encodedCityId = Uri.encodeComponent(normalizedCityId);
+    final payload = <String, dynamic>{
+      'categories': uniqueCategories
+          .map((category) => category.apiValue)
+          .toList(growable: false),
+      'limit': limit,
+    };
+    if (tripId != null && tripId.isNotEmpty) {
+      payload['trip_id'] = tripId;
+    }
+
     final response = await _client
         .post(
           Uri.parse('$_baseUrl/cities/$encodedCityId/recommendations'),
           headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'categories': uniqueCategories
-                .map((category) => category.apiValue)
-                .toList(growable: false),
-            'limit': limit,
-          }),
+          body: jsonEncode(payload),
         )
         .timeout(_requestTimeout);
 
