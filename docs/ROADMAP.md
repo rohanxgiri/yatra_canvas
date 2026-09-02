@@ -116,8 +116,10 @@ Acceptance criteria:
 
 ## Phase 7 — openrouteservice and provider parity
 
-Status: `[PLANNED]` road-routing adapter; current local-estimate multi-day implementation is
-`[IMPLEMENTED]` and the Google adapter is legacy only.
+Status: `[PARTIAL]`. Real road-route geometry provider (`RouteGeometryService`) is `[IMPLEMENTED]`
+with openrouteservice (Directions v2) and OSRM adapters, in-memory TTL caching, and FlutterMap
+polyline rendering with day filtering. Matrix provider migration for TSP route solving remains
+`[PLANNED]`.
 
 Scope: introduce a provider-neutral directions/matrix interface, select hosted versus self-hosted
 openrouteservice, migrate cache semantics, and implement actual multi-day scheduling. Keep Google
@@ -135,17 +137,22 @@ Acceptance criteria:
 
 ## Phase 8 — Weather and currency
 
-Status: `[PLANNED]`.
+Status: `[PARTIAL]`. Weather-aware trip assistance is `[IMPLEMENTED]` with provider-neutral
+`WeatherProvider` protocol, `OpenMeteoWeatherProvider` adapter, in-memory TTL caching, itinerary-aware
+overlap evaluation, deterministic place environment classifier, non-persisted rearrange preview,
+transactional schedule update, and Flutter `WeatherAdvisoryCard` with default continue path.
+Currency conversion remains `[PLANNED]`.
 
-Scope: make a commercial-use/licensing decision for Open-Meteo before adding configuration;
-implement dated forecast caching and attribution. Add Frankfurter daily reference rates with
+Scope: make a commercial-use/licensing decision for Open-Meteo before commercial deployment;
+dated forecast caching and CC BY 4.0 attribution are documented. Add Frankfurter daily reference rates with
 provider/date provenance and calculate amounts in application code.
 
 Acceptance criteria:
 
 - Approved Open-Meteo deployment mode, terms, attribution, key/base URL, and cache policy are
-  documented; a commercial app does not use the non-commercial endpoint improperly.
-- Forecast responses show issue/valid time and degrade to explicitly stale data or no feature.
+  documented; commercial production requires a paid endpoint or self-hosted container.
+- Forecast responses evaluate actual touring hours against outdoor places and degrade safely to
+  `no_forecast_available` outside horizon or `weather_unavailable` without failing trips or maps.
 - Currency output shows rate date/base/quote and is described as reference information, not a
   settlement quote.
 - Both adapters have timeout/error fixtures and no secret is shipped to Flutter.
@@ -166,7 +173,9 @@ Acceptance criteria:
 
 ## Phase 10 — Verified Google retirement and map-rendering decision
 
-Status: `[PLANNED]`.
+Status: `[PARTIAL]`. Interactive map rendering using FlutterMap with OpenStreetMap tiles and
+real road-route geometry `PolylineLayer` is `[IMPLEMENTED]`. Full retirement of retained legacy
+Google adapters remains `[PLANNED]`.
 
 Scope: retire Google Places and Routes independently after their replacements pass acceptance.
 Separately choose a Flutter map renderer, tile provider, attribution, key restrictions, and

@@ -38,6 +38,20 @@ from app.schemas.route_optimization import (
     OptimizedPlaceRead,
     RouteOptimizationRead,
 )
+from app.schemas.route_geometry import (
+    DayRouteGeometryRead,
+    RouteLegGeometryRead,
+    TripRouteGeometryRead,
+)
+from app.schemas.weather_advisory import (
+    ApplyRearrangementRequest,
+    DayRearrangePreviewRead,
+    PlaceAlternativeRead,
+    ProposedStopRead,
+    RearrangePreviewRequest,
+    TripWeatherAdvisoriesRead,
+    WeatherAdvisoryRead,
+)
 
 __all__ = [
     "CityCreate",
@@ -58,6 +72,9 @@ __all__ = [
     "SavedPlaceReorder",
     "OptimizedPlaceRead",
     "RouteOptimizationRead",
+    "DayRouteGeometryRead",
+    "RouteLegGeometryRead",
+    "TripRouteGeometryRead",
     "LocationDetails",
     "LocationSuggestion",
     "LocationAutocompleteResponse",
@@ -68,4 +85,11 @@ __all__ = [
     "TripStartLocationRead",
     "TripStartLocationUpdate",
     "TripUpdate",
+    "WeatherAdvisoryRead",
+    "TripWeatherAdvisoriesRead",
+    "PlaceAlternativeRead",
+    "ProposedStopRead",
+    "DayRearrangePreviewRead",
+    "ApplyRearrangementRequest",
+    "RearrangePreviewRequest",
 ]

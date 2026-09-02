@@ -3,8 +3,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../models/optimized_route.dart';
+import '../../models/route_geometry.dart';
 import '../../models/saved_place.dart';
 import '../../models/trip_start_location.dart';
+import '../../services/route_geometry_service.dart';
 import '../../services/route_optimization_service.dart';
 import '../../services/saved_place_service.dart';
 import '../../services/trip_service.dart';
@@ -17,6 +19,7 @@ class TripMapScreen extends StatefulWidget {
     this.tripService,
     this.savedPlaceService,
     this.routeOptimizationService,
+    this.routeGeometryService,
     super.key,
   });
 
@@ -24,6 +27,7 @@ class TripMapScreen extends StatefulWidget {
   final TripService? tripService;
   final SavedPlaceService? savedPlaceService;
   final RouteOptimizationService? routeOptimizationService;
+  final RouteGeometryService? routeGeometryService;
 
   @override
   State<TripMapScreen> createState() => _TripMapScreenState();
@@ -36,15 +40,18 @@ class _TripMapScreenState extends State<TripMapScreen> {
   late final bool _ownsSavedPlaceService;
   late final RouteOptimizationService _routeOptimizationService;
   late final bool _ownsRouteOptimizationService;
-  
+  late final RouteGeometryService _routeGeometryService;
+  late final bool _ownsRouteGeometryService;
+
   final MapController _mapController = MapController();
 
   bool _isLoading = true;
   String? _error;
-  
+
   TripStartLocation? _startLocation;
   List<SavedPlace> _savedPlaces = [];
   OptimizedRoute? _optimizedRoute;
+  TripRouteGeometry? _routeGeometry;
   int? _selectedDay;
 
   @override
@@ -52,13 +59,17 @@ class _TripMapScreenState extends State<TripMapScreen> {
     super.initState();
     _ownsTripService = widget.tripService == null;
     _tripService = widget.tripService ?? TripService();
-    
+
     _ownsSavedPlaceService = widget.savedPlaceService == null;
     _savedPlaceService = widget.savedPlaceService ?? SavedPlaceService();
-    
+
     _ownsRouteOptimizationService = widget.routeOptimizationService == null;
     _routeOptimizationService =
         widget.routeOptimizationService ?? RouteOptimizationService();
+
+    _ownsRouteGeometryService = widget.routeGeometryService == null;
+    _routeGeometryService =
+        widget.routeGeometryService ?? RouteGeometryService();
 
     _loadMapData();
   }
@@ -68,6 +79,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
     if (_ownsTripService) _tripService.close();
     if (_ownsSavedPlaceService) _savedPlaceService.close();
     if (_ownsRouteOptimizationService) _routeOptimizationService.close();
+    if (_ownsRouteGeometryService) _routeGeometryService.close();
     _mapController.dispose();
     super.dispose();
   }
@@ -80,24 +92,37 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
     try {
       final tripDraft = await _tripService.getTrip(widget.tripId);
-      final savedPlacesResult = await _savedPlaceService.getSavedPlaces(widget.tripId);
-      
+      final savedPlacesResult = await _savedPlaceService.getSavedPlaces(
+        widget.tripId,
+      );
+
       OptimizedRoute? routeResult;
       try {
-        routeResult = await _routeOptimizationService.optimizeRoute(widget.tripId);
+        routeResult = await _routeOptimizationService.optimizeRoute(
+          widget.tripId,
+        );
       } catch (_) {
-        // If optimization fails or doesn't exist, we just won't show it.
-      } catch (e, st) {
-        print('DEBUG ERROR: $e\n$st');
-        if (!mounted) return;
+        // If optimization fails or doesn't exist, we continue without it.
       }
+
+      TripRouteGeometry? geometryResult;
+      try {
+        geometryResult = await _routeGeometryService.getRouteGeometry(
+          widget.tripId,
+        );
+      } catch (_) {
+        // Safe degradation: if geometry cannot be fetched, map still shows markers.
+      }
+
+      if (!mounted) return;
 
       setState(() {
         final stType = tripDraft.startLocationType;
         final name = tripDraft.startLocationName ?? tripDraft.arrivalPoint;
         final lat = tripDraft.startLatitude ?? tripDraft.arrivalLatitude ?? 0.0;
-        final lng = tripDraft.startLongitude ?? tripDraft.arrivalLongitude ?? 0.0;
-        
+        final lng =
+            tripDraft.startLongitude ?? tripDraft.arrivalLongitude ?? 0.0;
+
         if (lat != 0.0 && lng != 0.0) {
           _startLocation = TripStartLocation(
             tripId: widget.tripId,
@@ -107,15 +132,15 @@ class _TripMapScreenState extends State<TripMapScreen> {
             longitude: lng,
           );
         }
-        
+
         _savedPlaces = savedPlacesResult;
         _optimizedRoute = routeResult;
+        _routeGeometry = geometryResult;
         _isLoading = false;
       });
-      
+
       _fitMapBounds();
-    } catch (e, st) {
-      print('DEBUG ERROR: $e\n$st');
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -128,18 +153,15 @@ class _TripMapScreenState extends State<TripMapScreen> {
     try {
       final points = _getVisiblePoints();
       if (points.isEmpty) return;
-      
+
       if (points.length == 1) {
         _mapController.move(points.first, 14.0);
         return;
       }
-      
+
       final bounds = LatLngBounds.fromPoints(points);
       _mapController.fitCamera(
-        CameraFit.bounds(
-          bounds: bounds,
-          padding: const EdgeInsets.all(50.0),
-        ),
+        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50.0)),
       );
     } catch (_) {
       // MapController not ready yet, will be called again in onMapReady
@@ -148,18 +170,26 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
   List<LatLng> _getVisiblePoints() {
     final points = <LatLng>[];
-    
+
     if (_startLocation != null) {
       points.add(LatLng(_startLocation!.latitude, _startLocation!.longitude));
     }
-    
+
+    // Include road-route geometry points if available for accurate camera framing
+    if (_routeGeometry != null) {
+      final geometryPoints = _routeGeometry!.pointsForDay(_selectedDay);
+      points.addAll(geometryPoints);
+    }
+
     if (_optimizedRoute != null) {
       final filteredPlaces = _selectedDay == null
           ? _optimizedRoute!.places
           : _optimizedRoute!.places.where((p) => p.dayNumber == _selectedDay);
-      
+
       for (final place in filteredPlaces) {
-        final saved = _savedPlaces.where((s) => s.placeId == place.placeId).firstOrNull;
+        final saved = _savedPlaces
+            .where((s) => s.placeId == place.placeId)
+            .firstOrNull;
         if (saved != null) {
           points.add(LatLng(saved.place.latitude, saved.place.longitude));
         }
@@ -169,13 +199,35 @@ class _TripMapScreenState extends State<TripMapScreen> {
         points.add(LatLng(saved.place.latitude, saved.place.longitude));
       }
     }
-    
+
     return points;
   }
-  
+
+  List<Polyline> _buildPolylines() {
+    if (_routeGeometry == null) return const [];
+    final polylines = <Polyline>[];
+
+    final filteredDays = _selectedDay == null
+        ? _routeGeometry!.days
+        : _routeGeometry!.days.where((d) => d.dayNumber == _selectedDay);
+
+    for (final day in filteredDays) {
+      if (day.points.isNotEmpty) {
+        polylines.add(
+          Polyline(
+            points: day.points,
+            color: AppColors.teal,
+            strokeWidth: 4.5,
+          ),
+        );
+      }
+    }
+    return polylines;
+  }
+
   List<Marker> _buildMarkers() {
     final markers = <Marker>[];
-    
+
     if (_startLocation != null) {
       markers.add(
         Marker(
@@ -183,7 +235,8 @@ class _TripMapScreenState extends State<TripMapScreen> {
           width: 40,
           height: 40,
           child: GestureDetector(
-            onTap: () => _showPlaceDetails(_startLocation!.name, 'Start Location', null),
+            onTap: () =>
+                _showPlaceDetails(_startLocation!.name, 'Start Location', null),
             child: const DecoratedBox(
               decoration: BoxDecoration(
                 color: AppColors.teal,
@@ -196,14 +249,16 @@ class _TripMapScreenState extends State<TripMapScreen> {
         ),
       );
     }
-    
+
     if (_optimizedRoute != null) {
       final filteredPlaces = _selectedDay == null
           ? _optimizedRoute!.places
           : _optimizedRoute!.places.where((p) => p.dayNumber == _selectedDay);
-          
+
       for (final place in filteredPlaces) {
-        final saved = _savedPlaces.where((s) => s.placeId == place.placeId).firstOrNull;
+        final saved = _savedPlaces
+            .where((s) => s.placeId == place.placeId)
+            .firstOrNull;
         if (saved != null) {
           markers.add(
             Marker(
@@ -211,12 +266,18 @@ class _TripMapScreenState extends State<TripMapScreen> {
               width: 36,
               height: 36,
               child: GestureDetector(
-                onTap: () => _showPlaceDetails(saved.place.name, saved.place.category, place.visitOrder),
+                onTap: () => _showPlaceDetails(
+                  saved.place.name,
+                  saved.place.category,
+                  place.visitOrder,
+                ),
                 child: DecoratedBox(
                   decoration: const BoxDecoration(
                     color: AppColors.teal,
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                    boxShadow: [
+                      BoxShadow(color: Colors.black26, blurRadius: 4),
+                    ],
                   ),
                   child: Center(
                     child: Text(
@@ -241,21 +302,29 @@ class _TripMapScreenState extends State<TripMapScreen> {
             width: 32,
             height: 32,
             child: GestureDetector(
-              onTap: () => _showPlaceDetails(saved.place.name, saved.place.category, null),
+              onTap: () => _showPlaceDetails(
+                saved.place.name,
+                saved.place.category,
+                null,
+              ),
               child: const DecoratedBox(
                 decoration: BoxDecoration(
                   color: AppColors.teal,
                   shape: BoxShape.circle,
                   boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
                 ),
-                child: Icon(Icons.location_on_rounded, color: Colors.white, size: 20),
+                child: Icon(
+                  Icons.location_on_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
         );
       }
     }
-    
+
     return markers;
   }
 
@@ -285,7 +354,11 @@ class _TripMapScreenState extends State<TripMapScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.category_rounded, size: 16, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.category_rounded,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: 8),
                   Text(category, style: AppTextStyles.bodyMuted),
                 ],
@@ -321,17 +394,16 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 _fitMapBounds();
               },
               itemBuilder: (context) {
-                final days = _optimizedRoute!.places.map((p) => p.dayNumber).toSet().toList()..sort();
+                final days =
+                    _optimizedRoute!.places
+                        .map((p) => p.dayNumber)
+                        .toSet()
+                        .toList()
+                      ..sort();
                 return [
-                  const PopupMenuItem(
-                    value: null,
-                    child: Text('All Days'),
-                  ),
+                  const PopupMenuItem(value: null, child: Text('All Days')),
                   for (final day in days)
-                    PopupMenuItem(
-                      value: day,
-                      child: Text('Day $day'),
-                    ),
+                    PopupMenuItem(value: day, child: Text('Day $day')),
                 ];
               },
             ),
@@ -353,9 +425,17 @@ class _TripMapScreenState extends State<TripMapScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 48),
+              const Icon(
+                Icons.error_outline_rounded,
+                color: AppColors.error,
+                size: 48,
+              ),
               const SizedBox(height: 16),
-              Text(_error!, textAlign: TextAlign.center, style: AppTextStyles.body),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body,
+              ),
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _loadMapData,
@@ -384,6 +464,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.yatracanvas.app',
             ),
+            PolylineLayer(polylines: _buildPolylines()),
             MarkerLayer(markers: _buildMarkers()),
             RichAttributionWidget(
               attributions: [
@@ -394,32 +475,6 @@ class _TripMapScreenState extends State<TripMapScreen> {
               ],
             ),
           ],
-        ),
-        Positioned(
-          top: 16,
-          left: 16,
-          right: 16,
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceSoft.withValues(alpha: .95),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline_rounded, color: AppColors.teal, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Road-route geometry is not yet available.',
-                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );

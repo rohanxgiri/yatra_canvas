@@ -94,6 +94,7 @@ their provider sections.
 | `GET /trips/{trip_id}/start-location` | 200 | Returned selected arrival start |
 | `PATCH /trips/{trip_id}/start-location` | 200 | Persisted selected arrival start |
 | `POST /trips/{trip_id}/optimize-route` | 200 | Wrote route cache and partitioned multi-day itinerary rows |
+| `GET /trips/{trip_id}/route-geometry` | 200 | Returned real road-route coordinates, distance, and duration partitioned by day; verified with openrouteservice, OSRM, and in-memory TTL caching |
 
 Trip listing and trip deletion endpoints remain absent. Authentication is not implemented.
 
@@ -640,3 +641,25 @@ or readiness for a city-wide import.
 
 **F. Single best next development task:** verify and harden route optimization from the normal
 real-trip saved-place flow, without adding multi-day planning or changing providers.
+
+## Weather-Aware Trip Assistance Verification
+
+Verified: 2026-09-02 on branch `feature/weather-advisories`.
+
+Scope:
+- Provider-neutral `WeatherProvider` protocol and `OpenMeteoWeatherProvider` adapter with in-memory TTL caching.
+- Itinerary-aware `WeatherAdvisoryService` detecting adverse conditions ($\ge 2$ consecutive hours) overlapping with scheduled outdoor stops.
+- Deterministic `PlaceEnvironmentClassifier` identifying outdoor-exposed versus sheltered-indoor venues using categories, tags, and titles.
+- `WeatherAlternativeService` ranking indoor attractions by user preferences, non-persisted day rearrangement preview, and transactional apply preserving `must_visit` and `is_locked` constraints.
+- Endpoints:
+  - `GET /trips/{trip_id}/weather-advisories`
+  - `GET /trips/{trip_id}/weather-alternatives`
+  - `POST /trips/{trip_id}/rearrange-preview`
+  - `POST /trips/{trip_id}/apply-itinerary-adjustment`
+  - `POST /trips/{trip_id}/ignore-weather`
+- Flutter UI: `WeatherAdvisoryCard` wired into Place Discovery with default "Continue as planned", alternatives bottom sheet, rearrange dialog, and ignore action.
+
+Automated test results:
+- Backend: 145/145 pytest tests passed (including all 12 weather advisory tests).
+- Flutter: 51/51 flutter tests passed (including all weather advisory models, services, and widget tests).
+- Static analysis: `flutter analyze` passed with 0 issues.

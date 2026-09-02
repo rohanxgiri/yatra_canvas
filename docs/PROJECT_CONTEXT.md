@@ -47,9 +47,10 @@ and a global social network are current non-goals.
 | Choose purpose and preferences | `[IMPLEMENTED]` | The normal flow persists selected purposes, pace, budget, and transport choices as `TripPreference` rows in the trip-create transaction. Saved purposes also seed Place Discovery's recommendation categories. |
 | Discover/recommend places | `[PARTIAL]` | The normal recommendation flow automatically maps saved trip purposes into initial categories, presents those reasons as read-only context, and keeps extra-interest refinements collapsed and unselected until requested. It performs bounded OpenStreetMap/Overpass queries, persists ODbL source metadata, caches results, and shows attribution. Public Overpass availability and raw OSM data quality are not production guarantees. |
 | Save places | `[IMPLEMENTED]` | Place Discovery uses the real `TripDraft.tripId` to load, add, customize, reorder, and delete persisted saved places. Duplicate conflicts and failed mutations reconcile with backend state instead of leaving optimistic local data. |
-| Optimize itinerary | `[IMPLEMENTED]` | Constraint-aware multi-day ordering works with cached offline coordinate estimates, partitioning places across trip days based on a daily travel/visit budget. Distances/times are approximate; road directions are absent. |
-| Interactive map | `[PLANNED]` | No map SDK/package or interactive map widget is present. Decorative artwork is not a map implementation. |
-| Weather and currency | `[PLANNED]` | No endpoints, clients, models, or settings exist. |
+| Optimize itinerary | `[IMPLEMENTED]` | Constraint-aware multi-day ordering works with cached coordinate estimates, partitioning places across trip days based on a daily travel/visit budget. Real road-route geometry is served via `RouteGeometryService`. |
+| Interactive map | `[IMPLEMENTED]` | FlutterMap interactive map with OpenStreetMap tiles, start/place markers, and real road-following `PolylineLayer` per day with day filtering and camera bounds fitting. |
+| Weather advisories | `[IMPLEMENTED]` | Provider-neutral weather assistance via Open-Meteo with itinerary-aware threshold detection (heat, rain, storms, wind), deterministic indoor/outdoor exposure classifier, non-persisted rearrange preview, transactional apply, and default continue path. |
+| Currency | `[PLANNED]` | No endpoints, clients, or models exist. |
 | Admin review | `[PARTIAL]` | A mock admin shell and import-review schema exist; there are no admin APIs or connected review actions. |
 
 The Flutter repository contains more than twenty visual states when the multi-step onboarding

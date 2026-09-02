@@ -28,6 +28,17 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 | `GOOGLE_NEARBY_RADIUS_METERS` | Google Places | Optional | Backend | Nearby Search radius, default 10,000 m | Non-secret | `[IMPLEMENTED]`, target `[DEPRECATED]` with Google discovery |
 | `PLACE_POPULAR_MIN_RATING` | Canonical place classification | Optional | Backend | Minimum rating for current popular flag, default 4.2 | Non-secret | `[IMPLEMENTED]`; provider-neutral meaning needs review because FSQ OS has no rating field |
 | `PLACE_POPULAR_MIN_REVIEW_COUNT` | Canonical place classification | Optional | Backend | Minimum review count for current popular flag, default 100 | Non-secret | `[IMPLEMENTED]`; same provider-neutral review required |
+| `ROUTING_PROVIDER` | Routing provider selection | Optional | Backend | Routing geometry provider, default `osrm` (or `openrouteservice`) | Non-secret | `[IMPLEMENTED]`; provider-neutral routing selection |
+| `OPENROUTESERVICE_API_KEY` | openrouteservice | Optional | Backend | API token for hosted openrouteservice directions v2 | Secret | `[IMPLEMENTED]`; optional when using self-hosted ORS or OSRM |
+| `OPENROUTESERVICE_BASE_URL` | openrouteservice | Optional | Backend | openrouteservice base URL, default `https://api.openrouteservice.org` | Non-secret | `[IMPLEMENTED]` |
+| `OPENROUTESERVICE_TIMEOUT_SECONDS` | openrouteservice | Optional | Backend | Outbound directions request timeout, default 10 seconds | Non-secret | `[IMPLEMENTED]` |
+| `OSRM_ROUTER_URL` | OSRM | Optional | Backend | OSRM routing endpoint for keyless open-data road geometry, default `https://router.project-osrm.org` | Non-secret | `[IMPLEMENTED]` |
+| `OSRM_TIMEOUT_SECONDS` | OSRM | Optional | Backend | OSRM request timeout, default 10 seconds | Non-secret | `[IMPLEMENTED]` |
+| `ROUTE_GEOMETRY_CACHE_TTL_MINUTES` | Route geometry cache | Optional | Backend | In-memory TTL for cached route geometry linestrings, default 60 minutes | Non-secret | `[IMPLEMENTED]` |
+| `WEATHER_PROVIDER` | Weather provider | Optional | Backend | Selected weather provider, default `openmeteo` | Non-secret | `[IMPLEMENTED]` |
+| `OPEN_METEO_BASE_URL` | Open-Meteo | Optional | Backend | Open-Meteo API base URL, default `https://api.open-meteo.com` | Non-secret | `[IMPLEMENTED]`; free hosted endpoint has non-commercial restriction |
+| `OPEN_METEO_TIMEOUT_SECONDS` | Open-Meteo | Optional | Backend | Open-Meteo request timeout, default 10 seconds | Non-secret | `[IMPLEMENTED]` |
+| `WEATHER_CACHE_TTL_MINUTES` | Weather forecast cache | Optional | Backend | In-memory TTL for cached weather forecasts, default 60 minutes | Non-secret | `[IMPLEMENTED]` |
 
 ## Flutter build-time variable
 
@@ -51,9 +62,8 @@ request only keys for features being exercised.
 ## Planned providers are intentionally absent
 
 No repository code reads a Supabase URL/public client key, Supabase service-role key,
-openrouteservice key, Open-Meteo key/base URL, Frankfurter base URL, Wikimedia contact, Overpass
-URL, or provider-selection flag. Those variables have **not** been added to
-`backend/.env.example` because doing so would falsely imply an integration exists.
+Frankfurter base URL, Wikimedia contact, or Overpass URL. Those variables have **not**
+been added to `backend/.env.example` because doing so would falsely imply an integration exists.
 
 Before adding any planned variable, implement or select the adapter/configuration contract,
 choose an unambiguous name, add validation and tests, update `backend/.env.example` and this file,

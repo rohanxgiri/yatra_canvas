@@ -57,16 +57,19 @@ internet permissions support device location and HTTP; they are not evidence of 
 | Saved places | list/create/update/reorder/delete under a trip |
 | Trips | create a trip; get/update start location |
 | Routing | optimize an existing trip using cached local distance/time estimates |
+| Route geometry | `GET /trips/{trip_id}/route-geometry` using OSRM or openrouteservice |
+| Weather advisories | `GET /trips/{trip_id}/weather-advisories`, `GET /trips/{trip_id}/weather-alternatives`, `POST /trips/{trip_id}/rearrange-preview`, `POST /trips/{trip_id}/apply-itinerary-adjustment`, `POST /trips/{trip_id}/ignore-weather` |
 
 Provider errors are translated into safe HTTP failures by routers. Settings are read from
 `backend/.env` or the process environment. Secrets use `SecretStr` and are unwrapped only at a
 provider boundary.
 
-`[PARTIAL]` `LocationAutocompleteProvider` is a provider-neutral protocol, currently backed by
-Geoapify. Normal recommendations use bounded OpenStreetMap/Overpass discovery and the optimizer
-uses offline coordinate estimates. Legacy Google-specific city/discovery and route client code
-remains but is not called by the normal Flutter flow.
-There are no auth, user-profile, trip read/update/list/delete, weather, currency, admin,
+`[PARTIAL]` `LocationAutocompleteProvider`, `RouteGeometryProvider`, and `WeatherProvider` are
+provider-neutral protocols. Normal recommendations use bounded OpenStreetMap/Overpass discovery,
+road geometry uses keyless OSRM (or openrouteservice), and weather advisories use Open-Meteo with
+in-memory caching and deterministic indoor/outdoor place environment classification.
+Legacy Google-specific city/discovery and route client code remains but is not called by the normal Flutter flow.
+There are no auth, user-profile, trip read/update/list/delete, currency, admin,
 ingestion-job, or observability endpoints.
 
 ### Database and schema changes
@@ -128,6 +131,13 @@ environment variable.
 - `[IMPLEMENTED]` `RouteMatrixCache` stores coordinate-based local estimates under the
   `local_estimate` mode. These are approximate straight-line-derived distances/times, not road
   directions or live traffic.
+- `[IMPLEMENTED]` `RouteGeometryService` caches real road-following geometry polylines in memory
+  using a coordinate fingerprint (`trip_id:day_number:coords_hash`) with a configurable TTL
+  (`ROUTE_GEOMETRY_CACHE_TTL_MINUTES`, default 60 min). This avoids repeated external routing
+  calls during map interactions and day filtering without altering `RouteMatrixCache`.
+- `[IMPLEMENTED]` Route geometry is served through a provider-neutral abstraction
+  (`RouteGeometryProvider`) supporting both the target openrouteservice directions API
+  (`OpenRouteServiceGeometryProvider`) and keyless open-data OSRM (`OSRMGeometryProvider`).
 - `[IMPLEMENTED]` OpenStreetMap discovery serves previously persisted category results when an
   expired/missing cache refresh is temporarily unavailable. A category with no stored results
   still returns the provider's explicit retryable failure.
@@ -218,8 +228,8 @@ only with the deployment architecture; both are currently `[UNKNOWN]`.
 | Identity/authorization | `[PLANNED]` login UI only | Supabase Auth, server verification, ownership tests, reviewed RLS |
 | Trip lifecycle | `[PARTIAL]` create flow and downstream single-session ID handoff; no read/edit/resume/auth | persisted creation through multi-day itinerary lifecycle |
 | Place acquisition | Google runtime refresh plus local FSQ importer | reviewed FSQ/OSM ingestion and optional Wikimedia enrichment |
-| Routing | Google matrix, multi-day optimizer | provider-neutral openrouteservice directions/matrix and multi-day planning |
-| Map | `[PLANNED]` | explicit renderer/tiles decision with attribution and offline policy |
+| Routing | `[IMPLEMENTED]` pairwise matrix estimates, constraint-aware optimizer; real road geometry via openrouteservice/OSRM | provider-neutral openrouteservice directions/matrix and multi-day planning |
+| Map | `[IMPLEMENTED]` FlutterMap with OpenStreetMap tiles, markers, and real road-route PolylineLayer | explicit renderer/tiles decision with attribution and offline policy |
 | Admin | mock UI plus review table | authorized, audited review/dedupe/correction workflow |
 | Migrations | `create_all` plus SQL scripts | ordered, reversible, tested migration history |
 | Operations | `[UNKNOWN]` | documented deployment, health, metrics, backup, and incident behavior |

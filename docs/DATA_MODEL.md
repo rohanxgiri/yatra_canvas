@@ -40,13 +40,14 @@ Deletion/cascade behavior is not specified by these models and must not be assum
 | `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label, unique for place/source/external category. |
 | `place_import_reviews` / `PlaceImportReview` | `[IMPLEMENTED]` schema, `[PARTIAL]` workflow | One review per provider/external place ID. Status is `pending`, `resolved`, or `ignored`; stores candidates, match evidence, and a source snapshot. No connected admin endpoint/UI action exists. |
 | `trips` / `Trip` | `[IMPLEMENTED]` schema, create, get, and patch APIs, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. `GET /trips/{trip_id}` returns the complete application trip representation, and `PATCH /trips/{trip_id}` supports partial updates with date/coordinate/preference validation and downstream cache invalidation. List/delete and authentication remain absent. |
-| `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema/create/edit path | The trip-create and trip-edit transactions store unique purposes, pace, budget, and transport choices as generic weighted preference rows, unique per trip/preference. Old rows are cleanly reconciled on update. |
+| `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema/create/edit path | The trip-create and trip-edit transactions store unique purposes, pace, budget, and transport choices as generic weighted preference rows, unique per trip/preference. Also stores `ignore_weather_advisories` to suppress future weather advisories for the trip. |
 | `user_saved_places` / `UserSavedPlace` | `[IMPLEMENTED]` API | Unique trip/place selection with custom order, priority, locked, must-visit, notes. Requires an existing trip. |
 | `route_matrix_cache` / `RouteMatrixCache` | `[IMPLEMENTED]` | Per-trip directed pair/mode cache with place IDs or coordinate snapshots. The normal path stores approximate offline costs under `local_estimate`; legacy Google rows remain distinguishable by mode. |
-| `trip_itinerary` / `TripItinerary` | `[IMPLEMENTED]` schema, `[PARTIAL]` planner | Unique visit order per trip/day, optional times and prior-leg metrics. Current optimizer writes only `day_number = 1`. |
+| `trip_itinerary` / `TripItinerary` | `[IMPLEMENTED]` | Unique visit order per trip/day, optional times and prior-leg metrics. Multi-day partition and weather-aware itinerary rearrangements update these rows transactionally while respecting must-visit constraints. |
 
-There is no application `User`/`Profile`, weather, currency, media, audit-log, map, or provider-job
-table. These are `[PLANNED]` only where called for by the roadmap.
+There is no application `User`/`Profile`, currency, media, audit-log, map, or provider-job
+table. These are `[PLANNED]` only where called for by the roadmap. Weather forecasts use in-memory
+TTL caching and do not require persistent database tables.
 
 Authentication is not implemented. `Trip.user_id` is required by the current model but is not a
 foreign key. The create service currently supplies one fixed, server-owned development-only UUID;

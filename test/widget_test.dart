@@ -360,25 +360,6 @@ const _gandhinagarUnresolvedResponse = '''
 }
 ''';
 
-const _gandhinagarLocationResponse = '''
-{
-  "results": [
-    {
-      "provider": "geoapify",
-      "provider_place_id": "geoapify-gandhinagar",
-      "name": "Gandhinagar",
-      "formatted_address": "Gandhinagar, GJ, India",
-      "latitude": 23.2156,
-      "longitude": 72.6369,
-      "city": "Gandhinagar",
-      "state": "Gujarat",
-      "country_code": "in",
-      "result_type": "city"
-    }
-  ]
-}
-''';
-
 const _ujjainResponse = '''
 {
   "id": "22222222-2222-2222-2222-222222222222",

@@ -102,6 +102,60 @@ class Settings(BaseSettings):
         ge=0,
         validation_alias="PLACE_POPULAR_MIN_REVIEW_COUNT",
     )
+    routing_provider: str = Field(
+        default="osrm",
+        validation_alias="ROUTING_PROVIDER",
+    )
+    openrouteservice_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias="OPENROUTESERVICE_API_KEY",
+    )
+    openrouteservice_base_url: str = Field(
+        default="https://api.openrouteservice.org",
+        validation_alias="OPENROUTESERVICE_BASE_URL",
+    )
+    openrouteservice_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        le=60,
+        validation_alias="OPENROUTESERVICE_TIMEOUT_SECONDS",
+    )
+    osrm_router_url: str = Field(
+        default="https://router.project-osrm.org",
+        validation_alias="OSRM_ROUTER_URL",
+    )
+    osrm_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        le=60,
+        validation_alias="OSRM_TIMEOUT_SECONDS",
+    )
+    route_geometry_cache_ttl_minutes: int = Field(
+        default=60,
+        ge=1,
+        le=1440,
+        validation_alias="ROUTE_GEOMETRY_CACHE_TTL_MINUTES",
+    )
+    weather_provider: str = Field(
+        default="openmeteo",
+        validation_alias="WEATHER_PROVIDER",
+    )
+    open_meteo_base_url: str = Field(
+        default="https://api.open-meteo.com",
+        validation_alias="OPEN_METEO_BASE_URL",
+    )
+    open_meteo_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        le=60,
+        validation_alias="OPEN_METEO_TIMEOUT_SECONDS",
+    )
+    weather_cache_ttl_minutes: int = Field(
+        default=60,
+        ge=1,
+        le=1440,
+        validation_alias="WEATHER_CACHE_TTL_MINUTES",
+    )
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
@@ -125,6 +179,7 @@ class Settings(BaseSettings):
     @field_validator(
         "google_routes_api_key",
         "geoapify_api_key",
+        "openrouteservice_api_key",
     )
     @classmethod
     def normalize_optional_secret(cls, value: SecretStr | None) -> SecretStr | None:
@@ -157,6 +212,46 @@ class Settings(BaseSettings):
             raise ValueError("OVERPASS_API_URL must be an HTTP(S) URL")
         return normalized
 
+    @field_validator("openrouteservice_base_url")
+    @classmethod
+    def normalize_openrouteservice_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if not normalized.startswith(("https://", "http://")):
+            raise ValueError("OPENROUTESERVICE_BASE_URL must be an HTTP(S) URL")
+        return normalized
+
+    @field_validator("osrm_router_url")
+    @classmethod
+    def normalize_osrm_router_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if not normalized.startswith(("https://", "http://")):
+            raise ValueError("OSRM_ROUTER_URL must be an HTTP(S) URL")
+        return normalized
+
+    @field_validator("routing_provider")
+    @classmethod
+    def normalize_routing_provider(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ("osrm", "openrouteservice"):
+            raise ValueError("ROUTING_PROVIDER must be 'osrm' or 'openrouteservice'")
+        return normalized
+
+    @field_validator("open_meteo_base_url")
+    @classmethod
+    def normalize_open_meteo_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        if not normalized.startswith(("https://", "http://")):
+            raise ValueError("OPEN_METEO_BASE_URL must be an HTTP(S) URL")
+        return normalized
+
+    @field_validator("weather_provider")
+    @classmethod
+    def normalize_weather_provider(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ("openmeteo",):
+            raise ValueError("WEATHER_PROVIDER must be 'openmeteo'")
+        return normalized
+
     @property
     def sqlalchemy_database_url(self) -> str:
         """Select psycopg 3 even when Supabase returns a generic PG URL."""
@@ -183,6 +278,12 @@ class Settings(BaseSettings):
         """Return the Geoapify key only at the backend provider boundary."""
 
         return self._optional_secret_value(self.geoapify_api_key)
+
+    @property
+    def openrouteservice_api_key_value(self) -> str | None:
+        """Return the openrouteservice key only at the backend provider boundary."""
+
+        return self._optional_secret_value(self.openrouteservice_api_key)
 
 
 @lru_cache

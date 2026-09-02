@@ -11,9 +11,11 @@ from app.routers import (
     cities,
     locations,
     places,
+    route_geometry,
     route_optimization,
     saved_places,
     trips,
+    weather_advisories,
 )
 
 
@@ -54,8 +56,10 @@ app.include_router(cities.router)
 app.include_router(places.router)
 app.include_router(saved_places.router)
 app.include_router(route_optimization.router)
+app.include_router(route_geometry.router)
 app.include_router(trips.router)
 app.include_router(locations.router)
+app.include_router(weather_advisories.router)
 
 
 @app.get("/", tags=["status"])

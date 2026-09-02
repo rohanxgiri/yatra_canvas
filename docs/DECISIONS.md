@@ -161,3 +161,61 @@ provider, environment, and data-model documentation.
   [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) and
   [OpenStreetMap copyright/licence](https://www.openstreetmap.org/copyright), last verified
   2026-09-01.
+
+## ADR-009 — Real road-route geometry via open-data routing providers (openrouteservice and OSRM)
+
+- **Status:** Accepted and `[IMPLEMENTED]`.
+- **Date:** 2026-09-02.
+- **Context:** Previous map implementation displayed a placeholder noting road geometry was not yet
+  available. Presenting fake straight-line routes is unacceptable under project policy. Route
+  geometry requires actual road-following polylines without introducing paid proprietary dependencies
+  like Google Maps Directions or SDKs.
+- **Decision:** Implement a provider-neutral route geometry service (`RouteGeometryService`) with
+  adapter implementations for both openrouteservice (ORS Directions v2 GeoJSON) and Open Source
+  Routing Machine (OSRM driving routing). The service structures road coordinates by day based on
+  persisted `TripItinerary` visit orders and `Trip.start_location`. Polylines are cached in memory
+  using coordinate fingerprints (`trip_id:day_number:coords_hash`) with a configurable TTL
+  (`ROUTE_GEOMETRY_CACHE_TTL_MINUTES`, default 60 min). The Flutter `TripMapScreen` renders real
+  road geometry via `PolylineLayer`, updates dynamically with Day 1 / Day 2 filtering, fits camera
+  bounds to route waypoints, and gracefully degrades to markers if routing services are unavailable.
+- **Consequences:** No proprietary Google Maps SDK or paid routing APIs are introduced. Both hosted
+  and self-hosted routing options (ORS and OSRM) are supported via environment configuration.
+  `RouteMatrixCache` schema remains preserved for matrix TSP solving without modification.
+- **Evidence:** `backend/app/services/route_geometry_service.py`,
+  `backend/app/routers/route_geometry.py`, `lib/models/route_geometry.dart`,
+  `lib/services/route_geometry_service.dart`, `lib/screens/trip_map/trip_map_screen.dart`,
+  `backend/tests/test_route_geometry.py`, `test/trip_map_test.dart`,
+  [openrouteservice documentation](https://openrouteservice.org/dev/#/api-docs), and
+  [OSRM project](https://project-osrm.org/), verified 2026-09-02.
+
+## ADR-010 — Weather-Aware Trip Assistance via Open-Meteo and itinerary-aware advisory engine
+
+- **Status:** Accepted and `[IMPLEMENTED]`.
+- **Date:** 2026-09-02.
+- **Context:** Travellers need awareness when adverse weather (extreme heat, heavy rain, storms, wind)
+  threatens their outdoor touring plans. A generic weather forecast screen is unhelpful and clutters the UI.
+  The system must never silently alter an itinerary because of weather. The default user action must
+  always be "Continue as planned".
+- **Decision:** Implement a provider-neutral `WeatherProvider` protocol with `OpenMeteoWeatherProvider`
+  adapter fetching only required variables (temperature, apparent temperature, precipitation, precipitation
+  probability, weather code, wind speed/gusts). Forecasts are cached in memory (`WEATHER_CACHE_TTL_MINUTES`,
+  default 60 min) without adding database tables. The `WeatherAdvisoryService` applies centralized thresholds
+  requiring adverse conditions to persist for $\ge 2$ consecutive hours during touring hours (09:00–18:00)
+  and checks for overlap specifically with outdoor-exposed venues identified by a deterministic
+  `PlaceEnvironmentClassifier`. Sheltered indoor venues (museums, malls) do not trigger adverse warnings.
+  The `WeatherAlternativeService` scores candidate indoor venues matching user preferences, creates
+  a non-persisted day rearrangement preview protecting `must_visit` and `is_locked` constraints, and
+  transactionally updates the itinerary only when the user explicitly clicks "Apply changes".
+  Users can suppress future weather advisories for the trip, stored in `TripPreference`.
+- **Consequences:** Open-Meteo free tier has non-commercial restrictions and requires CC BY 4.0 attribution;
+  commercial deployment requires a paid customer-endpoint key or self-hosted container.
+  Trips outside the 16-day forecast horizon return status `no_forecast_available` without fabricating weather.
+  Weather failure degrades safely (`weather_unavailable`) and never disrupts trip or map viewing.
+- **Evidence:** `backend/app/core/weather_constants.py`, `backend/app/services/weather_service.py`,
+  `backend/app/services/place_environment_classifier.py`, `backend/app/services/weather_advisory_service.py`,
+  `backend/app/services/weather_alternative_service.py`, `backend/app/routers/weather_advisories.py`,
+  `lib/models/weather_advisory.dart`, `lib/services/weather_advisory_service.dart`,
+  `lib/screens/place_discovery/widgets/weather_advisory_card.dart`,
+  `backend/tests/test_weather_advisories.py`, `test/weather_advisory_test.dart`,
+  [Open-Meteo API docs](https://open-meteo.com/en/docs), and
+  [Open-Meteo Terms](https://open-meteo.com/en/terms), verified 2026-09-02.

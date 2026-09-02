@@ -12,9 +12,12 @@ import '../../services/route_optimization_service.dart';
 import '../../services/saved_place_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../models/weather_advisory.dart';
+import '../../services/weather_advisory_service.dart';
 import '../../widgets/place_card.dart';
 import '../../widgets/selection_chip.dart';
 import '../trip_map/trip_map_screen.dart';
+import 'widgets/weather_advisory_card.dart';
 
 class PlaceDiscoveryScreen extends StatefulWidget {
   const PlaceDiscoveryScreen({
@@ -25,6 +28,7 @@ class PlaceDiscoveryScreen extends StatefulWidget {
     this.recommendationService,
     this.savedPlaceService,
     this.routeOptimizationService,
+    this.weatherAdvisoryService,
     super.key,
   });
 
@@ -35,6 +39,7 @@ class PlaceDiscoveryScreen extends StatefulWidget {
   final RecommendationService? recommendationService;
   final SavedPlaceService? savedPlaceService;
   final RouteOptimizationService? routeOptimizationService;
+  final WeatherAdvisoryService? weatherAdvisoryService;
 
   @override
   State<PlaceDiscoveryScreen> createState() => _PlaceDiscoveryScreenState();
@@ -47,11 +52,15 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   late final bool _ownsSavedPlaceService;
   late final RouteOptimizationService _routeOptimizationService;
   late final bool _ownsRouteOptimizationService;
+  late final WeatherAdvisoryService _weatherAdvisoryService;
+  late final bool _ownsWeatherAdvisoryService;
 
   late final Set<PlaceCategory> _purposeCategories;
   final Set<PlaceCategory> _refinementCategories = {};
   List<Recommendation> _recommendations = const [];
   List<SavedPlace> _savedPlaces = const [];
+  List<WeatherAdvisory> _weatherAdvisories = const [];
+  final Set<String> _dismissedAdvisoryIds = {};
   OptimizedRoute? _optimizedRoute;
   final Set<String> _mutatingPlaceIds = {};
   String? _error;
@@ -79,7 +88,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     _ownsRouteOptimizationService = widget.routeOptimizationService == null;
     _routeOptimizationService =
         widget.routeOptimizationService ?? RouteOptimizationService();
-    if (_tripId != null) _loadSavedPlaces();
+    _ownsWeatherAdvisoryService = widget.weatherAdvisoryService == null;
+    _weatherAdvisoryService =
+        widget.weatherAdvisoryService ?? WeatherAdvisoryService();
+    if (_tripId != null) {
+      _loadSavedPlaces();
+      _loadWeatherAdvisories();
+    }
     if (_purposeCategories.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _loadRecommendations();
@@ -128,6 +143,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     if (_ownsRecommendationService) _recommendationService.close();
     if (_ownsSavedPlaceService) _savedPlaceService.close();
     if (_ownsRouteOptimizationService) _routeOptimizationService.close();
+    if (_ownsWeatherAdvisoryService) _weatherAdvisoryService.close();
     super.dispose();
   }
 
@@ -218,6 +234,20 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         _isLoadingSavedPlaces = false;
         _savedError = _savedPlaceError(error);
       });
+    }
+  }
+
+  Future<void> _loadWeatherAdvisories() async {
+    final tripId = _tripId;
+    if (tripId == null) return;
+    try {
+      final res = await _weatherAdvisoryService.getAdvisories(tripId);
+      if (!mounted || res == null) return;
+      setState(() {
+        _weatherAdvisories = res.advisories;
+      });
+    } catch (_) {
+      // Safe degradation: never block trip planning on weather errors
     }
   }
 
@@ -502,6 +532,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       final route = await _routeOptimizationService.optimizeRoute(tripId);
       if (!mounted) return;
       setState(() => _optimizedRoute = route);
+      _loadWeatherAdvisories();
     } on Object catch (error) {
       if (!mounted) return;
       setState(() => _routeError = _routeOptimizationError(error));
@@ -792,6 +823,27 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             if (_routeError case final routeError?) ...[
               const SizedBox(height: 10),
               _RouteError(message: routeError, onRetry: _optimizeRoute),
+            ],
+            if (_weatherAdvisories.isNotEmpty && _tripId != null) ...[
+              for (final advisory in _weatherAdvisories)
+                if (!_dismissedAdvisoryIds.contains(advisory.id)) ...[
+                  const SizedBox(height: 12),
+                  WeatherAdvisoryCard(
+                    tripId: _tripId!,
+                    advisory: advisory,
+                    weatherService: _weatherAdvisoryService,
+                    onDismiss: () {
+                      setState(() {
+                        _dismissedAdvisoryIds.add(advisory.id);
+                      });
+                    },
+                    onApplied: () {
+                      _loadSavedPlaces();
+                      _optimizeRoute();
+                      _loadWeatherAdvisories();
+                    },
+                  ),
+                ],
             ],
             if (_optimizedRoute case final route?) ...[
               const SizedBox(height: 12),
