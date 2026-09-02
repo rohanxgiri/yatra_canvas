@@ -686,3 +686,27 @@ Automated test results:
 - Backend: 155/155 pytest tests passed (including all 10 itinerary timing tests in `tests/test_itinerary_timing.py`).
 - Flutter: 53/53 flutter tests passed (including all time-aware model and widget tests in `test/itinerary_timing_test.dart`).
 - Static analysis: `flutter analyze` passed with 0 issues.
+
+## Smart Trip Re-Planning & Invalidation Verification
+
+Verified: 2026-09-02 on branch `feature/smart-replanning`.
+
+Scope:
+- Centralized change impact rules (`evaluate_change_impact()`) and `SmartReplanningService`:
+  - Notes-only changes save immediately without invalidating route caches or itineraries.
+  - Adding/removing/reordering places and modifying constraints (priority, locked, must-visit) marks itinerary stale, preserves existing valid pairwise matrix rows, and requires re-plan preview.
+  - Changing start location selectively purges only start-related directional legs (`start_only`), preserving place-to-place legs.
+  - Changing dates flags weather advisories stale and realigns schedule timestamps without discarding route legs.
+  - Changing destination city purges all caches (`all`).
+- Non-destructive re-planning preview (`POST /trips/{trip_id}/replan-preview`) returning added/removed places, moved stop timetable (`15:00 → 16:20`), travel time deltas, and conflicts without modifying `TripItinerary`.
+- Atomic re-plan application (`POST /trips/{trip_id}/replan-apply`) transactionally updating `TripItinerary` only upon user confirmation.
+- Flutter UI:
+  - Preserves current `_optimizedRoute` during place additions, removals, reorders, and edits rather than blanking out the screen.
+  - `_ReplanAdvisoryCard` appears when changes are detected, offering **[ Review proposed plan ]** and **[ Keep current plan ]**.
+  - `_showReplanPreviewDialog` displays structured diffs, added/removed stops, rescheduled intervals, and travel changes.
+  - Weather failure remains completely non-blocking.
+
+Automated test results:
+- Backend: 162/162 pytest tests passed (including all 7 smart replanning tests in `tests/test_smart_replanning.py`).
+- Flutter: 56/56 flutter tests passed (including all replanning model and widget tests in `test/smart_replanning_test.dart`).
+- Static analysis: `flutter analyze` passed with 0 issues.

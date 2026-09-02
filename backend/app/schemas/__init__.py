@@ -44,6 +44,11 @@ from app.schemas.route_geometry import (
     RouteLegGeometryRead,
     TripRouteGeometryRead,
 )
+from app.schemas.smart_replanning import (
+    MovedPlaceRead,
+    TripReplanImpactRead,
+    TripReplanPreviewRead,
+)
 from app.schemas.weather_advisory import (
     ApplyRearrangementRequest,
     DayRearrangePreviewRead,
@@ -74,6 +79,9 @@ __all__ = [
     "ItineraryBreakRead",
     "OptimizedPlaceRead",
     "RouteOptimizationRead",
+    "MovedPlaceRead",
+    "TripReplanImpactRead",
+    "TripReplanPreviewRead",
     "DayRouteGeometryRead",
     "RouteLegGeometryRead",
     "TripRouteGeometryRead",

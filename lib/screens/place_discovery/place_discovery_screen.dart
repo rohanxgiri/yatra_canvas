@@ -13,7 +13,9 @@ import '../../services/saved_place_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../models/weather_advisory.dart';
+import '../../models/smart_replanning.dart';
 import '../../services/weather_advisory_service.dart';
+import '../../services/smart_replanning_service.dart';
 import '../../widgets/place_card.dart';
 import '../../widgets/selection_chip.dart';
 import '../trip_map/trip_map_screen.dart';
@@ -29,6 +31,7 @@ class PlaceDiscoveryScreen extends StatefulWidget {
     this.savedPlaceService,
     this.routeOptimizationService,
     this.weatherAdvisoryService,
+    this.smartReplanningService,
     super.key,
   });
 
@@ -40,6 +43,7 @@ class PlaceDiscoveryScreen extends StatefulWidget {
   final SavedPlaceService? savedPlaceService;
   final RouteOptimizationService? routeOptimizationService;
   final WeatherAdvisoryService? weatherAdvisoryService;
+  final SmartReplanningService? smartReplanningService;
 
   @override
   State<PlaceDiscoveryScreen> createState() => _PlaceDiscoveryScreenState();
@@ -54,6 +58,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   late final bool _ownsRouteOptimizationService;
   late final WeatherAdvisoryService _weatherAdvisoryService;
   late final bool _ownsWeatherAdvisoryService;
+  late final SmartReplanningService _smartReplanningService;
+  late final bool _ownsSmartReplanningService;
 
   late final Set<PlaceCategory> _purposeCategories;
   final Set<PlaceCategory> _refinementCategories = {};
@@ -62,6 +68,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   List<WeatherAdvisory> _weatherAdvisories = const [];
   final Set<String> _dismissedAdvisoryIds = {};
   OptimizedRoute? _optimizedRoute;
+  TripReplanImpact? _replanImpact;
+  bool _isLoadingReplanPreview = false;
   final Set<String> _mutatingPlaceIds = {};
   String? _error;
   String? _savedError;
@@ -91,6 +99,9 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     _ownsWeatherAdvisoryService = widget.weatherAdvisoryService == null;
     _weatherAdvisoryService =
         widget.weatherAdvisoryService ?? WeatherAdvisoryService();
+    _ownsSmartReplanningService = widget.smartReplanningService == null;
+    _smartReplanningService =
+        widget.smartReplanningService ?? SmartReplanningService();
     if (_tripId != null) {
       _loadSavedPlaces();
       _loadWeatherAdvisories();
@@ -144,6 +155,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     if (_ownsSavedPlaceService) _savedPlaceService.close();
     if (_ownsRouteOptimizationService) _routeOptimizationService.close();
     if (_ownsWeatherAdvisoryService) _weatherAdvisoryService.close();
+    if (_ownsSmartReplanningService) _smartReplanningService.dispose();
     super.dispose();
   }
 
@@ -251,6 +263,170 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     }
   }
 
+  Future<void> _checkReplanImpact() async {
+    final tripId = _tripId;
+    if (tripId == null || _optimizedRoute == null) return;
+    try {
+      final impact = await _smartReplanningService.getReplanImpact(tripId);
+      if (!mounted) return;
+      setState(() {
+        _replanImpact = impact.isStale ? impact : null;
+      });
+    } catch (_) {
+      // Safe degradation: never block trip planning
+    }
+  }
+
+  Future<void> _showReplanPreviewDialog() async {
+    final tripId = _tripId;
+    if (tripId == null) return;
+    setState(() => _isLoadingReplanPreview = true);
+
+    try {
+      final preview = await _smartReplanningService.getReplanPreview(tripId);
+      if (!mounted) return;
+      setState(() => _isLoadingReplanPreview = false);
+
+      await showDialog<void>(
+        context: context,
+        builder: (dialogCtx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.auto_fix_high_rounded, color: AppColors.teal),
+              SizedBox(width: 8),
+              Expanded(child: Text('Proposed Re-plan')),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  preview.summary,
+                  style: AppTextStyles.label.copyWith(fontWeight: FontWeight.w700),
+                ),
+                if (preview.addedPlaces.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Added to itinerary:',
+                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  for (final place in preview.addedPlaces)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, top: 2),
+                      child: Text('• $place', style: AppTextStyles.caption.copyWith(color: AppColors.tealDark)),
+                    ),
+                ],
+                if (preview.removedPlaces.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Removed from itinerary:',
+                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  for (final place in preview.removedPlaces)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, top: 2),
+                      child: Text('• $place', style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                    ),
+                ],
+                if (preview.movedPlaces.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Rescheduled stops:',
+                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  for (final moved in preview.movedPlaces)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, top: 2),
+                      child: Text('• ${moved.name}: ${moved.moveDescription}', style: AppTextStyles.caption),
+                    ),
+                ],
+                if (preview.travelTimeDeltaMinutes != 0) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceSoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.timelapse_rounded, size: 16, color: AppColors.textSecondary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Estimated travel change: ${preview.travelTimeDeltaMinutes > 0 ? "+${preview.travelTimeDeltaMinutes}" : "${preview.travelTimeDeltaMinutes}"} min',
+                          style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (preview.conflicts.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Planning Advisory',
+                          style: AppTextStyles.caption.copyWith(
+                            color: Colors.amber.shade900,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        for (final conflict in preview.conflicts)
+                          Text('• $conflict', style: AppTextStyles.caption),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                setState(() => _replanImpact = null);
+              },
+              child: const Text('Keep current plan'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.of(dialogCtx).pop();
+                try {
+                  final applied = await _smartReplanningService.applyReplan(tripId);
+                  if (!mounted) return;
+                  setState(() {
+                    _optimizedRoute = applied;
+                    _replanImpact = null;
+                  });
+                  _showSavedMessage('New itinerary applied.');
+                  _loadWeatherAdvisories();
+                } catch (e) {
+                  _showSavedMessage('Failed to apply re-plan: $e', isError: true);
+                }
+              },
+              child: const Text('Apply new plan'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoadingReplanPreview = false);
+      _showSavedMessage('Could not generate re-plan preview: $error', isError: true);
+    }
+  }
+
   SavedPlace? _savedPlaceFor(String placeId) {
     for (final savedPlace in _savedPlaces) {
       if (savedPlace.placeId == placeId) return savedPlace;
@@ -267,7 +443,6 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     setState(() {
       _mutatingPlaceIds.add(recommendation.id);
       _savedError = null;
-      _optimizedRoute = null;
       _routeError = null;
     });
     try {
@@ -289,6 +464,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         if (!mounted) return;
         _showSavedMessage('${recommendation.name} removed from your trip.');
       }
+      await _checkReplanImpact();
     } on Object catch (error) {
       if (!mounted) return;
       if (existing == null &&
@@ -329,7 +505,6 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     }
     setState(() {
       _mutatingPlaceIds.add(savedPlace.placeId);
-      _optimizedRoute = null;
       _routeError = null;
     });
     try {
@@ -343,6 +518,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         _savedError = null;
       });
       await _loadSavedPlaces();
+      await _checkReplanImpact();
     } on Object catch (error) {
       if (!mounted) return;
       final message = _savedPlaceError(error);
@@ -440,7 +616,6 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
     setState(() {
       _mutatingPlaceIds.add(savedPlace.placeId);
-      _optimizedRoute = null;
       _routeError = null;
     });
     try {
@@ -460,6 +635,12 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             if (item.placeId == updated.placeId) updated else item,
         ];
       });
+      final constraintsChanged = settings.priority != savedPlace.priority ||
+          settings.isLocked != savedPlace.isLocked ||
+          settings.mustVisit != savedPlace.mustVisit;
+      if (constraintsChanged) {
+        await _checkReplanImpact();
+      }
     } on Object catch (error) {
       if (!mounted) return;
       final message = _savedPlaceError(error);
@@ -485,7 +666,6 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       _savedPlaces = reordered;
       _isReordering = true;
       _savedError = null;
-      _optimizedRoute = null;
       _routeError = null;
     });
 
@@ -496,6 +676,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       );
       if (!mounted) return;
       setState(() => _savedPlaces = saved);
+      await _checkReplanImpact();
     } on Object catch (error) {
       if (!mounted) return;
       final message = _savedPlaceError(error);
@@ -531,7 +712,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     try {
       final route = await _routeOptimizationService.optimizeRoute(tripId);
       if (!mounted) return;
-      setState(() => _optimizedRoute = route);
+      setState(() {
+        _optimizedRoute = route;
+        _replanImpact = null;
+      });
       _loadWeatherAdvisories();
     } on Object catch (error) {
       if (!mounted) return;
@@ -844,6 +1028,15 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                     },
                   ),
                 ],
+            ],
+            if (_replanImpact case final impact?) ...[
+              const SizedBox(height: 12),
+              _ReplanAdvisoryCard(
+                impact: impact,
+                isLoading: _isLoadingReplanPreview,
+                onReview: _showReplanPreviewDialog,
+                onDismiss: () => setState(() => _replanImpact = null),
+              ),
             ],
             if (_optimizedRoute case final route?) ...[
               const SizedBox(height: 12),
@@ -1805,3 +1998,84 @@ IconData _categoryIcon(PlaceCategory category) => switch (category) {
   PlaceCategory.cafes => Icons.local_cafe_rounded,
   PlaceCategory.heritage => Icons.account_balance_rounded,
 };
+
+class _ReplanAdvisoryCard extends StatelessWidget {
+  const _ReplanAdvisoryCard({
+    required this.impact,
+    required this.onReview,
+    required this.onDismiss,
+    this.isLoading = false,
+  });
+
+  final TripReplanImpact impact;
+  final VoidCallback onReview;
+  final VoidCallback onDismiss;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_fix_high_rounded, color: Colors.amber.shade900, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Trip Changes Detected',
+                  style: AppTextStyles.label.copyWith(
+                    color: Colors.amber.shade900,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            impact.summary,
+            style: AppTextStyles.caption.copyWith(color: AppColors.charcoal),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              FilledButton.tonal(
+                onPressed: isLoading ? null : onReview,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.teal,
+                  foregroundColor: Colors.white,
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: isLoading
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Review proposed plan'),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onDismiss,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('Keep current plan'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

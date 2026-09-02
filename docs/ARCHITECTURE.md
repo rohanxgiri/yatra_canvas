@@ -59,10 +59,18 @@ internet permissions support device location and HTTP; they are not evidence of 
 | Routing | optimize an existing trip using cached local distance/time estimates with realistic time-aware arrival/departure scheduling, midday breaks, and opening-hours awareness |
 | Route geometry | `GET /trips/{trip_id}/route-geometry` using OSRM or openrouteservice |
 | Weather advisories | `GET /trips/{trip_id}/weather-advisories`, `GET /trips/{trip_id}/weather-alternatives`, `POST /trips/{trip_id}/rearrange-preview`, `POST /trips/{trip_id}/apply-itinerary-adjustment`, `POST /trips/{trip_id}/ignore-weather` |
+| Smart re-planning | `GET /trips/{trip_id}/replan-impact`, `POST /trips/{trip_id}/replan-preview`, `POST /trips/{trip_id}/replan-apply` |
 
 Provider errors are translated into safe HTTP failures by routers. Settings are read from
 `backend/.env` or the process environment. Secrets use `SecretStr` and are unwrapped only at a
 provider boundary.
+
+`[IMPLEMENTED]` Smart re-planning invalidation engine (`SmartReplanningService`) enforces centralized change impact rules:
+- `UPDATE_NOTES`: zero invalidation, saves immediately without running the optimizer.
+- `ADD_PLACE`, `REMOVE_PLACE`, `REORDER_PLACES`, `UPDATE_PRIORITY`, `UPDATE_MUST_VISIT`, `UPDATE_LOCKED`: marks itinerary stale, preserves existing valid pairwise legs in `RouteMatrixCache` (requesting only missing pairs), generates a non-persisted preview diff, and applies atomically upon user confirmation.
+- `UPDATE_START_LOCATION`: selectively purges only start-related directional legs (`start_only`), keeping all place-to-place matrix rows intact.
+- `UPDATE_DATES`: marks weather advisories stale and realigns schedule dates without discarding route matrix rows or geometry.
+- `UPDATE_CITY`: purges all route matrix cache and itinerary rows for the trip (`all`).
 
 `[PARTIAL]` `LocationAutocompleteProvider`, `RouteGeometryProvider`, and `WeatherProvider` are
 provider-neutral protocols. Normal recommendations use bounded OpenStreetMap/Overpass discovery,

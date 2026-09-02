@@ -50,6 +50,7 @@ and a global social network are current non-goals.
 | Optimize itinerary | `[IMPLEMENTED]` | Realistic, time-aware multi-day scheduling works with cached route matrix estimates, sequential arrival/departure timestamps, category-based visit durations, midday lunch breaks, and opening-hours awareness without silently dropping must-visit places. Real road-route geometry is served via `RouteGeometryService`. |
 | Interactive map | `[IMPLEMENTED]` | FlutterMap interactive map with OpenStreetMap tiles, start/place markers, and real road-following `PolylineLayer` per day with day filtering and camera bounds fitting. |
 | Weather advisories | `[IMPLEMENTED]` | Provider-neutral weather assistance via Open-Meteo with itinerary-aware threshold detection (heat, rain, storms, wind), deterministic indoor/outdoor exposure classifier, non-persisted rearrange preview, transactional apply, and default continue path. |
+| Smart re-planning | `[IMPLEMENTED]` | Intelligent change impact analysis detects when saved places or trip parameters change, preserves valid pairwise `RouteMatrixCache` legs, shows a non-destructive re-planning diff preview, and applies schedule updates atomically upon user approval. |
 | Currency | `[DEPRECATED]` | Removed from the active roadmap per project direction. |
 | Admin review | `[PARTIAL]` | A mock admin shell and import-review schema exist; there are no admin APIs or connected review actions. |
 

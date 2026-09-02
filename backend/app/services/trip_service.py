@@ -3,7 +3,7 @@
 from datetime import timedelta
 from uuid import UUID
 
-from sqlalchemy import delete
+from sqlalchemy import delete, or_
 from sqlmodel import Session, select
 
 from app.models import City, RouteMatrixCache, Trip, TripItinerary, TripPreference
@@ -255,12 +255,28 @@ class TripService:
 
         try:
             # Invalidation behavior:
-            # If city changed or start coordinates changed, invalidate route matrix cache and itinerary for this trip.
+            # If city changed, invalidate all route matrix cache and itinerary for this trip.
+            # If only start coordinates changed, invalidate only start-related directional legs.
             # UserSavedPlace rows are strictly preserved.
-            if city_changed or start_coords_changed:
+            if city_changed:
                 session.exec(
                     delete(RouteMatrixCache).where(
                         RouteMatrixCache.trip_id == trip.id
+                    )
+                )
+                session.exec(
+                    delete(TripItinerary).where(
+                        TripItinerary.trip_id == trip.id
+                    )
+                )
+            elif start_coords_changed:
+                session.exec(
+                    delete(RouteMatrixCache).where(
+                        RouteMatrixCache.trip_id == trip.id,
+                        or_(
+                            RouteMatrixCache.from_location_type == "start",
+                            RouteMatrixCache.to_location_type == "start",
+                        ),
                     )
                 )
                 session.exec(
