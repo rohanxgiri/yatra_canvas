@@ -101,12 +101,24 @@ class RecommendationService:
         request: RecommendationRequest,
     ) -> list[RecommendationRead]:
         candidates: dict[UUID, Place] = {}
-        for category in request.categories:
-            places = await self._discovery.discover(
+        discover_many = getattr(self._discovery, "discover_many", None)
+        if callable(discover_many):
+            places_by_category = await discover_many(
                 session=session,
                 city=city,
-                category=category,
+                categories=request.categories,
             )
+        else:
+            places_by_category = {}
+            for category in request.categories:
+                places_by_category[category] = await self._discovery.discover(
+                    session=session,
+                    city=city,
+                    category=category,
+                )
+
+        for category in request.categories:
+            places = places_by_category.get(category, [])
             for place in places:
                 candidates[place.id] = place
 

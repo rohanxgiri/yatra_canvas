@@ -76,10 +76,7 @@ void main() {
       baseUrl: 'http://api.test',
       client: MockClient((request) async {
         expect(request.method, 'GET');
-        expect(
-          request.url.path,
-          '/trips/33333333-3333-4333-8333-333333333333',
-        );
+        expect(request.url.path, '/trips/33333333-3333-4333-8333-333333333333');
         return http.Response(
           jsonEncode({
             'trip_id': '33333333-3333-4333-8333-333333333333',
@@ -114,79 +111,87 @@ void main() {
     expect(draft.transportPreferences, {'Walking'});
   });
 
-  test('TripService.updateTrip sends PATCH request with supported fields', () async {
-    late Map<String, dynamic> patchBody;
-    final service = TripService(
-      baseUrl: 'http://api.test',
-      client: MockClient((request) async {
-        expect(request.method, 'PATCH');
-        expect(
-          request.url.path,
-          '/trips/33333333-3333-4333-8333-333333333333',
-        );
-        patchBody = jsonDecode(request.body) as Map<String, dynamic>;
-        return http.Response(
-          jsonEncode({
-            'trip_id': '33333333-3333-4333-8333-333333333333',
-            'city_id': '11111111-1111-4111-8111-111111111111',
-            'trip_name': 'Ujjain Spiritual Trip',
-            'days': 5,
-            'start_date': '2026-09-15',
-            'end_date': '2026-09-19',
-            'arrival_place': 'Indore Airport',
-            'arrival_latitude': 22.7217,
-            'arrival_longitude': 75.8011,
-            'start_location_type': 'hotel',
-            'start_location_name': 'Hotel Imperial',
-            'start_latitude': 23.1801,
-            'start_longitude': 75.7812,
-            'start_location_provider': 'geoapify',
-            'start_location_provider_place_id': 'geoapify-hotel-imperial',
-            'preferences': ['Packed', 'Boujee', 'Own Vehicle', 'Food Exploration'],
-          }),
-          200,
-        );
-      }),
-    );
+  test(
+    'TripService.updateTrip sends PATCH request with supported fields',
+    () async {
+      late Map<String, dynamic> patchBody;
+      final service = TripService(
+        baseUrl: 'http://api.test',
+        client: MockClient((request) async {
+          expect(request.method, 'PATCH');
+          expect(
+            request.url.path,
+            '/trips/33333333-3333-4333-8333-333333333333',
+          );
+          patchBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({
+              'trip_id': '33333333-3333-4333-8333-333333333333',
+              'city_id': '11111111-1111-4111-8111-111111111111',
+              'trip_name': 'Ujjain Spiritual Trip',
+              'days': 5,
+              'start_date': '2026-09-15',
+              'end_date': '2026-09-19',
+              'arrival_place': 'Indore Airport',
+              'arrival_latitude': 22.7217,
+              'arrival_longitude': 75.8011,
+              'start_location_type': 'hotel',
+              'start_location_name': 'Hotel Imperial',
+              'start_latitude': 23.1801,
+              'start_longitude': 75.7812,
+              'start_location_provider': 'geoapify',
+              'start_location_provider_place_id': 'geoapify-hotel-imperial',
+              'preferences': [
+                'Packed',
+                'Boujee',
+                'Own Vehicle',
+                'Food Exploration',
+              ],
+            }),
+            200,
+          );
+        }),
+      );
 
-    final draft = TripDraft(
-      tripId: '33333333-3333-4333-8333-333333333333',
-      destination: const City(
-        id: '11111111-1111-4111-8111-111111111111',
-        name: 'Ujjain',
-        country: 'India',
-        latitude: 23.1765,
-        longitude: 75.7885,
-      ),
-      startDate: DateTime(2026, 9, 15),
-      endDate: DateTime(2026, 9, 19),
-      durationDays: 5,
-      arrivalPoint: 'Indore Airport',
-      arrivalLatitude: 22.7217,
-      arrivalLongitude: 75.8011,
-      startLocationType: TripStartLocationType.hotel,
-      startLocationName: 'Hotel Imperial',
-      startLatitude: 23.1801,
-      startLongitude: 75.7812,
-      startLocationProvider: 'geoapify',
-      startLocationProviderPlaceId: 'geoapify-hotel-imperial',
-      purposes: {'Food Exploration'},
-      travelPace: 'Packed',
-      budget: 'Boujee',
-      transportPreferences: {'Own Vehicle'},
-    );
+      final draft = TripDraft(
+        tripId: '33333333-3333-4333-8333-333333333333',
+        destination: const City(
+          id: '11111111-1111-4111-8111-111111111111',
+          name: 'Ujjain',
+          country: 'India',
+          latitude: 23.1765,
+          longitude: 75.7885,
+        ),
+        startDate: DateTime(2026, 9, 15),
+        endDate: DateTime(2026, 9, 19),
+        durationDays: 5,
+        arrivalPoint: 'Indore Airport',
+        arrivalLatitude: 22.7217,
+        arrivalLongitude: 75.8011,
+        startLocationType: TripStartLocationType.hotel,
+        startLocationName: 'Hotel Imperial',
+        startLatitude: 23.1801,
+        startLongitude: 75.7812,
+        startLocationProvider: 'geoapify',
+        startLocationProviderPlaceId: 'geoapify-hotel-imperial',
+        purposes: {'Food Exploration'},
+        travelPace: 'Packed',
+        budget: 'Boujee',
+        transportPreferences: {'Own Vehicle'},
+      );
 
-    final updated = await service.updateTrip(draft.tripId!, draft);
+      final updated = await service.updateTrip(draft.tripId!, draft);
 
-    expect(updated.tripId, '33333333-3333-4333-8333-333333333333');
-    expect(patchBody['city_id'], '11111111-1111-4111-8111-111111111111');
-    expect(patchBody['start_date'], '2026-09-15');
-    expect(patchBody['end_date'], '2026-09-19');
-    expect(patchBody['days'], 5);
-    expect(patchBody['arrival_place'], 'Indore Airport');
-    expect(patchBody.containsKey('user_id'), isFalse);
-    expect(patchBody.containsKey('created_at'), isFalse);
-  });
+      expect(updated.tripId, '33333333-3333-4333-8333-333333333333');
+      expect(patchBody['city_id'], '11111111-1111-4111-8111-111111111111');
+      expect(patchBody['start_date'], '2026-09-15');
+      expect(patchBody['end_date'], '2026-09-19');
+      expect(patchBody['days'], 5);
+      expect(patchBody['arrival_place'], 'Indore Airport');
+      expect(patchBody.containsKey('user_id'), isFalse);
+      expect(patchBody.containsKey('created_at'), isFalse);
+    },
+  );
 
   test('TripService reports 404 for unknown trip', () async {
     final service = TripService(
@@ -239,7 +244,10 @@ void main() {
         ),
       );
 
-      final button = find.widgetWithText(FilledButton, 'Save & Discover Places');
+      final button = find.widgetWithText(
+        FilledButton,
+        'Save & Discover Places',
+      );
       expect(button, findsOneWidget);
       await tester.ensureVisible(button);
       await tester.tap(button);
@@ -258,6 +266,8 @@ void main() {
         find.byType(PlaceDiscoveryScreen),
       );
       expect(discovery.tripId, '33333333-3333-4333-8333-333333333333');
+      expect(discovery.tripPurposes, draft.purposes);
+      expect(discovery.routeStartReady, isFalse);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

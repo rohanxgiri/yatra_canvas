@@ -20,6 +20,7 @@ void main() {
               {
                 'place_id': 'place-b',
                 'name': 'Place B',
+                'day_number': 1,
                 'visit_order': 1,
                 'distance_from_previous': 2.1,
                 'travel_time_minutes': 8,
@@ -27,6 +28,7 @@ void main() {
               {
                 'place_id': 'place-a',
                 'name': 'Place A',
+                'day_number': 1,
                 'visit_order': 2,
                 'distance_from_previous': 1.4,
                 'travel_time_minutes': 5,

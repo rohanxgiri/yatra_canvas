@@ -28,7 +28,7 @@ class LocationService {
     final uri = Uri.parse('$_baseUrl/locations/autocomplete').replace(
       queryParameters: {
         'query': normalized,
-        'type': 'amenity',
+        if (hotelOnly) 'type': 'amenity',
         'country_code': 'in',
         'limit': '5',
         if (latitude != null) 'latitude': '$latitude',

@@ -182,7 +182,7 @@ result. The UI shows the required OpenStreetMap attribution. The optional
 settings are:
 
 ```dotenv
-OVERPASS_API_URL=https://overpass-api.de/api/interpreter
+OVERPASS_API_URL=https://lz4.overpass-api.de/api/interpreter
 OVERPASS_TIMEOUT_SECONDS=25
 OVERPASS_RADIUS_METERS=8000
 ```

@@ -93,7 +93,7 @@ their provider sections.
 | `DELETE /trips/{trip_id}/saved-places/{place_id}` | 204 | Removed one place and normalized order |
 | `GET /trips/{trip_id}/start-location` | 200 | Returned selected arrival start |
 | `PATCH /trips/{trip_id}/start-location` | 200 | Persisted selected arrival start |
-| `POST /trips/{trip_id}/optimize-route` | 200 | Wrote route cache and two itinerary rows |
+| `POST /trips/{trip_id}/optimize-route` | 200 | Wrote route cache and partitioned multi-day itinerary rows |
 
 Trip listing and trip deletion endpoints remain absent. Authentication is not implemented.
 

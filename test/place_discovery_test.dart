@@ -15,6 +15,7 @@ import 'package:yatra_canvas/services/recommendation_service.dart';
 import 'package:yatra_canvas/services/route_optimization_service.dart';
 import 'package:yatra_canvas/services/saved_place_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
+import 'package:yatra_canvas/widgets/selection_chip.dart';
 
 void main() {
   test('PlaceService requests and parses a discovery category', () async {
@@ -131,7 +132,7 @@ void main() {
               country: 'India',
               latitude: 23.1765,
               longitude: 75.7885,
-              googlePlaceId: 'google-ujjain',
+              providerPlaceId: 'google-place-id',
             ),
             tripId: 'trip-123',
             recommendationService: service,
@@ -144,11 +145,12 @@ void main() {
       expect(service.requests, isEmpty);
       await tester.tap(find.text('Food'));
       await tester.tap(find.text('Heritage'));
-      await tester.tap(find.text('Get Recommendations'));
+      await tester.pump();
+      await tester.tap(find.text('Show matching places'));
       await tester.pumpAndSettle();
 
       expect(service.requests, [
-        [PlaceCategory.religious, PlaceCategory.food, PlaceCategory.heritage],
+        [PlaceCategory.food, PlaceCategory.heritage],
       ]);
       await tester.scrollUntilVisible(find.text('Mahakaleshwar Temple'), 220);
       expect(find.text('Mahakaleshwar Temple'), findsOneWidget);
@@ -172,6 +174,47 @@ void main() {
     },
   );
 
+  testWidgets('saved trip purposes seed recommendation filters', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final service = _FakeRecommendationService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripId: 'trip-with-purposes',
+          tripPurposes: const {'Photography'},
+          routeStartReady: true,
+          recommendationService: service,
+          savedPlaceService: _FakeSavedPlaceService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(service.requests, [
+      [PlaceCategory.tourism, PlaceCategory.heritage],
+    ]);
+    expect(find.text('Recommended for your trip'), findsOneWidget);
+    expect(find.text('From your trip setup'), findsOneWidget);
+    expect(find.text('Add another interest'), findsOneWidget);
+    expect(find.byType(SelectionChip), findsNothing);
+
+    await tester.tap(find.text('Add another interest'));
+    await tester.pumpAndSettle();
+    final extraInterests = tester.widgetList<SelectionChip>(
+      find.byType(SelectionChip),
+    );
+    expect(extraInterests, hasLength(3));
+    expect(extraInterests.every((chip) => !chip.selected), isTrue);
+  });
+
   testWidgets('duplicate save reloads authoritative backend state', (
     tester,
   ) async {
@@ -194,7 +237,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Get Recommendations'));
+    await tester.tap(find.text('Religious'));
+    await tester.pump();
+    await tester.tap(find.text('Show matching places'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Add'), 180);
     await tester.tap(find.text('Add'));
@@ -229,7 +274,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Get Recommendations'));
+    await tester.tap(find.text('Religious'));
+    await tester.pump();
+    await tester.tap(find.text('Show matching places'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Add'), 180);
     await tester.tap(find.text('Add'));
@@ -243,7 +290,7 @@ void main() {
   testWidgets('selected places reorder persists the complete place order', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = const Size(390, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -312,7 +359,7 @@ void main() {
   testWidgets('saved settings use backend response and render all fields', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(430, 1000);
+    tester.view.physicalSize = const Size(430, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -363,7 +410,7 @@ void main() {
   testWidgets('failed reorder reloads authoritative backend order', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(430, 1000);
+    tester.view.physicalSize = const Size(430, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -408,7 +455,7 @@ void main() {
   testWidgets('failed delete keeps the target and unrelated saved places', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(430, 1000);
+    tester.view.physicalSize = const Size(430, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -671,6 +718,7 @@ class _FakeRouteOptimizationService extends RouteOptimizationService {
         OptimizedRoutePlace(
           placeId: 'place-c',
           name: 'Place C',
+          dayNumber: 1,
           visitOrder: 1,
           distanceFromPrevious: 2.1,
           travelTimeMinutes: 8,
@@ -678,6 +726,7 @@ class _FakeRouteOptimizationService extends RouteOptimizationService {
         OptimizedRoutePlace(
           placeId: 'place-a',
           name: 'Place A',
+          dayNumber: 1,
           visitOrder: 2,
           distanceFromPrevious: 1.4,
           travelTimeMinutes: 5,

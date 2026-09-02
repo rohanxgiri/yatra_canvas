@@ -100,8 +100,14 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
       }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) =>
-              PlaceDiscoveryScreen(city: city, tripId: effectiveTripId),
+          builder: (_) => PlaceDiscoveryScreen(
+            city: city,
+            tripId: effectiveTripId,
+            tripPurposes: {...widget.draft.purposes},
+            routeStartReady:
+                widget.draft.startLatitude != null &&
+                widget.draft.startLongitude != null,
+          ),
         ),
       );
     } on Object catch (error) {
@@ -122,8 +128,7 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
     return CreateTripScaffold(
       step: 5,
       title: 'How do you like\nto travel?',
-      subtitle:
-          'Tell us what feels right and we will tune the flow and pace of the trip.',
+      subtitle: 'Tell us what feels right and we will tune the flow and pace of the trip.',
       continueLabel: _isCreating
           ? (isEditing ? 'Saving Trip…' : 'Creating Trip…')
           : (isEditing ? 'Save & Discover Places' : 'Find Places For Me'),

@@ -53,12 +53,9 @@ class CityService {
     final normalizedQuery = query.trim();
     if (normalizedQuery.length < 3) return const [];
 
-    final uri = Uri.parse('$_baseUrl/locations/autocomplete').replace(
+    final uri = Uri.parse('$_baseUrl/cities/autocomplete').replace(
       queryParameters: {
         'query': normalizedQuery,
-        'type': 'city',
-        'country_code': 'in',
-        'limit': '5',
       },
     );
     final response = await _client.get(uri).timeout(_requestTimeout);
@@ -68,12 +65,10 @@ class CityService {
     }
 
     try {
-      final payload = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = payload['results'] as List<dynamic>;
+      final data = jsonDecode(response.body) as List<dynamic>;
       return data
           .map((item) => item as Map<String, dynamic>)
-          .where((item) => item['result_type'] == 'city')
-          .map(CitySuggestion.fromGeoapifyJson)
+          .map(CitySuggestion.fromJson)
           .toList(growable: false);
     } on FormatException catch (error) {
       throw CityServiceException(

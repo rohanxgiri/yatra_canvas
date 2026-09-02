@@ -151,7 +151,10 @@ provider, environment, and data-model documentation.
   instance is an SLA-backed service.
 - **Consequences:** POI results carry OpenStreetMap element provenance and `ODbL-1.0`; the UI
   displays attribution. Local route times are approximate and do not claim road/traffic accuracy.
-  Geoapify remains a freemium dependency to remove for a strict provider-free destination flow.
+  The development default uses the documented public FOSSGIS `lz4` Overpass endpoint after the
+  load-balanced endpoint repeatedly returned upstream 504 responses for bounded Manali queries;
+  deployments may override it with `OVERPASS_API_URL`. Geoapify remains a freemium dependency to
+  remove for a strict provider-free destination flow.
 - **Evidence:** `backend/app/services/openstreetmap_places_service.py`,
   `backend/app/services/openstreetmap_discovery_service.py`,
   `backend/app/services/local_routes_service.py`, related tests;

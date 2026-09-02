@@ -133,6 +133,57 @@ class OpenStreetMapPlacesService:
                 break
         return results
 
+    async def search_nearby_places_for_categories(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        categories: list[DiscoveryCategory],
+        limit_per_category: int = 40,
+    ) -> dict[DiscoveryCategory, list[OpenStreetMapNearbyPlace]]:
+        """Fetch several discovery categories in one bounded Overpass request."""
+
+        unique_categories = list(dict.fromkeys(categories))
+        if not unique_categories:
+            return {}
+        query = self._build_multi_category_query(
+            latitude,
+            longitude,
+            unique_categories,
+            limit_per_category,
+        )
+        response = await self._request(query)
+        self._raise_for_status(response)
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise OpenStreetMapPlacesUnavailableError(
+                "OpenStreetMap returned an invalid discovery response."
+            ) from exc
+        if not isinstance(payload, dict) or not isinstance(
+            payload.get("elements"), list
+        ):
+            raise OpenStreetMapPlacesUnavailableError(
+                "OpenStreetMap returned an invalid discovery response."
+            )
+
+        results = {category: [] for category in unique_categories}
+        seen_by_category = {category: set() for category in unique_categories}
+        for raw in payload["elements"]:
+            normalized = self._normalize(raw)
+            if normalized is None:
+                continue
+            for category in unique_categories:
+                if (
+                    len(results[category]) >= limit_per_category
+                    or normalized.external_place_id in seen_by_category[category]
+                    or not self._matches_filter(normalized, category)
+                ):
+                    continue
+                seen_by_category[category].add(normalized.external_place_id)
+                results[category].append(normalized)
+        return results
+
     @staticmethod
     def _matches_category(
         place: OpenStreetMapNearbyPlace,
@@ -150,6 +201,40 @@ class OpenStreetMapPlacesService:
         }
         return bool(values & _KNOWN_RELIGIONS)
 
+    @staticmethod
+    def _matches_filter(
+        place: OpenStreetMapNearbyPlace,
+        category: DiscoveryCategory,
+    ) -> bool:
+        tags = place.tags
+        amenity = tags.get("amenity")
+        if category is DiscoveryCategory.RELIGIOUS:
+            return amenity == "place_of_worship" and (
+                tags.get("religion") is None
+                or OpenStreetMapPlacesService._matches_category(place, category)
+            )
+        if category is DiscoveryCategory.FOOD:
+            return amenity in {"restaurant", "fast_food", "food_court"}
+        if category is DiscoveryCategory.TOURISM:
+            return (
+                tags.get("tourism")
+                in {
+                    "attraction",
+                    "museum",
+                    "gallery",
+                    "viewpoint",
+                    "zoo",
+                    "theme_park",
+                }
+                or tags.get("leisure") == "park"
+            )
+        if category is DiscoveryCategory.CAFES:
+            return amenity == "cafe"
+        return tags.get("historic") not in {None, "no"} or tags.get("heritage") not in {
+            None,
+            "no",
+        }
+
     def _build_query(
         self,
         latitude: float,
@@ -162,6 +247,26 @@ class OpenStreetMapPlacesService:
             f'nwr({bbox})["name"]{tag_filter};' for tag_filter in _FILTERS[category]
         )
         bounded_limit = max(1, min(limit, 100))
+        return (
+            f"[out:json][timeout:{self._query_timeout_seconds}];\n"
+            f"(\n{statements}\n);\n"
+            f"out center {bounded_limit};"
+        )
+
+    def _build_multi_category_query(
+        self,
+        latitude: float,
+        longitude: float,
+        categories: list[DiscoveryCategory],
+        limit_per_category: int,
+    ) -> str:
+        bbox = self._bounding_box(latitude, longitude)
+        statements = "\n".join(
+            f'nwr({bbox})["name"]{tag_filter};'
+            for category in categories
+            for tag_filter in _FILTERS[category]
+        )
+        bounded_limit = max(1, min(limit_per_category * len(categories), 100))
         return (
             f"[out:json][timeout:{self._query_timeout_seconds}];\n"
             f"(\n{statements}\n);\n"

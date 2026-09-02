@@ -17,10 +17,6 @@ class Settings(BaseSettings):
     """
 
     database_url: SecretStr = Field(min_length=1, validation_alias="DATABASE_URL")
-    google_places_api_key: SecretStr | None = Field(
-        default=None,
-        validation_alias="GOOGLE_PLACES_API_KEY",
-    )
     google_routes_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="GOOGLE_ROUTES_API_KEY",
@@ -46,7 +42,7 @@ class Settings(BaseSettings):
         validation_alias="GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS",
     )
     overpass_api_url: str = Field(
-        default="https://overpass-api.de/api/interpreter",
+        default="https://lz4.overpass-api.de/api/interpreter",
         validation_alias="OVERPASS_API_URL",
     )
     overpass_timeout_seconds: float = Field(
@@ -127,7 +123,6 @@ class Settings(BaseSettings):
         return SecretStr(normalized)
 
     @field_validator(
-        "google_places_api_key",
         "google_routes_api_key",
         "geoapify_api_key",
     )
@@ -176,12 +171,6 @@ class Settings(BaseSettings):
     @staticmethod
     def _optional_secret_value(value: SecretStr | None) -> str | None:
         return value.get_secret_value() if value is not None else None
-
-    @property
-    def google_places_api_key_value(self) -> str | None:
-        """Return the Google Places key only at the backend provider boundary."""
-
-        return self._optional_secret_value(self.google_places_api_key)
 
     @property
     def google_routes_api_key_value(self) -> str | None:

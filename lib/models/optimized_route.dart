@@ -2,6 +2,7 @@ class OptimizedRoutePlace {
   const OptimizedRoutePlace({
     required this.placeId,
     required this.name,
+    required this.dayNumber,
     required this.visitOrder,
     required this.distanceFromPrevious,
     required this.travelTimeMinutes,
@@ -9,6 +10,7 @@ class OptimizedRoutePlace {
 
   final String placeId;
   final String name;
+  final int dayNumber;
   final int visitOrder;
   final double distanceFromPrevious;
   final int travelTimeMinutes;
@@ -17,6 +19,7 @@ class OptimizedRoutePlace {
     return OptimizedRoutePlace(
       placeId: json['place_id'] as String,
       name: json['name'] as String,
+      dayNumber: json['day_number'] as int,
       visitOrder: json['visit_order'] as int,
       distanceFromPrevious: (json['distance_from_previous'] as num).toDouble(),
       travelTimeMinutes: json['travel_time_minutes'] as int,

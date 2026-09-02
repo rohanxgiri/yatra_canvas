@@ -34,7 +34,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue as Guest'));
     await tester.pumpAndSettle();
-    expect(find.text('Choose your\ntravel language'), findsOneWidget);
+    expect(find.text('Namaste, traveller!'), findsOneWidget);
   });
 
   testWidgets('guest onboarding route reaches home', (tester) async {
@@ -47,8 +47,6 @@ void main() {
       MaterialApp(theme: AppTheme.light, home: const PersonalInterestsScreen()),
     );
 
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Let’s Personalise'));
     await tester.pumpAndSettle();
 

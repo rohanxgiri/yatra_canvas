@@ -18,8 +18,6 @@ void main() {
       MaterialApp(theme: AppTheme.light, home: const PersonalInterestsScreen()),
     );
 
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Let’s Personalise'));
     await tester.pumpAndSettle();
 

@@ -2,21 +2,20 @@ class City {
   const City({
     this.id,
     required this.name,
+    this.state,
     required this.country,
     required this.latitude,
     required this.longitude,
-    this.state,
-    this.googlePlaceId,
+    this.providerPlaceId,
   });
 
-  /// Null only for normalized Google details before `/cities/resolve` saves it.
   final String? id;
   final String name;
   final String? state;
   final String country;
   final double latitude;
   final double longitude;
-  final String? googlePlaceId;
+  final String? providerPlaceId;
 
   String get locationLabel {
     final parts = <String>[
@@ -36,7 +35,7 @@ class City {
       country: json['country'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
-      googlePlaceId: json['google_place_id'] as String?,
+      providerPlaceId: json['provider_place_id'] as String? ?? json['google_place_id'] as String?,
     );
   }
 
@@ -47,7 +46,7 @@ class City {
       'country': country,
       'latitude': latitude,
       'longitude': longitude,
-      'google_place_id': googlePlaceId,
+      'provider_place_id': providerPlaceId,
     };
   }
 }

@@ -79,6 +79,83 @@ def test_search_builds_bounded_query_and_normalizes_nodes_and_ways() -> None:
     asyncio.run(run())
 
 
+def test_multi_category_search_uses_one_query_and_classifies_results() -> None:
+    request_count = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+        query = parse_qs(request.content.decode())["data"][0]
+        assert '["amenity"~"^(restaurant|fast_food|food_court)$"]' in query
+        assert (
+            '["tourism"~"^(attraction|museum|gallery|viewpoint|zoo|theme_park)$"]'
+            in query
+        )
+        assert '["historic"]' in query
+        assert "out center 100;" in query
+        return httpx.Response(
+            200,
+            json={
+                "elements": [
+                    {
+                        "type": "node",
+                        "id": 1,
+                        "lat": 32.24,
+                        "lon": 77.18,
+                        "tags": {"name": "Cafe Restaurant", "amenity": "restaurant"},
+                    },
+                    {
+                        "type": "way",
+                        "id": 2,
+                        "center": {"lat": 32.25, "lon": 77.19},
+                        "tags": {"name": "River Park", "leisure": "park"},
+                    },
+                    {
+                        "type": "node",
+                        "id": 3,
+                        "lat": 32.26,
+                        "lon": 77.2,
+                        "tags": {
+                            "name": "Historic Museum",
+                            "tourism": "museum",
+                            "historic": "yes",
+                        },
+                    },
+                ]
+            },
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            service = OpenStreetMapPlacesService(
+                "https://overpass.test/api/interpreter",
+                client=client,
+            )
+            results = await service.search_nearby_places_for_categories(
+                latitude=32.245,
+                longitude=77.187,
+                categories=[
+                    DiscoveryCategory.FOOD,
+                    DiscoveryCategory.TOURISM,
+                    DiscoveryCategory.HERITAGE,
+                ],
+            )
+
+        assert [item.name for item in results[DiscoveryCategory.FOOD]] == [
+            "Cafe Restaurant"
+        ]
+        assert [item.name for item in results[DiscoveryCategory.TOURISM]] == [
+            "River Park",
+            "Historic Museum",
+        ]
+        assert [item.name for item in results[DiscoveryCategory.HERITAGE]] == [
+            "Historic Museum"
+        ]
+
+    asyncio.run(run())
+    assert request_count == 1
+
+
 def test_rate_limit_timeout_and_invalid_payload_are_normalized() -> None:
     async def rate_limited(_: httpx.Request) -> httpx.Response:
         return httpx.Response(429, headers={"Retry-After": "20"})

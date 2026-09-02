@@ -19,6 +19,8 @@ from app.services.route_matrix_service import (
 )
 
 MAX_SELECTED_PLACES = 24
+DEFAULT_VISIT_DURATION_MINUTES = 120
+DEFAULT_DAILY_BUDGET_MINUTES = 600
 
 
 class RouteOptimizationError(Exception):
@@ -68,9 +70,9 @@ class RouteOptimizationService:
                 str(row.id),
             )
         )
-        if len(saved_rows) < 2:
+        if len(saved_rows) < trip.days:
             raise RouteValidationError(
-                "Select at least 2 places before optimizing the route."
+                f"Select at least {trip.days} places (one per day) before optimizing the route."
             )
         if len(saved_rows) > MAX_SELECTED_PLACES:
             raise RouteValidationError(
@@ -106,17 +108,58 @@ class RouteOptimizationService:
         current_node = start
         total_distance_meters = 0
         total_minutes = 0
-        for visit_order, place_index in enumerate(optimized_indices, start=1):
+
+        day_number = 1
+        visit_order_on_day = 0
+        daily_minutes_used = 0
+        dropped_place_indices: list[int] = []
+
+        for place_index in optimized_indices:
             destination = place_nodes[place_index]
-            leg = matrix[(current_node.key, destination.key)]
-            distance_km = round(leg.distance_meters / 1000, 3)
+            leg = matrix.get((current_node.key, destination.key))
+            if leg is None:
+                leg = matrix[(start.key, destination.key)]
+            
             travel_minutes = ceil(leg.preferred_duration_seconds / 60)
+            expected_addition = travel_minutes + DEFAULT_VISIT_DURATION_MINUTES
+
+            # Check if we should move to the next day
+            if (
+                visit_order_on_day > 0
+                and daily_minutes_used + expected_addition > DEFAULT_DAILY_BUDGET_MINUTES
+            ):
+                day_number += 1
+                if day_number > trip.days:
+                    # We ran out of days, the rest of the places are dropped
+                    dropped_place_indices.append(place_index)
+                    continue
+                
+                daily_minutes_used = 0
+                current_node = start
+                visit_order_on_day = 0
+                
+                leg = matrix.get((start.key, destination.key))
+                if leg is None:
+                    raise RouteValidationError("A place is unreachable from the start location.")
+                travel_minutes = ceil(leg.preferred_duration_seconds / 60)
+                expected_addition = travel_minutes + DEFAULT_VISIT_DURATION_MINUTES
+
+            # If we are dropping because we already ran out of days
+            if day_number > trip.days:
+                dropped_place_indices.append(place_index)
+                continue
+
+            visit_order_on_day += 1
+            daily_minutes_used += expected_addition
+
+            distance_km = round(leg.distance_meters / 1000, 3)
             place = places[place_index]
             optimized_places.append(
                 OptimizedPlaceRead(
                     place_id=place.id,
                     name=place.name,
-                    visit_order=visit_order,
+                    day_number=day_number,
+                    visit_order=visit_order_on_day,
                     distance_from_previous=distance_km,
                     travel_time_minutes=travel_minutes,
                 )
@@ -125,13 +168,17 @@ class RouteOptimizationService:
             total_minutes += travel_minutes
             current_node = destination
 
+        for dropped_idx in dropped_place_indices:
+            if saved_rows[dropped_idx].must_visit:
+                raise RouteValidationError("Cannot fit all must-visit places within the trip duration.")
+
         session.exec(delete(TripItinerary).where(TripItinerary.trip_id == trip_id))
         for item in optimized_places:
             session.add(
                 TripItinerary(
                     trip_id=trip_id,
                     place_id=item.place_id,
-                    day_number=1,
+                    day_number=item.day_number,
                     visit_order=item.visit_order,
                     planned_arrival_time=None,
                     planned_departure_time=None,

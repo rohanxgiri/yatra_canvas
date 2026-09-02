@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/city.dart';
 import '../../models/city_suggestion.dart';
 import '../../models/trip_draft.dart';
+import '../../models/trip_start_location.dart';
 import '../../services/city_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
@@ -178,6 +179,7 @@ class _DestinationSelectionScreenState
   }
 
   Future<void> _selectSuggestion(CitySuggestion suggestion) async {
+    final previousCityId = _draft.destination?.id;
     _debounce?.cancel();
     _searchGeneration++;
     _searchFocusNode.unfocus();
@@ -207,6 +209,18 @@ class _DestinationSelectionScreenState
           : city;
       if (!mounted || requestGeneration != _resolveGeneration) return;
       setState(() {
+        if (previousCityId != resolvedCity.id) {
+          _draft
+            ..arrivalPoint = ''
+            ..arrivalLatitude = null
+            ..arrivalLongitude = null
+            ..startLocationType = TripStartLocationType.arrival
+            ..startLocationName = null
+            ..startLatitude = null
+            ..startLongitude = null
+            ..startLocationProvider = null
+            ..startLocationProviderPlaceId = null;
+        }
         _draft.destination = resolvedCity;
         _pendingSuggestion = null;
         _isSearching = false;
@@ -293,6 +307,10 @@ class _DestinationSelectionScreenState
                           builder: (_) => PlaceDiscoveryScreen(
                             city: city,
                             tripId: _draft.tripId,
+                            tripPurposes: {..._draft.purposes},
+                            routeStartReady:
+                                _draft.startLatitude != null &&
+                                _draft.startLongitude != null,
                           ),
                         ),
                       ),

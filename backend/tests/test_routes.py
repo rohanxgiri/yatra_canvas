@@ -10,17 +10,17 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.database import get_session
 from app.main import app
-from app.routers.cities import get_google_places_service
+from app.routers.cities import get_geoapify_service
 from app.routers.places import get_openstreetmap_places_service
 from app.schemas import (
+    CitySuggestion,
+    CityDetails,
     DiscoveryCategory,
-    GoogleCitySuggestion,
-    GoogleNearbyPlace,
-    GooglePlaceDetails,
 )
-from app.services.google_places_service import (
-    GooglePlaceNotFoundError,
-    GooglePlacesService,
+from app.services.geoapify_service import (
+    GeoapifyConfigurationError,
+    GeoapifyService,
+    LocationAutocompleteResult,
 )
 from app.services.openstreetmap_places_service import OpenStreetMapNearbyPlace
 
@@ -94,7 +94,7 @@ def test_resolve_city_creates_once_and_returns_existing(client: TestClient) -> N
         "country": "India",
         "latitude": 23.2156,
         "longitude": 72.6369,
-        "google_place_id": "example_google_place_id",
+        "provider_place_id": "example_provider_place_id",
     }
 
     first = client.post("/cities/resolve", json=payload)
@@ -112,7 +112,7 @@ def test_resolve_city_creates_once_and_returns_existing(client: TestClient) -> N
     assert len(listed.json()) == 1
 
 
-def test_resolve_city_without_google_place_id_creates_once(
+def test_resolve_city_without_provider_place_id_creates_once(
     client: TestClient,
 ) -> None:
     payload = {
@@ -121,7 +121,7 @@ def test_resolve_city_without_google_place_id_creates_once(
         "country": "India",
         "latitude": 24.578721,
         "longitude": 73.6862571,
-        "google_place_id": None,
+        "provider_place_id": None,
     }
     first = client.post(
         "/cities/resolve",
@@ -193,59 +193,40 @@ def test_search_cities_requires_non_blank_query(
     assert client.get("/cities/search", params=params).status_code == 422
 
 
-class FakeGooglePlacesService:
-    nearby_call_count = 0
-
-    async def autocomplete_cities(self, query: str) -> list[GoogleCitySuggestion]:
+class FakeGeoapifyService:
+    async def autocomplete(self, query: str, location_type: str, country_code: str) -> list[LocationAutocompleteResult]:
         assert query == "gandhi"
         return [
-            GoogleCitySuggestion(
-                google_place_id="google-gandhinagar",
+            LocationAutocompleteResult(
+                provider="geoapify",
+                provider_place_id="geoapify-gandhinagar",
                 name="Gandhinagar",
-                description="Gandhinagar, Gujarat, India",
+                formatted_address="Gandhinagar, Gujarat, India",
+                latitude=23.2156,
+                longitude=72.6369,
+                city="Gandhinagar",
+                state="Gujarat",
+                country_code="in",
+                result_type="city",
             )
         ]
 
-    async def get_place_details(self, place_id: str) -> GooglePlaceDetails:
-        if place_id == "missing-place":
-            raise GooglePlaceNotFoundError("Google Place ID was not found.")
-        assert place_id == "google-gandhinagar"
-        return GooglePlaceDetails(
+    async def get_place_details(self, provider_place_id: str) -> LocationAutocompleteResult | None:
+        if provider_place_id == "missing-place":
+            return None
+        assert provider_place_id == "geoapify-gandhinagar"
+        return LocationAutocompleteResult(
+            provider="geoapify",
+            provider_place_id="geoapify-gandhinagar",
             name="Gandhinagar",
-            state="Gujarat",
-            country="India",
+            formatted_address="Gandhinagar, Gujarat, India",
             latitude=23.2156,
             longitude=72.6369,
-            google_place_id=place_id,
+            city="Gandhinagar",
+            state="Gujarat",
+            country_code="in",
+            result_type="city",
         )
-
-    async def search_nearby_places(
-        self,
-        *,
-        latitude: float,
-        longitude: float,
-        included_types: tuple[str, ...],
-        radius_meters: float,
-        max_results: int = 20,
-    ) -> list[GoogleNearbyPlace]:
-        assert latitude == 23.1765
-        assert longitude == 75.7885
-        assert included_types
-        assert radius_meters > 0
-        assert max_results == 20
-        self.nearby_call_count += 1
-        return [
-            GoogleNearbyPlace(
-                google_place_id="google-mahakal",
-                name="Mahakaleshwar Temple",
-                latitude=23.1828,
-                longitude=75.7682,
-                rating=4.8,
-                review_count=15000,
-                primary_type="hindu_temple",
-                types=["hindu_temple", "place_of_worship"],
-            )
-        ]
 
 
 class FakeOpenStreetMapPlacesService:
@@ -310,20 +291,20 @@ class FakeOpenStreetMapPlacesService:
         return places
 
 
-def test_google_city_autocomplete_and_place_details(client: TestClient) -> None:
-    app.dependency_overrides[get_google_places_service] = FakeGooglePlacesService
+def test_geoapify_city_autocomplete_and_place_details(client: TestClient) -> None:
+    app.dependency_overrides[get_geoapify_service] = FakeGeoapifyService
 
     autocomplete = client.get("/cities/autocomplete", params={"query": "gandhi"})
     assert autocomplete.status_code == 200
     assert autocomplete.json() == [
         {
-            "google_place_id": "google-gandhinagar",
+            "provider_place_id": "geoapify-gandhinagar",
             "name": "Gandhinagar",
             "description": "Gandhinagar, Gujarat, India",
         }
     ]
 
-    details = client.get("/cities/place-details/google-gandhinagar")
+    details = client.get("/cities/place-details/geoapify-gandhinagar")
     assert details.status_code == 200
     assert details.json() == {
         "name": "Gandhinagar",
@@ -331,16 +312,17 @@ def test_google_city_autocomplete_and_place_details(client: TestClient) -> None:
         "country": "India",
         "latitude": 23.2156,
         "longitude": 72.6369,
-        "google_place_id": "google-gandhinagar",
+        "google_place_id": None,
+        "provider_place_id": "geoapify-gandhinagar",
     }
 
     missing = client.get("/cities/place-details/missing-place")
     assert missing.status_code == 404
-    assert missing.json() == {"detail": "Google Place ID was not found."}
+    assert missing.json() == {"detail": "Provider place could not be found."}
 
 
-def test_missing_google_key_returns_safe_api_response(client: TestClient) -> None:
-    app.dependency_overrides[get_google_places_service] = lambda: GooglePlacesService(
+def test_missing_geoapify_key_returns_safe_api_response(client: TestClient) -> None:
+    app.dependency_overrides[get_geoapify_service] = lambda: GeoapifyService(
         None
     )
 
@@ -348,13 +330,13 @@ def test_missing_google_key_returns_safe_api_response(client: TestClient) -> Non
 
     assert response.status_code == 503
     assert response.json() == {
-        "detail": "Google Places is not configured on the backend."
+        "detail": "Location autocomplete is not configured on the backend."
     }
-    assert "GOOGLE_PLACES_API_KEY" not in response.text
+    assert "GEOAPIFY_API_KEY" not in response.text
 
 
 @pytest.mark.parametrize("query", [None, "", "a", "   "])
-def test_google_city_autocomplete_validates_query(
+def test_geoapify_city_autocomplete_validates_query(
     client: TestClient, query: str | None
 ) -> None:
     params = {} if query is None else {"query": query}
@@ -371,6 +353,7 @@ def test_place_routes(client: TestClient) -> None:
             "latitude": 23.1765,
             "longitude": 75.7885,
             "google_place_id": None,
+            "provider_place_id": None,
         },
     ).json()
     payload = {
@@ -408,8 +391,8 @@ def test_place_routes(client: TestClient) -> None:
 def test_discover_places_persists_and_uses_fresh_cache(
     client: TestClient,
 ) -> None:
-    fake_google = FakeGooglePlacesService()
-    app.dependency_overrides[get_google_places_service] = lambda: fake_google
+    fake_osm = FakeOpenStreetMapPlacesService()
+    app.dependency_overrides[get_openstreetmap_places_service] = lambda: fake_osm
     city = client.post(
         "/cities",
         json={
@@ -418,7 +401,8 @@ def test_discover_places_persists_and_uses_fresh_cache(
             "country": "India",
             "latitude": 23.1765,
             "longitude": 75.7885,
-            "google_place_id": "google-ujjain",
+            "google_place_id": None,
+            "provider_place_id": "google-ujjain",
         },
     ).json()
 
@@ -433,9 +417,9 @@ def test_discover_places_persists_and_uses_fresh_cache(
         "category": "religious",
         "latitude": 23.1828,
         "longitude": 75.7682,
-        "rating": 4.8,
-        "review_count": 15000,
-        "is_popular": True,
+        "rating": None,
+        "review_count": 0,
+        "is_popular": False,
         "is_heritage": False,
         "is_local_speciality": False,
         "last_fetched_at": first.json()[0]["last_fetched_at"],
@@ -445,13 +429,13 @@ def test_discover_places_persists_and_uses_fresh_cache(
     second = client.get(path, params={"category": "religious"})
     assert second.status_code == 200
     assert second.json() == first.json()
-    assert fake_google.nearby_call_count == 1
+    assert fake_osm.call_counts["religious"] == 1
 
     heritage = client.get(path, params={"category": "heritage"})
     assert heritage.status_code == 200
     assert heritage.json()[0]["id"] == first.json()[0]["id"]
     assert heritage.json()[0]["is_heritage"] is True
-    assert fake_google.nearby_call_count == 2
+    assert fake_osm.call_counts["heritage"] == 1
 
     stored = client.get(f"/cities/{city['id']}/places")
     assert stored.status_code == 200

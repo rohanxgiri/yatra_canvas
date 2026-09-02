@@ -26,7 +26,7 @@ class TripDraft {
     this.datesFlexible = false,
     this.durationDays = 2,
     this.arrivalMethod = 'Train',
-    this.arrivalPoint = 'Ujjain Railway Station',
+    this.arrivalPoint = '',
     this.arrivalLatitude,
     this.arrivalLongitude,
     this.startLocationType = TripStartLocationType.arrival,
@@ -107,7 +107,8 @@ class TripDraft {
           )
         : TripStartLocationType.arrival;
 
-    final prefList = (json['preferences'] as List<dynamic>?)
+    final prefList =
+        (json['preferences'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
         const [];
@@ -141,15 +142,13 @@ class TripDraft {
           _ => 'Chill',
         };
       } else if (knownTransports.contains(lower)) {
-        transportPrefs.add(
-          switch (lower) {
-            'walking' => 'Walking',
-            'public transport' => 'Public Transport',
-            'auto / cab' => 'Auto / Cab',
-            'own vehicle' => 'Own Vehicle',
-            _ => pref,
-          },
-        );
+        transportPrefs.add(switch (lower) {
+          'walking' => 'Walking',
+          'public transport' => 'Public Transport',
+          'auto / cab' => 'Auto / Cab',
+          'own vehicle' => 'Own Vehicle',
+          _ => pref,
+        });
       } else {
         purposes.add(pref);
       }

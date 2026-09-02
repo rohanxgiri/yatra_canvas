@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:yatra_canvas/main.dart';
+import 'package:yatra_canvas/models/city.dart';
 import 'package:yatra_canvas/models/trip_draft.dart';
 import 'package:yatra_canvas/screens/create_trip/destination_selection_screen.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
@@ -99,6 +102,14 @@ void main() {
     await tester.tap(find.text('Ujjain'));
     await tester.pumpAndSettle();
 
+    draft
+      ..arrivalPoint = 'Ujjain Railway Station'
+      ..arrivalLatitude = 23.1793
+      ..arrivalLongitude = 75.7849
+      ..startLocationName = 'Ujjain Railway Station'
+      ..startLatitude = 23.1793
+      ..startLongitude = 75.7849;
+
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(find.text('When are you\ntravelling?'), findsOneWidget);
@@ -128,13 +139,28 @@ void main() {
     tester,
   ) async {
     final requests = <http.Request>[];
-    final draft = TripDraft();
+    final draft = TripDraft(
+      destination: const City(
+        id: 'old-city-id',
+        name: 'Ujjain',
+        state: 'Madhya Pradesh',
+        country: 'India',
+        latitude: 23.1765,
+        longitude: 75.7885,
+      ),
+      arrivalPoint: 'Ujjain Railway Station',
+      arrivalLatitude: 23.1793,
+      arrivalLongitude: 75.7849,
+      startLocationName: 'Ujjain Railway Station',
+      startLatitude: 23.1793,
+      startLongitude: 75.7849,
+    );
     final cityService = CityService(
       baseUrl: 'http://api.test',
       client: MockClient((request) async {
         requests.add(request);
-        if (request.url.path == '/locations/autocomplete') {
-          return http.Response(_gandhinagarLocationResponse, 200);
+        if (request.url.path == '/cities/autocomplete') {
+          return http.Response('[]', 200);
         }
         return http.Response(
           request.method == 'GET'
@@ -170,7 +196,7 @@ void main() {
     expect(requests.first.method, 'GET');
     expect(requests.first.url.path, '/cities/search');
     expect(requests.first.url.queryParameters['query'], 'gandhi');
-    expect(requests.last.url.path, '/locations/autocomplete');
+    expect(requests.last.url.path, '/cities/autocomplete');
     expect(find.text('Gandhinagar'), findsOneWidget);
     expect(find.text('Gujarat, India'), findsOneWidget);
     expect(find.text('Saved'), findsOneWidget);
@@ -181,12 +207,14 @@ void main() {
 
     expect(requests, hasLength(2));
     expect(draft.destination?.id, '11111111-1111-1111-1111-111111111111');
+    expect(draft.arrivalPoint, isEmpty);
+    expect(draft.arrivalLatitude, isNull);
+    expect(draft.startLocationName, isNull);
+    expect(draft.startLatitude, isNull);
     expect(find.text('CITY ADDED TO YOUR TRIP'), findsOneWidget);
   });
 
-  testWidgets('Geoapify city resolves and stores UUID', (
-    tester,
-  ) async {
+  testWidgets('Geoapify city resolves and stores UUID', (tester) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -200,10 +228,18 @@ void main() {
         requests.add(request);
         return switch (request.url.path) {
           '/cities/search' => http.Response('[]', 200),
-          '/locations/autocomplete' => http.Response(
-            _gandhinagarLocationResponse,
+          '/cities/autocomplete' => http.Response(
+            jsonEncode([
+              {
+                'name': 'Gandhinagar',
+                'description': 'Gujarat, India',
+                'provider_place_id': '11111111-1111-1111-1111-111111111111',
+              },
+            ]),
             200,
           ),
+          '/cities/place-details/11111111-1111-1111-1111-111111111111' =>
+            http.Response(_gandhinagarUnresolvedResponse, 200),
           '/cities/resolve' => http.Response(_gandhinagarResponse, 200),
           _ => http.Response('Not found', 404),
         };
@@ -233,7 +269,8 @@ void main() {
 
     expect(requests.map((request) => request.url.path), [
       '/cities/search',
-      '/locations/autocomplete',
+      '/cities/autocomplete',
+      '/cities/place-details/11111111-1111-1111-1111-111111111111',
       '/cities/resolve',
     ]);
     expect(draft.destination?.id, '11111111-1111-1111-1111-111111111111');
@@ -307,8 +344,19 @@ const _gandhinagarResponse = '''
   "country": "India",
   "latitude": 23.2156,
   "longitude": 72.6369,
-  "google_place_id": "test_gandhinagar_gujarat_001",
+  "provider_place_id": "11111111-1111-1111-1111-111111111111",
   "created_at": "2026-08-30T12:00:00Z"
+}
+''';
+
+const _gandhinagarUnresolvedResponse = '''
+{
+  "name": "Gandhinagar",
+  "state": "Gujarat",
+  "country": "India",
+  "latitude": 23.2156,
+  "longitude": 72.6369,
+  "provider_place_id": "11111111-1111-1111-1111-111111111111"
 }
 ''';
 

@@ -14,11 +14,14 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/place_card.dart';
 import '../../widgets/selection_chip.dart';
+import '../trip_map/trip_map_screen.dart';
 
 class PlaceDiscoveryScreen extends StatefulWidget {
   const PlaceDiscoveryScreen({
     required this.city,
     this.tripId,
+    this.tripPurposes = const <String>{},
+    this.routeStartReady,
     this.recommendationService,
     this.savedPlaceService,
     this.routeOptimizationService,
@@ -27,6 +30,8 @@ class PlaceDiscoveryScreen extends StatefulWidget {
 
   final City city;
   final String? tripId;
+  final Set<String> tripPurposes;
+  final bool? routeStartReady;
   final RecommendationService? recommendationService;
   final SavedPlaceService? savedPlaceService;
   final RouteOptimizationService? routeOptimizationService;
@@ -43,7 +48,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   late final RouteOptimizationService _routeOptimizationService;
   late final bool _ownsRouteOptimizationService;
 
-  final Set<PlaceCategory> _selectedCategories = {PlaceCategory.religious};
+  late final Set<PlaceCategory> _purposeCategories;
+  final Set<PlaceCategory> _refinementCategories = {};
   List<Recommendation> _recommendations = const [];
   List<SavedPlace> _savedPlaces = const [];
   OptimizedRoute? _optimizedRoute;
@@ -56,11 +62,15 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   bool _isReordering = false;
   bool _isOptimizingRoute = false;
   bool _hasRequested = false;
+  bool _showRefinements = false;
+  bool _refinementsDirty = false;
   int _requestGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    _purposeCategories = _categoriesForPurposes(widget.tripPurposes);
+    _showRefinements = _purposeCategories.isEmpty;
     _ownsRecommendationService = widget.recommendationService == null;
     _recommendationService =
         widget.recommendationService ?? RecommendationService();
@@ -70,7 +80,48 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     _routeOptimizationService =
         widget.routeOptimizationService ?? RouteOptimizationService();
     if (_tripId != null) _loadSavedPlaces();
+    if (_purposeCategories.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadRecommendations();
+      });
+    }
   }
+
+  static Set<PlaceCategory> _categoriesForPurposes(Set<String> purposes) {
+    final categories = <PlaceCategory>{};
+    for (final purpose in purposes) {
+      switch (purpose) {
+        case 'Religious / Spiritual':
+          categories.add(PlaceCategory.religious);
+          break;
+        case 'Culture & Heritage':
+          categories.add(PlaceCategory.heritage);
+          break;
+        case 'Food Exploration':
+          categories.add(PlaceCategory.food);
+          break;
+        case 'Photography':
+          categories.addAll([PlaceCategory.tourism, PlaceCategory.heritage]);
+          break;
+        case 'Mixed Trip':
+          categories.addAll(PlaceCategory.values);
+          break;
+        case 'Sightseeing':
+        case 'Nature':
+        case 'Relaxation':
+        case 'Family Trip':
+        case 'Shopping':
+          categories.add(PlaceCategory.tourism);
+          break;
+      }
+    }
+    return categories;
+  }
+
+  Set<PlaceCategory> get _effectiveCategories => {
+    ..._purposeCategories,
+    ..._refinementCategories,
+  };
 
   @override
   void dispose() {
@@ -97,8 +148,16 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
     final requestGeneration = ++_requestGeneration;
     final categories = PlaceCategory.values
-        .where(_selectedCategories.contains)
+        .where(_effectiveCategories.contains)
         .toList(growable: false);
+    if (categories.isEmpty) {
+      setState(() {
+        _isLoading = false;
+        _hasRequested = false;
+        _error = 'Choose at least one interest to discover places.';
+      });
+      return;
+    }
     setState(() {
       _isLoading = true;
       _hasRequested = true;
@@ -114,6 +173,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       setState(() {
         _recommendations = recommendations;
         _isLoading = false;
+        _refinementsDirty = false;
+        if (_purposeCategories.isNotEmpty) _showRefinements = false;
       });
     } on Object catch (error) {
       if (!mounted || requestGeneration != _requestGeneration) return;
@@ -127,13 +188,12 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   void _toggleCategory(PlaceCategory category) {
     setState(() {
-      if (_selectedCategories.contains(category)) {
-        _selectedCategories.remove(category);
+      if (_refinementCategories.contains(category)) {
+        _refinementCategories.remove(category);
       } else {
-        _selectedCategories.add(category);
+        _refinementCategories.add(category);
       }
-      _recommendations = const [];
-      _hasRequested = false;
+      _refinementsDirty = true;
       _error = null;
     });
   }
@@ -477,7 +537,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   String _friendlyError(Object error) {
     if (error is TimeoutException) {
-      return 'Place discovery took too long. Check FastAPI and try again.';
+      return 'Place data took longer than expected. Your trip choices are safe—try again.';
     }
     if (error is RecommendationServiceException) return error.message;
     return 'Could not load nearby places. Check your connection and try again.';
@@ -496,52 +556,90 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
               _CityContext(city: widget.city),
-              const SizedBox(height: 26),
-              Text('Choose your interests', style: AppTextStyles.sectionTitle),
-              const SizedBox(height: 6),
-              Text(
-                'Select one or more categories for ${widget.city.name}.',
-                style: AppTextStyles.bodyMuted,
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 9,
-                runSpacing: 10,
-                children: [
-                  for (final category in PlaceCategory.values)
-                    SelectionChip(
-                      label: category.label,
-                      icon: _categoryIcon(category),
-                      selected: _selectedCategories.contains(category),
-                      enabled: !_isLoading,
-                      onSelected: (_) => _toggleCategory(category),
+              const SizedBox(height: 22),
+              _buildSavedPlacesSection(),
+              const SizedBox(height: 24),
+              if (_purposeCategories.isNotEmpty) ...[
+                Text(
+                  'Recommended for your trip',
+                  style: AppTextStyles.sectionTitle,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Based on why you chose to visit ${widget.city.name}.',
+                  style: AppTextStyles.bodyMuted,
+                ),
+                const SizedBox(height: 12),
+                _TripPreferenceContext(purposes: widget.tripPurposes),
+              ] else ...[
+                Text(
+                  'Choose what you’d like to see',
+                  style: AppTextStyles.sectionTitle,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Select one or more interests for ${widget.city.name}.',
+                  style: AppTextStyles.bodyMuted,
+                ),
+              ],
+              if (_purposeCategories.length < PlaceCategory.values.length) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _isLoading
+                        ? null
+                        : () => setState(
+                            () => _showRefinements = !_showRefinements,
+                          ),
+                    icon: Icon(
+                      _showRefinements
+                          ? Icons.expand_less_rounded
+                          : Icons.tune_rounded,
                     ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _selectedCategories.isEmpty || _isLoading
+                    label: Text(
+                      _showRefinements
+                          ? 'Hide extra interests'
+                          : _refinementCategories.isEmpty
+                          ? 'Add another interest'
+                          : '${_refinementCategories.length} extra ${_refinementCategories.length == 1 ? 'interest' : 'interests'}',
+                    ),
+                  ),
+                ),
+              ],
+              if (_showRefinements) ...[
+                const SizedBox(height: 4),
+                _RefinementPanel(
+                  categories: PlaceCategory.values
+                      .where(
+                        (category) => !_purposeCategories.contains(category),
+                      )
+                      .toList(growable: false),
+                  selectedCategories: _refinementCategories,
+                  enabled: !_isLoading,
+                  onToggle: _toggleCategory,
+                  onApply:
+                      _effectiveCategories.isEmpty ||
+                          _isLoading ||
+                          (_hasRequested && !_refinementsDirty)
                       ? null
                       : _loadRecommendations,
-                  icon: const Icon(Icons.auto_awesome_rounded),
-                  label: const Text('Get Recommendations'),
+                  applyLabel: _hasRequested
+                      ? 'Update recommendations'
+                      : 'Show matching places',
                 ),
+              ],
+              const SizedBox(height: 22),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: _buildResults(),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text(
                 'Place data © OpenStreetMap contributors • ODbL\n'
                 'https://www.openstreetmap.org/copyright',
                 textAlign: TextAlign.center,
                 style: AppTextStyles.caption,
-              ),
-              const SizedBox(height: 24),
-              _buildSavedPlacesSection(),
-              const SizedBox(height: 28),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: _buildResults(),
               ),
             ],
           ),
@@ -553,11 +651,18 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   Widget _buildSavedPlacesSection() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,7 +692,16 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                 : 'Changes save automatically. Drag the handle to reorder.',
             style: AppTextStyles.bodyMuted,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.search_rounded),
+              label: const Text('Search another place — coming later'),
+            ),
+          ),
+          const SizedBox(height: 16),
           if (_tripId == null)
             const _PersistenceNotice()
           else if (_isLoadingSavedPlaces && _savedPlaces.isEmpty)
@@ -638,6 +752,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               child: FilledButton.icon(
                 onPressed:
                     _savedPlaces.length < 2 ||
+                        widget.routeStartReady == false ||
                         _isLoadingSavedPlaces ||
                         _isReordering ||
                         _mutatingPlaceIds.isNotEmpty ||
@@ -667,6 +782,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                 style: AppTextStyles.caption,
               ),
             ],
+            if (widget.routeStartReady == false) ...[
+              const SizedBox(height: 7),
+              Text(
+                'Choose a precise trip start location before optimizing.',
+                style: AppTextStyles.caption.copyWith(color: AppColors.error),
+              ),
+            ],
             if (_routeError case final routeError?) ...[
               const SizedBox(height: 10),
               _RouteError(message: routeError, onRetry: _optimizeRoute),
@@ -676,14 +798,22 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               _OptimizedRouteCard(route: route),
             ],
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: null,
-                icon: const Icon(Icons.search_rounded),
-                label: const Text('Search another place — coming later'),
+            if (_tripId != null)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TripMapScreen(tripId: _tripId!),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.map_rounded),
+                  label: const Text('Open Interactive Map'),
+                ),
               ),
-            ),
           ],
         ],
       ),
@@ -692,12 +822,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   Widget _buildResults() {
     if (_isLoading) {
+      final categoryCount = _effectiveCategories.length;
       return _DiscoveryStatus(
         key: const ValueKey('loading-recommendations'),
         icon: Icons.radar_rounded,
         title: 'Ranking places for your trip',
         message:
-            'Checking ${_selectedCategories.length} ${_selectedCategories.length == 1 ? 'category' : 'categories'}, saved results, and nearby places…',
+            'Checking $categoryCount ${categoryCount == 1 ? 'interest' : 'interests'}, saved results, and nearby places…',
         showProgress: true,
       );
     }
@@ -804,6 +935,130 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   }
 }
 
+class _RefinementPanel extends StatelessWidget {
+  const _RefinementPanel({
+    required this.categories,
+    required this.selectedCategories,
+    required this.enabled,
+    required this.onToggle,
+    required this.onApply,
+    required this.applyLabel,
+  });
+
+  final List<PlaceCategory> categories;
+  final Set<PlaceCategory> selectedCategories;
+  final bool enabled;
+  final ValueChanged<PlaceCategory> onToggle;
+  final VoidCallback? onApply;
+  final String applyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Optional extras', style: AppTextStyles.label),
+          const SizedBox(height: 4),
+          Text(
+            'Add interests beyond the reasons from your trip setup.',
+            style: AppTextStyles.caption,
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 9,
+            runSpacing: 10,
+            children: [
+              for (final category in categories)
+                SelectionChip(
+                  label: category.label,
+                  icon: _categoryIcon(category),
+                  selected: selectedCategories.contains(category),
+                  enabled: enabled,
+                  onSelected: (_) => onToggle(category),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onApply,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: Text(applyLabel),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TripPreferenceContext extends StatelessWidget {
+  const _TripPreferenceContext({required this.purposes});
+
+  final Set<String> purposes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.tealLight,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.teal.withValues(alpha: .22)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.teal,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'From your trip setup',
+                  style: AppTextStyles.label.copyWith(
+                    color: AppColors.tealDark,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  purposes.join(' • '),
+                  style: AppTextStyles.bodyMuted.copyWith(
+                    color: AppColors.tealDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CityContext extends StatelessWidget {
   const _CityContext({required this.city});
 
@@ -876,20 +1131,27 @@ class _SavedPlaceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.surfaceSoft,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08142033),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
           Container(
-            width: 30,
-            height: 30,
+            width: 32,
+            height: 32,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              color: AppColors.teal,
+              gradient: AppColors.tealGradient,
               shape: BoxShape.circle,
             ),
             child: Text(
@@ -897,10 +1159,11 @@ class _SavedPlaceTile extends StatelessWidget {
               style: AppTextStyles.caption.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
+                fontSize: 13,
               ),
             ),
           ),
-          const SizedBox(width: 11),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1046,9 +1309,35 @@ class _OptimizedRouteCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           for (var index = 0; index < route.places.length; index++) ...[
+            if (index == 0 ||
+                route.places[index].dayNumber !=
+                    route.places[index - 1].dayNumber) ...[
+              if (index > 0) const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.wb_sunny_rounded,
+                    color: AppColors.teal,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Day ${route.places[index].dayNumber}',
+                    style: AppTextStyles.label.copyWith(
+                      color: AppColors.tealDark,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             _RouteConnector(
               place: route.places[index],
-              fromArrival: index == 0,
+              fromArrival:
+                  index == 0 ||
+                  route.places[index].dayNumber !=
+                      route.places[index - 1].dayNumber,
             ),
             const SizedBox(height: 7),
             _RouteStop(place: route.places[index]),

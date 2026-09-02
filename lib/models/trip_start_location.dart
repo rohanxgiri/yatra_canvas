@@ -59,24 +59,33 @@ class LocationSuggestion {
 
 class LocationDetails {
   const LocationDetails({
-    required this.googlePlaceId,
+    required this.providerPlaceId,
     required this.name,
     required this.latitude,
     required this.longitude,
   });
 
-  final String googlePlaceId;
+  final String providerPlaceId;
   final String name;
   final double latitude;
   final double longitude;
 
   factory LocationDetails.fromJson(Map<String, dynamic> json) {
     return LocationDetails(
-      googlePlaceId: json['google_place_id'] as String,
+      providerPlaceId: json['provider_place_id'] as String? ?? json['google_place_id'] as String,
       name: json['name'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'latitude': latitude,
+      'longitude': longitude,
+      'provider_place_id': providerPlaceId,
+    };
   }
 }
 

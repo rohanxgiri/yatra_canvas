@@ -16,13 +16,26 @@ widget-local; there is no dependency-injection, router, persistence, or global s
 
 `[IMPLEMENTED]` The trip-building screens share a `TripDraft`. After Preferences, `TripService`
 posts the existing city/date/arrival/purpose/preference values to the backend, retains the
-returned `trip_id` in that draft, and passes it to Place Discovery. Submission has loading,
-validation/network/backend/malformed-response handling and a duplicate-tap guard.
+returned `trip_id` in that draft, and passes it plus the saved trip purposes and route-start
+readiness to Place Discovery. The saved purposes automatically fetch the initial recommendation
+categories. Derived categories are presented as trip context, not as manually selected optional
+chips; a collapsed, neutral extra-interest panel can add per-request refinements without becoming
+a second preference source. Recommendation results appear before the saved-place/route builder.
+Submission has loading, validation/network/backend/malformed-response handling and a
+duplicate-tap guard.
 
 `[IMPLEMENTED]` Destination selection searches canonical `City` rows first and then calls the
 provider-neutral `/locations/autocomplete` endpoint with an India/city filter. A selected
 Geoapify result is normalized through `/cities/resolve`; selecting an existing city performs no
 provider call. `[PARTIAL]` The canonical city row does not yet retain the Geoapify place ID.
+
+`[IMPLEMENTED]` Arrival-point search also uses the provider-neutral Geoapify-backed location
+endpoint so an arrival used as the route origin has coordinates. The Flutter query is enriched
+from the selected transport (for example, `Guwahati railway station`) and does not apply the
+hotel/amenity-only result filter used by hotel search. Suggestions remain selectable after the
+field loses focus. Selecting a different destination clears the previous city's arrival/start
+fields, and Place Discovery disables route optimization when the current in-memory draft has no
+coordinate-backed start.
 
 `[PARTIAL]` `TripDraft` and its `trip_id` remain widget-local and in memory; they do not survive
 an app restart. Trip listing/editing and authenticated ownership are absent. The admin shell
@@ -115,6 +128,12 @@ environment variable.
 - `[IMPLEMENTED]` `RouteMatrixCache` stores coordinate-based local estimates under the
   `local_estimate` mode. These are approximate straight-line-derived distances/times, not road
   directions or live traffic.
+- `[IMPLEMENTED]` OpenStreetMap discovery serves previously persisted category results when an
+  expired/missing cache refresh is temporarily unavailable. A category with no stored results
+  still returns the provider's explicit retryable failure.
+- `[IMPLEMENTED]` A multi-category recommendation refresh combines all uncached category filters
+  into one bounded Overpass request, then classifies and persists the returned POIs per category.
+  This keeps request time bounded by one provider call instead of one call per selected chip.
 - `[PARTIAL]` Place freshness is represented at city/category and source levels, but there is no
   general refresh queue, purge policy, or source deletion/tombstone workflow.
 - `[PLANNED]` Target adapters must define timeout, retry/backoff, cache TTL, stale-data behavior,
@@ -199,7 +218,7 @@ only with the deployment architecture; both are currently `[UNKNOWN]`.
 | Identity/authorization | `[PLANNED]` login UI only | Supabase Auth, server verification, ownership tests, reviewed RLS |
 | Trip lifecycle | `[PARTIAL]` create flow and downstream single-session ID handoff; no read/edit/resume/auth | persisted creation through multi-day itinerary lifecycle |
 | Place acquisition | Google runtime refresh plus local FSQ importer | reviewed FSQ/OSM ingestion and optional Wikimedia enrichment |
-| Routing | Google matrix, single-day optimizer | provider-neutral openrouteservice directions/matrix and multi-day planning |
+| Routing | Google matrix, multi-day optimizer | provider-neutral openrouteservice directions/matrix and multi-day planning |
 | Map | `[PLANNED]` | explicit renderer/tiles decision with attribution and offline policy |
 | Admin | mock UI plus review table | authorized, audited review/dedupe/correction workflow |
 | Migrations | `create_all` plus SQL scripts | ordered, reversible, tested migration history |

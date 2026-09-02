@@ -167,6 +167,40 @@ class GeoapifyService:
             )
         return results
 
+    async def get_place_details(
+        self, provider_place_id: str
+    ) -> LocationAutocompleteResult | None:
+        """Fetch details for a specific Geoapify place ID."""
+        params = {
+            "id": provider_place_id,
+            "apiKey": self._api_key,
+        }
+        url = f"{self._base_url}/v2/place-details"
+        try:
+            if self._client is not None:
+                response = await self._client.get(url, params=params)
+            else:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.get(url, params=params)
+        except httpx.TimeoutException as exc:
+            raise GeoapifyTimeoutError("Location provider did not respond in time.") from exc
+        except httpx.RequestError as exc:
+            raise GeoapifyUnavailableError("Location provider could not be reached.") from exc
+
+        self._raise_for_status(response)
+
+        try:
+            payload = response.json()
+        except ValueError:
+            raise GeoapifyUnavailableError("Location provider returned an invalid response.")
+
+        features = payload.get("features", [])
+        if not features:
+            return None
+        
+        properties = features[0].get("properties", {})
+        return self._normalize_result(properties)
+
     async def _request(self, params: dict[str, str | int]) -> httpx.Response:
         url = f"{self._base_url}/v1/geocode/autocomplete"
         try:

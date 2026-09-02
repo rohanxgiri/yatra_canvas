@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../data/mock_data.dart';
 import '../../models/trip_draft.dart';
 import '../../models/trip_start_location.dart';
 import '../../services/device_location_service.dart';
@@ -34,6 +33,8 @@ class ArrivalDetailsScreen extends StatefulWidget {
 class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   late String _method;
   late String _arrivalPoint;
+  double? _arrivalLatitude;
+  double? _arrivalLongitude;
   late TimeOfDay _arrivalTime;
   late final TextEditingController _pointController;
   late final TextEditingController _startSearchController;
@@ -44,6 +45,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   late final bool _ownsLocationService;
   late final bool _ownsTripService;
   Timer? _searchDebounce;
+  Timer? _arrivalSearchDebounce;
   late TripStartLocationType _startType;
   String? _startName;
   double? _startLatitude;
@@ -51,13 +53,19 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   String? _startProvider;
   String? _startProviderPlaceId;
   List<LocationSuggestion> _locationSuggestions = const [];
+  List<LocationSuggestion> _arrivalSuggestions = const [];
+  String? _arrivalError;
   String? _startError;
   bool _isSearchingLocation = false;
+  bool _isSearchingArrival = false;
+  bool _hasSearchedArrival = false;
   bool _isResolvingLocation = false;
   bool _isGettingCurrentLocation = false;
   bool _isSavingStart = false;
   bool _suppressStartSearch = false;
+  bool _suppressArrivalSearch = false;
   int _searchRevision = 0;
+  int _arrivalSearchRevision = 0;
 
   static const _methods = <(String, IconData)>[
     ('Train', Icons.train_rounded),
@@ -72,6 +80,8 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     super.initState();
     _method = widget.draft.arrivalMethod;
     _arrivalPoint = widget.draft.arrivalPoint;
+    _arrivalLatitude = widget.draft.arrivalLatitude;
+    _arrivalLongitude = widget.draft.arrivalLongitude;
     _arrivalTime = TimeOfDay(
       hour: widget.draft.arrivalTime.hour,
       minute: widget.draft.arrivalTime.minute,
@@ -106,6 +116,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
       ..removeListener(_onStartSearchChanged)
       ..dispose();
     _searchDebounce?.cancel();
+    _arrivalSearchDebounce?.cancel();
     if (_ownsLocationService) _locationService.close();
     if (_ownsTripService) _tripService.close();
     _pointFocus
@@ -117,35 +128,112 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   void _refresh() => setState(() {});
 
   void _refreshPoint() {
+    final query = _pointController.text.trim();
+    _arrivalSearchDebounce?.cancel();
+    final revision = ++_arrivalSearchRevision;
     setState(() {
-      _arrivalPoint = _pointController.text.trim();
+      _arrivalPoint = query;
+      _arrivalError = null;
+      _arrivalSuggestions = const [];
+      _isSearchingArrival = false;
+      _hasSearchedArrival = false;
+      if (!_suppressArrivalSearch) {
+        _arrivalLatitude = null;
+        _arrivalLongitude = null;
+      }
       if (_startType == TripStartLocationType.arrival) {
         _startName = _arrivalPoint;
+        _startLatitude = _arrivalLatitude;
+        _startLongitude = _arrivalLongitude;
+        if (!_suppressArrivalSearch) {
+          _startProvider = null;
+          _startProviderPlaceId = null;
+        }
       }
     });
+    if (_suppressArrivalSearch || query.length < 3) return;
+    _arrivalSearchDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () => _searchArrivalPoint(query, revision),
+    );
   }
 
-  List<String> get _suggestions {
-    final query = _pointController.text.trim().toLowerCase();
-    return MockData.arrivalPoints
-        .where((point) {
-          return query.isEmpty || point.toLowerCase().contains(query);
-        })
-        .toList(growable: false);
+  Future<void> _searchArrivalPoint(String query, int revision) async {
+    setState(() {
+      _isSearchingArrival = true;
+      _arrivalError = null;
+    });
+    try {
+      final suggestions = await _locationService.autocomplete(
+        _arrivalProviderQuery(query),
+        hotelOnly: false,
+        latitude: widget.draft.destination?.latitude,
+        longitude: widget.draft.destination?.longitude,
+      );
+      if (!mounted ||
+          revision != _arrivalSearchRevision ||
+          query != _pointController.text.trim()) {
+        return;
+      }
+      setState(() {
+        _arrivalSuggestions = suggestions;
+        _hasSearchedArrival = true;
+      });
+    } on Object catch (error) {
+      if (!mounted || revision != _arrivalSearchRevision) return;
+      setState(() => _arrivalError = _locationError(error));
+    } finally {
+      if (mounted && revision == _arrivalSearchRevision) {
+        setState(() => _isSearchingArrival = false);
+      }
+    }
   }
 
   void _selectMethod(String method) {
-    setState(() {
-      _method = method;
-      if (method == 'Train') {
-        _pointController.text = 'Ujjain Railway Station';
-      }
-    });
+    if (_method == method) return;
+    setState(() => _method = method);
+    if (_arrivalPoint.isNotEmpty) _refreshPoint();
   }
 
-  void _selectPoint(String point) {
-    _pointController.text = point;
-    _pointController.selection = TextSelection.collapsed(offset: point.length);
+  String _arrivalProviderQuery(String query) {
+    final normalized = query.toLowerCase();
+    return switch (_method) {
+      'Train'
+          when !normalized.contains('railway') &&
+              !normalized.contains('station') =>
+        '$query railway station',
+      'Flight' when !normalized.contains('airport') => '$query airport',
+      'Bus'
+          when !normalized.contains('bus') &&
+              !normalized.contains('terminal') =>
+        '$query bus station',
+      _ => query,
+    };
+  }
+
+  void _selectPoint(LocationSuggestion suggestion) {
+    _arrivalSearchRevision++;
+    _suppressArrivalSearch = true;
+    _pointController.text = suggestion.formattedAddress;
+    _pointController.selection = TextSelection.collapsed(
+      offset: suggestion.formattedAddress.length,
+    );
+    _suppressArrivalSearch = false;
+    setState(() {
+      _arrivalPoint = suggestion.formattedAddress;
+      _arrivalLatitude = suggestion.latitude;
+      _arrivalLongitude = suggestion.longitude;
+      _arrivalSuggestions = const [];
+      _arrivalError = null;
+      _hasSearchedArrival = true;
+      if (_startType == TripStartLocationType.arrival) {
+        _startName = suggestion.formattedAddress;
+        _startLatitude = suggestion.latitude;
+        _startLongitude = suggestion.longitude;
+        _startProvider = suggestion.provider;
+        _startProviderPlaceId = suggestion.providerPlaceId;
+      }
+    });
     _pointFocus.unfocus();
   }
 
@@ -160,7 +248,11 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
 
   bool get _canContinue {
     if (_arrivalPoint.isEmpty || _isSavingStart) return false;
-    if (_startType == TripStartLocationType.arrival) return true;
+    if (_startType == TripStartLocationType.arrival) {
+      return _arrivalLatitude != null &&
+          _arrivalLongitude != null &&
+          !_isSearchingArrival;
+    }
     return _startName != null &&
         _startLatitude != null &&
         _startLongitude != null &&
@@ -179,8 +271,8 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
       _locationSuggestions = const [];
       if (type == TripStartLocationType.arrival) {
         _startName = _arrivalPoint;
-        _startLatitude = widget.draft.arrivalLatitude;
-        _startLongitude = widget.draft.arrivalLongitude;
+        _startLatitude = _arrivalLatitude;
+        _startLongitude = _arrivalLongitude;
         _startProvider = null;
         _startProviderPlaceId = null;
       } else {
@@ -295,6 +387,8 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     widget.draft
       ..arrivalMethod = _method
       ..arrivalPoint = _arrivalPoint
+      ..arrivalLatitude = _arrivalLatitude
+      ..arrivalLongitude = _arrivalLongitude
       ..arrivalTime = TimeOfDayValue(
         hour: _arrivalTime.hour,
         minute: _arrivalTime.minute,
@@ -512,34 +606,108 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
             controller: _pointController,
             focusNode: _pointFocus,
             textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-              hintText: 'Search arrival points',
-              prefixIcon: Icon(Icons.location_on_outlined),
+            decoration: InputDecoration(
+              hintText: 'Search arrival points in $city',
+              prefixIcon: const Icon(Icons.location_on_outlined),
+              suffixIcon: _isSearchingArrival
+                  ? const Padding(
+                      padding: EdgeInsets.all(14),
+                      child: SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : null,
             ),
           ),
-          if (_pointFocus.hasFocus && _suggestions.isNotEmpty) ...[
+          if (_arrivalSuggestions.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surface,
+            Material(
+              color: AppColors.surface,
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                side: const BorderSide(color: AppColors.border),
               ),
               child: Column(
-                children: _suggestions
+                children: _arrivalSuggestions
                     .map(
-                      (point) => ListTile(
+                      (suggestion) => ListTile(
                         dense: true,
                         leading: const Icon(
                           Icons.place_outlined,
                           color: AppColors.teal,
                         ),
-                        title: Text(point, style: AppTextStyles.label),
-                        onTap: () => _selectPoint(point),
+                        title: Text(
+                          suggestion.name,
+                          style: AppTextStyles.label,
+                        ),
+                        subtitle: Text(
+                          suggestion.formattedAddress,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => _selectPoint(suggestion),
                       ),
                     )
                     .toList(growable: false),
               ),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Powered by Geoapify • © OpenStreetMap contributors',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textTertiary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ] else if (_arrivalError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _arrivalError!,
+              style: AppTextStyles.caption.copyWith(color: AppColors.error),
+            ),
+          ] else if (_hasSearchedArrival &&
+              !_isSearchingArrival &&
+              _arrivalPoint.isNotEmpty &&
+              _arrivalLatitude == null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'No matching arrival point found. Try a station, airport, or terminal name.',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ] else if (_arrivalPoint.isNotEmpty &&
+              _arrivalLatitude == null &&
+              _startType == TripStartLocationType.arrival) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Select a search result so route planning has an exact starting point.',
+              style: AppTextStyles.caption.copyWith(color: AppColors.error),
+            ),
+          ] else if (_arrivalLatitude != null && _arrivalLongitude != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.success,
+                  size: 18,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    'Route starting point confirmed',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: 26),

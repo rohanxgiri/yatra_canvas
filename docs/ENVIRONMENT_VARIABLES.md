@@ -17,7 +17,7 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 | `GEOAPIFY_BASE_URL` | Geoapify | Optional | Backend | Provider base URL; default is the official HTTPS API host | Non-secret | `[IMPLEMENTED]`; useful for controlled testing, validate as HTTP(S) |
 | `GEOAPIFY_TIMEOUT_SECONDS` | Geoapify | Optional | Backend | Outbound request timeout, default 8 seconds | Non-secret | `[IMPLEMENTED]` |
 | `GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS` | Geoapify | Optional | Backend | In-process autocomplete TTL, default 300 seconds | Non-secret | `[IMPLEMENTED]`; cache is not shared/persistent |
-| `OVERPASS_API_URL` | OpenStreetMap / Overpass | Optional | Backend | Bounded runtime POI query endpoint; defaults to the public FOSSGIS instance and may point to a self-hosted instance | Non-secret | `[IMPLEMENTED]` for development/small-scale discovery; public service has no production SLA |
+| `OVERPASS_API_URL` | OpenStreetMap / Overpass | Optional | Backend | Bounded runtime POI query endpoint; defaults to the public FOSSGIS `lz4` endpoint and may point to a self-hosted instance | Non-secret | `[IMPLEMENTED]` for development/small-scale discovery; public service has no production SLA |
 | `OVERPASS_TIMEOUT_SECONDS` | OpenStreetMap / Overpass | Optional | Backend | Outbound and query timeout, default 25 seconds | Non-secret | `[IMPLEMENTED]` |
 | `OVERPASS_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Half-width of the bounded POI discovery box, default 8,000 m | Non-secret | `[IMPLEMENTED]` |
 | `FSQ_OS_PLACES_PATH` | FSQ OS Places | Optional | Backend CLI/operator | Default local CSV/JSONL/NDJSON source path | Usually private path, not a credential | `[IMPLEMENTED]`; portal access token is intentionally not accepted here |

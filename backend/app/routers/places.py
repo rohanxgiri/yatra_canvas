@@ -10,24 +10,12 @@ from sqlmodel import Session, select
 from app.core.config import Settings, get_settings
 from app.database import get_session
 from app.models import City, Place
-from app.routers.cities import (
-    get_google_places_service,
-    google_places_http_error,
-)
 from app.schemas import (
     DiscoveryCategory,
     PlaceCreate,
     PlaceRead,
     RecommendationRead,
     RecommendationRequest,
-)
-from app.services.google_places_service import (
-    GooglePlaceNotFoundError,
-    GooglePlacesConfigurationError,
-    GooglePlacesInvalidRequestError,
-    GooglePlacesService,
-    GooglePlacesTimeoutError,
-    GooglePlacesUnavailableError,
 )
 from app.services.openstreetmap_discovery_service import (
     OpenStreetMapDiscoveryService,
@@ -38,26 +26,11 @@ from app.services.openstreetmap_places_service import (
     OpenStreetMapPlacesTimeoutError,
     OpenStreetMapPlacesUnavailableError,
 )
-from app.services.place_discovery_service import PlaceDiscoveryService
 from app.services.recommendation_service import RecommendationService
 
 router = APIRouter(tags=["places"])
 SessionDependency = Annotated[Session, Depends(get_session)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
-GooglePlacesDependency = Annotated[
-    GooglePlacesService, Depends(get_google_places_service)
-]
-
-
-def get_place_discovery_service(
-    settings: SettingsDependency,
-) -> PlaceDiscoveryService:
-    return PlaceDiscoveryService(settings)
-
-
-PlaceDiscoveryDependency = Annotated[
-    PlaceDiscoveryService, Depends(get_place_discovery_service)
-]
 
 
 def get_openstreetmap_places_service(
@@ -157,10 +130,9 @@ async def discover_city_places(
     city_id: UUID,
     category: Annotated[DiscoveryCategory, Query()],
     session: SessionDependency,
-    google_places: GooglePlacesDependency,
-    discovery: PlaceDiscoveryDependency,
+    discovery: OpenStreetMapDiscoveryDependency,
 ) -> list[Place]:
-    """Return cached places or refresh one city/category from Google."""
+    """Return cached places or refresh one city/category from OpenStreetMap."""
 
     city = session.get(City, city_id)
     if city is None:
@@ -174,17 +146,27 @@ async def discover_city_places(
             session=session,
             city=city,
             category=category,
-            google_places=google_places,
         )
-    except (
-        GooglePlacesConfigurationError,
-        GooglePlacesInvalidRequestError,
-        GooglePlaceNotFoundError,
-        GooglePlacesTimeoutError,
-        GooglePlacesUnavailableError,
-    ) as exc:
+    except OpenStreetMapPlacesRateLimitError as exc:
         session.rollback()
-        raise google_places_http_error(exc) from exc
+        headers = {"Retry-After": exc.retry_after} if exc.retry_after else None
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+            headers=headers,
+        ) from exc
+    except OpenStreetMapPlacesTimeoutError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=str(exc),
+        ) from exc
+    except OpenStreetMapPlacesUnavailableError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
     except IntegrityError as exc:
         session.rollback()
         raise HTTPException(

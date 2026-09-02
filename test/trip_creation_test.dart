@@ -151,6 +151,8 @@ void main() {
       find.byType(PlaceDiscoveryScreen),
     );
     expect(discovery.tripId, draft.tripId);
+    expect(discovery.tripPurposes, draft.purposes);
+    expect(discovery.routeStartReady, isTrue);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

@@ -35,12 +35,10 @@ def test_database_url_is_required(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_optional_provider_keys_normalize_to_none() -> None:
     settings = _settings(
-        GOOGLE_PLACES_API_KEY=" ",
         GOOGLE_ROUTES_API_KEY="",
         GEOAPIFY_API_KEY="   ",
     )
 
-    assert settings.google_places_api_key_value is None
     assert settings.google_routes_api_key_value is None
     assert settings.geoapify_api_key_value is None
 

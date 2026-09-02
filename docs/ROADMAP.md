@@ -114,10 +114,10 @@ Acceptance criteria:
 - Turning off Google Places in a test environment passes city/discovery tests and has a rollback
   flag/release plan.
 
-## Phase 7 — openrouteservice and multi-day itinerary planning
+## Phase 7 — openrouteservice and provider parity
 
-Status: `[PLANNED]` road-routing adapter; current local-estimate/single-day implementation is
-`[PARTIAL]` and the Google adapter is legacy only.
+Status: `[PLANNED]` road-routing adapter; current local-estimate multi-day implementation is
+`[IMPLEMENTED]` and the Google adapter is legacy only.
 
 Scope: introduce a provider-neutral directions/matrix interface, select hosted versus self-hosted
 openrouteservice, migrate cache semantics, and implement actual multi-day scheduling. Keep Google

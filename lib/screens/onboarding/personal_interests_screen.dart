@@ -18,13 +18,12 @@ class PersonalInterestsScreen extends StatefulWidget {
 }
 
 class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
-  static const _stepCount = 10;
+  static const _stepCount = 9;
   final PageController _pages = PageController();
   final TextEditingController _name = TextEditingController(text: 'Traveller');
   final Set<String> _challenges = {};
   final Set<String> _goals = {};
   int _step = 0;
-  String _language = 'English';
   String? _planningStyle;
 
   @override
@@ -35,11 +34,10 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
   }
 
   bool get _canContinue => switch (_step) {
-    0 => _language.isNotEmpty,
-    2 => _planningStyle != null,
-    3 => _challenges.isNotEmpty,
-    4 => _goals.isNotEmpty,
-    9 => _name.text.trim().isNotEmpty,
+    1 => _planningStyle != null,
+    2 => _challenges.isNotEmpty,
+    3 => _goals.isNotEmpty,
+    8 => _name.text.trim().isNotEmpty,
     _ => true,
   };
 
@@ -87,7 +85,7 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
                 totalSteps: _stepCount,
                 useSafeArea: false,
                 onBack: _back,
-                onSkip: _step >= 2 && _step < 8 ? _skip : null,
+                onSkip: _step >= 1 && _step < 7 ? _skip : null,
               ),
               Expanded(
                 child: PageView(
@@ -95,7 +93,6 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   onPageChanged: (value) => setState(() => _step = value),
                   children: [
-                    _languageStep(),
                     _welcomeStep(),
                     _planningStep(),
                     _challengeStep(),
@@ -111,12 +108,12 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
               _BottomBar(
                 child: PrimaryButton(
                   label: switch (_step) {
-                    1 => 'Let’s Personalise',
-                    8 => 'Set Up My Profile',
-                    9 => 'Enter YatraCanvas',
+                    0 => 'Let’s Personalise',
+                    7 => 'Set Up My Profile',
+                    8 => 'Enter YatraCanvas',
                     _ => 'Continue',
                   },
-                  icon: _step == 9
+                  icon: _step == 8
                       ? Icons.explore_rounded
                       : Icons.arrow_forward_rounded,
                   onPressed: _canContinue ? _next : null,
@@ -129,23 +126,6 @@ class _PersonalInterestsScreenState extends State<PersonalInterestsScreen> {
     );
   }
 
-  Widget _languageStep() {
-    const languages = ['English', 'हिन्दी', 'বাংলা', 'தமிழ்', 'मराठी'];
-    return _StepScroll(
-      eyebrow: 'MAKE IT YOURS',
-      title: 'Choose your\ntravel language',
-      subtitle: 'Pick the language you’d like to use while planning journeys.',
-      children: [
-        for (final language in languages)
-          _ChoiceCard(
-            icon: language == 'English' ? '🌏' : 'अ',
-            label: language,
-            selected: _language == language,
-            onTap: () => setState(() => _language = language),
-          ),
-      ],
-    );
-  }
 
   Widget _welcomeStep() => const _StepScroll(
     centered: true,

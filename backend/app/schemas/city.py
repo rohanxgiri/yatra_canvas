@@ -39,17 +39,19 @@ class CityCreate(CityBase):
 class CityResolve(CityBase):
     """Normalized provider city accepted by the resolve endpoint."""
 
+    provider_place_id: str | None = Field(default=None, max_length=255)
 
-class GoogleCitySuggestion(SQLModel):
-    """Normalized Google city prediction returned to Flutter."""
 
-    google_place_id: str
+class CitySuggestion(SQLModel):
+    """Normalized provider city prediction returned to Flutter."""
+
+    provider_place_id: str
     name: str
     description: str
 
 
-class GooglePlaceDetails(CityResolve):
-    """Normalized Google Place Details response used by city resolution."""
+class CityDetails(CityResolve):
+    """Normalized provider place details response used by city resolution."""
 
 
 class CityRead(CityBase):

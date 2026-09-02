@@ -419,3 +419,97 @@ def test_missing_google_routes_key_fails_without_a_request() -> None:
         )
 
     assert str(captured.value) == ("Google Routes is not configured on the backend.")
+
+
+def test_multi_day_chunking_respects_time_budget(
+    client_engine_routes: tuple[TestClient, Engine, FakeGoogleRoutesService],
+) -> None:
+    client, engine, routes = client_engine_routes
+    city = _create_city(client)
+    
+    # Create 5 places
+    places = []
+    for i in range(5):
+        places.append(_create_place(client, str(city["id"]), f"Place {i}", 23.18 + (i * 0.01)))
+        
+    # Travel time will be long to force chunking
+    # DEFAULT_VISIT_DURATION_MINUTES = 120
+    # DEFAULT_DAILY_BUDGET_MINUTES = 600
+    # If travel time is 300 minutes, 1 place = 420 mins (fits), 2 places = 840 mins (exceeds budget)
+    # This forces exactly 1 place per day. If trip.days = 5, they should perfectly fit 1 per day.
+    for p in places:
+        routes.costs[(23.17, p["latitude"])] = 300 * 60  # from start
+        routes.costs[(p["latitude"], 23.17)] = 300 * 60
+        for p2 in places:
+            if p != p2:
+                routes.costs[(p["latitude"], p2["latitude"])] = 300 * 60
+
+    trip_id = _seed_trip_and_saved_places(
+        engine,
+        str(city["id"]),
+        [str(p["id"]) for p in places],
+    )
+    with Session(engine) as session:
+        trip = session.get(Trip, trip_id)
+        trip.days = 5
+        session.commit()
+
+    response = client.post(f"/trips/{trip_id}/optimize-route")
+    assert response.status_code == 200
+    optimized = response.json()["optimized_places"]
+    assert len(optimized) == 5
+    # Should be partitioned across 5 days
+    assert [p["day_number"] for p in optimized] == [1, 2, 3, 4, 5]
+
+
+def test_infeasible_trip_drops_must_visit_raises_error(
+    client_engine_routes: tuple[TestClient, Engine, FakeGoogleRoutesService],
+) -> None:
+    client, engine, routes = client_engine_routes
+    city = _create_city(client)
+    
+    places = []
+    for i in range(5):
+        places.append(_create_place(client, str(city["id"]), f"Place {i}", 23.18 + (i * 0.01)))
+        
+    # Same high travel times, but trip is only 2 days!
+    for p in places:
+        routes.costs[(23.17, p["latitude"])] = 300 * 60
+        routes.costs[(p["latitude"], 23.17)] = 300 * 60
+        for p2 in places:
+            if p != p2:
+                routes.costs[(p["latitude"], p2["latitude"])] = 300 * 60
+
+    trip_id = _seed_trip_and_saved_places(
+        engine,
+        str(city["id"]),
+        [str(p["id"]) for p in places],
+        saved_settings=[{"must_visit": True} for _ in places]
+    )
+    with Session(engine) as session:
+        trip = session.get(Trip, trip_id)
+        trip.days = 2
+        session.commit()
+
+    response = client.post(f"/trips/{trip_id}/optimize-route")
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Cannot fit all must-visit places within the trip duration."
+
+
+def test_fewer_places_than_days_raises_error(
+    client_engine_routes: tuple[TestClient, Engine, FakeGoogleRoutesService],
+) -> None:
+    client, engine, routes = client_engine_routes
+    city = _create_city(client)
+    places = [_create_place(client, str(city["id"]), "Place 0", 23.18)]
+    
+    trip_id = _seed_trip_and_saved_places(engine, str(city["id"]), [str(places[0]["id"])])
+    
+    with Session(engine) as session:
+        trip = session.get(Trip, trip_id)
+        trip.days = 5
+        session.commit()
+        
+    response = client.post(f"/trips/{trip_id}/optimize-route")
+    assert response.status_code == 422
+    assert "Select at least 5 places" in response.json()["detail"]

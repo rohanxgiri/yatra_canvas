@@ -13,18 +13,17 @@ from app.database import get_session
 from app.models import City
 from app.schemas import (
     CityCreate,
+    CityDetails,
     CityRead,
     CityResolve,
-    GoogleCitySuggestion,
-    GooglePlaceDetails,
+    CitySuggestion,
 )
-from app.services.google_places_service import (
-    GooglePlaceNotFoundError,
-    GooglePlacesConfigurationError,
-    GooglePlacesInvalidRequestError,
-    GooglePlacesService,
-    GooglePlacesTimeoutError,
-    GooglePlacesUnavailableError,
+from app.services.geoapify_service import (
+    GeoapifyConfigurationError,
+    GeoapifyInvalidRequestError,
+    GeoapifyService,
+    GeoapifyTimeoutError,
+    GeoapifyUnavailableError,
 )
 
 router = APIRouter(prefix="/cities", tags=["cities"])
@@ -32,36 +31,31 @@ SessionDependency = Annotated[Session, Depends(get_session)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
 
 
-def get_google_places_service(settings: SettingsDependency) -> GooglePlacesService:
-    """Build the Google client from backend-only environment settings."""
+def get_geoapify_service(settings: SettingsDependency) -> GeoapifyService:
+    """Build the Geoapify client from backend-only environment settings."""
 
-    return GooglePlacesService(settings.google_places_api_key_value)
+    return GeoapifyService(settings.geoapify_api_key_value)
 
 
-GooglePlacesDependency = Annotated[
-    GooglePlacesService, Depends(get_google_places_service)
+GeoapifyDependency = Annotated[
+    GeoapifyService, Depends(get_geoapify_service)
 ]
 
 
-def google_places_http_error(error: Exception) -> HTTPException:
+def geoapify_http_error(error: Exception) -> HTTPException:
     """Translate service failures into stable API status codes."""
 
-    if isinstance(error, GooglePlacesInvalidRequestError):
+    if isinstance(error, GeoapifyInvalidRequestError):
         return HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(error),
         )
-    if isinstance(error, GooglePlaceNotFoundError):
-        return HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        )
-    if isinstance(error, GooglePlacesTimeoutError):
+    if isinstance(error, GeoapifyTimeoutError):
         return HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail=str(error),
         )
-    if isinstance(error, GooglePlacesConfigurationError):
+    if isinstance(error, GeoapifyConfigurationError):
         return HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(error),
@@ -106,12 +100,12 @@ def list_cities(
     return list(session.exec(statement).all())
 
 
-@router.get("/autocomplete", response_model=list[GoogleCitySuggestion])
+@router.get("/autocomplete", response_model=list[CitySuggestion])
 async def autocomplete_cities(
-    google_places: GooglePlacesDependency,
+    geoapify: GeoapifyDependency,
     query: Annotated[str, Query(min_length=2, max_length=120)],
-) -> list[GoogleCitySuggestion]:
-    """Return normalized India city predictions from Google Places."""
+) -> list[CitySuggestion]:
+    """Return normalized India city predictions from Geoapify."""
 
     normalized_query = query.strip()
     if len(normalized_query) < 2:
@@ -121,36 +115,65 @@ async def autocomplete_cities(
         )
 
     try:
-        return await google_places.autocomplete_cities(normalized_query)
+        results = await geoapify.autocomplete(
+            query=normalized_query,
+            location_type="city",
+            country_code="in",
+        )
+        suggestions = []
+        for res in results:
+            if not res.city:
+                continue
+            description = res.formatted_address
+            suggestions.append(
+                CitySuggestion(
+                    provider_place_id=res.provider_place_id,
+                    name=res.city,
+                    description=description,
+                )
+            )
+        return suggestions
     except (
-        GooglePlacesConfigurationError,
-        GooglePlacesInvalidRequestError,
-        GooglePlacesTimeoutError,
-        GooglePlacesUnavailableError,
+        GeoapifyConfigurationError,
+        GeoapifyInvalidRequestError,
+        GeoapifyTimeoutError,
+        GeoapifyUnavailableError,
     ) as exc:
-        raise google_places_http_error(exc) from exc
+        raise geoapify_http_error(exc) from exc
 
 
 @router.get(
-    "/place-details/{google_place_id}",
-    response_model=GooglePlaceDetails,
+    "/place-details/{provider_place_id}",
+    response_model=CityDetails,
 )
-async def get_google_place_details(
-    google_place_id: str,
-    google_places: GooglePlacesDependency,
-) -> GooglePlaceDetails:
-    """Return city fields extracted from one Google Place Details result."""
+async def get_provider_place_details(
+    provider_place_id: str,
+    geoapify: GeoapifyDependency,
+) -> CityDetails:
+    """Return city fields extracted from one Geoapify Place Details result."""
 
     try:
-        return await google_places.get_place_details(google_place_id)
+        res = await geoapify.get_place_details(provider_place_id)
+        if not res or not res.city:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Provider place could not be found.",
+            )
+        return CityDetails(
+            name=res.city,
+            state=res.state,
+            country="India",  # Assuming India from autocomplete filter
+            latitude=res.latitude,
+            longitude=res.longitude,
+            provider_place_id=res.provider_place_id,
+        )
     except (
-        GooglePlacesConfigurationError,
-        GooglePlacesInvalidRequestError,
-        GooglePlaceNotFoundError,
-        GooglePlacesTimeoutError,
-        GooglePlacesUnavailableError,
+        GeoapifyConfigurationError,
+        GeoapifyInvalidRequestError,
+        GeoapifyTimeoutError,
+        GeoapifyUnavailableError,
     ) as exc:
-        raise google_places_http_error(exc) from exc
+        raise geoapify_http_error(exc) from exc
 
 
 @router.post("/resolve", response_model=CityRead)
@@ -166,10 +189,10 @@ def resolve_city(city_data: CityResolve, session: SessionDependency) -> City:
             else func.lower(City.state) == city_data.state.casefold()
         ),
     ]
-    if city_data.google_place_id is not None:
+    if city_data.provider_place_id is not None:
         statement = select(City).where(
             or_(
-                City.google_place_id == city_data.google_place_id,
+                City.google_place_id == city_data.provider_place_id,
                 and_(*identity_filters),
             )
         )
@@ -180,6 +203,8 @@ def resolve_city(city_data: CityResolve, session: SessionDependency) -> City:
         return existing_city
 
     city = City.model_validate(city_data)
+    if city_data.provider_place_id and not city.google_place_id:
+        city.google_place_id = city_data.provider_place_id
     session.add(city)
     try:
         session.commit()

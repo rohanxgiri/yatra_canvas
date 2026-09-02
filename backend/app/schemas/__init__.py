@@ -2,10 +2,10 @@
 
 from app.schemas.city import (
     CityCreate,
+    CityDetails,
     CityRead,
     CityResolve,
-    GoogleCitySuggestion,
-    GooglePlaceDetails,
+    CitySuggestion,
 )
 from app.schemas.place import GoogleNearbyPlace, PlaceCreate, PlaceRead
 from app.schemas.location import (
@@ -41,10 +41,10 @@ from app.schemas.route_optimization import (
 
 __all__ = [
     "CityCreate",
+    "CityDetails",
     "CityRead",
     "CityResolve",
-    "GoogleCitySuggestion",
-    "GooglePlaceDetails",
+    "CitySuggestion",
     "GoogleNearbyPlace",
     "PlaceCreate",
     "PlaceRead",
