@@ -35,6 +35,7 @@ from app.schemas.trip import (
     TripUpdate,
 )
 from app.schemas.route_optimization import (
+    ItineraryBreakRead,
     OptimizedPlaceRead,
     RouteOptimizationRead,
 )
@@ -70,6 +71,7 @@ __all__ = [
     "SavedPlaceOrder",
     "SavedPlaceRead",
     "SavedPlaceReorder",
+    "ItineraryBreakRead",
     "OptimizedPlaceRead",
     "RouteOptimizationRead",
     "DayRouteGeometryRead",

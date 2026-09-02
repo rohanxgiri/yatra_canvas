@@ -56,7 +56,7 @@ internet permissions support device location and HTTP; they are not evidence of 
 | Places | create/list; legacy Google discovery; OpenStreetMap recommendations |
 | Saved places | list/create/update/reorder/delete under a trip |
 | Trips | create a trip; get/update start location |
-| Routing | optimize an existing trip using cached local distance/time estimates |
+| Routing | optimize an existing trip using cached local distance/time estimates with realistic time-aware arrival/departure scheduling, midday breaks, and opening-hours awareness |
 | Route geometry | `GET /trips/{trip_id}/route-geometry` using OSRM or openrouteservice |
 | Weather advisories | `GET /trips/{trip_id}/weather-advisories`, `GET /trips/{trip_id}/weather-alternatives`, `POST /trips/{trip_id}/rearrange-preview`, `POST /trips/{trip_id}/apply-itinerary-adjustment`, `POST /trips/{trip_id}/ignore-weather` |
 
@@ -69,7 +69,7 @@ provider-neutral protocols. Normal recommendations use bounded OpenStreetMap/Ove
 road geometry uses keyless OSRM (or openrouteservice), and weather advisories use Open-Meteo with
 in-memory caching and deterministic indoor/outdoor place environment classification.
 Legacy Google-specific city/discovery and route client code remains but is not called by the normal Flutter flow.
-There are no auth, user-profile, trip read/update/list/delete, currency, admin,
+There are no auth, user-profile, trip read/update/list/delete, admin,
 ingestion-job, or observability endpoints.
 
 ### Database and schema changes
@@ -158,11 +158,10 @@ flowchart TB
     A --> D[(Canonical PostgreSQL)]
     A --> AC[Autocomplete adapter]
     A --> RT[Routing adapter]
-    A --> WC[Weather/currency adapters]
+    A --> WA[Weather adapter]
     AC --> GEO[Geoapify]
     RT --> ORS[openrouteservice]
-    WC --> OM[Open-Meteo]
-    WC --> FX[Frankfurter]
+    WA --> OM[Open-Meteo]
     I[Reviewed ingestion workers/CLI] --> D
     FSQ[FSQ OS Places extract] --> I
     OSM[OSM extract/Overpass] --> I

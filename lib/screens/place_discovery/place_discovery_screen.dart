@@ -1359,6 +1359,45 @@ class _OptimizedRouteCard extends StatelessWidget {
               ),
             ],
           ),
+          if (route.conflicts.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Planning Advisory',
+                        style: AppTextStyles.caption.copyWith(
+                          color: Colors.amber.shade900,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  for (final conflict in route.conflicts)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '• $conflict',
+                        style: AppTextStyles.caption.copyWith(color: AppColors.charcoal),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           for (var index = 0; index < route.places.length; index++) ...[
             if (index == 0 ||
@@ -1393,7 +1432,84 @@ class _OptimizedRouteCard extends StatelessWidget {
             ),
             const SizedBox(height: 7),
             _RouteStop(place: route.places[index]),
+            // Render any midday break occurring after this stop
+            for (final b in route.breaks.where(
+              (brk) =>
+                  brk.dayNumber == route.places[index].dayNumber &&
+                  (index < route.places.length - 1 &&
+                      route.places[index + 1].dayNumber ==
+                          route.places[index].dayNumber &&
+                      route.places[index].plannedDepartureTime != null &&
+                      route.places[index + 1].plannedArrivalTime != null &&
+                      brk.startTime.compareTo(route.places[index].plannedDepartureTime!) >= 0 &&
+                      brk.endTime.compareTo(route.places[index + 1].plannedArrivalTime!) <= 0),
+            ))
+              _MiddayBreakCard(breakItem: b),
           ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Icon(Icons.access_time_rounded, size: 13, color: AppColors.textTertiary),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Timings are planning estimates based on category heuristics and route durations.',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textTertiary,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiddayBreakCard extends StatelessWidget {
+  const _MiddayBreakCard({required this.breakItem});
+
+  final ItineraryBreak breakItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.textTertiary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 34,
+            child: Icon(Icons.coffee_rounded, color: AppColors.textSecondary, size: 18),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  breakItem.label,
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.charcoal,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  '${breakItem.formattedTimeWindow} · ${breakItem.durationMinutes} min rest & meals',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1440,6 +1556,7 @@ class _RouteStop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
           width: 34,
@@ -1459,9 +1576,27 @@ class _RouteStop extends StatelessWidget {
         ),
         const SizedBox(width: 11),
         Expanded(
-          child: Text(
-            place.name,
-            style: AppTextStyles.label.copyWith(color: AppColors.charcoal),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                place.name,
+                style: AppTextStyles.label.copyWith(
+                  color: AppColors.charcoal,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (place.formattedTimeWindow != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '${place.formattedTimeWindow} · ~${place.visitDurationMinutes} min visit',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.tealDark,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ],

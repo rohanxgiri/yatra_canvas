@@ -135,17 +135,20 @@ Acceptance criteria:
 - A test deployment can disable Google Routes with complete cached/static fallback and explicit
   failure for missing legs.
 
-## Phase 8 — Weather and currency
+## Phase 8 — Weather-aware trip assistance and realistic itinerary timing
 
-Status: `[PARTIAL]`. Weather-aware trip assistance is `[IMPLEMENTED]` with provider-neutral
+Status: `[IMPLEMENTED]`. Weather-aware trip assistance is implemented with provider-neutral
 `WeatherProvider` protocol, `OpenMeteoWeatherProvider` adapter, in-memory TTL caching, itinerary-aware
 overlap evaluation, deterministic place environment classifier, non-persisted rearrange preview,
 transactional schedule update, and Flutter `WeatherAdvisoryCard` with default continue path.
-Currency conversion remains `[PLANNED]`.
+Realistic itinerary timing is implemented with `ItineraryTimingService`, centralized daily touring
+windows (`09:00–19:00`), midday lunch breaks (`12:30–13:30`), category-based visit duration
+heuristics, opening-hours awareness, must-visit preservation, and Flutter time-window and break cards.
+Currency conversion has been removed from the active roadmap.
 
 Scope: make a commercial-use/licensing decision for Open-Meteo before commercial deployment;
-dated forecast caching and CC BY 4.0 attribution are documented. Add Frankfurter daily reference rates with
-provider/date provenance and calculate amounts in application code.
+dated forecast caching and CC BY 4.0 attribution are documented. Time-aware itinerary scheduling
+uses route matrix travel times and deterministic category visit heuristics with opening-hours awareness.
 
 Acceptance criteria:
 
@@ -153,9 +156,9 @@ Acceptance criteria:
   documented; commercial production requires a paid endpoint or self-hosted container.
 - Forecast responses evaluate actual touring hours against outdoor places and degrade safely to
   `no_forecast_available` outside horizon or `weather_unavailable` without failing trips or maps.
-- Currency output shows rate date/base/quote and is described as reference information, not a
-  settlement quote.
-- Both adapters have timeout/error fixtures and no secret is shipped to Flutter.
+- Daily itineraries calculate realistic arrival and departure timestamps with midday breaks and
+  opening-hour checks without silently dropping must-visit places.
+- No secrets are shipped to Flutter.
 
 ## Phase 9 — Authorized admin verification tools
 

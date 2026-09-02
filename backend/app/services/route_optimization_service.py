@@ -12,6 +12,7 @@ from app.services.google_routes_service import (
     GoogleRoutesUnavailableError,
     RouteMatrixLeg,
 )
+from app.services.itinerary_timing_service import ItineraryTimingService
 from app.services.route_matrix_service import (
     RouteMatrixProvider,
     RouteMatrixService,
@@ -19,8 +20,6 @@ from app.services.route_matrix_service import (
 )
 
 MAX_SELECTED_PLACES = 24
-DEFAULT_VISIT_DURATION_MINUTES = 120
-DEFAULT_DAILY_BUDGET_MINUTES = 600
 
 
 class RouteOptimizationError(Exception):
@@ -104,84 +103,31 @@ class RouteOptimizationService:
             saved_rows,
         )
 
-        optimized_places: list[OptimizedPlaceRead] = []
-        current_node = start
-        total_distance_meters = 0
-        total_minutes = 0
-
-        day_number = 1
-        visit_order_on_day = 0
-        daily_minutes_used = 0
-        dropped_place_indices: list[int] = []
-
-        for place_index in optimized_indices:
-            destination = place_nodes[place_index]
-            leg = matrix.get((current_node.key, destination.key))
-            if leg is None:
-                leg = matrix[(start.key, destination.key)]
-            
-            travel_minutes = ceil(leg.preferred_duration_seconds / 60)
-            expected_addition = travel_minutes + DEFAULT_VISIT_DURATION_MINUTES
-
-            # Check if we should move to the next day
-            if (
-                visit_order_on_day > 0
-                and daily_minutes_used + expected_addition > DEFAULT_DAILY_BUDGET_MINUTES
-            ):
-                day_number += 1
-                if day_number > trip.days:
-                    # We ran out of days, the rest of the places are dropped
-                    dropped_place_indices.append(place_index)
-                    continue
-                
-                daily_minutes_used = 0
-                current_node = start
-                visit_order_on_day = 0
-                
-                leg = matrix.get((start.key, destination.key))
-                if leg is None:
-                    raise RouteValidationError("A place is unreachable from the start location.")
-                travel_minutes = ceil(leg.preferred_duration_seconds / 60)
-                expected_addition = travel_minutes + DEFAULT_VISIT_DURATION_MINUTES
-
-            # If we are dropping because we already ran out of days
-            if day_number > trip.days:
-                dropped_place_indices.append(place_index)
-                continue
-
-            visit_order_on_day += 1
-            daily_minutes_used += expected_addition
-
-            distance_km = round(leg.distance_meters / 1000, 3)
-            place = places[place_index]
-            optimized_places.append(
-                OptimizedPlaceRead(
-                    place_id=place.id,
-                    name=place.name,
-                    day_number=day_number,
-                    visit_order=visit_order_on_day,
-                    distance_from_previous=distance_km,
-                    travel_time_minutes=travel_minutes,
-                )
+        timing_service = ItineraryTimingService()
+        try:
+            schedule_result = timing_service.schedule_itinerary(
+                start_node=start,
+                place_nodes=place_nodes,
+                places=places,
+                saved_rows=saved_rows,
+                ordered_indices=optimized_indices,
+                matrix=matrix,
+                trip_days=trip.days,
+                start_date=trip.start_date,
             )
-            total_distance_meters += leg.distance_meters
-            total_minutes += travel_minutes
-            current_node = destination
-
-        for dropped_idx in dropped_place_indices:
-            if saved_rows[dropped_idx].must_visit:
-                raise RouteValidationError("Cannot fit all must-visit places within the trip duration.")
+        except ValueError as exc:
+            raise RouteValidationError(str(exc)) from exc
 
         session.exec(delete(TripItinerary).where(TripItinerary.trip_id == trip_id))
-        for item in optimized_places:
+        for item in schedule_result.optimized_places:
             session.add(
                 TripItinerary(
                     trip_id=trip_id,
                     place_id=item.place_id,
                     day_number=item.day_number,
                     visit_order=item.visit_order,
-                    planned_arrival_time=None,
-                    planned_departure_time=None,
+                    planned_arrival_time=item.planned_arrival_time,
+                    planned_departure_time=item.planned_departure_time,
                     distance_from_previous=item.distance_from_previous,
                     travel_time_minutes=item.travel_time_minutes,
                 )
@@ -190,9 +136,11 @@ class RouteOptimizationService:
 
         return RouteOptimizationRead(
             trip_id=trip_id,
-            optimized_places=optimized_places,
-            total_distance=round(total_distance_meters / 1000, 3),
-            total_travel_time_minutes=total_minutes,
+            optimized_places=schedule_result.optimized_places,
+            total_distance=round(schedule_result.total_distance_meters / 1000, 3),
+            total_travel_time_minutes=schedule_result.total_travel_minutes,
+            breaks=schedule_result.breaks,
+            conflicts=schedule_result.conflicts,
         )
 
     @staticmethod

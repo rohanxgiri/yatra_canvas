@@ -663,3 +663,26 @@ Automated test results:
 - Backend: 145/145 pytest tests passed (including all 12 weather advisory tests).
 - Flutter: 51/51 flutter tests passed (including all weather advisory models, services, and widget tests).
 - Static analysis: `flutter analyze` passed with 0 issues.
+
+## Realistic Itinerary Timing & Opening-Hours Awareness Verification
+
+Verified: 2026-09-02 on branch `feature/time-aware-itinerary`.
+
+Scope:
+- Centralized daily planning windows (`DEFAULT_DAY_START_TIME = 09:00`, `DEFAULT_DAY_END_TIME = 19:00`, `DEFAULT_DAILY_BUDGET_MINUTES = 600`) and midday lunch breaks (`12:30–13:30`, 60 minutes) defined in `backend/app/core/itinerary_constants.py`.
+- Category-based deterministic visit duration heuristics (e.g. 120m for forts/palaces, 90m for museums/malls, 60m for parks/gardens, 45m for monuments/temples/cafes, 75m fallback).
+- Provider-neutral opening-hours normalization model (`PlaceOpeningHours`). Unknown opening hours remain safely unpopulated/nullable without fabricating data. When hours are provided, delay arrivals to opening time, detect early closing conflicts, and never silently drop places.
+- `ItineraryTimingService` generating sequential arrival and departure timestamps, travel time insertion, midday lunch breaks, multi-day partitioning, must-visit preservation, and transactional regeneration.
+- Extended `OptimizedPlaceRead` (`planned_arrival_time`, `planned_departure_time`, `visit_duration_minutes`, `is_opening_hours_known`) and `RouteOptimizationRead` (`breaks`, `conflicts`).
+- Flutter UI rendering:
+  - `_OptimizedRouteCard` displays formatted time windows (e.g. `09:15 – 10:00 · ~45 min visit`).
+  - `_MiddayBreakCard` displays scheduled meal/rest intervals (e.g. `12:30 – 13:30 · 60 min rest & meals`).
+  - `_RouteConnector` displays travel duration and distance.
+  - Planning conflict banner for overflow or closing hour conflicts.
+  - Footnote clarifying times are planning estimates.
+- Currency removed from active roadmap.
+
+Automated test results:
+- Backend: 155/155 pytest tests passed (including all 10 itinerary timing tests in `tests/test_itinerary_timing.py`).
+- Flutter: 53/53 flutter tests passed (including all time-aware model and widget tests in `test/itinerary_timing_test.dart`).
+- Static analysis: `flutter analyze` passed with 0 issues.

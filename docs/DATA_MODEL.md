@@ -43,10 +43,10 @@ Deletion/cascade behavior is not specified by these models and must not be assum
 | `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema/create/edit path | The trip-create and trip-edit transactions store unique purposes, pace, budget, and transport choices as generic weighted preference rows, unique per trip/preference. Also stores `ignore_weather_advisories` to suppress future weather advisories for the trip. |
 | `user_saved_places` / `UserSavedPlace` | `[IMPLEMENTED]` API | Unique trip/place selection with custom order, priority, locked, must-visit, notes. Requires an existing trip. |
 | `route_matrix_cache` / `RouteMatrixCache` | `[IMPLEMENTED]` | Per-trip directed pair/mode cache with place IDs or coordinate snapshots. The normal path stores approximate offline costs under `local_estimate`; legacy Google rows remain distinguishable by mode. |
-| `trip_itinerary` / `TripItinerary` | `[IMPLEMENTED]` | Unique visit order per trip/day, optional times and prior-leg metrics. Multi-day partition and weather-aware itinerary rearrangements update these rows transactionally while respecting must-visit constraints. |
+| `trip_itinerary` / `TripItinerary` | `[IMPLEMENTED]` | Unique visit order per trip/day, calculated planned arrival/departure times, visit duration, and prior-leg metrics. Populated by `ItineraryTimingService` with sequential touring times, midday breaks, and opening-hours awareness while respecting must-visit and locked-order constraints. |
 
-There is no application `User`/`Profile`, currency, media, audit-log, map, or provider-job
-table. These are `[PLANNED]` only where called for by the roadmap. Weather forecasts use in-memory
+There is no application `User`/`Profile`, media, audit-log, map, or provider-job
+table. Currency has been removed from the roadmap. Weather forecasts use in-memory
 TTL caching and do not require persistent database tables.
 
 Authentication is not implemented. `Trip.user_id` is required by the current model but is not a
