@@ -63,6 +63,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   late final Set<PlaceCategory> _purposeCategories;
   final Set<PlaceCategory> _refinementCategories = {};
+  PlaceCategory? _activeCategoryFilter;
   List<Recommendation> _recommendations = const [];
   List<SavedPlace> _savedPlaces = const [];
   List<WeatherAdvisory> _weatherAdvisories = const [];
@@ -197,6 +198,9 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         cityId,
         categories,
         tripId: _tripId,
+        purposes: widget.tripPurposes,
+        interests: _refinementCategories.map((c) => c.apiValue),
+        categoryFilter: _activeCategoryFilter,
       );
       if (!mounted || requestGeneration != _requestGeneration) return;
       setState(() {
@@ -213,6 +217,17 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         _error = _friendlyError(error);
       });
     }
+  }
+
+  void _setCategoryFilter(PlaceCategory? category) {
+    setState(() {
+      if (_activeCategoryFilter == category) {
+        _activeCategoryFilter = null;
+      } else {
+        _activeCategoryFilter = category;
+      }
+    });
+    _loadRecommendations();
   }
 
   void _toggleCategory(PlaceCategory category) {
@@ -843,6 +858,29 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   applyLabel: _hasRequested
                       ? 'Update recommendations'
                       : 'Show matching places',
+                ),
+              ],
+              if (_hasRequested && _effectiveCategories.length > 1) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _CategoryFilterChip(
+                      label: 'All',
+                      selected: _activeCategoryFilter == null,
+                      enabled: !_isLoading,
+                      onSelected: () => _setCategoryFilter(null),
+                    ),
+                    for (final cat in _effectiveCategories)
+                      _CategoryFilterChip(
+                        key: ValueKey('filter_${cat.apiValue}'),
+                        label: cat.label,
+                        selected: _activeCategoryFilter == cat,
+                        enabled: !_isLoading,
+                        onSelected: () => _setCategoryFilter(cat),
+                      ),
+                  ],
                 ),
               ],
               const SizedBox(height: 22),
@@ -2081,6 +2119,53 @@ class _ReplanAdvisoryCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CategoryFilterChip extends StatelessWidget {
+  const _CategoryFilterChip({
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onSelected,
+    super.key,
+  });
+
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onSelected : null,
+        borderRadius: BorderRadius.circular(999),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.tealLight : AppColors.surface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? AppColors.teal : AppColors.border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Text(
+            label,
+            style: AppTextStyles.caption.copyWith(
+              color: enabled
+                  ? (selected ? AppColors.tealDark : AppColors.charcoal)
+                  : AppColors.textTertiary,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
       ),
     );
   }

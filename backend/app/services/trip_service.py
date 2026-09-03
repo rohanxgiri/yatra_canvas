@@ -80,6 +80,7 @@ class TripService:
             start_location_provider_place_id=start_provider_place_id,
             start_date=request.start_date,
         )
+        purpose_set = {p.casefold() for p in request.purposes}
         try:
             session.add(trip)
             session.flush()
@@ -87,7 +88,7 @@ class TripService:
                 TripPreference(
                     trip_id=trip.id,
                     preference=preference,
-                    weight=1.0,
+                    weight=2.0 if preference.casefold() in purpose_set else 1.0,
                 )
                 for preference in preference_values
             )
@@ -287,6 +288,19 @@ class TripService:
 
             # Reconcile preferences transactionally if provided
             if request.purposes is not None or request.preferences is not None:
+                # Load existing purposes if purposes were not explicitly provided
+                existing_purposes: set[str] = set()
+                if request.purposes is None:
+                    existing_pref_rows = session.exec(
+                        select(TripPreference).where(
+                            TripPreference.trip_id == trip.id,
+                            TripPreference.weight > 1.0,
+                        )
+                    ).all()
+                    existing_purposes = {r.preference.casefold() for r in existing_pref_rows}
+                else:
+                    existing_purposes = {p.casefold() for p in request.purposes}
+
                 combined_sources = [
                     *(request.purposes if request.purposes is not None else []),
                     *(
@@ -312,7 +326,7 @@ class TripService:
                     TripPreference(
                         trip_id=trip.id,
                         preference=pref,
-                        weight=1.0,
+                        weight=2.0 if pref.casefold() in existing_purposes else 1.0,
                     )
                     for pref in new_pref_values
                 )

@@ -24,13 +24,16 @@ class RecommendationService {
     Iterable<PlaceCategory> categories, {
     int limit = 30,
     String? tripId,
+    Iterable<String>? purposes,
+    Iterable<String>? interests,
+    PlaceCategory? categoryFilter,
   }) async {
     final normalizedCityId = cityId.trim();
     final uniqueCategories = categories.toSet().toList(growable: false);
     if (normalizedCityId.isEmpty) {
       throw const RecommendationServiceException('Select a saved city first.');
     }
-    if (uniqueCategories.isEmpty) {
+    if (uniqueCategories.isEmpty && categoryFilter == null) {
       throw const RecommendationServiceException(
         'Select at least one interest.',
       );
@@ -38,13 +41,24 @@ class RecommendationService {
 
     final encodedCityId = Uri.encodeComponent(normalizedCityId);
     final payload = <String, dynamic>{
-      'categories': uniqueCategories
-          .map((category) => category.apiValue)
-          .toList(growable: false),
+      'categories': (uniqueCategories.isEmpty && categoryFilter != null)
+          ? [categoryFilter.apiValue]
+          : uniqueCategories
+              .map((category) => category.apiValue)
+              .toList(growable: false),
       'limit': limit,
     };
     if (tripId != null && tripId.isNotEmpty) {
       payload['trip_id'] = tripId;
+    }
+    if (purposes != null && purposes.isNotEmpty) {
+      payload['purposes'] = purposes.toList(growable: false);
+    }
+    if (interests != null && interests.isNotEmpty) {
+      payload['interests'] = interests.toList(growable: false);
+    }
+    if (categoryFilter != null) {
+      payload['category_filter'] = categoryFilter.apiValue;
     }
 
     final response = await _client

@@ -740,3 +740,37 @@ Automated test results:
 - Backend: 169/169 pytest tests passed (including all 7 new recommendation quality tests in `tests/test_recommendation_quality.py`).
 - Flutter: 56/56 flutter tests passed.
 - Static analysis: `flutter analyze` passed with 0 issues.
+
+## Trip Purpose and Interest Weighting Verification
+
+Verified: 2026-09-03 on branch `feature/preference-weighting`.
+
+Scope:
+- Deterministic, provider-neutral preference model (`backend/app/services/preference_model.py`):
+  - `PreferenceWeightingConfig` dataclass with transparent weight configuration:
+    - Relevance weight: 55.0, Rating confidence weight: 30.0, Popular bonus: 6.0, Heritage bonus: 5.0, Local speciality bonus: 4.0.
+    - Purpose multiplier: 2.5 (primary purpose is 2.5x stronger than secondary interests).
+    - Interest multiplier: 1.0.
+    - Match fits: primary category fit 1.0, secondary category fit 0.5, high-affinity tag fit 0.35, medium-affinity tag fit 0.15.
+    - Low-relevance cutoff: 8.0 (avoids filler places when candidates lack genuine preference match).
+    - Diversity interleaving: maximum 2 consecutive places of the same category for mixed-interest queries.
+  - Normalized preference mapping across `food`, `religious`, `heritage`, `nature`, `sightseeing`, `cafes`, `shopping`, `photography`, `relaxation`, `family`, and `mixed`.
+  - Truthful, natural-language recommendation explanations (e.g. `"Matches your Food focus"`, `"Matches your Religious focus · Sacred site"`, `"Matches your History & Heritage focus"`). No exaggerated claims ("best", "must visit").
+- Trip persistence integration (`trip_service.py`):
+  - Primary trip purposes are stored with `weight = 2.0` in `TripPreference`.
+  - Secondary interests and travel preferences are stored with `weight = 1.0`.
+- Recommendation service pipeline (`recommendation_service.py`):
+  - Order: candidate retrieval → spatial/identity deduplication → traveller suitability & access filtering → category filter matching → preference fit evaluation → quality scoring → low-relevance threshold filtering → soft diversity interleaving.
+  - Institutional messes and non-public venues are filtered before scoring and cannot return simply because a high weight exists.
+  - Explicit category filter narrows candidates to the requested category without modifying stored `TripPreference` rows.
+- Flutter frontend (`place_discovery_screen.dart`, `recommendation_service.dart`):
+  - Passes `tripPurposes` and secondary interests to backend recommendation API.
+  - Interactive category filter chips ("All", plus one chip per active category) allow narrowing and restoring recommendations without side effects.
+  - Displays backend-generated recommendation reasons.
+  - No scoring logic in Flutter.
+
+Automated test results:
+- Backend: 183/183 pytest tests passed (including all 14 tests in `tests/test_preference_weighting.py`).
+- Flutter: 57/57 flutter tests passed (including new category filter and preference routing test in `test/place_discovery_test.dart`).
+- Static analysis: `flutter analyze` passed with 0 issues.
+- Git cleanliness: `git diff --check` passed with 0 issues.

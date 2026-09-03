@@ -56,7 +56,7 @@ internet permissions support device location and HTTP; they are not evidence of 
 | Places | create/list; legacy Google discovery; OpenStreetMap recommendations |
 | Saved places | list/create/update/reorder/delete under a trip |
 | Trips | create a trip; get/update start location |
-| Routing | optimize an existing trip using cached local distance/time estimates with realistic time-aware arrival/departure scheduling, midday breaks, and opening-hours awareness |
+| Routing | optimize an existing trip using cached travel-time matrix and Google OR-Tools VRPTW solver with opening hours, visit durations, multi-day vehicle partitioning, lunch breaks, locked places, and priority/must-visit rules; attaches final route geometry |
 | Route geometry | `GET /trips/{trip_id}/route-geometry` using OSRM or openrouteservice |
 | Weather advisories | `GET /trips/{trip_id}/weather-advisories`, `GET /trips/{trip_id}/weather-alternatives`, `POST /trips/{trip_id}/rearrange-preview`, `POST /trips/{trip_id}/apply-itinerary-adjustment`, `POST /trips/{trip_id}/ignore-weather` |
 | Smart re-planning | `GET /trips/{trip_id}/replan-impact`, `POST /trips/{trip_id}/replan-preview`, `POST /trips/{trip_id}/replan-apply` |
@@ -77,6 +77,16 @@ provider boundary.
 - Canonical & Spatial Deduplication (`deduplicate_places`): identity resolution hierarchy using canonical `Place.id`, provider namespace keys (`source:external_id`), and spatial proximity ($\le 75$m distance threshold with normalized tokenized name similarity). Genuinely separate branches of the same chain (e.g. 4 km apart) are strictly preserved as distinct venues.
 - Traveller-Suitability & Access Confidence (`is_traveller_suitable`): general context-based evaluation classifying venues into `PUBLIC_LIKELY`, `UNKNOWN`, `RESTRICTED_LIKELY`, and `RESTRICTED`. Automatically excludes student messes, institutional canteens, staff cafeterias, and restricted-access venues without blacklisting individual university/company names.
 - Scoring & Diversity: deterministic scoring combining category match, access confidence, verified ratings/reviews, and city center proximity without fabricated data; generates explainable recommendation reasons and flags saved places.
+
+`[IMPLEMENTED]` OR-Tools VRPTW Itinerary Optimization Pipeline (`RouteOptimizationService`, `VrptwSolverService`):
+- **Problem Formulation**: Multi-vehicle Vehicle Routing Problem with Time Windows where vehicles represent trip days ($1 \dots \text{days}$). The depot (index 0) is the trip start location (hotel/station).
+- **Opening Hours**: Modeled as node time windows on the Time dimension $[\max(\text{start}, open), \min(\text{end}, close - visit\_duration)]$ with day-of-week closure constraints removing invalid vehicles.
+- **Visit Durations**: Service times per node based on category heuristics (`estimate_visit_duration`).
+- **Multiple Days**: Partitioned across daily touring hours (`09:00–19:00`) respecting daily time budgets.
+- **Lunch Breaks**: Midday break intervals (`12:30–14:00`, 60 min) scheduled via vehicle break intervals.
+- **Locked Places**: Pinned positions (e.g. first stop) and relative order constraints enforced across days and slots.
+- **Priorities & Must-Visit Rules**: Disjunctions with scaled drop penalties (must-visit places have $100,000,000$ penalty and cannot be dropped; low-priority places dropped first under budget constraints) and active-conditional Big-M priority precedence.
+- **Route Geometry**: Automatically triggers `RouteGeometryService` to prefetch and attach road-following geometry to the optimization response.
 
 `[PARTIAL]` `LocationAutocompleteProvider`, `RouteGeometryProvider`, and `WeatherProvider` are
 provider-neutral protocols. Normal recommendations use bounded OpenStreetMap/Overpass discovery,

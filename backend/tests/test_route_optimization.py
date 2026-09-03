@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -56,6 +57,19 @@ class FakeGoogleRoutesService:
                 traffic_duration_seconds=seconds + 30,
             )
         return result
+
+
+class CountingLocalRoutesService(LocalRoutesService):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def compute_matrix(
+        self,
+        origins: list[RouteCoordinate],
+        destinations: list[RouteCoordinate],
+    ) -> dict[tuple[int, int], RouteMatrixLeg]:
+        self.calls += 1
+        return await super().compute_matrix(origins, destinations)
 
 
 def test_local_route_provider_returns_offline_estimates() -> None:
@@ -238,6 +252,50 @@ def test_matrix_cache_reuses_removed_places_and_fetches_only_new_edges(
     assert len(routes.calls) == 8
     with Session(engine) as session:
         assert len(session.exec(select(RouteMatrixCache)).all()) == 18
+
+
+def test_complete_static_local_matrix_is_reused_without_refresh(
+    client_engine_routes: tuple[TestClient, Engine, FakeGoogleRoutesService],
+) -> None:
+    client, engine, _ = client_engine_routes
+    routes = CountingLocalRoutesService()
+    app.dependency_overrides[get_route_provider] = lambda: routes
+    city = _create_city(client)
+    places = [
+        _create_place(client, str(city["id"]), "Place A", 23.18),
+        _create_place(client, str(city["id"]), "Place B", 23.19),
+    ]
+    trip_id = _seed_trip_and_saved_places(
+        engine,
+        str(city["id"]),
+        [str(place["id"]) for place in places],
+    )
+
+    statements: list[str] = []
+
+    def capture_statement(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        _parameters: object,
+        _context: object,
+        _executemany: bool,
+    ) -> None:
+        statements.append(statement.lower())
+
+    event.listen(engine, "before_cursor_execute", capture_statement)
+    try:
+        assert client.post(f"/trips/{trip_id}/optimize-route").status_code == 200
+        first_call_count = routes.calls
+        assert first_call_count == 3
+        assert sum("insert into route_matrix_cache" in sql for sql in statements) == 1
+
+        statements.clear()
+        assert client.post(f"/trips/{trip_id}/optimize-route").status_code == 200
+        assert routes.calls == first_call_count
+        assert sum("from route_matrix_cache" in sql for sql in statements) == 1
+    finally:
+        event.remove(engine, "before_cursor_execute", capture_statement)
 
 
 def test_locked_must_visit_and_priority_constraints_are_respected(
@@ -499,7 +557,7 @@ def test_infeasible_trip_drops_must_visit_raises_error(
 def test_fewer_places_than_days_raises_error(
     client_engine_routes: tuple[TestClient, Engine, FakeGoogleRoutesService],
 ) -> None:
-    client, engine, routes = client_engine_routes
+    client, engine, _ = client_engine_routes
     city = _create_city(client)
     places = [_create_place(client, str(city["id"]), "Place 0", 23.18)]
     

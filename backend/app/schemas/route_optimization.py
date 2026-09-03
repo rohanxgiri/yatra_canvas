@@ -6,6 +6,8 @@ from uuid import UUID
 from pydantic import Field
 from sqlmodel import SQLModel
 
+from app.schemas.route_geometry import TripRouteGeometryRead
+
 
 class OptimizedPlaceRead(SQLModel):
     place_id: UUID
@@ -35,3 +37,4 @@ class RouteOptimizationRead(SQLModel):
     total_travel_time_minutes: int = Field(ge=0)
     breaks: list[ItineraryBreakRead] = Field(default_factory=list)
     conflicts: list[str] = Field(default_factory=list)
+    route_geometry: "TripRouteGeometryRead | None" = None

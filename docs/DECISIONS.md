@@ -188,6 +188,33 @@ provider, environment, and data-model documentation.
   [openrouteservice documentation](https://openrouteservice.org/dev/#/api-docs), and
   [OSRM project](https://project-osrm.org/), verified 2026-09-02.
 
+## ADR-009 — Google OR-Tools VRPTW Solver for Multi-Day Itinerary Optimization
+
+- **Status:** Accepted and `[IMPLEMENTED]`.
+- **Date:** 2026-09-03.
+- **Context:** Previous itinerary ordering used a greedy nearest-neighbor heuristic that lacked formal
+  constraint handling. Multi-day trips with restricted venue opening hours, varying visit durations,
+  lunch breaks, pinned positions, and must-visit rules require formal combinatorial optimization
+  to generate feasible, realistic, and optimal travel timetables.
+- **Decision:** Implement a multi-vehicle Vehicle Routing Problem with Time Windows (VRPTW) solver
+  (`VrptwSolverService`) backed by Google OR-Tools (`ortools.constraint_solver`). Vehicles represent
+  trip days ($1 \dots \text{days}$) operating between daily touring hours (`09:00–19:00`) starting and
+  ending at the trip start depot. Time windows model opening hours and weekday closures; category heuristics
+  model service durations; vehicle break intervals schedule midday lunch (`12:30–14:00`, 60 min);
+  pinned slots enforce locked place positions; and disjunctions with scaled drop penalties guarantee
+  must-visit place preservation and drop low-priority places first under time budget constraints.
+  The optimization response automatically integrates with `RouteGeometryService` to prefetch and
+  attach road-following route polylines.
+- **Consequences:** `ortools>=9.9.0` is added as a backend dependency. Existing pairwise distance/duration
+  estimates in `RouteMatrixCache` are fully reused without schema migration. The solver executes in
+  under 100ms for typical trip sizes ($\le 24$ places) and degrades safely with descriptive validation
+  errors when constraints are unsatisfiable.
+- **Evidence:** `backend/app/services/vrptw_solver_service.py`, `backend/app/services/route_optimization_service.py`,
+  `backend/app/routers/route_optimization.py`, `backend/app/schemas/route_optimization.py`,
+  `backend/tests/test_vrptw_solver.py`, `backend/tests/test_route_optimization.py`, and
+  [Google OR-Tools Routing documentation](https://developers.google.com/optimization/routing/vrptw),
+  verified 2026-09-03.
+
 ## ADR-010 — Weather-Aware Trip Assistance via Open-Meteo and itinerary-aware advisory engine
 
 - **Status:** Accepted and `[IMPLEMENTED]`.

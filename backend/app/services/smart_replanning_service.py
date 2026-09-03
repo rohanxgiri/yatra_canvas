@@ -29,6 +29,7 @@ from app.services.route_optimization_service import (
     RouteTripNotFoundError,
     RouteValidationError,
 )
+from app.services.vrptw_solver_service import VrptwSolverService
 
 
 class TripChangeType(str, Enum):
@@ -364,21 +365,13 @@ class SmartReplanningService:
         except ValueError as exc:
             raise RouteValidationError(str(exc)) from exc
 
-        ordered_indices = RouteOptimizationService._constraint_aware_order(
-            start,
-            place_nodes,
-            matrix,
-            saved_rows,
-        )
-
-        timing_service = ItineraryTimingService()
+        solver = VrptwSolverService()
         try:
-            schedule_result = timing_service.schedule_itinerary(
+            schedule_result = solver.solve(
                 start_node=start,
                 place_nodes=place_nodes,
                 places=places,
                 saved_rows=saved_rows,
-                ordered_indices=ordered_indices,
                 matrix=matrix,
                 trip_days=trip.days,
                 start_date=trip.start_date,

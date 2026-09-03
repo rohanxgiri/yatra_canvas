@@ -1,23 +1,32 @@
-"""Constraint-aware, explainable V1 trip route optimization."""
+"""Constraint-aware, explainable trip route optimization with OR-Tools VRPTW solver."""
 
-from math import ceil
-from uuid import UUID
+from __future__ import annotations
 
-from sqlalchemy import delete
+from typing import TYPE_CHECKING
+from uuid import UUID, uuid4
+
+from sqlalchemy import delete, insert
 from sqlmodel import Session, select
 
 from app.models import Place, Trip, TripItinerary, UserSavedPlace
-from app.schemas import OptimizedPlaceRead, RouteOptimizationRead
+from app.schemas import RouteOptimizationRead
 from app.services.google_routes_service import (
     GoogleRoutesUnavailableError,
     RouteMatrixLeg,
 )
-from app.services.itinerary_timing_service import ItineraryTimingService
+from app.services.itinerary_timing_service import ItineraryTimingService, PlaceOpeningHours
 from app.services.route_matrix_service import (
     RouteMatrixProvider,
     RouteMatrixService,
     RouteNode,
 )
+from app.services.vrptw_solver_service import VrptwSolverService
+
+if TYPE_CHECKING:
+    from app.services.route_geometry_service import (
+        RouteGeometryProvider,
+        RouteGeometryService,
+    )
 
 MAX_SELECTED_PLACES = 24
 
@@ -35,7 +44,7 @@ class RouteValidationError(RouteOptimizationError):
 
 
 class RouteOptimizationService:
-    """Use cached route estimates while respecting user constraints."""
+    """Use cached route estimates while respecting user constraints via OR-Tools VRPTW solver."""
 
     async def optimize(
         self,
@@ -43,6 +52,10 @@ class RouteOptimizationService:
         trip_id: UUID,
         route_provider: RouteMatrixProvider,
         route_matrix: RouteMatrixService,
+        *,
+        geometry_service: RouteGeometryService | None = None,
+        geometry_provider: RouteGeometryProvider | None = None,
+        opening_hours_map: dict[UUID, PlaceOpeningHours] | None = None,
     ) -> RouteOptimizationRead:
         trip = session.get(Trip, trip_id)
         if trip is None:
@@ -78,9 +91,16 @@ class RouteOptimizationService:
                 f"Route optimization currently supports up to {MAX_SELECTED_PLACES} selected places."
             )
 
+        place_ids = [saved.place_id for saved in saved_rows]
+        places_by_id = {
+            place.id: place
+            for place in session.exec(
+                select(Place).where(Place.id.in_(place_ids))  # type: ignore[attr-defined]
+            ).all()
+        }
         places: list[Place] = []
         for saved in saved_rows:
-            place = session.get(Place, saved.place_id)
+            place = places_by_id.get(saved.place_id)
             if place is None:
                 raise RouteValidationError(
                     "A selected place no longer exists. Remove it and try again."
@@ -96,51 +116,76 @@ class RouteOptimizationService:
             )
         except ValueError as exc:
             raise RouteValidationError(str(exc)) from exc
-        optimized_indices = self._constraint_aware_order(
-            start,
-            place_nodes,
-            matrix,
-            saved_rows,
-        )
 
-        timing_service = ItineraryTimingService()
+        # Use Google OR-Tools VRPTW solver
+        vrptw_solver = VrptwSolverService()
         try:
-            schedule_result = timing_service.schedule_itinerary(
+            solution = vrptw_solver.solve(
                 start_node=start,
                 place_nodes=place_nodes,
                 places=places,
                 saved_rows=saved_rows,
-                ordered_indices=optimized_indices,
                 matrix=matrix,
                 trip_days=trip.days,
                 start_date=trip.start_date,
+                opening_hours_map=opening_hours_map,
             )
+            scheduled_places = solution.optimized_places
+            breaks = solution.breaks
+            conflicts = solution.conflicts
+            total_dist_meters = solution.total_distance_meters
+            total_travel_mins = solution.total_travel_minutes
         except ValueError as exc:
+            # Propagate validation errors
             raise RouteValidationError(str(exc)) from exc
 
-        session.exec(delete(TripItinerary).where(TripItinerary.trip_id == trip_id))
-        for item in schedule_result.optimized_places:
-            session.add(
-                TripItinerary(
-                    trip_id=trip_id,
-                    place_id=item.place_id,
-                    day_number=item.day_number,
-                    visit_order=item.visit_order,
-                    planned_arrival_time=item.planned_arrival_time,
-                    planned_departure_time=item.planned_departure_time,
-                    distance_from_previous=item.distance_from_previous,
-                    travel_time_minutes=item.travel_time_minutes,
+        session.exec(
+            delete(TripItinerary).where(
+                TripItinerary.trip_id == trip_id  # type: ignore[arg-type]
+            )
+        )
+        if scheduled_places:
+            session.execute(
+                insert(TripItinerary).values(
+                    [
+                        {
+                            "id": uuid4(),
+                            "trip_id": trip_id,
+                            "place_id": item.place_id,
+                            "day_number": item.day_number,
+                            "visit_order": item.visit_order,
+                            "planned_arrival_time": item.planned_arrival_time,
+                            "planned_departure_time": item.planned_departure_time,
+                            "distance_from_previous": item.distance_from_previous,
+                            "travel_time_minutes": item.travel_time_minutes,
+                        }
+                        for item in scheduled_places
+                    ]
                 )
             )
         session.commit()
 
+        # Fetch route geometry for final route if provider is available
+        route_geometry = None
+        if geometry_service is not None and geometry_provider is not None:
+            try:
+                route_geometry = await geometry_service.get_trip_geometry(
+                    session=session,
+                    trip_id=trip_id,
+                    provider=geometry_provider,
+                )
+            except Exception:
+                # Degradation: route geometry failure does not break the optimized itinerary
+                route_geometry = None
+
         return RouteOptimizationRead(
             trip_id=trip_id,
-            optimized_places=schedule_result.optimized_places,
-            total_distance=round(schedule_result.total_distance_meters / 1000, 3),
-            total_travel_time_minutes=schedule_result.total_travel_minutes,
-            breaks=schedule_result.breaks,
-            conflicts=schedule_result.conflicts,
+            optimized_places=scheduled_places,
+            total_distance=round(total_dist_meters / 1000, 3),
+            total_travel_time_minutes=total_travel_mins,
+            breaks=breaks,
+            conflicts=conflicts,
+            route_geometry=route_geometry,
         )
 
     @staticmethod

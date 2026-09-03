@@ -489,6 +489,62 @@ void main() {
     expect(find.text('Place B'), findsOneWidget);
     expect(find.text('Controlled delete failure.'), findsWidgets);
   });
+
+  testWidgets('category filter requests filtered recommendations and restores on All', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final service = _FakeRecommendationService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripId: 'trip-filter',
+          tripPurposes: const {'Food Exploration'},
+          routeStartReady: true,
+          recommendationService: service,
+          savedPlaceService: _FakeSavedPlaceService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Initial request with Food
+    expect(service.requests, hasLength(1));
+    expect(service.purposeRequests.last, {'Food Exploration'});
+    expect(service.filterRequests.last, isNull);
+
+    // Tap "Add another interest" and add Cafes
+    await tester.tap(find.text('Add another interest'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cafes'));
+    await tester.pump();
+    await tester.tap(find.text('Update recommendations'));
+    await tester.pumpAndSettle();
+
+    expect(service.requests, hasLength(2));
+    expect(service.requests.last, [PlaceCategory.food, PlaceCategory.cafes]);
+
+    // Now category filter chips are visible (All, Food, Cafes)
+    expect(find.byKey(const ValueKey('filter_cafes')), findsOneWidget);
+
+    // Tap Cafes filter chip
+    await tester.tap(find.byKey(const ValueKey('filter_cafes')));
+    await tester.pumpAndSettle();
+
+    expect(service.filterRequests.last, PlaceCategory.cafes);
+
+    // Tap All filter chip
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+
+    expect(service.filterRequests.last, isNull);
+  });
 }
 
 const _city = City(
@@ -504,6 +560,8 @@ class _FakeRecommendationService extends RecommendationService {
   _FakeRecommendationService() : super(baseUrl: 'http://example.test');
 
   final List<List<PlaceCategory>> requests = [];
+  final List<PlaceCategory?> filterRequests = [];
+  final List<Set<String>?> purposeRequests = [];
 
   @override
   Future<List<Recommendation>> getRecommendations(
@@ -511,8 +569,13 @@ class _FakeRecommendationService extends RecommendationService {
     Iterable<PlaceCategory> categories, {
     int limit = 30,
     String? tripId,
+    Iterable<String>? purposes,
+    Iterable<String>? interests,
+    PlaceCategory? categoryFilter,
   }) async {
     requests.add(categories.toList(growable: false));
+    filterRequests.add(categoryFilter);
+    purposeRequests.add(purposes?.toSet());
     return [
       const Recommendation(
         id: 'place-religious',

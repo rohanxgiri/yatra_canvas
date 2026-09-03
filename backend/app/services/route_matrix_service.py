@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Protocol
 from uuid import UUID
 
+from sqlalchemy import insert
 from sqlmodel import Session, select
 
 from app.models import Place, RouteMatrixCache, Trip
@@ -115,10 +116,12 @@ class RouteMatrixService:
             if row is None:
                 has_missing = True
                 refresh_by_origin[origin.key].append(destination)
-            elif not self._is_traffic_fresh(row, current_time):
+            elif self._needs_refresh(row, current_time):
                 refresh_by_origin[origin.key].append(destination)
 
         offline = False
+        new_rows: list[RouteMatrixCache] = []
+        cache_changed = False
         for origin_key, destinations in refresh_by_origin.items():
             origin = nodes_by_key[origin_key]
             try:
@@ -157,8 +160,8 @@ class RouteMatrixService:
                         travel_mode=TRAVEL_MODE,
                         calculated_at=current_time,
                     )
-                    session.add(row)
                     cached[(origin.key, destination.key)] = row
+                    new_rows.append(row)
                 self._write_row(
                     row,
                     origin,
@@ -166,7 +169,23 @@ class RouteMatrixService:
                     leg,
                     current_time,
                 )
-        session.commit()
+                cache_changed = True
+        if new_rows:
+            session.execute(
+                insert(RouteMatrixCache).values(
+                    [row.model_dump() for row in new_rows]
+                )
+            )
+        if cache_changed:
+            # The optimizer still needs the trip, saved places, places, and all
+            # cache rows below. Prevent this intermediate cache commit from
+            # expiring them and triggering hundreds of lazy reload queries.
+            expire_on_commit = session.expire_on_commit
+            session.expire_on_commit = False
+            try:
+                session.commit()
+            finally:
+                session.expire_on_commit = expire_on_commit
 
         matrix: dict[tuple[str, str], RouteMatrixLeg] = {}
         for origin, destination in required_pairs:
@@ -219,3 +238,11 @@ class RouteMatrixService:
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         return expires_at > now
+
+    @classmethod
+    def _needs_refresh(cls, row: RouteMatrixCache, now: datetime) -> bool:
+        # Static local estimates have no volatile traffic value. They stay valid
+        # until an explicit trip/place invalidation removes the affected pair.
+        if row.traffic_duration_seconds is None:
+            return False
+        return not cls._is_traffic_fresh(row, now)

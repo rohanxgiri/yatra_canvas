@@ -2,23 +2,32 @@
 
 Implements:
 1. Candidate Retrieval across requested categories
-2. Canonical & Spatial Deduplication
+2. Identity & Spatial Deduplication
 3. Traveller-Suitability & Access Confidence Filtering
-4. Food Intent & Category Relevance Matching
-5. Deterministic Scoring without fabricated popularity/ratings
-6. Diversity-aware Final Ranking and Explanation Generation
+4. Category Normalization & Category Filter Interaction
+5. Purpose (2.5x) vs Interest (1.0x) Relevance Scoring
+6. Low-relevance Filtering (no arbitrary filler dilution)
+7. Diversity-aware Final Ranking (soft interleaving for mixed trips)
+8. Truthful, preference-derived Explanation Generation
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from math import log10
-from typing import Any, Protocol
+from typing import Any, Protocol, Sequence
 from uuid import UUID
 
 from sqlmodel import Session, select
 
-from app.models.entities import City, Place, PlaceSource, PlaceTag, UserSavedPlace
+from app.models.entities import (
+    City,
+    Place,
+    PlaceSource,
+    PlaceTag,
+    TripPreference,
+    UserSavedPlace,
+)
 from app.schemas.recommendation import (
     DiscoveryCategory,
     RecommendationRead,
@@ -32,6 +41,13 @@ from app.services.place_suitability_service import (
     AccessConfidence,
     evaluate_access_confidence,
     is_traveller_suitable,
+)
+from app.services.preference_model import (
+    DEFAULT_PREFERENCE_CONFIG,
+    PreferenceWeightingConfig,
+    evaluate_preference_fit,
+    generate_preference_explanation,
+    normalize_preference_key,
 )
 
 
@@ -65,20 +81,24 @@ DEFAULT_RECOMMENDATION_WEIGHTS = RecommendationWeights()
 def calculate_recommendation_score(
     place: Place,
     *,
-    matched_category_count: int,
-    selected_category_count: int,
+    matched_category_count: int = 1,
+    selected_category_count: int = 1,
     access_confidence: AccessConfidence = AccessConfidence.PUBLIC_LIKELY,
     distance_from_city_km: float | None = None,
     weights: RecommendationWeights = DEFAULT_RECOMMENDATION_WEIGHTS,
+    relevance_score: float | None = None,
 ) -> float:
     """Return a 0-100 score combining preference fit, access confidence, and verified quality."""
-    # 1. Category fit
-    category_ratio = (
-        matched_category_count / selected_category_count
-        if selected_category_count > 0
-        else 0.0
-    )
-    category_score = weights.category_match * min(category_ratio, 1.0)
+    # 1. Category / Preference fit
+    if relevance_score is not None:
+        category_score = relevance_score
+    else:
+        category_ratio = (
+            matched_category_count / selected_category_count
+            if selected_category_count > 0
+            else 0.0
+        )
+        category_score = weights.category_match * min(category_ratio, 1.0)
 
     # 2. Verified rating & review confidence (only if real data exists)
     rating_score = 0.0
@@ -117,7 +137,7 @@ def generate_recommendation_reason(
     matched_categories: list[DiscoveryCategory],
     access_confidence: AccessConfidence,
 ) -> str:
-    """Generate a natural, provider-neutral reason explaining the recommendation."""
+    """Fallback reason generator using matched DiscoveryCategory values."""
     matched_names = [c.value for c in matched_categories]
     if DiscoveryCategory.FOOD.value in matched_names:
         if place.is_local_speciality:
@@ -153,9 +173,11 @@ class RecommendationService:
         discovery: RecommendationDiscovery,
         *,
         weights: RecommendationWeights = DEFAULT_RECOMMENDATION_WEIGHTS,
+        preference_config: PreferenceWeightingConfig = DEFAULT_PREFERENCE_CONFIG,
     ) -> None:
         self._discovery = discovery
         self._weights = weights
+        self._preference_config = preference_config
 
     async def recommend(
         self,
@@ -165,16 +187,23 @@ class RecommendationService:
         request: RecommendationRequest,
     ) -> list[RecommendationRead]:
         # Stage 1: Candidate Retrieval
-        discover_many: Any = getattr(self._discovery, "discover_many", None)
+        categories_to_retrieve = list(dict.fromkeys(request.categories))
+        if (
+            request.category_filter is not None
+            and request.category_filter not in categories_to_retrieve
+        ):
+            categories_to_retrieve.append(request.category_filter)
+
+        discover_many = getattr(self._discovery, "discover_many", None)
         if callable(discover_many):
-            places_by_category = await discover_many(
+            places_by_category = await discover_many(  # type: ignore[misc]
                 session=session,
                 city=city,
-                categories=request.categories,
+                categories=categories_to_retrieve,
             )
         else:
             places_by_category = {}
-            for category in request.categories:
+            for category in categories_to_retrieve:
                 places_by_category[category] = await self._discovery.discover(
                     session=session,
                     city=city,
@@ -182,7 +211,7 @@ class RecommendationService:
                 )
 
         raw_candidates: list[Place] = []
-        for category in request.categories:
+        for category in categories_to_retrieve:
             raw_candidates.extend(places_by_category.get(category, []))
 
         if not raw_candidates:
@@ -204,7 +233,7 @@ class RecommendationService:
             place_sources=place_sources,
         )
 
-        # Fetch tags for suitability and category matching
+        # Fetch tags for suitability and category/preference matching
         deduped_ids = [p.id for p in deduped_candidates]
         tags_by_place: dict[UUID, set[str]] = {pid: set() for pid in deduped_ids}
         tag_rows = session.exec(
@@ -215,8 +244,10 @@ class RecommendationService:
         for tag_row in tag_rows:
             tags_by_place.setdefault(tag_row.place_id, set()).add(tag_row.tag)
 
-        # Check existing saved places if trip_id is provided
+        # Check existing saved places & stored preferences if trip_id is provided
         saved_place_ids: set[UUID] = set()
+        stored_purposes: list[str] = []
+        stored_interests: list[str] = []
         if request.trip_id is not None:
             saved_rows = session.exec(
                 select(UserSavedPlace.place_id).where(
@@ -225,36 +256,79 @@ class RecommendationService:
             ).all()
             saved_place_ids = set(saved_rows)
 
-        # Stage 3: Traveller Suitability & Quality Scoring
+            pref_rows = session.exec(
+                select(TripPreference).where(
+                    TripPreference.trip_id == request.trip_id
+                )
+            ).all()
+            for pref in pref_rows:
+                # Weight > 1.0 indicates primary purpose, <= 1.0 indicates secondary interest
+                if pref.weight > 1.0:
+                    stored_purposes.append(pref.preference)
+                else:
+                    stored_interests.append(pref.preference)
+
+        # Determine effective purposes and interests
+        effective_purposes: list[str] = (
+            request.purposes
+            if request.purposes is not None
+            else stored_purposes
+        )
+        effective_interests: list[str] = (
+            request.interests
+            if request.interests is not None
+            else stored_interests
+        )
+
+        has_explicit_preferences = bool(effective_purposes or effective_interests)
+
+        # Stage 3: Traveller Suitability, Filtering & Quality Scoring
         evaluated: list[tuple[float, RecommendationRead]] = []
 
         for place in deduped_candidates:
             place_tags = tags_by_place.get(place.id, set())
 
-            # 3a. Evaluate suitability
+            # 3a. Evaluate suitability (drop institutional canteens/messes immediately)
             suitable, access_conf = is_traveller_suitable(
                 name=place.name,
                 category=place.category,
                 tags=place_tags,
             )
-            # Filter out unsuitable places (e.g. internal college canteens, staff cafeterias)
             if not suitable:
                 continue
 
-            # 3b. Matched categories
+            # 3b. Category filter interaction: if filter is applied, narrow candidate set
             match_signals = {place.category.casefold(), *(t.casefold() for t in place_tags)}
+            if request.category_filter is not None:
+                filter_val = request.category_filter.value.casefold()
+                if filter_val not in match_signals and place.category.casefold() != filter_val:
+                    continue
+
+            # 3c. Matched categories
             matched_categories = [
                 category
                 for category in request.categories
                 if category.value.casefold() in match_signals
             ]
             if not matched_categories:
-                # If category didn't match via tags, check primary place category
                 matched_categories = [
                     cat for cat in request.categories if cat.value.casefold() == place.category.casefold()
                 ]
 
-            # 3c. Distance to city coordinates
+            # 3d. Preference fit and relevance score
+            relevance_score, matched_purposes, matched_interests = evaluate_preference_fit(
+                place,
+                place_tags,
+                purposes=effective_purposes,
+                interests=effective_interests,
+                config=self._preference_config,
+            )
+
+            # Low relevance cutoff: omit places with near-zero fit when preferences exist
+            if has_explicit_preferences and relevance_score < self._preference_config.min_relevance_score:
+                continue
+
+            # 3e. Score calculation
             dist_km: float | None = None
             if city.latitude is not None and city.longitude is not None:
                 dist_m = haversine_distance_meters(
@@ -265,7 +339,6 @@ class RecommendationService:
                 )
                 dist_km = dist_m / 1000.0
 
-            # 3d. Score calculation
             score = calculate_recommendation_score(
                 place,
                 matched_category_count=len(matched_categories),
@@ -273,14 +346,23 @@ class RecommendationService:
                 access_confidence=access_conf,
                 distance_from_city_km=dist_km,
                 weights=self._weights,
+                relevance_score=relevance_score if has_explicit_preferences else None,
             )
 
-            # 3e. Recommendation reason
-            reason = generate_recommendation_reason(
-                place,
-                matched_categories,
-                access_conf,
-            )
+            # 3f. Recommendation reason
+            if has_explicit_preferences:
+                reason = generate_preference_explanation(
+                    place,
+                    matched_purposes=matched_purposes,
+                    matched_interests=matched_interests,
+                    access_confidence=access_conf,
+                )
+            else:
+                reason = generate_recommendation_reason(
+                    place,
+                    matched_categories,
+                    access_conf,
+                )
 
             is_saved = place.id in saved_place_ids
 
@@ -303,7 +385,8 @@ class RecommendationService:
             )
             evaluated.append((score, read_model))
 
-        # Stage 4: Ranking & Diversity
+        # Stage 4: Ranking & Soft Diversity
+        # Sort initially by score descending, then rating, review count, name
         evaluated.sort(
             key=lambda item: (
                 -item[0],  # highest score first
@@ -313,14 +396,53 @@ class RecommendationService:
             )
         )
 
-        ranked = [item[1] for item in evaluated]
+        # Stage 4b: Soft diversity interleaving
+        # In mixed-interest trips, prevent a single category from monopolizing if competitive alternatives exist
+        has_mixed_prefs = (
+            len(effective_purposes) + len(effective_interests) > 1
+            or any(
+                normalize_preference_key(p) in ("mixed", "family")
+                for p in effective_purposes
+            )
+        )
+
+        ranked: list[RecommendationRead] = []
+        pool = [item[1] for item in evaluated]
+        consecutive_cat_count = 0
+        current_cat: str | None = None
+
+        while pool:
+            if not has_mixed_prefs or consecutive_cat_count < self._preference_config.max_consecutive_same_category:
+                chosen = pool.pop(0)
+            else:
+                top_score = pool[0].recommendation_score
+                min_competitive = top_score * self._preference_config.diversity_candidate_threshold_ratio
+                alt_idx = next(
+                    (
+                        idx
+                        for idx, p in enumerate(pool)
+                        if p.category.casefold() != current_cat
+                        and p.recommendation_score >= min_competitive
+                    ),
+                    None,
+                )
+                if alt_idx is not None:
+                    chosen = pool.pop(alt_idx)
+                else:
+                    chosen = pool.pop(0)
+
+            if current_cat == chosen.category.casefold():
+                consecutive_cat_count += 1
+            else:
+                current_cat = chosen.category.casefold()
+                consecutive_cat_count = 1
+
+            ranked.append(chosen)
 
         # Stage 5: Final Canonical Safeguard
         final_results: list[RecommendationRead] = []
-        final_seen_names: set[str] = set()
         for item in ranked:
             name_norm = item.name.strip().casefold()
-            # Double check against identical exact names within 100m in final output
             is_dup = False
             for prev in final_results:
                 if prev.name.strip().casefold() == name_norm:

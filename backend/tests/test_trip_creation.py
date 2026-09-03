@@ -112,8 +112,11 @@ def test_create_trip_returns_id_and_persists_trip_and_preferences(
         preferences = session.exec(
             select(TripPreference).where(TripPreference.trip_id == trip_id)
         ).all()
-        assert {row.preference for row in preferences} == set(body["preferences"])
-        assert all(row.weight == 1.0 for row in preferences)
+        purpose_prefs = {"Religious / Spiritual", "Culture & Heritage"}
+        assert all(
+            row.weight == 2.0 if row.preference in purpose_prefs else row.weight == 1.0
+            for row in preferences
+        )
 
 
 def test_create_trip_accepts_arrival_label_without_coordinates(

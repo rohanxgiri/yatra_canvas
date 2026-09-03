@@ -19,6 +19,9 @@ class RecommendationRequest(SQLModel):
     categories: list[DiscoveryCategory] = Field(min_length=1, max_length=5)
     limit: int = Field(default=30, ge=1, le=100)
     trip_id: UUID | None = None
+    purposes: list[str] | None = None
+    interests: list[str] | None = None
+    category_filter: DiscoveryCategory | None = None
 
     @field_validator("categories")
     @classmethod

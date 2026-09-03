@@ -116,10 +116,7 @@ Acceptance criteria:
 
 ## Phase 7 — openrouteservice and provider parity
 
-Status: `[PARTIAL]`. Real road-route geometry provider (`RouteGeometryService`) is `[IMPLEMENTED]`
-with openrouteservice (Directions v2) and OSRM adapters, in-memory TTL caching, and FlutterMap
-polyline rendering with day filtering. Matrix provider migration for TSP route solving remains
-`[PLANNED]`.
+Status: `[IMPLEMENTED]` for Google OR-Tools multi-day VRPTW itinerary optimization (`VrptwSolverService`) with opening hours, category visit durations, multi-day vehicle partitioning, midday lunch breaks, locked places, priority/must-visit rules, and road-route geometry integration (`RouteGeometryService`). Matrix provider migration for TSP route solving remains `[PARTIAL]`.
 
 Scope: introduce a provider-neutral directions/matrix interface, select hosted versus self-hosted
 openrouteservice, migrate cache semantics, and implement actual multi-day scheduling. Keep Google
@@ -130,7 +127,7 @@ Acceptance criteria:
 - Directions/matrix adapter fixtures cover partial elements, no-route, timeout, rate limit, and
   malformed responses without changing the public REST schema.
 - Cache keys include provider/version/mode as needed; static versus volatile expiry is explicit.
-- Optimizer respects trip days, locked/must-visit/priority rules, start point, and deterministic
+- Optimizer respects trip days, locked/must-visit/priority rules, start point, opening hours, lunch breaks, and deterministic
   ordering in tests.
 - A test deployment can disable Google Routes with complete cached/static fallback and explicit
   failure for missing legs.
@@ -148,15 +145,19 @@ Smart re-planning is implemented with `SmartReplanningService`, centralized inva
 selective `RouteMatrixCache` purging (`start_only` vs. `all`), non-persisted preview diffs,
 and atomic apply transactions.
 Place discovery and recommendation quality is implemented with `RecommendationService`,
-canonical and spatial deduplication (`deduplicate_places`), and general context-based traveller
-suitability filtering (`is_traveller_suitable`) excluding institutional canteens and staff cafeterias.
+canonical and spatial deduplication (`deduplicate_places`), general context-based traveller
+suitability filtering (`is_traveller_suitable`) excluding institutional canteens and staff cafeterias,
+and centralized trip purpose and interest weighting (`preference_model.py`) with primary purpose (2.5x)
+dominance, secondary interest (1.0x) balancing, low-relevance cutoff filtering, explicit non-destructive
+category filtering, soft diversity interleaving, and truthful natural-language recommendation reasons.
 Currency conversion has been removed from the active roadmap.
 
 Scope: make a commercial-use/licensing decision for Open-Meteo before commercial deployment;
 dated forecast caching and CC BY 4.0 attribution are documented. Time-aware itinerary scheduling
 uses route matrix travel times and deterministic category visit heuristics with opening-hours awareness.
 Re-planning engine calculates diffs without destructively modifying saved itineraries until user approval.
-Recommendation engine filters internal institutional dining while preserving separate branches of the same chain.
+Recommendation engine filters internal institutional dining while preserving separate branches of the same chain,
+and prioritizes user purpose and interests deterministically.
 
 Acceptance criteria:
 
