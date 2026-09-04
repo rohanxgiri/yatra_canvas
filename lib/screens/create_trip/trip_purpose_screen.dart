@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../models/place.dart';
 import '../../models/trip_draft.dart';
+import '../../services/recommendation_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
@@ -8,10 +12,16 @@ import '../../widgets/create_trip_scaffold.dart';
 import 'trip_preferences_screen.dart';
 
 class TripPurposeScreen extends StatefulWidget {
-  const TripPurposeScreen({required this.draft, this.tripService, super.key});
+  const TripPurposeScreen({
+    required this.draft,
+    this.tripService,
+    this.recommendationService,
+    super.key,
+  });
 
   final TripDraft draft;
   final TripService? tripService;
+  final RecommendationService? recommendationService;
 
   @override
   State<TripPurposeScreen> createState() => _TripPurposeScreenState();
@@ -19,6 +29,8 @@ class TripPurposeScreen extends StatefulWidget {
 
 class _TripPurposeScreenState extends State<TripPurposeScreen> {
   late final Set<String> _selected;
+  late final RecommendationService _recommendationService;
+  late final bool _ownsRecommendationService;
 
   static const _purposes = <(String, IconData)>[
     ('Religious / Spiritual', Icons.self_improvement_rounded),
@@ -37,6 +49,15 @@ class _TripPurposeScreenState extends State<TripPurposeScreen> {
   void initState() {
     super.initState();
     _selected = {...widget.draft.purposes};
+    _ownsRecommendationService = widget.recommendationService == null;
+    _recommendationService =
+        widget.recommendationService ?? RecommendationService();
+  }
+
+  @override
+  void dispose() {
+    if (_ownsRecommendationService) _recommendationService.close();
+    super.dispose();
   }
 
   void _toggle(String purpose) {
@@ -47,6 +68,18 @@ class _TripPurposeScreenState extends State<TripPurposeScreen> {
 
   void _continue() {
     widget.draft.purposes = {..._selected};
+    final destinationCityId = widget.draft.destination?.id;
+    if (destinationCityId != null && destinationCityId.isNotEmpty) {
+      final targetCategories =
+          PlaceCategoryLabel.categoriesForPurposes(widget.draft.purposes);
+      unawaited(
+        _recommendationService.prefetchCityPlaces(
+          destinationCityId,
+          stage: 'interests_confirmed',
+          categories: targetCategories,
+        ),
+      );
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TripPreferencesScreen(

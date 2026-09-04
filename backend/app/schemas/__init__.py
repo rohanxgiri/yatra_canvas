@@ -7,7 +7,13 @@ from app.schemas.city import (
     CityResolve,
     CitySuggestion,
 )
-from app.schemas.place import GoogleNearbyPlace, PlaceCreate, PlaceRead
+from app.schemas.place import (
+    GoogleNearbyPlace,
+    PlaceCreate,
+    PlacePrefetchRequest,
+    PlacePrefetchResponse,
+    PlaceRead,
+)
 from app.schemas.location import (
     LocationAutocompleteResponse,
     LocationAutocompleteResult,

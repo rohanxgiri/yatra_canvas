@@ -10,6 +10,37 @@ extension PlaceCategoryLabel on PlaceCategory {
     PlaceCategory.cafes => 'Cafes',
     PlaceCategory.heritage => 'Heritage',
   };
+
+  static Set<PlaceCategory> categoriesForPurposes(Iterable<String> purposes) {
+    final categories = <PlaceCategory>{};
+    for (final purpose in purposes) {
+      switch (purpose) {
+        case 'Religious / Spiritual':
+          categories.add(PlaceCategory.religious);
+          break;
+        case 'Culture & Heritage':
+          categories.add(PlaceCategory.heritage);
+          break;
+        case 'Food Exploration':
+          categories.add(PlaceCategory.food);
+          break;
+        case 'Photography':
+          categories.addAll([PlaceCategory.tourism, PlaceCategory.heritage]);
+          break;
+        case 'Mixed Trip':
+          categories.addAll(PlaceCategory.values);
+          break;
+        case 'Sightseeing':
+        case 'Nature':
+        case 'Relaxation':
+        case 'Family Trip':
+        case 'Shopping':
+          categories.add(PlaceCategory.tourism);
+          break;
+      }
+    }
+    return categories;
+  }
 }
 
 class Place {

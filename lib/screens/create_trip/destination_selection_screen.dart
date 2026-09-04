@@ -7,6 +7,7 @@ import '../../models/city_suggestion.dart';
 import '../../models/trip_draft.dart';
 import '../../models/trip_start_location.dart';
 import '../../services/city_service.dart';
+import '../../services/recommendation_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
@@ -20,12 +21,14 @@ class DestinationSelectionScreen extends StatefulWidget {
     this.draft,
     this.cityService,
     this.tripService,
+    this.recommendationService,
     super.key,
   });
 
   final TripDraft? draft;
   final CityService? cityService;
   final TripService? tripService;
+  final RecommendationService? recommendationService;
 
   @override
   State<DestinationSelectionScreen> createState() =>
@@ -39,6 +42,8 @@ class _DestinationSelectionScreenState
   late final TripDraft _draft;
   late final CityService _cityService;
   late final bool _ownsCityService;
+  late final RecommendationService _recommendationService;
+  late final bool _ownsRecommendationService;
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
@@ -59,6 +64,9 @@ class _DestinationSelectionScreenState
     _draft = widget.draft ?? TripDraft();
     _ownsCityService = widget.cityService == null;
     _cityService = widget.cityService ?? CityService();
+    _ownsRecommendationService = widget.recommendationService == null;
+    _recommendationService =
+        widget.recommendationService ?? RecommendationService();
 
     final selectedCity = _draft.destination;
     if (selectedCity != null) {
@@ -73,6 +81,7 @@ class _DestinationSelectionScreenState
     _searchController.dispose();
     _searchFocusNode.dispose();
     if (_ownsCityService) _cityService.close();
+    if (_ownsRecommendationService) _recommendationService.close();
     super.dispose();
   }
 
@@ -263,6 +272,15 @@ class _DestinationSelectionScreenState
   }
 
   void _continue() {
+    final destinationCityId = _draft.destination?.id;
+    if (destinationCityId != null && destinationCityId.isNotEmpty) {
+      unawaited(
+        _recommendationService.prefetchCityPlaces(
+          destinationCityId,
+          stage: 'destination_confirmed',
+        ),
+      );
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>

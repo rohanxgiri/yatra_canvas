@@ -55,3 +55,19 @@ class GoogleNearbyPlace(SQLModel):
     review_count: int = Field(default=0, ge=0)
     primary_type: str | None = None
     types: list[str] = Field(default_factory=list)
+
+
+class PlacePrefetchRequest(SQLModel):
+    city_id: UUID
+    stage: str = "destination_confirmed"
+    categories: list[str] | None = None
+
+
+class PlacePrefetchResponse(SQLModel):
+    city_id: UUID
+    city_name: str
+    stage: str
+    categories_requested: list[str]
+    categories_skipped_sufficient: list[str]
+    categories_enriched: list[str]
+    duplicate_refreshes_prevented: int

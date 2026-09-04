@@ -102,6 +102,37 @@ class RecommendationService {
     return 'Recommendations failed (${response.statusCode}). Please try again.';
   }
 
+  Future<void> prefetchCityPlaces(
+    String cityId, {
+    required String stage,
+    Iterable<PlaceCategory>? categories,
+  }) async {
+    final normalizedCityId = cityId.trim();
+    if (normalizedCityId.isEmpty) return;
+
+    final payload = <String, dynamic>{
+      'city_id': normalizedCityId,
+      'stage': stage,
+    };
+    if (categories != null && categories.isNotEmpty) {
+      payload['categories'] = categories
+          .map((c) => c.apiValue)
+          .toList(growable: false);
+    }
+
+    try {
+      await _client
+          .post(
+            Uri.parse('$_baseUrl/places/prefetch'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 10));
+    } on Object {
+      // Background prefetch is non-blocking and fails silently
+    }
+  }
+
   void close() {
     if (_ownsClient) _client.close();
   }
