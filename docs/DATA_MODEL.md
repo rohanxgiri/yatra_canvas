@@ -131,6 +131,7 @@ reviewed SQL changes because `create_all` does not alter columns or constraints.
 | `backend/sql/add_route_matrix_priorities_start_location.sql` | Forward; no dedicated rollback script |
 | `backend/sql/repair_current_schema_parity.sql` | Transactional forward parity repair; recovery is roll-forward or verified backup restore after new-column writes |
 | `backend/sql/add_places_canonical_wikidata.sql` | Forward; adds `wikidata_id` columns, indices, and non-destructive backfill for Audiala places/sources |
+| `backend/sql/add_places_importance_score.sql` | Forward; adds `importance_score` column, range check constraint (0..1), and index on places |
 
 No ordered/versioned runner records which scripts ran. A read-only 2026-09-01 audit found the
 configured remote catalog compatible with current model metadata, but its environment

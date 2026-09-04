@@ -59,7 +59,16 @@ ALTER TABLE public.place_sources
     ADD COLUMN IF NOT EXISTS source_date_refreshed DATE,
     ADD COLUMN IF NOT EXISTS source_date_closed DATE,
     ADD COLUMN IF NOT EXISTS unresolved_flags JSON,
-    ADD COLUMN IF NOT EXISTS imported_at TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS imported_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS wikidata_id VARCHAR(50);
+
+ALTER TABLE public.places
+    ADD COLUMN IF NOT EXISTS wikidata_id VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS importance_score FLOAT;
+
+CREATE INDEX IF NOT EXISTS ix_places_wikidata_id ON public.places (wikidata_id);
+CREATE INDEX IF NOT EXISTS ix_places_importance_score ON public.places (importance_score);
+CREATE INDEX IF NOT EXISTS ix_place_sources_wikidata_id ON public.place_sources (wikidata_id);
 
 ALTER TABLE public.trips
     ADD COLUMN IF NOT EXISTS start_location_provider VARCHAR(50),
