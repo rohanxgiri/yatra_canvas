@@ -45,6 +45,7 @@ from app.services.place_suitability_service import (
     evaluate_access_confidence,
     is_traveller_suitable,
 )
+from app.services.place_importance_scorer import PlaceImportanceScorer
 from app.services.preference_model import (
     DEFAULT_PREFERENCE_CONFIG,
     PreferenceWeightingConfig,
@@ -70,6 +71,7 @@ class RecommendationWeights:
 
     category_match: float = 40.0
     rating_confidence: float = 35.0
+    importance_weight: float = 15.0
     popular_bonus: float = 10.0
     heritage_bonus: float = 8.0
     local_speciality_bonus: float = 7.0
@@ -90,8 +92,9 @@ def calculate_recommendation_score(
     distance_from_city_km: float | None = None,
     weights: RecommendationWeights = DEFAULT_RECOMMENDATION_WEIGHTS,
     relevance_score: float | None = None,
+    prominence_score: float | None = None,
 ) -> float:
-    """Return a 0-100 score combining preference fit, access confidence, and verified quality."""
+    """Return a 0-100 score combining preference fit, access confidence, verified quality, and prominence."""
     # 1. Category / Preference fit
     if relevance_score is not None:
         category_score = relevance_score
@@ -118,7 +121,21 @@ def calculate_recommendation_score(
             weights.rating_confidence * (place.rating / 5.0) * confidence_multiplier
         )
 
-    total = category_score + rating_score
+    # 3. Prominence / Importance scoring (Wikidata / Audiala signals)
+    # Prominence operates within relevant candidates; if category_score == 0, it contributes 0.
+    prominence_addition = 0.0
+    if category_score > 0.0 and weights.importance_weight > 0.0:
+        eff_prominence = prominence_score
+        if eff_prominence is None:
+            eff_prominence = getattr(place, "importance_score", None)
+        if eff_prominence is None and getattr(place, "wikidata_id", None):
+            eff_prominence = PlaceImportanceScorer.lookup_audiala_prominence(place.wikidata_id)
+
+        if eff_prominence is not None and eff_prominence > 0.0:
+            bounded_prominence = min(max(float(eff_prominence), 0.0), 1.0)
+            prominence_addition = weights.importance_weight * bounded_prominence
+
+    total = category_score + rating_score + prominence_addition
     if place.is_popular:
         total += weights.popular_bonus
     if place.is_heritage:
@@ -126,13 +143,86 @@ def calculate_recommendation_score(
     if place.is_local_speciality:
         total += weights.local_speciality_bonus
 
-    # 3. Access confidence adjustment
+    # 4. Access confidence adjustment
     if access_confidence == AccessConfidence.UNKNOWN:
         total = max(0.0, total - weights.unknown_access_penalty)
     elif access_confidence in (AccessConfidence.RESTRICTED, AccessConfidence.RESTRICTED_LIKELY):
         total = 0.0
 
     return round(min(max(total, 0.0), 100.0), 1)
+
+
+def explain_recommendation_score(
+    place: Place,
+    *,
+    matched_category_count: int = 1,
+    selected_category_count: int = 1,
+    access_confidence: AccessConfidence = AccessConfidence.PUBLIC_LIKELY,
+    distance_from_city_km: float | None = None,
+    weights: RecommendationWeights = DEFAULT_RECOMMENDATION_WEIGHTS,
+    relevance_score: float | None = None,
+    prominence_score: float | None = None,
+) -> dict[str, Any]:
+    """Inspectable breakdown of all score components for debugging and tests."""
+    if relevance_score is not None:
+        category_score = relevance_score
+    else:
+        category_ratio = (
+            matched_category_count / selected_category_count
+            if selected_category_count > 0
+            else 0.0
+        )
+        category_score = weights.category_match * min(category_ratio, 1.0)
+
+    rating_score = 0.0
+    if place.rating is not None:
+        review_confidence = min(
+            log10(max(place.review_count, 0) + 1)
+            / log10(weights.review_reference_count + 1),
+            1.0,
+        )
+        confidence_multiplier = weights.review_confidence_floor + (
+            (1.0 - weights.review_confidence_floor) * review_confidence
+        )
+        rating_score = (
+            weights.rating_confidence * (place.rating / 5.0) * confidence_multiplier
+        )
+
+    prominence_addition = 0.0
+    eff_prominence = prominence_score
+    if eff_prominence is None:
+        eff_prominence = getattr(place, "importance_score", None)
+    if eff_prominence is None and getattr(place, "wikidata_id", None):
+        eff_prominence = PlaceImportanceScorer.lookup_audiala_prominence(place.wikidata_id)
+
+    if category_score > 0.0 and weights.importance_weight > 0.0 and eff_prominence is not None and eff_prominence > 0.0:
+        bounded_prominence = min(max(float(eff_prominence), 0.0), 1.0)
+        prominence_addition = weights.importance_weight * bounded_prominence
+
+    bonuses = {
+        "popular": weights.popular_bonus if place.is_popular else 0.0,
+        "heritage": weights.heritage_bonus if place.is_heritage else 0.0,
+        "local_speciality": weights.local_speciality_bonus if place.is_local_speciality else 0.0,
+    }
+    penalties = {
+        "access": weights.unknown_access_penalty if access_confidence == AccessConfidence.UNKNOWN else 0.0
+    }
+
+    raw_total = category_score + rating_score + prominence_addition + sum(bonuses.values()) - sum(penalties.values())
+    if access_confidence in (AccessConfidence.RESTRICTED, AccessConfidence.RESTRICTED_LIKELY):
+        final_score = 0.0
+    else:
+        final_score = round(min(max(raw_total, 0.0), 100.0), 1)
+
+    return {
+        "final_score": final_score,
+        "category_relevance": round(category_score, 2),
+        "rating_score": round(rating_score, 2),
+        "prominence_score": round(eff_prominence or 0.0, 4),
+        "prominence_addition": round(prominence_addition, 2),
+        "bonuses": bonuses,
+        "penalties": penalties,
+    }
 
 
 def generate_recommendation_reason(
@@ -356,6 +446,13 @@ class RecommendationService:
                 )
                 dist_km = dist_m / 1000.0
 
+            # Prominence resolution: check Place.importance_score, then place_tags, then Audiala lookup
+            prominence = getattr(place, "importance_score", None)
+            if prominence is None:
+                prominence = PlaceImportanceScorer.extract_prominence_from_tags(place_tags)
+                if (prominence is None or prominence == 0.0) and place.wikidata_id:
+                    prominence = PlaceImportanceScorer.lookup_audiala_prominence(place.wikidata_id)
+
             score = calculate_recommendation_score(
                 place,
                 matched_category_count=len(matched_categories),
@@ -364,6 +461,7 @@ class RecommendationService:
                 distance_from_city_km=dist_km,
                 weights=self._weights,
                 relevance_score=relevance_score if has_explicit_preferences else None,
+                prominence_score=prominence,
             )
 
             # 3f. Recommendation reason

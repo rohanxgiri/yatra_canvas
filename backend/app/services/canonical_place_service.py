@@ -20,6 +20,7 @@ from app.services.place_deduplication_service import (
     haversine_distance_meters,
     normalize_name_for_dedupe,
 )
+from app.services.place_importance_scorer import PlaceImportanceScorer
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,15 @@ class CanonicalPlaceService:
             tags=tags,
         )
 
+        # Extract prominence score and raw metrics
+        prominence = PlaceImportanceScorer.extract_prominence_from_tags(tags)
+        raw_metrics = PlaceImportanceScorer.extract_metrics_from_tags(tags)
+        if prominence == 0.0 and effective_wikidata_id:
+            audiala_prom = PlaceImportanceScorer.lookup_audiala_prominence(effective_wikidata_id)
+            if audiala_prom is not None:
+                prominence = audiala_prom
+                raw_metrics = PlaceImportanceScorer.lookup_audiala_metrics(effective_wikidata_id)
+
         # ---------------------------------------------------------------------
         # Rule 1: Existing Provider Identity (source, external_place_id)
         # ---------------------------------------------------------------------
@@ -180,12 +190,20 @@ class CanonicalPlaceService:
                     existing_source.website = self._bounded(website, 1000)
                 if effective_wikidata_id and not existing_source.wikidata_id:
                     existing_source.wikidata_id = effective_wikidata_id
+                if raw_metrics:
+                    existing_source.social_identifiers = {
+                        **existing_source.social_identifiers,
+                        **raw_metrics,
+                    }
 
                 # Update canonical place metadata if missing
                 if effective_wikidata_id and not place.wikidata_id:
                     place.wikidata_id = effective_wikidata_id
                 if is_heritage_cat:
                     place.is_heritage = True
+                if prominence > 0.0:
+                    if place.importance_score is None or prominence > place.importance_score:
+                        place.importance_score = prominence
                 place.last_fetched_at = now
 
                 session.flush()
@@ -242,6 +260,9 @@ class CanonicalPlaceService:
                     matched_place.wikidata_id = effective_wikidata_id
                 if is_heritage_cat:
                     matched_place.is_heritage = True
+                if prominence > 0.0:
+                    if matched_place.importance_score is None or prominence > matched_place.importance_score:
+                        matched_place.importance_score = prominence
                 matched_place.last_fetched_at = now
 
                 source = self._upsert_place_source(
@@ -254,6 +275,7 @@ class CanonicalPlaceService:
                     source_url=source_url,
                     telephone=telephone,
                     website=website,
+                    social_identifiers=raw_metrics,
                     fetched_at=now,
                 )
                 session.flush()
@@ -305,6 +327,9 @@ class CanonicalPlaceService:
                 matched_fallback_place.wikidata_id = effective_wikidata_id
             if is_heritage_cat:
                 matched_fallback_place.is_heritage = True
+            if prominence > 0.0:
+                if matched_fallback_place.importance_score is None or prominence > matched_fallback_place.importance_score:
+                    matched_fallback_place.importance_score = prominence
             matched_fallback_place.last_fetched_at = now
 
             source = self._upsert_place_source(
@@ -317,6 +342,7 @@ class CanonicalPlaceService:
                 source_url=source_url,
                 telephone=telephone,
                 website=website,
+                social_identifiers=raw_metrics,
                 fetched_at=now,
             )
             session.flush()
@@ -338,6 +364,7 @@ class CanonicalPlaceService:
             is_heritage=is_heritage_cat,
             is_local_speciality=False,
             wikidata_id=effective_wikidata_id,
+            importance_score=prominence if prominence > 0.0 else None,
             last_fetched_at=now,
         )
         session.add(new_place)
@@ -353,6 +380,7 @@ class CanonicalPlaceService:
             source_url=source_url,
             telephone=telephone,
             website=website,
+            social_identifiers=raw_metrics,
             fetched_at=now,
         )
         session.flush()
@@ -401,6 +429,7 @@ class CanonicalPlaceService:
         telephone: str | None,
         website: str | None,
         fetched_at: datetime,
+        social_identifiers: dict[str, str] | None = None,
     ) -> PlaceSource:
         """Upsert PlaceSource record respecting database uniqueness constraints."""
         # Check by (source, external_place_id)
@@ -424,6 +453,11 @@ class CanonicalPlaceService:
                 source.telephone = self._bounded(telephone, 80)
             if website:
                 source.website = self._bounded(website, 1000)
+            if social_identifiers:
+                source.social_identifiers = {
+                    **source.social_identifiers,
+                    **social_identifiers,
+                }
             return source
 
         # Check by (place_id, source)
@@ -447,6 +481,11 @@ class CanonicalPlaceService:
                 source.telephone = self._bounded(telephone, 80)
             if website:
                 source.website = self._bounded(website, 1000)
+            if social_identifiers:
+                source.social_identifiers = {
+                    **source.social_identifiers,
+                    **social_identifiers,
+                }
             return source
 
         new_source = PlaceSource(
@@ -458,6 +497,7 @@ class CanonicalPlaceService:
             source_url=self._bounded(source_url, 1000),
             telephone=self._bounded(telephone, 80),
             website=self._bounded(website, 1000),
+            social_identifiers=social_identifiers or {},
             last_fetched_at=fetched_at,
         )
         session.add(new_source)

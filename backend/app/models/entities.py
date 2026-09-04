@@ -65,6 +65,10 @@ class Place(SQLModel, table=True):
             name="ck_places_rating",
         ),
         CheckConstraint("review_count >= 0", name="ck_places_review_count"),
+        CheckConstraint(
+            "importance_score IS NULL OR (importance_score BETWEEN 0 AND 1)",
+            name="ck_places_importance_score",
+        ),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -79,6 +83,7 @@ class Place(SQLModel, table=True):
     is_heritage: bool = Field(default=False)
     is_local_speciality: bool = Field(default=False)
     wikidata_id: str | None = Field(default=None, max_length=50, index=True)
+    importance_score: float | None = Field(default=None, index=True)
     last_fetched_at: datetime | None = Field(
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),

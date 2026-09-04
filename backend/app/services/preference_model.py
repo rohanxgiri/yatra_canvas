@@ -21,6 +21,7 @@ class PreferenceWeightingConfig:
     # Base score components (total base = 100 points)
     relevance_weight: float = 55.0  # Dominant preference fit component
     rating_confidence_weight: float = 30.0  # Real verified rating & review volume
+    importance_weight: float = 15.0  # Normalized Wikidata/Audiala prominence signal
     popular_bonus: float = 6.0
     heritage_bonus: float = 5.0
     local_speciality_bonus: float = 4.0
