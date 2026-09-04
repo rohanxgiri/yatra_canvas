@@ -1,0 +1,101 @@
+[
+  {
+    "scenario": "warm_kochi_cache",
+    "architecture": "new_pipeline",
+    "time_to_first_usable_ms": 9.7,
+    "total_time_ms": 9.7,
+    "provider_calls": 0,
+    "cache_hit": true,
+    "failed_providers": 0,
+    "returned_recommendations": 20,
+    "status": "SUCCESS"
+  },
+  {
+    "scenario": "stale_kochi_cache",
+    "architecture": "new_pipeline",
+    "time_to_first_usable_ms": 8.4,
+    "total_time_ms": 8.4,
+    "provider_calls": 0,
+    "cache_hit": true,
+    "failed_providers": 0,
+    "returned_recommendations": 20,
+    "status": "SUCCESS"
+  },
+  {
+    "scenario": "cold_kochi_cache_with_prefetch",
+    "architecture": "new_pipeline",
+    "time_to_first_usable_ms": 450.6,
+    "total_time_ms": 450.6,
+    "provider_calls": 10,
+    "cache_hit": false,
+    "failed_providers": 0,
+    "returned_recommendations": 20,
+    "status": "SUCCESS"
+  },
+  {
+    "scenario": "cold_kochi_baseline_no_prefetch",
+    "architecture": "baseline",
+    "time_to_first_usable_ms": 176.5,
+    "total_time_ms": 176.5,
+    "provider_calls": 3,
+    "cache_hit": false,
+    "failed_providers": 0,
+    "returned_recommendations": 20,
+    "status": "SUCCESS"
+  },
+  {
+    "scenario": "overpass_slow_resilience",
+    "architecture": "new_pipeline",
+    "time_to_first_usable_ms": 623.9,
+    "total_time_ms": 623.9,
+    "provider_calls": 10,
+    "cache_hit": false,
+    "failed_providers": 0,
+    "returned_recommendations": 20,
+    "status": "SUCCESS"
+  },
+  {
+    "scenario": "overpass_unavailable_fallback",
+    "architecture": "new_pipeline",
+    "time_to_first_usable_ms": 252.3,
+    "total_time_ms": 252.3,
+    "provider_calls": 10,
+    "cache_hit": false,
+    "failed_providers": 1,
+    "returned_recommendations": 20,
+    "status": "SUCCESS"
+  },
+  {
+    "scenario": "geoapify_slow_resilience",
+    "architecture": "new_pipeline",
+    "time_to_first_usable_ms": 579.0,
+    "total_time_ms": 579.0,
+    "provider_calls": 10,
+    "cache_hit": false,
+    "failed_providers": 0,
+    "returned_recommendations": 20,
+    "status": "SUCCESS"
+  },
+  {
+    "scenario": "partial_category_failure",
+    "architecture": "new_pipeline",
+    "time_to_first_usable_ms": 412.0,
+    "total_time_ms": 412.0,
+    "provider_calls": 10,
+    "cache_hit": false,
+    "failed_providers": 1,
+    "returned_recommendations": 20,
+    "status": "SUCCESS"
+  },
+  {
+    "scenario": "five_interest_trip",
+    "architecture": "new_pipeline",
+    "time_to_first_usable_ms": 13.7,
+    "total_time_ms": 13.7,
+    "provider_calls": 0,
+    "cache_hit": true,
+    "failed_providers": 0,
+    "returned_recommendations": 20,
+    "status": "SUCCESS"
+  }
+]
