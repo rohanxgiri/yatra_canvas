@@ -13,6 +13,8 @@ from app.schemas.place import (
     PlacePrefetchRequest,
     PlacePrefetchResponse,
     PlaceRead,
+    PlaceResolveRequest,
+    PlaceSearchResult,
 )
 from app.schemas.location import (
     LocationAutocompleteResponse,
@@ -74,6 +76,8 @@ __all__ = [
     "GoogleNearbyPlace",
     "PlaceCreate",
     "PlaceRead",
+    "PlaceResolveRequest",
+    "PlaceSearchResult",
     "DiscoveryCategory",
     "RecommendationRead",
     "RecommendationRequest",

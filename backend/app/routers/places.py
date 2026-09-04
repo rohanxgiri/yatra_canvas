@@ -1,11 +1,10 @@
-"""Place API endpoints."""
-
+import logging
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.core.config import Settings, get_settings
 from app.database import get_session
@@ -16,6 +15,8 @@ from app.schemas import (
     PlacePrefetchRequest,
     PlacePrefetchResponse,
     PlaceRead,
+    PlaceResolveRequest,
+    PlaceSearchResult,
     RecommendationRead,
     RecommendationRequest,
 )
@@ -35,12 +36,31 @@ from app.services.city_place_prefetch_service import (
     PrefetchStage,
 )
 from app.services.geoapify_places_provider import GeoapifyPlacesProvider
+from app.services.geoapify_service import GeoapifyService
+from app.services.place_deduplication_service import (
+    haversine_distance_meters,
+    normalize_name_for_dedupe,
+)
 from app.services.provider_circuit_breaker import ProviderCircuitBreaker
 from app.services.recommendation_service import RecommendationService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["places"])
 SessionDependency = Annotated[Session, Depends(get_session)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
+
+
+def get_geoapify_service(settings: SettingsDependency) -> GeoapifyService:
+    return GeoapifyService(
+        settings.geoapify_api_key_value,
+        base_url=settings.geoapify_base_url,
+        timeout_seconds=settings.geoapify_timeout_seconds,
+        cache_ttl_seconds=settings.geoapify_autocomplete_cache_ttl_seconds,
+    )
+
+
+GeoapifyDependency = Annotated[GeoapifyService, Depends(get_geoapify_service)]
 
 _overpass_circuit_breaker = ProviderCircuitBreaker(
     name="overpass",
@@ -366,3 +386,142 @@ async def prefetch_city_places(
         categories_enriched=summary.categories_enriched,
         duplicate_refreshes_prevented=summary.duplicate_refreshes_prevented,
     )
+
+
+@router.get(
+    "/cities/{city_id}/places/search",
+    response_model=list[PlaceSearchResult],
+)
+async def search_city_places(
+    city_id: UUID,
+    query: Annotated[str, Query(min_length=1, max_length=160)],
+    session: SessionDependency,
+    geoapify_service: GeoapifyDependency,
+    limit: Annotated[int, Query(ge=1, le=20)] = 10,
+) -> list[PlaceSearchResult]:
+    """Search for places within or near a city using database and Geoapify."""
+    city = session.get(City, city_id)
+    if city is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="City not found.",
+        )
+
+    clean_query = " ".join(query.split())
+    if not clean_query:
+        return []
+
+    results: list[PlaceSearchResult] = []
+    seen_names: set[str] = set()
+
+    # 1. Search existing stored places for this city
+    db_places = session.exec(
+        select(Place)
+        .where(Place.city_id == city_id)
+        .where(col(Place.name).ilike(f"%{clean_query}%"))
+        .limit(limit)
+    ).all()
+
+    for p in db_places:
+        norm = normalize_name_for_dedupe(p.name)
+        seen_names.add(norm)
+        dist = haversine_distance_meters(city.latitude, city.longitude, p.latitude, p.longitude)
+        results.append(
+            PlaceSearchResult(
+                name=p.name,
+                address=None,
+                latitude=p.latitude,
+                longitude=p.longitude,
+                category=p.category,
+                distance_meters=round(dist, 1),
+                place_id=p.id,
+                source="database",
+            )
+        )
+
+    # 2. Query Geoapify autocomplete if remaining capacity
+    remaining = limit - len(results)
+    if remaining > 0 and len(clean_query) >= 3:
+        try:
+            geo_limit = max(1, min(10, remaining))
+            geo_results = await geoapify_service.autocomplete(
+                clean_query,
+                country_code="in",
+                latitude=city.latitude,
+                longitude=city.longitude,
+                limit=geo_limit,
+            )
+            for g in geo_results:
+                norm = normalize_name_for_dedupe(g.name)
+                if norm in seen_names:
+                    continue
+                dist = haversine_distance_meters(city.latitude, city.longitude, g.latitude, g.longitude)
+                # Keep within destination radius (~50km)
+                if dist > 50000.0:
+                    continue
+                seen_names.add(norm)
+                results.append(
+                    PlaceSearchResult(
+                        name=g.name,
+                        address=g.formatted_address,
+                        latitude=g.latitude,
+                        longitude=g.longitude,
+                        category="sightseeing",
+                        distance_meters=round(dist, 1),
+                        place_id=None,
+                        external_place_id=g.provider_place_id,
+                        source="geoapify",
+                    )
+                )
+                if len(results) >= limit:
+                    break
+        except Exception as exc:
+            logger.warning("Geoapify place search failed gracefully: %s", exc)
+
+    return results[:limit]
+
+
+@router.post(
+    "/cities/{city_id}/places/resolve",
+    response_model=PlaceRead,
+    status_code=status.HTTP_200_OK,
+)
+def resolve_manual_place(
+    city_id: UUID,
+    request: PlaceResolveRequest,
+    session: SessionDependency,
+    canonical_service: CanonicalPlaceDependency,
+) -> Place:
+    """Resolve or create a canonical Place entity from a search result."""
+    city = session.get(City, city_id)
+    if city is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="City not found.",
+        )
+
+    cat_str = request.category or "sightseeing"
+    try:
+        disc_cat = DiscoveryCategory(cat_str)
+    except ValueError:
+        disc_cat = DiscoveryCategory.TOURISM
+
+    ext_id = request.external_place_id or f"manual:{uuid4()}"
+    src_name = "geoapify" if request.external_place_id else "manual"
+    licence = "Commercial" if request.external_place_id else "Proprietary"
+
+    place, _ = canonical_service.resolve_or_create_place(
+        session=session,
+        city=city,
+        category=disc_cat,
+        name=request.name.strip(),
+        latitude=request.latitude,
+        longitude=request.longitude,
+        external_place_id=ext_id,
+        source_name=src_name,
+        licence_identifier=licence,
+    )
+    session.commit()
+    session.refresh(place)
+    return place
+

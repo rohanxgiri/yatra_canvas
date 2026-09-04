@@ -71,3 +71,24 @@ class PlacePrefetchResponse(SQLModel):
     categories_skipped_sufficient: list[str]
     categories_enriched: list[str]
     duplicate_refreshes_prevented: int
+
+
+class PlaceSearchResult(SQLModel):
+    name: str
+    address: str | None = None
+    latitude: float
+    longitude: float
+    category: str = "sightseeing"
+    distance_meters: float | None = None
+    place_id: UUID | None = None
+    external_place_id: str | None = None
+    source: str = "database"
+
+
+class PlaceResolveRequest(SQLModel):
+    name: str
+    latitude: float
+    longitude: float
+    category: str = "sightseeing"
+    external_place_id: str | None = None
+    formatted_address: str | None = None

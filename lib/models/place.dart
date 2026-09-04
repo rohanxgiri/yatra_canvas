@@ -92,3 +92,41 @@ class Place {
     );
   }
 }
+
+class PlaceSearchResult {
+  const PlaceSearchResult({
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+    required this.category,
+    required this.source,
+    this.address,
+    this.distanceMeters,
+    this.placeId,
+    this.externalPlaceId,
+  });
+
+  final String name;
+  final String? address;
+  final double latitude;
+  final double longitude;
+  final String category;
+  final double? distanceMeters;
+  final String? placeId;
+  final String? externalPlaceId;
+  final String source;
+
+  factory PlaceSearchResult.fromJson(Map<String, dynamic> json) {
+    return PlaceSearchResult(
+      name: json['name'] as String,
+      address: json['address'] as String?,
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
+      category: json['category'] as String? ?? 'sightseeing',
+      distanceMeters: (json['distance_meters'] as num?)?.toDouble(),
+      placeId: json['place_id'] as String?,
+      externalPlaceId: json['external_place_id'] as String?,
+      source: json['source'] as String? ?? 'database',
+    );
+  }
+}

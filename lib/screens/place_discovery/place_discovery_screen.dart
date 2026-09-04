@@ -7,6 +7,8 @@ import '../../models/optimized_route.dart';
 import '../../models/place.dart';
 import '../../models/recommendation.dart';
 import '../../models/saved_place.dart';
+import '../../models/trip_start_location.dart';
+import '../../services/place_service.dart';
 import '../../services/recommendation_service.dart';
 import '../../services/route_optimization_service.dart';
 import '../../services/saved_place_service.dart';
@@ -27,11 +29,14 @@ class PlaceDiscoveryScreen extends StatefulWidget {
     this.tripId,
     this.tripPurposes = const <String>{},
     this.routeStartReady,
+    this.durationDays,
+    this.startLocation,
     this.recommendationService,
     this.savedPlaceService,
     this.routeOptimizationService,
     this.weatherAdvisoryService,
     this.smartReplanningService,
+    this.placeService,
     super.key,
   });
 
@@ -39,11 +44,14 @@ class PlaceDiscoveryScreen extends StatefulWidget {
   final String? tripId;
   final Set<String> tripPurposes;
   final bool? routeStartReady;
+  final int? durationDays;
+  final TripStartLocation? startLocation;
   final RecommendationService? recommendationService;
   final SavedPlaceService? savedPlaceService;
   final RouteOptimizationService? routeOptimizationService;
   final WeatherAdvisoryService? weatherAdvisoryService;
   final SmartReplanningService? smartReplanningService;
+  final PlaceService? placeService;
 
   @override
   State<PlaceDiscoveryScreen> createState() => _PlaceDiscoveryScreenState();
@@ -60,6 +68,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   late final bool _ownsWeatherAdvisoryService;
   late final SmartReplanningService _smartReplanningService;
   late final bool _ownsSmartReplanningService;
+  late final PlaceService _placeService;
+  late final bool _ownsPlaceService;
 
   late final Set<PlaceCategory> _purposeCategories;
   final Set<PlaceCategory> _refinementCategories = {};
@@ -84,6 +94,15 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   bool _refinementsDirty = false;
   int _requestGeneration = 0;
 
+  // Manual place search state
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounceTimer;
+  bool _isSearchOpen = false;
+  bool _isSearching = false;
+  String? _searchError;
+  List<PlaceSearchResult> _searchResults = const [];
+  final Set<String> _resolvingResultIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -103,6 +122,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     _ownsSmartReplanningService = widget.smartReplanningService == null;
     _smartReplanningService =
         widget.smartReplanningService ?? SmartReplanningService();
+    _ownsPlaceService = widget.placeService == null;
+    _placeService = widget.placeService ?? PlaceService();
     if (_tripId != null) {
       _loadSavedPlaces();
       _loadWeatherAdvisories();
@@ -152,6 +173,9 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
+    _searchController.dispose();
+    if (_ownsPlaceService) _placeService.close();
     if (_ownsRecommendationService) _recommendationService.close();
     if (_ownsSavedPlaceService) _savedPlaceService.close();
     if (_ownsRouteOptimizationService) _routeOptimizationService.close();
@@ -475,11 +499,15 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         if (!mounted) return;
         setState(() {
           _savedPlaces = [..._savedPlaces, savedPlace];
+          _optimizedRoute = null;
         });
         _showSavedMessage('${recommendation.name} added to your trip.');
       } else {
         await _savedPlaceService.removeSavedPlace(tripId, recommendation.id);
         if (!mounted) return;
+        setState(() {
+          _optimizedRoute = null;
+        });
         await _loadSavedPlaces();
         if (!mounted) return;
         _showSavedMessage('${recommendation.name} removed from your trip.');
@@ -535,6 +563,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
           for (final item in _savedPlaces)
             if (item.placeId != savedPlace.placeId) item,
         ];
+        _optimizedRoute = null;
         _savedError = null;
       });
       await _loadSavedPlaces();
@@ -549,6 +578,151 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         setState(() => _mutatingPlaceIds.remove(savedPlace.placeId));
       }
     }
+  }
+
+  void _onSearchChanged(String query) {
+    _searchDebounceTimer?.cancel();
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _searchResults = const [];
+        _searchError = null;
+        _isSearching = false;
+      });
+      return;
+    }
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+      _performSearch(trimmed);
+    });
+  }
+
+  Future<void> _performSearch(String query) async {
+    final cityId = widget.city.id;
+    if (cityId == null) return;
+    setState(() {
+      _isSearching = true;
+      _searchError = null;
+    });
+    try {
+      final results = await _placeService.searchPlaces(cityId, query);
+      if (!mounted) return;
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSearching = false;
+        _searchError = error is PlaceServiceException
+            ? error.message
+            : 'Could not search places. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _addManualPlace(PlaceSearchResult result) async {
+    final tripId = _tripId;
+    if (tripId == null) return;
+    final cityId = widget.city.id;
+    if (cityId == null) return;
+
+    final resultKey = result.externalPlaceId ?? result.placeId ?? result.name;
+    if (_resolvingResultIds.contains(resultKey)) return;
+
+    // Fast client-side duplicate check
+    final alreadySaved = _savedPlaces.any(
+      (sp) =>
+          (result.placeId != null && sp.placeId == result.placeId) ||
+          sp.place.name.trim().toLowerCase() == result.name.trim().toLowerCase(),
+    );
+    if (alreadySaved) {
+      _showSavedMessage('${result.name} is already in your selected places.');
+      return;
+    }
+
+    setState(() {
+      _resolvingResultIds.add(resultKey);
+      _savedError = null;
+      _routeError = null;
+    });
+
+    try {
+      final place = await _placeService.resolvePlace(cityId, result);
+      if (!mounted) return;
+
+      if (_savedPlaces.any((sp) => sp.placeId == place.id)) {
+        _showSavedMessage('${place.name} is already in your selected places.');
+        return;
+      }
+
+      final savedPlace = await _savedPlaceService.addSavedPlace(
+        tripId,
+        place.id,
+        customOrder: _savedPlaces.length + 1,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _savedPlaces = [..._savedPlaces, savedPlace];
+        _optimizedRoute = null;
+      });
+      _showSavedMessage('${place.name} added to your trip.');
+      await _checkReplanImpact();
+    } on Object catch (error) {
+      if (!mounted) return;
+      final message = _savedPlaceError(error);
+      setState(() => _savedError = message);
+      _showSavedMessage(message, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _resolvingResultIds.remove(resultKey));
+      }
+    }
+  }
+
+  Widget _buildSearchResultTile(PlaceSearchResult result) {
+    final isAlreadySaved = _savedPlaces.any((sp) =>
+        (result.placeId != null && sp.placeId == result.placeId) ||
+        sp.place.name.trim().toLowerCase() == result.name.trim().toLowerCase());
+    final resultKey = result.externalPlaceId ?? result.placeId ?? result.name;
+    final isAdding = _resolvingResultIds.contains(resultKey);
+
+    return ListTile(
+      dense: true,
+      title: Text(result.name, style: AppTextStyles.cardTitle),
+      subtitle: Text(
+        [
+          result.category,
+          if (result.distanceMeters != null)
+            '${(result.distanceMeters! / 1000).toStringAsFixed(1)} km away',
+          if (result.address != null && result.address!.isNotEmpty)
+            result.address!,
+        ].join(' · '),
+        style: AppTextStyles.caption,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: isAlreadySaved
+          ? const Tooltip(
+              message: 'Already in trip',
+              child: Icon(Icons.check_circle_rounded, color: AppColors.success),
+            )
+          : isAdding
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : FilledButton.tonal(
+                  key: ValueKey('add-search-result-${result.placeId ?? result.externalPlaceId ?? result.name}'),
+                  onPressed: _tripId == null ? null : () => _addManualPlace(result),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: const Text('Add to trip'),
+                ),
+    );
   }
 
   Future<void> _editSavedPlace(SavedPlace savedPlace) async {
@@ -951,14 +1125,107 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             style: AppTextStyles.bodyMuted,
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: null,
-              icon: const Icon(Icons.search_rounded),
-              label: const Text('Search another place — coming later'),
+          if (!_isSearchOpen)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const ValueKey('open-place-search-button'),
+                onPressed: () => setState(() => _isSearchOpen = true),
+                icon: const Icon(Icons.search_rounded),
+                label: const Text('Search another place'),
+              ),
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('manual-place-search-field'),
+                    controller: _searchController,
+                    autofocus: true,
+                    onChanged: _onSearchChanged,
+                    decoration: InputDecoration(
+                      hintText: 'Search places in ${widget.city.name}…',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _isSearching
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    _onSearchChanged('');
+                                  },
+                                )
+                              : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  key: const ValueKey('close-place-search-button'),
+                  icon: const Icon(Icons.close_rounded),
+                  tooltip: 'Close search',
+                  onPressed: () {
+                    setState(() {
+                      _isSearchOpen = false;
+                      _searchController.clear();
+                      _searchResults = const [];
+                      _searchError = null;
+                      _isSearching = false;
+                    });
+                  },
+                ),
+              ],
             ),
-          ),
+            if (_searchError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _searchError!,
+                style: AppTextStyles.caption.copyWith(color: AppColors.error),
+              ),
+            ],
+            if (_searchResults.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < _searchResults.length; i++) ...[
+                      if (i > 0) const Divider(height: 1),
+                      _buildSearchResultTile(_searchResults[i]),
+                    ],
+                  ],
+                ),
+              ),
+            ] else if (_searchController.text.trim().isNotEmpty && !_isSearching) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  'No matching places found near ${widget.city.name}.',
+                  style: AppTextStyles.caption,
+                ),
+              ),
+            ],
+          ],
           const SizedBox(height: 16),
           if (_tripId == null)
             const _PersistenceNotice()
@@ -1094,7 +1361,14 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => TripMapScreen(tripId: _tripId!),
+                        builder: (_) => TripMapScreen(
+                          tripId: _tripId!,
+                          initialStartLocation: widget.startLocation,
+                          initialSavedPlaces: _savedPlaces,
+                          initialOptimizedRoute: _optimizedRoute,
+                          initialRouteGeometry: _optimizedRoute?.routeGeometry,
+                          initialDurationDays: widget.durationDays ?? _optimizedRoute?.totalDays,
+                        ),
                       ),
                     );
                   },
@@ -1665,53 +1939,12 @@ class _OptimizedRouteCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 14),
-          for (var index = 0; index < route.places.length; index++) ...[
-            if (index == 0 ||
-                route.places[index].dayNumber !=
-                    route.places[index - 1].dayNumber) ...[
-              if (index > 0) const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.wb_sunny_rounded,
-                    color: AppColors.teal,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Day ${route.places[index].dayNumber}',
-                    style: AppTextStyles.label.copyWith(
-                      color: AppColors.tealDark,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-            _RouteConnector(
-              place: route.places[index],
-              fromArrival:
-                  index == 0 ||
-                  route.places[index].dayNumber !=
-                      route.places[index - 1].dayNumber,
+          for (var dayIndex = 0; dayIndex < route.logicalDays.length; dayIndex++) ...[
+            if (dayIndex > 0) const SizedBox(height: 16),
+            _buildDaySchedule(
+              route.logicalDays[dayIndex],
+              route.placesByDay[route.logicalDays[dayIndex]] ?? const <OptimizedRoutePlace>[],
             ),
-            const SizedBox(height: 7),
-            _RouteStop(place: route.places[index]),
-            // Render any midday break occurring after this stop
-            for (final b in route.breaks.where(
-              (brk) =>
-                  brk.dayNumber == route.places[index].dayNumber &&
-                  (index < route.places.length - 1 &&
-                      route.places[index + 1].dayNumber ==
-                          route.places[index].dayNumber &&
-                      route.places[index].plannedDepartureTime != null &&
-                      route.places[index + 1].plannedArrivalTime != null &&
-                      brk.startTime.compareTo(route.places[index].plannedDepartureTime!) >= 0 &&
-                      brk.endTime.compareTo(route.places[index + 1].plannedArrivalTime!) <= 0),
-            ))
-              _MiddayBreakCard(breakItem: b),
           ],
           const SizedBox(height: 14),
           Row(
@@ -1731,6 +1964,73 @@ class _OptimizedRouteCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDaySchedule(int day, List<OptimizedRoutePlace> dayPlaces) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.wb_sunny_rounded,
+              color: AppColors.teal,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Day $day',
+              style: AppTextStyles.label.copyWith(
+                color: AppColors.tealDark,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (dayPlaces.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textTertiary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'No places scheduled yet. Add a place or optimize your itinerary.',
+                    style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          for (var placeIdx = 0; placeIdx < dayPlaces.length; placeIdx++) ...[
+            _RouteConnector(
+              place: dayPlaces[placeIdx],
+              fromArrival: placeIdx == 0,
+            ),
+            const SizedBox(height: 7),
+            _RouteStop(place: dayPlaces[placeIdx]),
+            for (final b in route.breaks.where(
+              (brk) =>
+                  brk.dayNumber == day &&
+                  (placeIdx < dayPlaces.length - 1 &&
+                      dayPlaces[placeIdx].plannedDepartureTime != null &&
+                      dayPlaces[placeIdx + 1].plannedArrivalTime != null &&
+                      brk.startTime.compareTo(dayPlaces[placeIdx].plannedDepartureTime!) >= 0 &&
+                      brk.endTime.compareTo(dayPlaces[placeIdx + 1].plannedArrivalTime!) <= 0),
+            ))
+              _MiddayBreakCard(breakItem: b),
+          ],
+      ],
     );
   }
 }
