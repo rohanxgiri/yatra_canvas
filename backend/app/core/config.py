@@ -57,9 +57,97 @@ class Settings(BaseSettings):
         le=50000,
         validation_alias="OVERPASS_RADIUS_METERS",
     )
+    overpass_tourism_radius_meters: int = Field(
+        default=15000,
+        ge=1000,
+        le=50000,
+        validation_alias="OVERPASS_TOURISM_RADIUS_METERS",
+    )
+    overpass_heritage_radius_meters: int = Field(
+        default=15000,
+        ge=1000,
+        le=50000,
+        validation_alias="OVERPASS_HERITAGE_RADIUS_METERS",
+    )
+    overpass_religious_radius_meters: int = Field(
+        default=10000,
+        ge=1000,
+        le=50000,
+        validation_alias="OVERPASS_RELIGIOUS_RADIUS_METERS",
+    )
+    overpass_food_radius_meters: int = Field(
+        default=8000,
+        ge=1000,
+        le=50000,
+        validation_alias="OVERPASS_FOOD_RADIUS_METERS",
+    )
+    overpass_cafe_radius_meters: int = Field(
+        default=8000,
+        ge=1000,
+        le=50000,
+        validation_alias="OVERPASS_CAFE_RADIUS_METERS",
+    )
+    overpass_markets_radius_meters: int = Field(
+        default=10000,
+        ge=1000,
+        le=50000,
+        validation_alias="OVERPASS_MARKETS_RADIUS_METERS",
+    )
+    overpass_nature_radius_meters: int = Field(
+        default=25000,
+        ge=1000,
+        le=50000,
+        validation_alias="OVERPASS_NATURE_RADIUS_METERS",
+    )
+    overpass_tourism_limit: int = Field(
+        default=60,
+        ge=1,
+        le=200,
+        validation_alias="OVERPASS_TOURISM_LIMIT",
+    )
+    overpass_heritage_limit: int = Field(
+        default=60,
+        ge=1,
+        le=200,
+        validation_alias="OVERPASS_HERITAGE_LIMIT",
+    )
+    overpass_religious_limit: int = Field(
+        default=40,
+        ge=1,
+        le=200,
+        validation_alias="OVERPASS_RELIGIOUS_LIMIT",
+    )
+    overpass_food_limit: int = Field(
+        default=50,
+        ge=1,
+        le=200,
+        validation_alias="OVERPASS_FOOD_LIMIT",
+    )
+    overpass_cafe_limit: int = Field(
+        default=40,
+        ge=1,
+        le=200,
+        validation_alias="OVERPASS_CAFE_LIMIT",
+    )
+    overpass_markets_limit: int = Field(
+        default=40,
+        ge=1,
+        le=200,
+        validation_alias="OVERPASS_MARKETS_LIMIT",
+    )
+    overpass_nature_limit: int = Field(
+        default=40,
+        ge=1,
+        le=200,
+        validation_alias="OVERPASS_NATURE_LIMIT",
+    )
     fsq_os_places_path: str | None = Field(
         default=None,
         validation_alias="FSQ_OS_PLACES_PATH",
+    )
+    audiala_dataset_path: str | None = Field(
+        default="backend/app/data/audiala_places.json",
+        validation_alias="AUDIALA_DATASET_PATH",
     )
     fsq_dedupe_distance_meters: float = Field(
         default=75.0,
@@ -84,23 +172,6 @@ class Settings(BaseSettings):
         ge=1,
         le=720,
         validation_alias="PLACE_DISCOVERY_CACHE_TTL_HOURS",
-    )
-    google_nearby_radius_meters: float = Field(
-        default=10000,
-        gt=0,
-        le=50000,
-        validation_alias="GOOGLE_NEARBY_RADIUS_METERS",
-    )
-    place_popular_min_rating: float = Field(
-        default=4.2,
-        ge=0,
-        le=5,
-        validation_alias="PLACE_POPULAR_MIN_RATING",
-    )
-    place_popular_min_review_count: int = Field(
-        default=100,
-        ge=0,
-        validation_alias="PLACE_POPULAR_MIN_REVIEW_COUNT",
     )
     routing_provider: str = Field(
         default="osrm",
@@ -188,7 +259,7 @@ class Settings(BaseSettings):
         normalized = value.get_secret_value().strip()
         return SecretStr(normalized) if normalized else None
 
-    @field_validator("fsq_os_places_path")
+    @field_validator("fsq_os_places_path", "audiala_dataset_path")
     @classmethod
     def normalize_optional_path(cls, value: str | None) -> str | None:
         if value is None:
@@ -284,6 +355,39 @@ class Settings(BaseSettings):
         """Return the openrouteservice key only at the backend provider boundary."""
 
         return self._optional_secret_value(self.openrouteservice_api_key)
+
+    def overpass_radius_for_category(self, category: object) -> int:
+        """Return the configured search radius in meters for a category."""
+
+        key = getattr(category, "value", str(category)).lower()
+        mapping = {
+            "tourism": self.overpass_tourism_radius_meters,
+            "heritage": self.overpass_heritage_radius_meters,
+            "religious": self.overpass_religious_radius_meters,
+            "food": self.overpass_food_radius_meters,
+            "cafes": self.overpass_cafe_radius_meters,
+            "cafe": self.overpass_cafe_radius_meters,
+            "markets": self.overpass_markets_radius_meters,
+            "nature": self.overpass_nature_radius_meters,
+        }
+        return mapping.get(key, self.overpass_radius_meters)
+
+    def overpass_limit_for_category(self, category: object) -> int:
+        """Return the configured discovery candidate limit for a category."""
+
+        key = getattr(category, "value", str(category)).lower()
+        mapping = {
+            "tourism": self.overpass_tourism_limit,
+            "heritage": self.overpass_heritage_limit,
+            "religious": self.overpass_religious_limit,
+            "food": self.overpass_food_limit,
+            "cafes": self.overpass_cafe_limit,
+            "cafe": self.overpass_cafe_limit,
+            "markets": self.overpass_markets_limit,
+            "nature": self.overpass_nature_limit,
+        }
+        return mapping.get(key, 40)
+
 
 
 @lru_cache

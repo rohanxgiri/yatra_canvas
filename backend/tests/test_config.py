@@ -45,7 +45,6 @@ def test_optional_provider_keys_normalize_to_none() -> None:
 
 def test_secret_values_have_redacted_representations() -> None:
     database_password = "database-password-that-must-not-render"
-    places_key = "places-key-that-must-not-render"
     routes_key = "routes-key-that-must-not-render"
     geoapify_key = "geoapify-key-that-must-not-render"
     settings = Settings(
@@ -53,7 +52,6 @@ def test_secret_values_have_redacted_representations() -> None:
         DATABASE_URL=(
             "postgresql://test_user:" f"{database_password}@localhost/yatracanvas_test"
         ),
-        GOOGLE_PLACES_API_KEY=places_key,
         GOOGLE_ROUTES_API_KEY=routes_key,
         GEOAPIFY_API_KEY=geoapify_key,
     )  # type: ignore[call-arg]
@@ -61,7 +59,6 @@ def test_secret_values_have_redacted_representations() -> None:
     rendered = f"{settings!r}\n{settings}"
     for secret in (
         database_password,
-        places_key,
         routes_key,
         geoapify_key,
     ):
