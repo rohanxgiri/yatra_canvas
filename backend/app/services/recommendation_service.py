@@ -14,6 +14,7 @@ Implements:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from math import log10
 from typing import Any, Protocol, Sequence
@@ -280,6 +281,7 @@ class RecommendationService:
         city: City,
         request: RecommendationRequest,
     ) -> list[RecommendationRead]:
+        t_rec_start = time.monotonic()
         # Stage 1: Candidate Retrieval
         categories_to_retrieve = list(dict.fromkeys(request.categories))
         if (
@@ -308,14 +310,21 @@ class RecommendationService:
         for category in categories_to_retrieve:
             raw_candidates.extend(places_by_category.get(category, []))
 
+        t_retrieval_ms = (time.monotonic() - t_rec_start) * 1000
         if not raw_candidates:
+            logger.info(
+                "Recommendation candidate retrieval empty for city=%s: retrieval=%.1fms",
+                city.name,
+                t_retrieval_ms,
+            )
             return []
 
         logger.info(
-            "Recommendation candidate retrieval for city=%s: %d raw candidates across %d categories",
+            "Recommendation candidate retrieval for city=%s: %d raw candidates across %d categories in %.1fms",
             city.name,
             len(raw_candidates),
             len(categories_to_retrieve),
+            t_retrieval_ms,
         )
 
         # Fetch PlaceSource records for identity deduplication
@@ -592,4 +601,12 @@ class RecommendationService:
                 if len(final_results) >= request.limit:
                     break
 
+        total_rec_ms = (time.monotonic() - t_rec_start) * 1000
+        logger.info(
+            "Recommendation completed for city=%s: candidates=%d final=%d total=%.1fms",
+            city.name,
+            len(raw_candidates),
+            len(final_results),
+            total_rec_ms,
+        )
         return final_results

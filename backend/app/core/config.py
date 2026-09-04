@@ -51,6 +51,18 @@ class Settings(BaseSettings):
         le=60,
         validation_alias="OVERPASS_TIMEOUT_SECONDS",
     )
+    overpass_circuit_breaker_threshold: int = Field(
+        default=3,
+        ge=1,
+        le=20,
+        validation_alias="OVERPASS_CIRCUIT_BREAKER_THRESHOLD",
+    )
+    overpass_circuit_breaker_cooldown_seconds: float = Field(
+        default=60.0,
+        ge=5.0,
+        le=600.0,
+        validation_alias="OVERPASS_CIRCUIT_BREAKER_COOLDOWN_SECONDS",
+    )
     overpass_radius_meters: int = Field(
         default=8000,
         ge=1000,
@@ -172,6 +184,30 @@ class Settings(BaseSettings):
         ge=1,
         le=720,
         validation_alias="PLACE_DISCOVERY_CACHE_TTL_HOURS",
+    )
+    discovery_interactive_timeout_seconds: float = Field(
+        default=12.0,
+        ge=3.0,
+        le=60.0,
+        validation_alias="DISCOVERY_INTERACTIVE_TIMEOUT_SECONDS",
+    )
+    discovery_shallow_limit: int = Field(
+        default=15,
+        ge=5,
+        le=50,
+        validation_alias="DISCOVERY_SHALLOW_LIMIT",
+    )
+    discovery_stale_usable_hours: int = Field(
+        default=168,
+        ge=1,
+        le=720,
+        validation_alias="DISCOVERY_STALE_USABLE_HOURS",
+    )
+    discovery_min_usable_candidates_per_category: int = Field(
+        default=6,
+        ge=1,
+        le=30,
+        validation_alias="DISCOVERY_MIN_USABLE_CANDIDATES_PER_CATEGORY",
     )
     routing_provider: str = Field(
         default="osrm",

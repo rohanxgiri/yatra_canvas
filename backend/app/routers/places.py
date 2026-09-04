@@ -13,6 +13,8 @@ from app.models import City, Place
 from app.schemas import (
     DiscoveryCategory,
     PlaceCreate,
+    PlacePrefetchRequest,
+    PlacePrefetchResponse,
     PlaceRead,
     RecommendationRead,
     RecommendationRequest,
@@ -28,11 +30,23 @@ from app.services.openstreetmap_places_service import (
 )
 from app.services.audiala_places_provider import AudialaPlacesProvider
 from app.services.canonical_place_service import CanonicalPlaceService
+from app.services.city_place_prefetch_service import (
+    CityPlacePrefetchService,
+    PrefetchStage,
+)
+from app.services.geoapify_places_provider import GeoapifyPlacesProvider
+from app.services.provider_circuit_breaker import ProviderCircuitBreaker
 from app.services.recommendation_service import RecommendationService
 
 router = APIRouter(tags=["places"])
 SessionDependency = Annotated[Session, Depends(get_session)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
+
+_overpass_circuit_breaker = ProviderCircuitBreaker(
+    name="overpass",
+    failure_threshold=3,
+    cooldown_seconds=60.0,
+)
 
 
 def get_openstreetmap_places_service(
@@ -58,6 +72,7 @@ def get_openstreetmap_places_service(
         radius_meters=settings.overpass_radius_meters,
         category_radii=category_radii,
         category_limits=category_limits,
+        circuit_breaker=_overpass_circuit_breaker,
     )
 
 
@@ -77,6 +92,21 @@ AudialaPlacesDependency = Annotated[
 ]
 
 
+def get_geoapify_places_provider(
+    settings: SettingsDependency,
+) -> GeoapifyPlacesProvider:
+    return GeoapifyPlacesProvider(
+        settings.geoapify_api_key_value,
+        base_url=settings.geoapify_base_url,
+        timeout_seconds=settings.geoapify_timeout_seconds,
+    )
+
+
+GeoapifyPlacesDependency = Annotated[
+    GeoapifyPlacesProvider, Depends(get_geoapify_places_provider)
+]
+
+
 def get_canonical_place_service() -> CanonicalPlaceService:
     return CanonicalPlaceService()
 
@@ -91,18 +121,31 @@ def get_openstreetmap_discovery_service(
     provider: OpenStreetMapPlacesDependency,
     audiala_provider: AudialaPlacesDependency,
     canonical_service: CanonicalPlaceDependency,
+    geoapify_provider: GeoapifyPlacesDependency,
 ) -> OpenStreetMapDiscoveryService:
     return OpenStreetMapDiscoveryService(
         settings,
         provider,
         audiala_provider,
         canonical_service=canonical_service,
+        geoapify_provider=geoapify_provider,
     )
 
 
 OpenStreetMapDiscoveryDependency = Annotated[
     OpenStreetMapDiscoveryService,
     Depends(get_openstreetmap_discovery_service),
+]
+
+
+def get_city_place_prefetch_service(
+    discovery: OpenStreetMapDiscoveryDependency,
+) -> CityPlacePrefetchService:
+    return CityPlacePrefetchService(discovery)
+
+
+PrefetchDependency = Annotated[
+    CityPlacePrefetchService, Depends(get_city_place_prefetch_service)
 ]
 
 
@@ -271,3 +314,55 @@ async def recommend_city_places(
             status_code=status.HTTP_409_CONFLICT,
             detail="Recommendations could not be prepared because of conflicting data.",
         ) from exc
+
+
+@router.post(
+    "/places/prefetch",
+    response_model=PlacePrefetchResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def prefetch_city_places(
+    prefetch_request: PlacePrefetchRequest,
+    session: SessionDependency,
+    prefetch_service: PrefetchDependency,
+) -> PlacePrefetchResponse:
+    """Pre-warm candidate POIs in background when destination or interests are confirmed."""
+
+    city = session.get(City, prefetch_request.city_id)
+    if city is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="City not found.",
+        )
+
+    stage = (
+        PrefetchStage.DESTINATION_CONFIRMED
+        if prefetch_request.stage == "destination_confirmed"
+        else PrefetchStage.INTERESTS_CONFIRMED
+    )
+
+    cat_enums: list[DiscoveryCategory] | None = None
+    if prefetch_request.categories:
+        cat_enums = []
+        for c_str in prefetch_request.categories:
+            try:
+                cat_enums.append(DiscoveryCategory(c_str))
+            except ValueError:
+                pass
+
+    summary = await prefetch_service.prefetch(
+        session=session,
+        city=city,
+        stage=stage,
+        categories=cat_enums,
+    )
+
+    return PlacePrefetchResponse(
+        city_id=summary.city_id,
+        city_name=summary.city_name,
+        stage=summary.stage.value,
+        categories_requested=summary.categories_requested,
+        categories_skipped_sufficient=summary.categories_skipped_sufficient,
+        categories_enriched=summary.categories_enriched,
+        duplicate_refreshes_prevented=summary.duplicate_refreshes_prevented,
+    )

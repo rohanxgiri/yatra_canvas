@@ -13,6 +13,7 @@ from app.main import app
 from app.routers.cities import get_geoapify_service
 from app.routers.places import (
     get_audiala_places_provider,
+    get_geoapify_places_provider,
     get_openstreetmap_places_service,
 )
 from app.schemas import (
@@ -21,6 +22,7 @@ from app.schemas import (
     DiscoveryCategory,
 )
 from app.services.audiala_places_provider import AudialaPlacesProvider
+from app.services.geoapify_places_provider import GeoapifyPlacesProvider
 from app.services.geoapify_service import (
     GeoapifyConfigurationError,
     GeoapifyService,
@@ -45,6 +47,9 @@ def client() -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_audiala_places_provider] = (
         lambda: AudialaPlacesProvider(None)
+    )
+    app.dependency_overrides[get_geoapify_places_provider] = (
+        lambda: GeoapifyPlacesProvider(None)
     )
     test_client = TestClient(app)
     yield test_client
