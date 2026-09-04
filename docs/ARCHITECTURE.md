@@ -44,7 +44,12 @@ uses hard-coded metrics and rows and has no admin API client.
 `[IMPLEMENTED]` `flutter_map: ^8.3.2` provides an interactive OpenStreetMap tile map in
 `trip_map_screen.dart`. It renders start/place markers, day-filtered road-following
 `PolylineLayer` geometry from `RouteGeometryService`, and camera bounds fitting. No proprietary
-platform Maps SDK is required.
+platform Maps SDK is required. Progressive map rendering architecture pre-passes known trip state
+from `PlaceDiscoveryScreen` (`initialStartLocation`, `initialSavedPlaces`, `initialOptimizedRoute`,
+`initialRouteGeometry`, `initialDurationDays`), rendering the base map and markers immediately on
+Frame 1 without blocking on route recalculation, while fetching missing route polylines asynchronously.
+The day filter exposes every logical day in the trip ($1 \dots N$), displaying clear non-destructive empty
+notices on unassigned days.
 
 ### FastAPI
 
@@ -55,10 +60,10 @@ platform Maps SDK is required.
 | Status | `GET /` |
 | Cities | create/list/get/search; Google autocomplete, details, and resolve |
 | Locations | Geoapify-backed `GET /locations/autocomplete` |
-| Places | create/list; legacy Google discovery; OpenStreetMap recommendations; progressive prefetch (`POST /places/prefetch`) |
+| Places | create/list; legacy Google discovery; OpenStreetMap recommendations; progressive prefetch (`POST /places/prefetch`); destination-scoped search (`GET /cities/{city_id}/places/search`); canonical resolution (`POST /cities/{city_id}/places/resolve`) |
 | Saved places | list/create/update/reorder/delete under a trip |
 | Trips | create a trip; get/update start location |
-| Routing | optimize an existing trip using cached travel-time matrix and Google OR-Tools VRPTW solver with opening hours, visit durations, multi-day vehicle partitioning, lunch breaks, locked places, and priority/must-visit rules; attaches final route geometry |
+| Routing | optimize an existing trip using cached travel-time matrix and Google OR-Tools VRPTW solver with opening hours, visit durations, multi-day vehicle partitioning, lunch breaks, locked places, and priority/must-visit rules; returns `total_days` and attaches final route geometry |
 | Route geometry | `GET /trips/{trip_id}/route-geometry` using OSRM or openrouteservice |
 | Weather advisories | `GET /trips/{trip_id}/weather-advisories`, `GET /trips/{trip_id}/weather-alternatives`, `POST /trips/{trip_id}/rearrange-preview`, `POST /trips/{trip_id}/apply-itinerary-adjustment`, `POST /trips/{trip_id}/ignore-weather` |
 | Smart re-planning | `GET /trips/{trip_id}/replan-impact`, `POST /trips/{trip_id}/replan-preview`, `POST /trips/{trip_id}/replan-apply` |
@@ -104,6 +109,12 @@ provider boundary.
 - **Locked Places**: Pinned positions (e.g. first stop) and relative order constraints enforced across days and slots.
 - **Priorities & Must-Visit Rules**: Disjunctions with scaled drop penalties (must-visit places have $100,000,000$ penalty and cannot be dropped; low-priority places dropped first under budget constraints) and active-conditional Big-M priority precedence.
 - **Route Geometry**: Automatically triggers `RouteGeometryService` to prefetch and attach road-following geometry to the optimization response.
+- **Multi-Day Logical Day Invariant**: Optimization outputs include `total_days=trip.days` (`RouteOptimizationRead`), establishing the invariant that logical trip days are $\{1 \dots N\}$ derived from trip dates rather than only days containing scheduled stops. Frontend models (`OptimizedRoute.logicalDays`, `placesByDay`) normalize sparse schedules to empty lists (`[]`), rendering empty day cards in the itinerary and non-empty day tabs in the map.
+
+`[IMPLEMENTED]` Destination-Scoped Manual Place Search & Progressive Map Performance:
+- **Debounced Destination-Scoped Search**: Replaces discovery placeholders with 350ms debounced search (`GET /cities/{city_id}/places/search`). Queries local repository matches and concurrent Geoapify Autocomplete bounded to 50km destination radius, deduplicating against stored places.
+- **Canonical Place Resolution**: `POST /cities/{city_id}/places/resolve` runs candidates through `CanonicalPlaceService` to link or create canonical `Place` entities before adding to `UserSavedPlace`. Deduplication protects against re-adding already-saved places.
+- **Progressive Map Rendering**: Decouples base map initialization from route geometry requests. Pre-passes trip state to `TripMapScreen` to achieve Frame 1 base map and marker render, accompanied by non-blocking asynchronous route polyline loading. Route optimization is invalidated on place add/remove and reused when state is unchanged.
 
 `[PARTIAL]` `LocationAutocompleteProvider`, `RouteGeometryProvider`, and `WeatherProvider` are
 provider-neutral protocols. Normal recommendations use bounded OpenStreetMap/Overpass discovery,

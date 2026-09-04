@@ -226,9 +226,11 @@ GET /trips/{trip_id}/weather-advisories
 | Preference weighting | WORKING | ✅ | — | ✅ | Purpose 2.5x / interest 1.0x |
 | Saved places | WORKING | ✅ | ✅ | ✅ | Full CRUD + reorder |
 | Route matrix (local estimates) | WORKING | ✅ | ✅ | ✅ | Haversine-based, no API key |
-| OR-Tools VRPTW itinerary | WORKING | ✅ | ✅ | ✅ | Multi-day, lunch, opening hours |
+| OR-Tools VRPTW itinerary | WORKING | ✅ | ✅ | ✅ | Multi-day, lunch, opening hours; returns total_days |
+| Multi-day integrity | WORKING | ✅ | ✅ | ✅ | Complete logical days (1..N) preserved, empty day UX |
 | Road geometry (OSRM) | WORKING | ✅ | ✅ | ✅ | Polyline per day |
-| Interactive map | WORKING | — | ✅ | — | FlutterMap + OSM tiles |
+| Interactive map | WORKING | — | ✅ | ✅ | FlutterMap + OSM tiles, progressive Frame 1 render, non-blocking route |
+| Manual place search | WORKING | ✅ | ✅ | ✅ | Debounced, destination-scoped Geoapify + DB, canonical resolution |
 | Smart replanning | WORKING | ✅ | ✅ | ✅ | Change impact + diff preview |
 | Weather advisories | WORKING | ✅ | ✅ | ✅ | Open-Meteo, non-breaking |
 | Weather rearrangement | WORKING | ✅ | ✅ | ✅ | Preview + apply |

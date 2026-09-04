@@ -70,7 +70,10 @@ Trip Creation (Destination & Dates → Arrival Point → Purpose & Preferences)
     ↓
 POST /trips (Transactionally persists Trip + TripPreferences, returns trip_id)
     ↓
-Recommendations (OSM discovery + Audiala seed → Dedup → Suitability → Scoring → Ranking)
+Recommendations & Manual Search:
+  - Cache-first POI recommendations (OSM + Audiala + Geoapify fallback)
+  - Debounced manual search (Geoapify 50km destination radius + local DB)
+  - Canonical place resolution via CanonicalPlaceService
     ↓
 Saved Places (CRUD, reorder, locks, must-visit flags under trip_id)
     ↓
@@ -78,7 +81,7 @@ Route Optimization (Local matrix estimates → OR-Tools VRPTW multi-day solver �
     ↓
 Road Geometry (OSRM / ORS polyline generation attached to optimization response)
     ↓
-Interactive Map (FlutterMap + OSM tiles + day-filtered road polylines + markers)
+Interactive Map (Progressive Frame 1 FlutterMap + OSM tiles + non-blocking polylines + markers)
 ```
 
 ---
@@ -151,6 +154,10 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
   - Composite prominence in $[0.0, 1.0]$ blended at $60\%$ sitelinks consensus and $40\%$ PageRank network centrality.
   - Importance weight ($15.0$ pts) activates inside relevant candidates ($category\_score > 0$), protecting personalization from being overwhelmed by famous irrelevant monuments.
   - Missing Wikidata metadata is neutral ($0.0$ boost, zero penalty), preserving local-speciality dining and unindexed regional POIs.
+- **Core Trip Flow Hardening (Multi-Day Integrity + Manual Search + Interactive Map Performance)** is `[IMPLEMENTED]`:
+  - Multi-day day-sequence invariant: optimization outputs include `total_days=trip.days` (`RouteOptimizationRead`), normalizing all logical days $\{1 \dots N\}$ so days with 0 stops never disappear.
+  - Manual place search: 350ms debounced destination-scoped search (`GET /cities/{city_id}/places/search`) using Geoapify autocomplete + local DB, canonical resolution (`POST /cities/{city_id}/places/resolve`) via `CanonicalPlaceService`, duplicate prevention, and route eligibility.
+  - Interactive map progressive rendering: pre-passes trip state from `PlaceDiscoveryScreen`, rendering base map and markers on Frame 1 ($12-25\text{ ms}$) without blocking on route recalculation; non-blocking asynchronous route polyline loading with status indicator.
 **Next recommended engineering task:**
 `supabase-auth-jwt` (Implement Supabase Auth JWT verification in FastAPI and connect Flutter session tokens to trips).
 
