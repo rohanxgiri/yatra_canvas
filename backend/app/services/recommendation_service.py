@@ -37,6 +37,7 @@ from app.schemas.recommendation import (
     RecommendationRequest,
 )
 from app.services.place_deduplication_service import (
+    are_names_similar,
     deduplicate_places,
     haversine_distance_meters,
 )
@@ -519,7 +520,8 @@ class RecommendationService:
         )
 
         # Stage 4b: Soft diversity interleaving
-        # In mixed-interest trips, prevent a single category from monopolizing if competitive alternatives exist
+        # In mixed-interest trips, ensure secondary requested interests are represented
+        # without allowing an abundant primary category to completely monopolize recommendations.
         has_mixed_prefs = (
             len(effective_purposes) + len(effective_interests) > 1
             or any(
@@ -537,14 +539,12 @@ class RecommendationService:
             if not has_mixed_prefs or consecutive_cat_count < self._preference_config.max_consecutive_same_category:
                 chosen = pool.pop(0)
             else:
-                top_score = pool[0].recommendation_score
-                min_competitive = top_score * self._preference_config.diversity_candidate_threshold_ratio
+                # Seek best available candidate from an alternative category
                 alt_idx = next(
                     (
                         idx
                         for idx, p in enumerate(pool)
                         if p.category.casefold() != current_cat
-                        and p.recommendation_score >= min_competitive
                     ),
                     None,
                 )
@@ -561,23 +561,33 @@ class RecommendationService:
 
             ranked.append(chosen)
 
-        # Stage 5: Final Canonical Safeguard
+        # Stage 5: Final Deduplication & Multi-Outlet Brand Capping Safeguard
         final_results: list[RecommendationRead] = []
+        seen_venue_names: set[str] = set()
+
         for item in ranked:
             name_norm = item.name.strip().casefold()
+
+            # 5a. Cap multi-outlet identical chain/brand names to 1 representative instance
+            # (e.g. avoid recommending 6 Domino's or 3 Burger Kings across a city)
+            if name_norm in seen_venue_names:
+                continue
+
+            # 5b. Near-duplicate and spatial proximity merge (<= 150m with similar name)
             is_dup = False
             for prev in final_results:
-                if prev.name.strip().casefold() == name_norm:
-                    dist = haversine_distance_meters(
-                        prev.latitude,
-                        prev.longitude,
-                        item.latitude,
-                        item.longitude,
-                    )
-                    if dist <= 100.0:
-                        is_dup = True
-                        break
+                dist = haversine_distance_meters(
+                    prev.latitude,
+                    prev.longitude,
+                    item.latitude,
+                    item.longitude,
+                )
+                if dist <= 150.0 and are_names_similar(prev.name, item.name):
+                    is_dup = True
+                    break
+
             if not is_dup:
+                seen_venue_names.add(name_norm)
                 final_results.append(item)
                 if len(final_results) >= request.limit:
                     break
