@@ -1,0 +1,464 @@
+{
+  "jaipur": {
+    "top_baseline": [
+      {
+        "name": "Amber Fort",
+        "category": "heritage",
+        "score": 63.0,
+        "sitelinks": 44,
+        "pagerank": 6.91619255
+      },
+      {
+        "name": "Hawa Mahal",
+        "category": "tourism",
+        "score": 63.0,
+        "sitelinks": 59,
+        "pagerank": 4.317835673
+      },
+      {
+        "name": "Jaighar Fort",
+        "category": "tourism",
+        "score": 63.0,
+        "sitelinks": 21,
+        "pagerank": 2.408439588
+      },
+      {
+        "name": "Jantar Mantar",
+        "category": "tourism",
+        "score": 63.0,
+        "sitelinks": 47,
+        "pagerank": 18.563982743
+      },
+      {
+        "name": "Moon Gate",
+        "category": "tourism",
+        "score": 63.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Sheesh Mahal",
+        "category": "heritage",
+        "score": 63.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Sun Gate",
+        "category": "tourism",
+        "score": 63.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Albert Hall",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 10,
+        "pagerank": null
+      },
+      {
+        "name": "Alice Garg Seashell Museum",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Ashok Vihar, Jagatpura",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Diwan-i-Am",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Elefantastic",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Elephant Riding",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Iswari Minar Swarga Sali (Isarlat)",
+        "category": "religious",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Jaipur Wax Museum",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      }
+    ],
+    "top_composite": [
+      {
+        "name": "Jantar Mantar",
+        "category": "tourism",
+        "score": 76.0,
+        "importance_boost": 13.0,
+        "sitelinks": 47,
+        "pagerank": 18.563982743
+      },
+      {
+        "name": "Amber Fort",
+        "category": "heritage",
+        "score": 74.2,
+        "importance_boost": 11.2,
+        "sitelinks": 44,
+        "pagerank": 6.91619255
+      },
+      {
+        "name": "Hawa Mahal",
+        "category": "tourism",
+        "score": 74.1,
+        "importance_boost": 11.1,
+        "sitelinks": 59,
+        "pagerank": 4.317835673
+      },
+      {
+        "name": "Jaighar Fort",
+        "category": "tourism",
+        "score": 71.3,
+        "importance_boost": 8.3,
+        "sitelinks": 21,
+        "pagerank": 2.408439588
+      },
+      {
+        "name": "Moon Gate",
+        "category": "tourism",
+        "score": 63.0,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Sheesh Mahal",
+        "category": "heritage",
+        "score": 63.0,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Sun Gate",
+        "category": "tourism",
+        "score": 63.0,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Albert Hall",
+        "category": "tourism",
+        "score": 41.1,
+        "importance_boost": 7.8,
+        "sitelinks": 10,
+        "pagerank": null
+      },
+      {
+        "name": "Alice Garg Seashell Museum",
+        "category": "tourism",
+        "score": 33.3,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Ashok Vihar, Jagatpura",
+        "category": "tourism",
+        "score": 33.3,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Diwan-i-Am",
+        "category": "tourism",
+        "score": 33.3,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Elefantastic",
+        "category": "tourism",
+        "score": 33.3,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Elephant Riding",
+        "category": "tourism",
+        "score": 33.3,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Iswari Minar Swarga Sali (Isarlat)",
+        "category": "religious",
+        "score": 33.3,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Jaipur Wax Museum",
+        "category": "tourism",
+        "score": 33.3,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      }
+    ]
+  },
+  "varanasi": {
+    "top_baseline": [
+      {
+        "name": "Ashokan Pillar",
+        "category": "heritage",
+        "score": 63.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Madan Mohan Malviye Ji Statue",
+        "category": "heritage",
+        "score": 63.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Adi Keshava Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Aghoreshwar Bhagwam Ram Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Ahilyabai Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 13,
+        "pagerank": 3.244162318
+      },
+      {
+        "name": "Anandamayee Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Babua Pandey Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Badhaini Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 11,
+        "pagerank": 3.471195605
+      },
+      {
+        "name": "Badrinarayan Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Bhonsale Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 10,
+        "pagerank": 3.068666767
+      },
+      {
+        "name": "Chauki Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Chousatti Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Darbhanga Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 13,
+        "pagerank": 3.244162318
+      },
+      {
+        "name": "Digipatiya Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Dr. Rajendra Prasad Ghat",
+        "category": "tourism",
+        "score": 33.3,
+        "sitelinks": 0,
+        "pagerank": null
+      }
+    ],
+    "top_composite": [
+      {
+        "name": "Ashokan Pillar",
+        "category": "heritage",
+        "score": 63.0,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Madan Mohan Malviye Ji Statue",
+        "category": "heritage",
+        "score": 63.0,
+        "importance_boost": 0.0,
+        "sitelinks": 0,
+        "pagerank": null
+      },
+      {
+        "name": "Ramnagar Fort",
+        "category": "tourism",
+        "score": 41.6,
+        "importance_boost": 8.3,
+        "sitelinks": 15,
+        "pagerank": 3.919220972
+      },
+      {
+        "name": "Ahilyabai Ghat",
+        "category": "tourism",
+        "score": 41.1,
+        "importance_boost": 7.8,
+        "sitelinks": 13,
+        "pagerank": 3.244162318
+      },
+      {
+        "name": "Darbhanga Ghat",
+        "category": "tourism",
+        "score": 41.1,
+        "importance_boost": 7.8,
+        "sitelinks": 13,
+        "pagerank": 3.244162318
+      },
+      {
+        "name": "Jalasayi Ghat",
+        "category": "tourism",
+        "score": 41.1,
+        "importance_boost": 7.8,
+        "sitelinks": 12,
+        "pagerank": 3.452109437
+      },
+      {
+        "name": "Man Singh Astronomical Observatory",
+        "category": "tourism",
+        "score": 41.1,
+        "importance_boost": 7.8,
+        "sitelinks": 10,
+        "pagerank": 4.520244124
+      },
+      {
+        "name": "Manikarnika Ghat(KOSTRI)",
+        "category": "tourism",
+        "score": 41.1,
+        "importance_boost": 7.8,
+        "sitelinks": 12,
+        "pagerank": 3.452109437
+      },
+      {
+        "name": "Manmandir Ghat",
+        "category": "tourism",
+        "score": 41.1,
+        "importance_boost": 7.8,
+        "sitelinks": 13,
+        "pagerank": 3.244162318
+      },
+      {
+        "name": "Munshi Ghat",
+        "category": "tourism",
+        "score": 41.1,
+        "importance_boost": 7.8,
+        "sitelinks": 13,
+        "pagerank": 3.244162318
+      },
+      {
+        "name": "Prayag Ghat",
+        "category": "tourism",
+        "score": 41.1,
+        "importance_boost": 7.8,
+        "sitelinks": 13,
+        "pagerank": 3.244162318
+      },
+      {
+        "name": "Badhaini Ghat",
+        "category": "tourism",
+        "score": 40.9,
+        "importance_boost": 7.6,
+        "sitelinks": 11,
+        "pagerank": 3.471195605
+      },
+      {
+        "name": "janki ghat",
+        "category": "tourism",
+        "score": 40.9,
+        "importance_boost": 7.6,
+        "sitelinks": 11,
+        "pagerank": 3.471195605
+      },
+      {
+        "name": "Reewa Ghat",
+        "category": "tourism",
+        "score": 40.9,
+        "importance_boost": 7.6,
+        "sitelinks": 11,
+        "pagerank": 3.471195605
+      },
+      {
+        "name": "Tulsi Ghat",
+        "category": "tourism",
+        "score": 40.9,
+        "importance_boost": 7.6,
+        "sitelinks": 11,
+        "pagerank": 3.471195605
+      }
+    ]
+  }
+}

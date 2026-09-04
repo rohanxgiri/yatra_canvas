@@ -1,7 +1,7 @@
 # YatraCanvas POI Importance & Popularity Feasibility Experiment
 
 **Date**: September 2026  
-**Status**: Experimental Validation Complete (`[ANALYSIS_ONLY]`)  
+**Status**: Implemented in Production (`[IMPLEMENTED]`)  
 **Scope**: Evaluates Wikidata, Wikipedia/Wikimedia Pageviews, and Audiala Open Travel Data across **Jaipur, Ahmedabad, Surat, Delhi, and Varanasi** to solve the city-level place importance problem.
 
 ---
@@ -304,3 +304,27 @@ To determine *"best places in a city"* without penalizing unrated places, YatraC
 2. **Zero Infrastructure & Zero Operational Burden**: It does not require hosting a C++ tile server (Valhalla), running a JVM microservice (Timefold), downloading 100GB graph dumps (danker), or managing complex licenses. It is a single lightweight HTTP call (`action=wbgetentities&props=sitelinks`) batched across 50 places at a time.
 3. **Public Domain (CC0)**: Completely free of legal attribution or licensing friction.
 4. **Resilient to Spikes**: Unlike pageviews, which fluctuate with news cycles, sitelink count is an enduring, multi-lingual measure of genuine cultural importance.
+
+---
+
+## 11. Production Implementation (`PlaceImportanceScorer`)
+
+### 11.1 Formula & Normalization
+Implemented in `backend/app/services/place_importance_scorer.py`:
+* **Log-Normalized Sitelinks**:
+  $$S_{\text{sitelinks}} = \min\left(1.0, \frac{\log_{10}(\text{sitelinks} + 1)}{\log_{10}(101)}\right)$$
+  *(Capped at 100 sitelinks; median 7, p90 21, p99 68).*
+* **Log-Normalized Wikidata PageRank**:
+  $$S_{\text{pagerank}} = \min\left(1.0, \frac{\log_{10}(\text{pagerank} + 1)}{\log_{10}(26)}\right)$$
+  *(Capped at 25.0, the 99th percentile; prevents outliers like Ganga/Delhi PR 162 from dominating).*
+* **Composite Blend**:
+  $$\text{Prominence} = 0.60 \times S_{\text{sitelinks}} + 0.40 \times S_{\text{pagerank}} \in [0.0, 1.0]$$
+  *(Fallback to single signal if only one exists; neutral $0.0$ if neither exists).*
+* **Article Tier Evaluation**:
+  Rejected as a scoring signal. Audit of Audiala records revealed 1,112 'legacy' vs 92 'structured', denoting editorial formatting type rather than cultural significance.
+
+### 11.2 Weighting & Personalization Protection
+* **Recommendation Weight**: $15.0$ points (`RecommendationWeights.importance_weight`).
+* **Relevance Dominance**: Prominence is added strictly when candidate relevance $> 0$ ($category\_score > 0$). Trip Purpose ($2.5\times$, up to 55 pts) dominates prominence. On a food-focused trip, Hawa Mahal receives zero relevance and is never recommended over local sweetshops.
+* **Missing Value Neutrality**: Places lacking Wikidata (such as local dining or neighbourhood temples) receive $0.0$ boost and $0.0$ penalty, preserving local-speciality discovery.
+* **Persistence Layer**: Bounded score is persisted to canonical `Place.importance_score`, with raw metrics stored in `PlaceSource.social_identifiers`.
