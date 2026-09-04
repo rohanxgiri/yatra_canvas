@@ -1,0 +1,545 @@
+{
+  "overall": {
+    "total_references": 91,
+    "total_found": 55,
+    "recall_pct": 60.43956043956044
+  },
+  "cities": {
+    "delhi": {
+      "reference_count": 20,
+      "found_count": 17,
+      "recall_pct": 85.0,
+      "missing": [
+        {
+          "name": "Jama Masjid",
+          "distance_km": 4.73,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Lodhi Garden",
+          "distance_km": 2.31,
+          "category": "nature",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Chandni Chowk",
+          "distance_km": 4.58,
+          "category": "market",
+          "cause": "MISSING"
+        }
+      ],
+      "found": [
+        {
+          "name": "India Gate",
+          "distance_km": 2.0,
+          "category": "heritage"
+        },
+        {
+          "name": "Red Fort",
+          "distance_km": 5.65,
+          "category": "heritage"
+        },
+        {
+          "name": "Qutub Minar",
+          "distance_km": 10.2,
+          "category": "heritage"
+        },
+        {
+          "name": "Humayun's Tomb",
+          "distance_km": 4.67,
+          "category": "heritage"
+        },
+        {
+          "name": "Lotus Temple",
+          "distance_km": 8.29,
+          "category": "religious"
+        },
+        {
+          "name": "Akshardham",
+          "distance_km": 6.67,
+          "category": "religious"
+        },
+        {
+          "name": "Rashtrapati Bhavan",
+          "distance_km": 0.92,
+          "category": "heritage"
+        },
+        {
+          "name": "National Museum",
+          "distance_km": 1.06,
+          "category": "museum"
+        },
+        {
+          "name": "Raj Ghat",
+          "distance_km": 4.94,
+          "category": "heritage"
+        },
+        {
+          "name": "Jantar Mantar",
+          "distance_km": 1.64,
+          "category": "heritage"
+        },
+        {
+          "name": "Bangla Sahib Gurudwara",
+          "distance_km": 1.38,
+          "category": "religious"
+        },
+        {
+          "name": "National Rail Museum",
+          "distance_km": 4.24,
+          "category": "museum"
+        },
+        {
+          "name": "Dilli Haat INA",
+          "distance_km": 4.53,
+          "category": "market"
+        },
+        {
+          "name": "Agrasen Ki Baoli",
+          "distance_km": 2.05,
+          "category": "heritage"
+        },
+        {
+          "name": "Safdarjung Tomb",
+          "distance_km": 2.71,
+          "category": "heritage"
+        },
+        {
+          "name": "Hauz Khas Complex / Fort",
+          "distance_km": 6.93,
+          "category": "heritage"
+        },
+        {
+          "name": "Purana Qila",
+          "distance_km": 3.42,
+          "category": "heritage"
+        }
+      ]
+    },
+    "jaipur": {
+      "reference_count": 18,
+      "found_count": 12,
+      "recall_pct": 66.66666666666666,
+      "missing": [
+        {
+          "name": "Moti Dungri Temple",
+          "distance_km": 3.67,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Sisodia Rani Garden",
+          "distance_km": 7.92,
+          "category": "nature",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Bapu Bazaar",
+          "distance_km": 3.54,
+          "category": "market",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Johari Bazaar",
+          "distance_km": 4.08,
+          "category": "market",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Kanak Vrindavan",
+          "distance_km": 7.99,
+          "category": "nature",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Jawahar Kala Kendra",
+          "distance_km": 4.36,
+          "category": "museum",
+          "cause": "MISSING"
+        }
+      ],
+      "found": [
+        {
+          "name": "Hawa Mahal",
+          "distance_km": 4.13,
+          "category": "heritage"
+        },
+        {
+          "name": "Amber Fort",
+          "distance_km": 10.34,
+          "category": "heritage"
+        },
+        {
+          "name": "City Palace",
+          "distance_km": 3.88,
+          "category": "heritage"
+        },
+        {
+          "name": "Jantar Mantar",
+          "distance_km": 3.95,
+          "category": "heritage"
+        },
+        {
+          "name": "Nahargarh Fort",
+          "distance_km": 3.96,
+          "category": "heritage"
+        },
+        {
+          "name": "Jaigarh Fort",
+          "distance_km": 9.89,
+          "category": "heritage"
+        },
+        {
+          "name": "Jal Mahal",
+          "distance_km": 7.41,
+          "category": "heritage"
+        },
+        {
+          "name": "Albert Hall Museum",
+          "distance_km": 3.19,
+          "category": "museum"
+        },
+        {
+          "name": "Birla Mandir",
+          "distance_km": 3.59,
+          "category": "religious"
+        },
+        {
+          "name": "Galtaji Temple",
+          "distance_km": 7.04,
+          "category": "religious"
+        },
+        {
+          "name": "Govind Dev Ji Temple",
+          "distance_km": 4.18,
+          "category": "religious"
+        },
+        {
+          "name": "Panna Meena Ka Kund",
+          "distance_km": 10.74,
+          "category": "heritage"
+        }
+      ]
+    },
+    "ahmedabad": {
+      "reference_count": 18,
+      "found_count": 13,
+      "recall_pct": 72.22222222222221,
+      "missing": [
+        {
+          "name": "Adalaj Stepwell",
+          "distance_km": 16.06,
+          "category": "heritage",
+          "cause": "OUTSIDE_SEARCH_AREA"
+        },
+        {
+          "name": "Akshardham Temple Gandhinagar",
+          "distance_km": 25.27,
+          "category": "religious",
+          "cause": "OUTSIDE_SEARCH_AREA"
+        },
+        {
+          "name": "Kankaria Lake",
+          "distance_km": 3.66,
+          "category": "nature",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Sabarmati Riverfront",
+          "distance_km": 0.94,
+          "category": "nature",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Auto World Vintage Car Museum",
+          "distance_km": 12.78,
+          "category": "museum",
+          "cause": "OUTSIDE_SEARCH_AREA"
+        }
+      ],
+      "found": [
+        {
+          "name": "Sabarmati Ashram",
+          "distance_km": 4.28,
+          "category": "heritage"
+        },
+        {
+          "name": "Sidi Saiyyed Mosque",
+          "distance_km": 1.09,
+          "category": "heritage"
+        },
+        {
+          "name": "Hutheesing Jain Temple",
+          "distance_km": 2.67,
+          "category": "religious"
+        },
+        {
+          "name": "Calico Museum of Textiles",
+          "distance_km": 4.02,
+          "category": "museum"
+        },
+        {
+          "name": "Sarkhej Roza",
+          "distance_km": 7.78,
+          "category": "heritage"
+        },
+        {
+          "name": "Science City",
+          "distance_km": 9.74,
+          "category": "museum"
+        },
+        {
+          "name": "Dada Harir Stepwell",
+          "distance_km": 3.93,
+          "category": "heritage"
+        },
+        {
+          "name": "Teen Darwaza",
+          "distance_km": 1.37,
+          "category": "heritage"
+        },
+        {
+          "name": "Bhadra Fort",
+          "distance_km": 1.01,
+          "category": "heritage"
+        },
+        {
+          "name": "Law Garden Night Market",
+          "distance_km": 1.27,
+          "category": "market"
+        },
+        {
+          "name": "Manek Chowk",
+          "distance_km": 1.93,
+          "category": "market"
+        },
+        {
+          "name": "Sanskar Kendra (City Museum)",
+          "distance_km": 1.07,
+          "category": "museum"
+        },
+        {
+          "name": "Kochrab Ashram",
+          "distance_km": 0.89,
+          "category": "heritage"
+        }
+      ]
+    },
+    "surat": {
+      "reference_count": 15,
+      "found_count": 1,
+      "recall_pct": 6.666666666666667,
+      "missing": [
+        {
+          "name": "Dumas Beach",
+          "distance_km": 16.31,
+          "category": "nature",
+          "cause": "OUTSIDE_SEARCH_AREA"
+        },
+        {
+          "name": "Dutch & Armenian Cemeteries",
+          "distance_km": 3.37,
+          "category": "heritage",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Gopi Talav",
+          "distance_km": 2.16,
+          "category": "nature",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Sardar Patel Museum",
+          "distance_km": 2.09,
+          "category": "museum",
+          "cause": "MISSING"
+        },
+        {
+          "name": "ISKCON Temple Surat",
+          "distance_km": 5.91,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Chintamani Jain Temple",
+          "distance_km": 3.34,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Ambika Niketan Temple",
+          "distance_km": 6.49,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Suvali Beach",
+          "distance_km": 19.37,
+          "category": "nature",
+          "cause": "OUTSIDE_SEARCH_AREA"
+        },
+        {
+          "name": "Science Centre Surat",
+          "distance_km": 5.35,
+          "category": "museum",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Sneh Rashmi Botanical Garden",
+          "distance_km": 5.09,
+          "category": "nature",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Jagdishchandra Bose Aquarium",
+          "distance_km": 5.11,
+          "category": "nature",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Textile Market Surat (Ring Road)",
+          "distance_km": 2.76,
+          "category": "market",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Chauta Bazaar",
+          "distance_km": 3.24,
+          "category": "market",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Mughal Sarai",
+          "distance_km": 3.59,
+          "category": "heritage",
+          "cause": "MISSING"
+        }
+      ],
+      "found": [
+        {
+          "name": "Surat Castle (Old Fort)",
+          "distance_km": 3.46,
+          "category": "heritage"
+        }
+      ]
+    },
+    "varanasi": {
+      "reference_count": 20,
+      "found_count": 12,
+      "recall_pct": 60.0,
+      "missing": [
+        {
+          "name": "Sankat Mochan Hanuman Temple",
+          "distance_km": 4.71,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Tulsi Manas Mandir",
+          "distance_km": 4.35,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Durga Kund Mandir",
+          "distance_km": 4.16,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Kaal Bhairav Temple",
+          "distance_km": 3.98,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Bharat Mata Mandir",
+          "distance_km": 1.52,
+          "category": "religious",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Harishchandra Ghat",
+          "distance_km": 3.88,
+          "category": "heritage",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Panchganga Ghat",
+          "distance_km": 4.44,
+          "category": "heritage",
+          "cause": "MISSING"
+        },
+        {
+          "name": "Godowlia Market",
+          "distance_km": 3.34,
+          "category": "market",
+          "cause": "MISSING"
+        }
+      ],
+      "found": [
+        {
+          "name": "Kashi Vishwanath Temple",
+          "distance_km": 3.77,
+          "category": "religious"
+        },
+        {
+          "name": "Dashashwamedh Ghat",
+          "distance_km": 3.84,
+          "category": "heritage"
+        },
+        {
+          "name": "Assi Ghat",
+          "distance_km": 4.53,
+          "category": "heritage"
+        },
+        {
+          "name": "Manikarnika Ghat",
+          "distance_km": 4.11,
+          "category": "heritage"
+        },
+        {
+          "name": "Sarnath Deer Park & Dhamek Stupa",
+          "distance_km": 8.69,
+          "category": "heritage"
+        },
+        {
+          "name": "Ramnagar Fort",
+          "distance_km": 7.42,
+          "category": "heritage"
+        },
+        {
+          "name": "Banaras Hindu University (BHU) / New Vishwanath",
+          "distance_km": 5.81,
+          "category": "religious"
+        },
+        {
+          "name": "Sarnath Archaeological Museum",
+          "distance_km": 8.48,
+          "category": "museum"
+        },
+        {
+          "name": "Chaukhandi Stupa",
+          "distance_km": 8.02,
+          "category": "heritage"
+        },
+        {
+          "name": "Man Singh Observatory",
+          "distance_km": 3.88,
+          "category": "heritage"
+        },
+        {
+          "name": "Gyanvapi Mosque",
+          "distance_km": 3.74,
+          "category": "religious"
+        },
+        {
+          "name": "Scindia Ghat",
+          "distance_km": 4.21,
+          "category": "heritage"
+        }
+      ]
+    }
+  }
+}

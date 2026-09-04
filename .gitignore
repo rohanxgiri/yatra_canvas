@@ -40,8 +40,10 @@ __pycache__/
 tmp/
 
 # Experiment script caches (Overpass API responses, not source or results)
-scripts/experiments/*/cache/
-scripts/experiments/*/cache_*/
+scripts/experiments/**/cache/
+scripts/experiments/**/cache_*/
+scripts/experiments/**/__pycache__/
+scripts/experiments/**/*.log
 
 # Android generated files
 android/.gradle/

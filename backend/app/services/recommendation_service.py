@@ -13,12 +13,15 @@ Implements:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from math import log10
 from typing import Any, Protocol, Sequence
 from uuid import UUID
 
 from sqlmodel import Session, select
+
+logger = logging.getLogger(__name__)
 
 from app.models.entities import (
     City,
@@ -217,6 +220,13 @@ class RecommendationService:
         if not raw_candidates:
             return []
 
+        logger.info(
+            "Recommendation candidate retrieval for city=%s: %d raw candidates across %d categories",
+            city.name,
+            len(raw_candidates),
+            len(categories_to_retrieve),
+        )
+
         # Fetch PlaceSource records for identity deduplication
         candidate_ids = list({p.id for p in raw_candidates})
         place_sources = list(
@@ -231,6 +241,13 @@ class RecommendationService:
         deduped_candidates = deduplicate_places(
             places=raw_candidates,
             place_sources=place_sources,
+        )
+
+        logger.info(
+            "Recommendation candidates after deduplication for city=%s: %d (from %d raw)",
+            city.name,
+            len(deduped_candidates),
+            len(raw_candidates),
         )
 
         # Fetch tags for suitability and category/preference matching
@@ -384,6 +401,13 @@ class RecommendationService:
                 is_saved=is_saved,
             )
             evaluated.append((score, read_model))
+
+        logger.info(
+            "Recommendation candidates after suitability filtering for city=%s: %d (from %d deduped)",
+            city.name,
+            len(evaluated),
+            len(deduped_candidates),
+        )
 
         # Stage 4: Ranking & Soft Diversity
         # Sort initially by score descending, then rating, review count, name

@@ -1,5 +1,8 @@
 """OpenStreetMap POI discovery through a bounded Overpass API query."""
 
+import asyncio
+import logging
+import time
 from dataclasses import dataclass
 from math import cos, radians
 from typing import Any
@@ -7,6 +10,8 @@ from typing import Any
 import httpx
 
 from app.schemas import DiscoveryCategory
+
+logger = logging.getLogger(__name__)
 
 
 class OpenStreetMapPlacesError(Exception):
@@ -41,14 +46,44 @@ _FILTERS: dict[DiscoveryCategory, tuple[str, ...]] = {
     DiscoveryCategory.RELIGIOUS: ('["amenity"="place_of_worship"]',),
     DiscoveryCategory.FOOD: ('["amenity"~"^(restaurant|fast_food|food_court)$"]',),
     DiscoveryCategory.TOURISM: (
-        '["tourism"~"^(attraction|museum|gallery|viewpoint|zoo|theme_park)$"]',
+        '["tourism"~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"]',
         '["leisure"="park"]',
     ),
     DiscoveryCategory.CAFES: ('["amenity"="cafe"]',),
     DiscoveryCategory.HERITAGE: (
         '["historic"]',
         '["heritage"]',
+        '["landuse"="cemetery"]',
     ),
+    DiscoveryCategory.MARKETS: (
+        '["amenity"="marketplace"]',
+        '["landuse"="retail"]',
+    ),
+    DiscoveryCategory.NATURE: (
+        '["natural"~"^(beach|water|wood)$"]',
+        '["leisure"~"^(garden|nature_reserve)$"]',
+        '["water"="lake"]',
+    ),
+}
+
+_DEFAULT_CATEGORY_RADII: dict[DiscoveryCategory, int] = {
+    DiscoveryCategory.TOURISM: 15_000,
+    DiscoveryCategory.HERITAGE: 15_000,
+    DiscoveryCategory.RELIGIOUS: 10_000,
+    DiscoveryCategory.FOOD: 8_000,
+    DiscoveryCategory.CAFES: 8_000,
+    DiscoveryCategory.MARKETS: 10_000,
+    DiscoveryCategory.NATURE: 25_000,
+}
+
+_DEFAULT_CATEGORY_LIMITS: dict[DiscoveryCategory, int] = {
+    DiscoveryCategory.TOURISM: 60,
+    DiscoveryCategory.HERITAGE: 60,
+    DiscoveryCategory.RELIGIOUS: 40,
+    DiscoveryCategory.FOOD: 50,
+    DiscoveryCategory.CAFES: 40,
+    DiscoveryCategory.MARKETS: 40,
+    DiscoveryCategory.NATURE: 40,
 }
 
 _KNOWN_RELIGIONS = {
@@ -82,6 +117,8 @@ class OpenStreetMapPlacesService:
         *,
         timeout_seconds: float = 25.0,
         radius_meters: int = 8000,
+        category_radii: dict[DiscoveryCategory, int] | None = None,
+        category_limits: dict[DiscoveryCategory, int] | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._api_url = api_url.rstrip("/")
@@ -91,7 +128,23 @@ class OpenStreetMapPlacesService:
         )
         self._query_timeout_seconds = max(5, min(int(timeout_seconds) - 2, 55))
         self._radius_meters = radius_meters
+        self._category_radii = (
+            dict(category_radii)
+            if category_radii is not None
+            else _DEFAULT_CATEGORY_RADII.copy()
+        )
+        self._category_limits = (
+            dict(category_limits)
+            if category_limits is not None
+            else _DEFAULT_CATEGORY_LIMITS.copy()
+        )
         self._client = client
+
+    def get_radius_for_category(self, category: DiscoveryCategory) -> int:
+        return self._category_radii.get(category, self._radius_meters)
+
+    def get_limit_for_category(self, category: DiscoveryCategory) -> int:
+        return self._category_limits.get(category, 40)
 
     async def search_nearby_places(
         self,
@@ -99,17 +152,51 @@ class OpenStreetMapPlacesService:
         latitude: float,
         longitude: float,
         category: DiscoveryCategory,
-        limit: int = 40,
+        limit: int | None = None,
+        radius_meters: int | None = None,
     ) -> list[OpenStreetMapNearbyPlace]:
-        query = self._build_query(latitude, longitude, category, limit)
-        response = await self._request(query)
-        self._raise_for_status(response)
+        effective_limit = (
+            limit if limit is not None else self.get_limit_for_category(category)
+        )
+        effective_radius = (
+            radius_meters
+            if radius_meters is not None
+            else self.get_radius_for_category(category)
+        )
+        query = self._build_query(
+            latitude,
+            longitude,
+            category,
+            effective_limit,
+            radius_meters=effective_radius,
+        )
+        start_time = time.monotonic()
         try:
+            response = await self._request(query)
+            self._raise_for_status(response)
             payload = response.json()
-        except ValueError as exc:
+        except (ValueError, KeyError) as exc:
+            duration = time.monotonic() - start_time
+            logger.warning(
+                "OpenStreetMap returned invalid JSON for category=%s duration=%.2fs: %s",
+                category.value,
+                duration,
+                exc,
+            )
             raise OpenStreetMapPlacesUnavailableError(
                 "OpenStreetMap returned an invalid discovery response."
             ) from exc
+        except OpenStreetMapPlacesError as exc:
+            duration = time.monotonic() - start_time
+            logger.warning(
+                "OpenStreetMap discovery failed for category=%s radius=%dm duration=%.2fs: %s",
+                category.value,
+                effective_radius,
+                duration,
+                exc,
+            )
+            raise
+
         if not isinstance(payload, dict) or not isinstance(
             payload.get("elements"), list
         ):
@@ -129,8 +216,18 @@ class OpenStreetMapPlacesService:
                 continue
             seen.add(normalized.external_place_id)
             results.append(normalized)
-            if len(results) >= limit:
+            if len(results) >= effective_limit:
                 break
+
+        duration = time.monotonic() - start_time
+        logger.info(
+            "OpenStreetMap discovered category=%s radius=%dm count=%d limit=%d duration=%.2fs",
+            category.value,
+            effective_radius,
+            len(results),
+            effective_limit,
+            duration,
+        )
         return results
 
     async def search_nearby_places_for_categories(
@@ -139,49 +236,54 @@ class OpenStreetMapPlacesService:
         latitude: float,
         longitude: float,
         categories: list[DiscoveryCategory],
-        limit_per_category: int = 40,
+        limit_per_category: int | None = None,
+        category_limits: dict[DiscoveryCategory, int] | None = None,
+        category_radii: dict[DiscoveryCategory, int] | None = None,
     ) -> dict[DiscoveryCategory, list[OpenStreetMapNearbyPlace]]:
-        """Fetch several discovery categories in one bounded Overpass request."""
+        """Fetch several discovery categories using independent queries and quotas with failure isolation."""
 
         unique_categories = list(dict.fromkeys(categories))
         if not unique_categories:
             return {}
-        query = self._build_multi_category_query(
-            latitude,
-            longitude,
-            unique_categories,
-            limit_per_category,
-        )
-        response = await self._request(query)
-        self._raise_for_status(response)
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise OpenStreetMapPlacesUnavailableError(
-                "OpenStreetMap returned an invalid discovery response."
-            ) from exc
-        if not isinstance(payload, dict) or not isinstance(
-            payload.get("elements"), list
-        ):
-            raise OpenStreetMapPlacesUnavailableError(
-                "OpenStreetMap returned an invalid discovery response."
-            )
 
-        results = {category: [] for category in unique_categories}
-        seen_by_category = {category: set() for category in unique_categories}
-        for raw in payload["elements"]:
-            normalized = self._normalize(raw)
-            if normalized is None:
-                continue
-            for category in unique_categories:
-                if (
-                    len(results[category]) >= limit_per_category
-                    or normalized.external_place_id in seen_by_category[category]
-                    or not self._matches_filter(normalized, category)
-                ):
-                    continue
-                seen_by_category[category].add(normalized.external_place_id)
-                results[category].append(normalized)
+        results: dict[DiscoveryCategory, list[OpenStreetMapNearbyPlace]] = {}
+        errors: list[tuple[DiscoveryCategory, Exception]] = []
+
+        for category in unique_categories:
+            limit = (
+                category_limits.get(category)
+                if category_limits and category in category_limits
+                else (
+                    limit_per_category
+                    if limit_per_category is not None
+                    else self.get_limit_for_category(category)
+                )
+            )
+            radius = (
+                category_radii.get(category)
+                if category_radii and category in category_radii
+                else self.get_radius_for_category(category)
+            )
+            try:
+                places = await self.search_nearby_places(
+                    latitude=latitude,
+                    longitude=longitude,
+                    category=category,
+                    limit=limit,
+                    radius_meters=radius,
+                )
+                results[category] = places
+            except OpenStreetMapPlacesError as exc:
+                logger.warning(
+                    "Isolated failure for category %s: %s",
+                    category.value,
+                    exc,
+                )
+                errors.append((category, exc))
+
+        if not results and errors:
+            raise errors[0][1]
+
         return results
 
     @staticmethod
@@ -225,15 +327,28 @@ class OpenStreetMapPlacesService:
                     "viewpoint",
                     "zoo",
                     "theme_park",
+                    "aquarium",
                 }
                 or tags.get("leisure") == "park"
             )
         if category is DiscoveryCategory.CAFES:
             return amenity == "cafe"
-        return tags.get("historic") not in {None, "no"} or tags.get("heritage") not in {
-            None,
-            "no",
-        }
+        if category is DiscoveryCategory.MARKETS:
+            return amenity == "marketplace" or tags.get("landuse") == "retail"
+        if category is DiscoveryCategory.NATURE:
+            natural = tags.get("natural")
+            leisure = tags.get("leisure")
+            return (
+                natural in {"beach", "water", "wood"}
+                or leisure in {"garden", "nature_reserve"}
+                or tags.get("water") == "lake"
+            )
+            
+        return (
+            tags.get("historic") not in {None, "no"}
+            or tags.get("heritage") not in {None, "no"}
+            or tags.get("landuse") == "cemetery"
+        )
 
     def _build_query(
         self,
@@ -241,15 +356,44 @@ class OpenStreetMapPlacesService:
         longitude: float,
         category: DiscoveryCategory,
         limit: int,
+        radius_meters: int | None = None,
     ) -> str:
-        bbox = self._bounding_box(latitude, longitude)
-        statements = "\n".join(
-            f'nwr({bbox})["name"]{tag_filter};' for tag_filter in _FILTERS[category]
+        bbox = self._bounding_box(latitude, longitude, radius_meters=radius_meters)
+        bounded_limit = max(1, min(limit, 200))
+
+        # For attractions, heritage, nature and religious sites: separate polygons (relations/ways)
+        # from point nodes to prevent dense nodes from starving major monuments.
+        if category in (
+            DiscoveryCategory.TOURISM, 
+            DiscoveryCategory.HERITAGE, 
+            DiscoveryCategory.RELIGIOUS, 
+            DiscoveryCategory.NATURE
+        ):
+            geom_limit = max(10, int(bounded_limit * 0.70))
+            node_limit = max(5, int(bounded_limit * 0.35))
+            geom_stmts = "\n".join(
+                f'relation({bbox})["name"]{tag_filter};\nway({bbox})["name"]{tag_filter};'
+                for tag_filter in _FILTERS[category]
+            )
+            node_stmts = "\n".join(
+                f'node({bbox})["name"]{tag_filter};' for tag_filter in _FILTERS[category]
+            )
+            return (
+                f"[out:json][timeout:{self._query_timeout_seconds}];\n"
+                f"(\n{geom_stmts}\n);\n"
+                f"out center {geom_limit};\n"
+                f"(\n{node_stmts}\n);\n"
+                f"out center {node_limit};"
+            )
+
+        # For food and cafes: fast node + way query in a single block
+        stmts = "\n".join(
+            f'node({bbox})["name"]{tag_filter};\nway({bbox})["name"]{tag_filter};'
+            for tag_filter in _FILTERS[category]
         )
-        bounded_limit = max(1, min(limit, 100))
         return (
             f"[out:json][timeout:{self._query_timeout_seconds}];\n"
-            f"(\n{statements}\n);\n"
+            f"(\n{stmts}\n);\n"
             f"out center {bounded_limit};"
         )
 
@@ -259,24 +403,31 @@ class OpenStreetMapPlacesService:
         longitude: float,
         categories: list[DiscoveryCategory],
         limit_per_category: int,
+        radius_meters: int | None = None,
     ) -> str:
-        bbox = self._bounding_box(latitude, longitude)
+        bbox = self._bounding_box(latitude, longitude, radius_meters=radius_meters)
         statements = "\n".join(
             f'nwr({bbox})["name"]{tag_filter};'
             for category in categories
             for tag_filter in _FILTERS[category]
         )
-        bounded_limit = max(1, min(limit_per_category * len(categories), 100))
+        bounded_limit = max(1, min(limit_per_category * len(categories), 200))
         return (
             f"[out:json][timeout:{self._query_timeout_seconds}];\n"
             f"(\n{statements}\n);\n"
             f"out center {bounded_limit};"
         )
 
-    def _bounding_box(self, latitude: float, longitude: float) -> str:
-        latitude_delta = self._radius_meters / 111_320
+    def _bounding_box(
+        self,
+        latitude: float,
+        longitude: float,
+        radius_meters: int | None = None,
+    ) -> str:
+        radius = radius_meters if radius_meters is not None else self._radius_meters
+        latitude_delta = radius / 111_320
         longitude_scale = max(cos(radians(latitude)), 0.2)
-        longitude_delta = self._radius_meters / (111_320 * longitude_scale)
+        longitude_delta = radius / (111_320 * longitude_scale)
         return (
             f"{latitude - latitude_delta:.6f},"
             f"{longitude - longitude_delta:.6f},"
@@ -285,28 +436,57 @@ class OpenStreetMapPlacesService:
         )
 
     async def _request(self, query: str) -> httpx.Response:
-        headers = {"User-Agent": "YatraCanvas/0.1 (OpenStreetMap POI discovery)"}
-        try:
-            if self._client is not None:
-                return await self._client.post(
-                    self._api_url,
-                    data={"data": query},
-                    headers=headers,
-                )
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                return await client.post(
-                    self._api_url,
-                    data={"data": query},
-                    headers=headers,
-                )
-        except httpx.TimeoutException as exc:
-            raise OpenStreetMapPlacesTimeoutError(
-                "OpenStreetMap discovery did not respond in time."
-            ) from exc
-        except httpx.RequestError as exc:
-            raise OpenStreetMapPlacesUnavailableError(
-                "OpenStreetMap discovery could not be reached."
-            ) from exc
+        headers = {
+            "User-Agent": "YatraCanvas/0.1 (https://yatracanvas.org; OpenStreetMap POI discovery)",
+            "Accept": "application/json, */*",
+        }
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            try:
+                if self._client is not None:
+                    response = await self._client.post(
+                        self._api_url,
+                        data={"data": query},
+                        headers=headers,
+                    )
+                else:
+                    async with httpx.AsyncClient(timeout=self._timeout) as client:
+                        response = await client.post(
+                            self._api_url,
+                            data={"data": query},
+                            headers=headers,
+                        )
+                if response.status_code in {429, 502, 503, 504} and attempt < max_attempts - 1:
+                    retry_after_str = response.headers.get("Retry-After")
+                    try:
+                        wait_time = min(max(float(retry_after_str), 1.0), 10.0) if retry_after_str else (3.0 * (attempt + 1))
+                    except (TypeError, ValueError):
+                        wait_time = 3.0 * (attempt + 1)
+                    logger.info(
+                        "Overpass server returned HTTP %d, backing off for %.1fs (attempt %d/%d)",
+                        response.status_code,
+                        wait_time,
+                        attempt + 1,
+                        max_attempts,
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                return response
+            except httpx.TimeoutException as exc:
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(2.0)
+                    continue
+                raise OpenStreetMapPlacesTimeoutError(
+                    "OpenStreetMap discovery did not respond in time."
+                ) from exc
+            except httpx.RequestError as exc:
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(2.0)
+                    continue
+                raise OpenStreetMapPlacesUnavailableError(
+                    "OpenStreetMap discovery could not be reached."
+                ) from exc
+        return response
 
     @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:
@@ -314,8 +494,12 @@ class OpenStreetMapPlacesService:
             return
         if response.status_code == 429:
             raise OpenStreetMapPlacesRateLimitError(response.headers.get("Retry-After"))
+        if response.status_code in (504, 408):
+            raise OpenStreetMapPlacesTimeoutError(
+                f"OpenStreetMap discovery timed out on server (HTTP {response.status_code})."
+            )
         raise OpenStreetMapPlacesUnavailableError(
-            "OpenStreetMap discovery is temporarily unavailable."
+            f"OpenStreetMap discovery is temporarily unavailable (HTTP {response.status_code})."
         )
 
     @staticmethod

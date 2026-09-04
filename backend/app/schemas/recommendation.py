@@ -13,6 +13,8 @@ class DiscoveryCategory(str, Enum):
     TOURISM = "tourism"
     CAFES = "cafes"
     HERITAGE = "heritage"
+    MARKETS = "markets"
+    NATURE = "nature"
 
 
 class RecommendationRequest(SQLModel):

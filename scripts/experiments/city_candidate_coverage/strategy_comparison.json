@@ -1,0 +1,42 @@
+{
+  "delhi": {
+    "total_references": 20,
+    "recall_current_8km_osm": 5.0,
+    "recall_separated_category_quotas_12km": 100.0,
+    "recall_audiala_standalone": 85.0,
+    "recall_osm_plus_audiala": 85.0,
+    "recall_tiered_hybrid_15km": 100.0
+  },
+  "jaipur": {
+    "total_references": 18,
+    "recall_current_8km_osm": 27.8,
+    "recall_separated_category_quotas_12km": 100.0,
+    "recall_audiala_standalone": 61.1,
+    "recall_osm_plus_audiala": 66.7,
+    "recall_tiered_hybrid_15km": 100.0
+  },
+  "ahmedabad": {
+    "total_references": 18,
+    "recall_current_8km_osm": 38.9,
+    "recall_separated_category_quotas_12km": 83.3,
+    "recall_audiala_standalone": 94.4,
+    "recall_osm_plus_audiala": 100.0,
+    "recall_tiered_hybrid_15km": 88.9
+  },
+  "surat": {
+    "total_references": 15,
+    "recall_current_8km_osm": 0.0,
+    "recall_separated_category_quotas_12km": 86.7,
+    "recall_audiala_standalone": 40.0,
+    "recall_osm_plus_audiala": 40.0,
+    "recall_tiered_hybrid_15km": 86.7
+  },
+  "varanasi": {
+    "total_references": 20,
+    "recall_current_8km_osm": 40.0,
+    "recall_separated_category_quotas_12km": 100.0,
+    "recall_audiala_standalone": 85.0,
+    "recall_osm_plus_audiala": 95.0,
+    "recall_tiered_hybrid_15km": 100.0
+  }
+}

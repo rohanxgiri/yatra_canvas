@@ -55,7 +55,7 @@ class VrptwSolverService:
         lunch_earliest_start: time = LUNCH_BREAK_EARLIEST_START,
         lunch_latest_start: time = LUNCH_BREAK_LATEST_START,
         lunch_duration_minutes: int = DEFAULT_LUNCH_BREAK_MINUTES,
-        time_limit_seconds: float = 3.0,
+        time_limit_seconds: float = 5.0,
     ) -> None:
         self.day_start_time = day_start_time
         self.day_end_time = day_end_time

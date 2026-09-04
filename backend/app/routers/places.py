@@ -26,6 +26,7 @@ from app.services.openstreetmap_places_service import (
     OpenStreetMapPlacesTimeoutError,
     OpenStreetMapPlacesUnavailableError,
 )
+from app.services.audiala_places_provider import AudialaPlacesProvider
 from app.services.recommendation_service import RecommendationService
 
 router = APIRouter(tags=["places"])
@@ -36,10 +37,26 @@ SettingsDependency = Annotated[Settings, Depends(get_settings)]
 def get_openstreetmap_places_service(
     settings: SettingsDependency,
 ) -> OpenStreetMapPlacesService:
+    category_radii = {
+        DiscoveryCategory.TOURISM: settings.overpass_tourism_radius_meters,
+        DiscoveryCategory.HERITAGE: settings.overpass_heritage_radius_meters,
+        DiscoveryCategory.RELIGIOUS: settings.overpass_religious_radius_meters,
+        DiscoveryCategory.FOOD: settings.overpass_food_radius_meters,
+        DiscoveryCategory.CAFES: settings.overpass_cafe_radius_meters,
+    }
+    category_limits = {
+        DiscoveryCategory.TOURISM: settings.overpass_tourism_limit,
+        DiscoveryCategory.HERITAGE: settings.overpass_heritage_limit,
+        DiscoveryCategory.RELIGIOUS: settings.overpass_religious_limit,
+        DiscoveryCategory.FOOD: settings.overpass_food_limit,
+        DiscoveryCategory.CAFES: settings.overpass_cafe_limit,
+    }
     return OpenStreetMapPlacesService(
         settings.overpass_api_url,
         timeout_seconds=settings.overpass_timeout_seconds,
         radius_meters=settings.overpass_radius_meters,
+        category_radii=category_radii,
+        category_limits=category_limits,
     )
 
 
@@ -48,11 +65,23 @@ OpenStreetMapPlacesDependency = Annotated[
 ]
 
 
+def get_audiala_places_provider(
+    settings: SettingsDependency,
+) -> AudialaPlacesProvider:
+    return AudialaPlacesProvider(settings.audiala_dataset_path)
+
+
+AudialaPlacesDependency = Annotated[
+    AudialaPlacesProvider, Depends(get_audiala_places_provider)
+]
+
+
 def get_openstreetmap_discovery_service(
     settings: SettingsDependency,
     provider: OpenStreetMapPlacesDependency,
+    audiala_provider: AudialaPlacesDependency,
 ) -> OpenStreetMapDiscoveryService:
-    return OpenStreetMapDiscoveryService(settings, provider)
+    return OpenStreetMapDiscoveryService(settings, provider, audiala_provider)
 
 
 OpenStreetMapDiscoveryDependency = Annotated[

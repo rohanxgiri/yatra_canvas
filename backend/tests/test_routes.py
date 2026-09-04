@@ -11,12 +11,16 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.database import get_session
 from app.main import app
 from app.routers.cities import get_geoapify_service
-from app.routers.places import get_openstreetmap_places_service
+from app.routers.places import (
+    get_audiala_places_provider,
+    get_openstreetmap_places_service,
+)
 from app.schemas import (
     CitySuggestion,
     CityDetails,
     DiscoveryCategory,
 )
+from app.services.audiala_places_provider import AudialaPlacesProvider
 from app.services.geoapify_service import (
     GeoapifyConfigurationError,
     GeoapifyService,
@@ -39,6 +43,9 @@ def client() -> Generator[TestClient, None, None]:
             yield session
 
     app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_audiala_places_provider] = (
+        lambda: AudialaPlacesProvider(None)
+    )
     test_client = TestClient(app)
     yield test_client
     test_client.close()
