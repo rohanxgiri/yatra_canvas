@@ -1,117 +1,153 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-09-01
+Last reviewed: 2026-09-04
+Last verified against repository: 2026-09-04
 
-This document is the primary overview for humans and agents. Status labels mean:
+This document is the concise, authoritative primary overview for humans and agents. Status labels mean:
 
 - `[IMPLEMENTED]`: a working repository code path and supporting tests/evidence exist.
 - `[PARTIAL]`: some code or UI exists, but an essential part of the flow is absent.
 - `[PLANNED]`: intended direction with no complete implementation in this repository.
 - `[DEPRECATED]`: retained temporarily but not part of the target required architecture.
+- `[DEAD]`: unreferenced code retained in the repository that is not called by any active path.
 - `[UNKNOWN]`: repository or official-document evidence is insufficient.
 
-## Product purpose and users
+---
 
-YatraCanvas is intended to help travellers—initially people planning trips to Indian
-destinations—choose a city and arrival point, discover places, save preferences, and build a
-practical itinerary. Future operators should be able to review imported place data and correct
-provenance or deduplication problems.
+## 1. Product Purpose and Stage
 
-The primary target users are independent travellers and small groups. Data reviewers and
-administrators are a secondary target. Tour-operator commerce, bookings, ticketing, payments,
-and a global social network are current non-goals.
+### Product Purpose
+YatraCanvas is an intelligent travel-planning application designed for Indian destinations. It guides travellers through:
+1. Selecting a destination city and arrival point (airport, station, hotel, custom address);
+2. Specifying trip dates, purpose, and secondary preferences;
+3. Discovering relevant places via open data and curated discovery;
+4. Saving, locking, prioritizing, and reordering places;
+5. Generating an optimized, time-aware multi-day itinerary with lunch breaks and opening hours;
+6. Visualizing the journey on an interactive map with road-following route geometry;
+7. Receiving weather advisories with indoor/outdoor activity awareness.
 
-## What exists today
+### Current Product Stage
+**Pre-alpha functional prototype for single-trip planning.**
 
-### Technology stack
+- **What genuinely works today:**
+  - Full trip creation lifecycle (`POST /trips`, `GET /trips/{trip_id}`, `PATCH /trips/{trip_id}`) with transactional persistence of destinations, dates, arrival points, trip purposes (weight 2.0/2.5), and preferences (weight 1.0);
+  - City and arrival location autocomplete via Geoapify (`GET /locations/autocomplete`);
+  - OpenStreetMap/Overpass bounded city-wide candidate discovery across 7 categories;
+  - Multi-stage recommendation pipeline with canonical/spatial deduplication, traveller suitability/access confidence filtering, purpose/interest weighting, category filters, and diversity ranking;
+  - Saved places management (`UserSavedPlace`) with custom ordering, locks, must-visit flags, priorities, notes, and authoritative backend reconciliation;
+  - Multi-day itinerary optimization powered by Google OR-Tools VRPTW solver with opening hours, category visit duration heuristics, midday lunch breaks, locked stops, and must-visit penalties;
+  - Keyless road-following route geometry via OSRM (`GET /trips/{trip_id}/route-geometry`);
+  - Interactive map in Flutter (`flutter_map` with OpenStreetMap tiles and day-filtered polylines);
+  - Weather advisories via Open-Meteo with itinerary-aware threshold detection and indoor/outdoor place environment classification;
+  - Smart re-planning impact analysis and atomic diff application.
 
-- `[IMPLEMENTED]` Flutter/Dart application with Material widgets, `http`, `geolocator`, and
-  local `StatefulWidget` state. Navigation uses `Navigator`/`MaterialPageRoute`; no routing or
-  application state-management package is installed.
-- `[IMPLEMENTED]` Python FastAPI backend with Pydantic settings, SQLModel, psycopg 3, and a
-  PostgreSQL connection. Supabase-hosted PostgreSQL is supported as a connection target.
-- `[IMPLEMENTED]` Backend REST clients for Google Places API (New), Google Routes API, and
-  Geoapify autocomplete. FSQ Open Source Places has a local CSV/JSONL import command.
-- `[PARTIAL]` Schema evolution uses SQLModel `create_all` plus standalone SQL scripts. There is
-  no versioned migration runner, and `create_all` does not alter existing tables.
-- `[UNKNOWN]` Production deployment, CI, backups, monitoring, and Supabase Row Level Security:
-  no Docker, CI workflow, deployment manifest, or RLS policy is tracked here.
+- **What is partial / not yet implemented:**
+  - Real authentication / session management: Phone login screen is a UI shell without backend OTP/JWT verification. The backend currently assigns a fixed server-owned development UUID `user_id`;
+  - Account-level multi-trip persistence: `TripDraft` is retained in widget memory and survives screen navigation, but does not survive an app restart;
+  - Versioned migration runner: Database uses `SQLModel.metadata.create_all` plus manual `.sql` scripts; no Alembic runner is configured;
+  - Admin review: Admin UI shell exists with mock data; no authenticated admin APIs or review actions exist.
 
-### User journeys
+---
 
-| Journey | Status | Repository reality |
-| --- | --- | --- |
-| Splash, welcome, phone entry, onboarding | `[PARTIAL]` | UI and navigation exist; phone entry does not authenticate. |
-| Select destination and dates | `[PARTIAL]` | The normal Flutter flow searches stored cities, uses Geoapify city autocomplete when needed, persists a normalized city without requiring Google, and submits its ID, dates, and inclusive day count to `POST /trips`; the calendar remains fixed to August 2026. |
-| Choose arrival point | `[IMPLEMENTED]` | Arrival/start searches use Geoapify results with coordinates, while device/custom starts can also supply coordinates. Changing destination clears stale arrival/start data, and an arrival used as the route start must be selected from a coordinate-backed result. |
-| Choose purpose and preferences | `[IMPLEMENTED]` | The normal flow persists selected purposes (with weight 2.0) and secondary preferences (with weight 1.0) as `TripPreference` rows in the trip-create transaction. Saved purposes seed Place Discovery's recommendation categories. |
-| Discover/recommend places | `[IMPLEMENTED]` | The recommendation flow uses a deterministic multi-stage pipeline: canonical & spatial deduplication (resolving node/way/multi-category duplicates while preserving separate chain branches), general context-based traveller suitability and access confidence filtering (excluding internal canteens, student messes, and staff facilities without hardcoding institution names), centralized trip purpose (2.5x) vs interest (1.0x) weighting, low-relevance cutoff filtering, explicit category-filter interactions that narrow candidates without altering stored preferences, and diversity ranking with explainable recommendation reasons. |
-| Save places | `[IMPLEMENTED]` | Place Discovery uses the real `TripDraft.tripId` to load, add, customize, reorder, and delete persisted saved places. Duplicate conflicts and failed mutations reconcile with backend state instead of leaving optimistic local data. |
-| Optimize itinerary | `[IMPLEMENTED]` | Realistic, time-aware multi-day scheduling works with cached route matrix estimates, sequential arrival/departure timestamps, category-based visit durations, midday lunch breaks, and opening-hours awareness without silently dropping must-visit places. Real road-route geometry is served via `RouteGeometryService`. |
-| Interactive map | `[IMPLEMENTED]` | FlutterMap interactive map with OpenStreetMap tiles, start/place markers, and real road-following `PolylineLayer` per day with day filtering and camera bounds fitting. |
-| Weather advisories | `[IMPLEMENTED]` | Provider-neutral weather assistance via Open-Meteo with itinerary-aware threshold detection (heat, rain, storms, wind), deterministic indoor/outdoor exposure classifier, non-persisted rearrange preview, transactional apply, and default continue path. |
-| Smart re-planning | `[IMPLEMENTED]` | Intelligent change impact analysis detects when saved places or trip parameters change, preserves valid pairwise `RouteMatrixCache` legs, shows a non-destructive re-planning diff preview, and applies schedule updates atomically upon user approval. |
-| Currency | `[DEPRECATED]` | Removed from the active roadmap per project direction. |
-| Admin review | `[PARTIAL]` | A mock admin shell and import-review schema exist; there are no admin APIs or connected review actions. |
+## 2. Current Technology Stack
 
-The Flutter repository contains more than twenty visual states when the multi-step onboarding
-and admin sub-pages are counted, but only a smaller set of distinct screen classes. Screen count
-is not treated as evidence that the intended end-to-end product is complete.
+| Layer | Technologies | Role & Key Details |
+|---|---|---|
+| **Client (Flutter)** | Flutter SDK (Dart `^3.13.0`), Material 3, `http`, `flutter_map: ^8.3.2`, `geolocator`, `flutter_svg` | Widget-local `StatefulWidget` state + shared in-memory `TripDraft`. No external state library (BLoC/Riverpod) or router package. |
+| **Backend (FastAPI)** | Python 3.12+, FastAPI, Pydantic v2, SQLModel, SQLAlchemy, psycopg 3, httpx | Async REST API, Pydantic settings, dependency injection, safe error translation, backend secret encapsulation. |
+| **Database** | PostgreSQL (local or Supabase-hosted) | 11 canonical tables (`cities`, `places`, `place_sources`, `place_categories`, `place_tags`, `city_category_cache`, `trips`, `trip_preferences`, `user_saved_places`, `route_matrix_cache`, `trip_itinerary`) + `place_import_reviews` schema. |
+| **Optimization** | Google OR-Tools (`>=9.9.0`) | Multi-day Vehicle Routing Problem with Time Windows (VRPTW) solver (`VrptwSolverService`). |
+| **Routing & Matrix** | Local coordinate estimates (default matrix), OSRM / openrouteservice (geometry) | Keyless Haversine distance/duration calculations for matrices; OSRM public demo / ORS for road geometry polylines. |
+| **Weather** | Open-Meteo | Hourly/daily weather forecasts with in-memory TTL caching and deterministic exposure classification. |
+| **Caching** | Database + In-Process Memory | DB tables for `city_category_cache` and `route_matrix_cache`; in-memory TTL caches for Geoapify autocomplete, route geometry, and weather forecasts. |
 
-`[IMPLEMENTED]` For the current unauthenticated development slice, `POST /trips` creates a `Trip`
-and related `TripPreference` rows transactionally and returns an application-generated UUID.
-`GET /trips/{trip_id}` and `PATCH /trips/{trip_id}` allow loading and partially updating an
-existing trip, including destination, dates/days, arrival/start coordinates, provider IDs, and
-preferences.
-`[PARTIAL]` The UUID is retained in the in-memory `TripDraft` and can be loaded/edited via
-`TripService`; full trip history/listing UI, multi-trip persistence across accounts, ownership
-enforcement, and authentication are not implemented. Until authentication exists, the backend
-assigns a server-owned development-only placeholder `user_id` and rejects any client-supplied
-identity or internal trip fields.
+---
 
-`[IMPLEMENTED]` The selected-places section is backed by `UserSavedPlace` rows rather than mock
-state. It persists `custom_order`, `priority`, `is_locked`, `must_visit`, and `notes`, and reloads
-authoritative order after a failed reorder. `[PARTIAL]` Changing a trip's city currently preserves
-saved places from the prior city. This avoids silent data loss but can leave cross-city selections;
-no automatic deletion or migration policy has been invented.
+## 3. Current Core Flow
 
-## Intended direction
+```text
+Trip Creation (Destination & Dates → Arrival Point → Purpose & Preferences)
+    ↓
+POST /trips (Transactionally persists Trip + TripPreferences, returns trip_id)
+    ↓
+Recommendations (OSM discovery + Audiala seed → Dedup → Suitability → Scoring → Ranking)
+    ↓
+Saved Places (CRUD, reorder, locks, must-visit flags under trip_id)
+    ↓
+Route Optimization (Local matrix estimates → OR-Tools VRPTW multi-day solver → TripItinerary)
+    ↓
+Road Geometry (OSRM / ORS polyline generation attached to optimization response)
+    ↓
+Interactive Map (FlutterMap + OSM tiles + day-filtered road polylines + markers)
+```
 
-`[PLANNED]` Supabase Auth plus PostgreSQL become the canonical identity and application-data
-layer. Open POI data is ingested in controlled batches from FSQ OS Places and, where justified,
-OpenStreetMap/Overpass. Wikimedia can enrich descriptions and images while retaining per-item
-licensing. Geoapify remains narrowly responsible for runtime autocomplete/geocoding.
-openrouteservice replaces Google Routes after parity and cache tests. Open-Meteo and Frankfurter
-provide weather and exchange-rate information after licensing and product decisions.
+---
 
-Google Places and Google Routes are `[DEPRECATED]` legacy adapters. The normal Flutter
-destination, recommendation, trip-create, and route-ordering flow does not require either key.
-Google Maps SDK is assessed independently and is currently not installed.
+## 4. Current Recommendation Architecture
 
-## Constraints
+The recommendation engine (`RecommendationService`) executes a deterministic 5-stage pipeline:
 
-- Provider data is a candidate source, not automatically trusted canonical data. Preserve
-  source IDs, timestamps, licensing/attribution metadata, and review state.
-- Keep external-provider secrets on the backend. Flutter normally calls YatraCanvas APIs.
-- Preserve nullable `google_place_id` and its unique constraint until a verified backfill and
-  reversible migration prove it safe to retire.
-- Never infer proprietary FSQ fields such as ratings from the open dataset; use only its
-  documented schema.
-- India-first filtering and conservative deduplication are deliberate initial boundaries.
-- Do not run import or migration commands against production without review, backup, and a
-  tested rollback path.
+1. **Candidate Retrieval:**
+   - Queries stored database POIs for the destination city;
+   - Triggers bounded OpenStreetMap/Overpass discovery across 7 categories (`tourism`, `heritage`, `religious`, `food`, `cafe`, `markets`, `nature`) with category-level TTL caching;
+   - Merges secondary candidates from the local Audiala dataset (`AudialaPlacesProvider`).
+2. **Canonical & Spatial Deduplication (`deduplicate_places`):**
+   - Matches canonical `Place.id` and provider namespace keys (`source:external_id`);
+   - Resolves spatial proximity ($\le 75$m distance threshold with normalized tokenized name similarity) to merge OSM node/way and multi-category duplicates;
+   - Preserves distinct branches of the same chain at different locations as unique venues.
+3. **Traveller Suitability & Access Confidence (`is_traveller_suitable`):**
+   - Context-based classifier evaluating tag evidence into `PUBLIC_LIKELY`, `UNKNOWN`, `RESTRICTED_LIKELY`, and `RESTRICTED`;
+   - Automatically filters out student messes, staff canteens, institutional facilities, and private venues without maintaining hardcoded institution blacklists.
+4. **Scoring & Relevance:**
+   - Centralized weighting: Trip Purpose matches receive $2.5\times$ weight; secondary interest matches receive $1.0\times$ weight;
+   - Incorporates access confidence, verified ratings/reviews, and city-center proximity without fabricating missing data;
+   - Enforces a minimum relevance score cutoff.
+5. **Diversity Ranking & Explainability:**
+   - Interleaves categories to prevent single-category saturation;
+   - Generates transparent recommendation reasons (e.g., *"Matches your Heritage purpose"*);
+   - Supports non-destructive client category filtering.
 
-## Source-of-truth map
+---
 
-- [Complete ChatGPT handoff](CHATGPT_PROJECT_HANDOFF.md): self-contained snapshot for a new conversation.
-- [Architecture](ARCHITECTURE.md): current and target components and flows.
-- [APIs and data sources](API_AND_DATA_SOURCES.md): provider ownership, policy, cache, and fallback.
-- [Data model](DATA_MODEL.md): current schema, provenance, and migration expectations.
-- [Environment variables](ENVIRONMENT_VARIABLES.md): every accepted configuration name.
-- [Roadmap](ROADMAP.md): phased work and acceptance criteria.
-- [Decisions](DECISIONS.md): architectural decisions and evidence.
-- [API-key audit](api-key-audit.md): detailed key/reference audit.
+## 5. Current Provider Status
 
-`docs/PROJECT_DOCUMENTATION.md`, its generated DOCX, and the screenshots under `docs/screenshots/`
-are historical UI documentation. When they conflict with this source-of-truth set or current
-code, current code and these dated documents take precedence.
+| Provider | Status | Role in Repository | Key / Auth Required |
+|---|---|---|---|
+| **OpenStreetMap / Overpass** | `[IMPLEMENTED]` | Primary runtime POI discovery across 7 categories with city-category TTL caching. | None (`OVERPASS_API_URL` defaults to public FOSSGIS endpoint). |
+| **Audiala** | `[PARTIAL]` | Secondary POI candidate discovery layer; reads local JSON extract on working branch. | None (`AUDIALA_DATASET_PATH`). |
+| **Geoapify** | `[IMPLEMENTED]` | Destination city and arrival location autocomplete/geocoding. | `GEOAPIFY_API_KEY` (backend-only). |
+| **Open-Meteo** | `[IMPLEMENTED]` | Weather forecasts and itinerary-aware advisory engine. | None for free non-commercial endpoint (`OPEN_METEO_BASE_URL`). |
+| **OSRM** | `[IMPLEMENTED]` | Default keyless road-route geometry polyline generation. | None (`OSRM_ROUTER_URL`). |
+| **openrouteservice** | `[IMPLEMENTED]` (geometry), `[PLANNED]` (matrix) | Alternative road-route geometry provider. | `OPENROUTESERVICE_API_KEY` (optional). |
+| **Local Coordinate Estimator** | `[IMPLEMENTED]` | Default route matrix travel distance/time calculation for optimizer. | None (application-owned calculation). |
+| **Google Places API (New)** | `[DEPRECATED]` / REMOVED | Dead `place_discovery_service.py` deleted; config purged. City flow uses Geoapify. | None. |
+| **Google Routes API** | `[DEPRECATED]` | Legacy route matrix adapter retained; not used by normal optimizer. | `GOOGLE_ROUTES_API_KEY` (legacy adapter only). |
+| **FSQ Open Source Places** | `[IMPLEMENTED]` (batch CLI) | Operator-driven batch POI importer for open CSV/JSONL extracts. | None (offline file import). |
+| **Wikidata / Wikimedia** | `[PLANNED]` / Experimental | Validated experimentally in `docs/poi_importance_experiment.md`; not yet production code. | None. |
+| **FlutterMap / OSM Tiles** | `[IMPLEMENTED]` | Interactive map widget rendering in Flutter with OSM tile layer. | None. |
+
+---
+
+## 6. Current Development Frontier
+
+- **Core trip → recommendation → itinerary → map flow** is operational.
+- **OSM city-wide candidate discovery** is operational.
+- **Audiala secondary candidate discovery** is integrated but remains `[PARTIAL]` because canonical multi-source place identity / source merging has not been finalized.
+- **Wikidata/Wikimedia place importance** has been validated experimentally (`docs/poi_importance_experiment.md`) but is not production code.
+
+**Next engineering task:**
+`canonical multi-source Place identity and provenance`
+
+---
+
+## 7. Authoritative Source-of-Truth Hierarchy
+
+- **[Project context](PROJECT_CONTEXT.md)** (this file): Short authoritative overview of product state, stack, and providers.
+- **[Architecture](ARCHITECTURE.md)**: Detailed technical structure, component flows, and algorithm specifications.
+- **[APIs and data sources](API_AND_DATA_SOURCES.md)**: Provider ownership, policies, caching, licenses, and fallback behavior.
+- **[Data model](DATA_MODEL.md)**: Database schema, entity relationships, constraints, and migration rules.
+- **[Environment variables](ENVIRONMENT_VARIABLES.md)**: Complete inventory of accepted environment variables.
+- **[Roadmap](ROADMAP.md)**: Phased delivery milestones and acceptance criteria.
+- **[Decisions](DECISIONS.md)**: Accepted Architectural Decision Records (ADRs).
+- **[Repository audit](REPOSITORY_AUDIT.md)**: Detailed September 4, 2026 audit of codebase health, tests, and branch status.
+- **[Complete ChatGPT handoff](CHATGPT_PROJECT_HANDOFF.md)**: Concise onboarding document for new AI/human sessions.

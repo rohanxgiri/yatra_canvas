@@ -19,15 +19,27 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 | `GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS` | Geoapify | Optional | Backend | In-process autocomplete TTL, default 300 seconds | Non-secret | `[IMPLEMENTED]`; cache is not shared/persistent |
 | `OVERPASS_API_URL` | OpenStreetMap / Overpass | Optional | Backend | Bounded runtime POI query endpoint; defaults to the public FOSSGIS `lz4` endpoint and may point to a self-hosted instance | Non-secret | `[IMPLEMENTED]` for development/small-scale discovery; public service has no production SLA |
 | `OVERPASS_TIMEOUT_SECONDS` | OpenStreetMap / Overpass | Optional | Backend | Outbound and query timeout, default 25 seconds | Non-secret | `[IMPLEMENTED]` |
-| `OVERPASS_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Half-width of the bounded POI discovery box, default 8,000 m | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Default half-width of bounded POI discovery box, default 8,000 m | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_TOURISM_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Search radius for tourism and major attractions discovery, default 15,000 m | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_HERITAGE_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Search radius for historic and heritage POI discovery, default 15,000 m | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_RELIGIOUS_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Search radius for places of worship discovery, default 10,000 m | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_FOOD_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Search radius for food and restaurant discovery, default 8,000 m | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_CAFE_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Search radius for cafe discovery, default 8,000 m | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_MARKETS_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Search radius for market and bazaar discovery, default 10,000 m | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_NATURE_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Search radius for nature and park discovery, default 25,000 m | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_TOURISM_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for tourism category, default 60 | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_HERITAGE_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for heritage category, default 60 | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_RELIGIOUS_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for religious category, default 40 | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_FOOD_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for food category, default 50 | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_CAFE_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for cafes category, default 40 | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_MARKETS_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for markets category, default 40 | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_NATURE_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for nature category, default 40 | Non-secret | `[IMPLEMENTED]` |
 | `FSQ_OS_PLACES_PATH` | FSQ OS Places | Optional | Backend CLI/operator | Default local CSV/JSONL/NDJSON source path | Usually private path, not a credential | `[IMPLEMENTED]`; portal access token is intentionally not accepted here |
+| `AUDIALA_DATASET_PATH` | Audiala | Optional | Backend | Default local JSON file path for Audiala dataset (`backend/app/data/audiala_places.json`) | Usually private path, not a credential | `[PARTIAL]`; secondary seed layer for POI discovery; multi-source identity pending |
 | `FSQ_DEDUPE_DISTANCE_METERS` | FSQ importer | Optional | Backend CLI | Maximum nearby-candidate distance, default 75 m | Non-secret | `[IMPLEMENTED]`; change conservatively and test dense cities |
 | `FSQ_IMPORT_BATCH_SIZE` | FSQ importer | Optional | Backend CLI | Commit batch size, default 250 | Non-secret | `[IMPLEMENTED]` |
 | `ROUTE_MATRIX_TRAFFIC_TTL_MINUTES` | Route matrix | Optional | Backend | Traffic-duration freshness, default 30 minutes | Non-secret | `[IMPLEMENTED]`; retain semantics across provider migration |
 | `PLACE_DISCOVERY_CACHE_TTL_HOURS` | Place discovery | Optional | Backend | City/category refresh TTL, default 24 hours | Non-secret | `[IMPLEMENTED]`; target ingestion may revise the mechanism |
-| `GOOGLE_NEARBY_RADIUS_METERS` | Google Places | Optional | Backend | Nearby Search radius, default 10,000 m | Non-secret | `[IMPLEMENTED]`, target `[DEPRECATED]` with Google discovery |
-| `PLACE_POPULAR_MIN_RATING` | Canonical place classification | Optional | Backend | Minimum rating for current popular flag, default 4.2 | Non-secret | `[IMPLEMENTED]`; provider-neutral meaning needs review because FSQ OS has no rating field |
-| `PLACE_POPULAR_MIN_REVIEW_COUNT` | Canonical place classification | Optional | Backend | Minimum review count for current popular flag, default 100 | Non-secret | `[IMPLEMENTED]`; same provider-neutral review required |
 | `ROUTING_PROVIDER` | Routing provider selection | Optional | Backend | Routing geometry provider, default `osrm` (or `openrouteservice`) | Non-secret | `[IMPLEMENTED]`; provider-neutral routing selection |
 | `OPENROUTESERVICE_API_KEY` | openrouteservice | Optional | Backend | API token for hosted openrouteservice directions v2 | Secret | `[IMPLEMENTED]`; optional when using self-hosted ORS or OSRM |
 | `OPENROUTESERVICE_BASE_URL` | openrouteservice | Optional | Backend | openrouteservice base URL, default `https://api.openrouteservice.org` | Non-secret | `[IMPLEMENTED]` |
@@ -62,7 +74,7 @@ request only keys for features being exercised.
 ## Planned providers are intentionally absent
 
 No repository code reads a Supabase URL/public client key, Supabase service-role key,
-Frankfurter base URL, Wikimedia contact, or Overpass URL. Those variables have **not**
+Frankfurter base URL, or Wikimedia contact. Those variables have **not**
 been added to `backend/.env.example` because doing so would falsely imply an integration exists.
 
 Before adding any planned variable, implement or select the adapter/configuration contract,
@@ -71,6 +83,11 @@ and document provider policy. Open-Meteo specifically requires a product/licensi
 its [official terms](https://open-meteo.com/en/terms) make the free API non-commercial, while
 its [commercial plans](https://open-meteo.com/en/pricing) use a customer endpoint and key
 (last verified: 2026-08-31).
+
+## Removed dead variables
+
+The following variables were removed from `Settings` and `backend/.env.example` during repository stabilization:
+- `GOOGLE_NEARBY_RADIUS_METERS`, `PLACE_POPULAR_MIN_RATING`, `PLACE_POPULAR_MIN_REVIEW_COUNT`: Consumed solely by the dead `PlaceDiscoveryService` (deleted).
 
 ## Secret-handling rules
 

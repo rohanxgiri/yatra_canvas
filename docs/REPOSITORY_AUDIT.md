@@ -2,8 +2,10 @@
 
 **Date:** 2026-09-04
 **Branch:** `chore/project-audit-cleanup`
-**Audited from:** `feature/audiala-city-seed-layer` (HEAD `721b04a`)
-**Test baseline:** 199 passed, 0 failed, 4 warnings (235.75s)
+**Audit Status:** POST-STABILIZATION BASELINE
+**Backend Test baseline:** 203 passed, 0 failed, 4 warnings (342.45s / 05:42)
+**Flutter Test baseline:** 58 passed, 0 failed (100%)
+**Flutter Analyze:** No issues found (0 warnings, 0 errors)
 
 ---
 
@@ -11,20 +13,35 @@
 
 **What is YatraCanvas today?**
 
-YatraCanvas is a Flutter + FastAPI travel-planning application focused on helping travellers plan Indian-city trips by discovering, saving, and optimizing places into day-by-day itineraries. The backend is well-structured with a meaningful multi-stage recommendation pipeline and real OR-Tools itinerary optimization. A significant amount of feature work has landed, but the most recent development session (`feature/audiala-city-seed-layer`) was stopped mid-commit — its changes are present in the working tree but **not yet committed**.
+YatraCanvas is a Flutter + FastAPI travel-planning application focused on helping travellers plan Indian-city trips by discovering, saving, and optimizing places into day-by-day itineraries. The backend is structured with a multi-stage recommendation pipeline, OpenStreetMap candidate discovery, Audiala secondary POI seed discovery, and real Google OR-Tools VRPTW itinerary optimization. The repository stabilization and cleanup task has now established a clean, tested, committed baseline.
 
 **What works?**
-Trip creation, recommendation pipeline (OSM-backed), itinerary optimization (OR-Tools VRPTW), route geometry (OSRM), weather advisories (Open-Meteo), saved places, smart replanning, and the Flutter UI flow are all functionally implemented and have passing tests.
+- Core trip flow (destination, dates, arrival, purpose, preferences)
+- OpenStreetMap candidate discovery (Overpass API)
+- Audiala secondary seed discovery (in-memory JSON dataset under `backend/app/data/audiala_places.json`, CC BY 4.0)
+- Multi-stage recommendation pipeline (category-balanced, preference-weighted, deduplicated)
+- User saved places and pinned ordering
+- Itinerary optimization via Google OR-Tools VRPTW solver (time windows, lunch breaks, visit durations)
+- Road route geometry via OSRM (with optional openrouteservice adapter)
+- Interactive Flutter map visualization with day-based polyline filtering
+- Weather forecast and smart replanning advisories via Open-Meteo
+- All 203 backend tests passing (100%)
+- All 58 Flutter tests passing (100%)
+- Flutter analyze completely clean (0 issues)
 
-**What is incomplete?**
-- Audiala integration is PARTIAL — production code calls `AudialaPlacesProvider` but the class is **untracked** (not committed). The working integration was built on the current branch and never committed.
-- Flutter calendar is fixed to August 2026 (hardcoded).
-- Authentication / Supabase Auth is absent.
+**What was resolved in stabilization?**
+- Audiala production dataset moved to `backend/app/data/audiala_places.json` (decoupled from experiment folders)
+- Audiala provider optimized with class-level caching, bounding-box pre-filtering, and CC BY 4.0 provenance tracking
+- Flutter syntax error in `home_screen.dart` resolved
+- Hardcoded August 2026 calendar replaced with dynamic, future-aware calendar logic and normalized date comparisons
+- Dead Google Places discovery service (`place_discovery_service.py`) deleted
+- Dead configuration keys (`GOOGLE_NEARBY_RADIUS_METERS`, `PLACE_POPULAR_MIN_RATING`, `PLACE_POPULAR_MIN_REVIEW_COUNT`) purged from `config.py`, `.env.example`, and docs
+- Transient experiment caches cleaned and ignored in `.gitignore`
+
+**What remains incomplete?**
+- Audiala secondary discovery remains **`[PARTIAL]`**: canonical multi-source Place identity and provenance merging (preventing duplicate OSM + Audiala database rows for the same venue) is not yet implemented.
+- Authentication / Supabase Auth is absent (`user_id` is a server-generated placeholder).
 - Admin panel has no real API.
-- `place_discovery_service.py` (Google-backed) is dead code — never called from any router.
-
-**Is the repository healthy?**
-Mostly, with caveats. The committed codebase is well-organized. The active branch carries 10 modified files + 4 untracked directories/files that represent a logical unit of work (Audiala seed layer) that needs to be committed or cleanly rebased. Documentation is relatively current but needs a few corrections.
 
 ---
 
@@ -419,8 +436,8 @@ GET /trips/{trip_id}/weather-advisories
 | `OPEN_METEO_TIMEOUT_SECONDS` | OPTIONAL | Has default |
 | `WEATHER_CACHE_TTL_MINUTES` | OPTIONAL | Default 60 |
 
-**Issues:**
-- `GOOGLE_NEARBY_RADIUS_METERS`, `PLACE_POPULAR_MIN_RATING`, `PLACE_POPULAR_MIN_REVIEW_COUNT` are loaded by `Settings` but consumed only by dead `PlaceDiscoveryService`. Mark as `[LEGACY]` in `.env.example`.
+**Issues Resolved During Stabilization:**
+- `GOOGLE_NEARBY_RADIUS_METERS`, `PLACE_POPULAR_MIN_RATING`, `PLACE_POPULAR_MIN_REVIEW_COUNT` were removed from `Settings`, `.env.example`, and `docs/ENVIRONMENT_VARIABLES.md`.
 
 ---
 
@@ -428,34 +445,36 @@ GET /trips/{trip_id}/weather-advisories
 
 | Document | Finding | Action |
 |---|---|---|
-| `docs/PROJECT_CONTEXT.md` | Map marked as feature, Audiala not mentioned | Updated (see §20) |
-| `docs/ARCHITECTURE.md` | Map listed as `[PLANNED]` — should be `[IMPLEMENTED]` (FlutterMap is live) | Update needed |
-| `docs/ENVIRONMENT_VARIABLES.md` | Modified (uncommitted) — correct Audiala docs | Will be committed with Audiala feature |
-| `docs/city_candidate_coverage_audit.md` | Untracked experiment doc | Will be committed with Audiala feature |
-| `docs/poi_importance_experiment.md` | Untracked experiment doc | Will be committed with Audiala feature |
+| `docs/PROJECT_CONTEXT.md` | Reconciled current system, Audiala `[PARTIAL]` status, verified weightings | Updated |
+| `docs/ARCHITECTURE.md` | Reconciled stack, routes, and services | Updated |
+| `docs/ENVIRONMENT_VARIABLES.md` | Purged dead Google variables; documented Audiala `[PARTIAL]` | Updated |
+| `docs/CHATGPT_PROJECT_HANDOFF.md` | Updated to 2026-09-04 reality | Updated |
+| `docs/REPOSITORY_AUDIT.md` | Updated to post-stabilization verified baseline | Updated |
 
 ---
 
 ## 16. Test Baseline
 
 ```
-Backend: 199 passed, 0 failed, 4 warnings (235.75s)
-  Warnings: httpx/starlette deprecation (use httpx2), OR-Tools SwigPy deprecations
+Backend: 203 passed, 0 failed, 4 warnings (342.45s / 05:42)
+  Warnings: httpx/starlette deprecation, OR-Tools SwigPy deprecations
 
-Flutter: Not run (flutter analyze/test not part of this audit scope)
+Flutter: 58 passed, 0 failed (100%)
+  Analyze: No issues found! (0 warnings, 0 errors)
 ```
 
 **Test coverage by area:**
 
 | Area | Covered | Notes |
 |---|---|---|
+| Audiala provider | ✅ | `test_audiala_places_provider.py` (new) |
 | Configuration | ✅ | `test_config.py` |
 | Documentation consistency | ✅ | `test_documentation.py` |
 | FSQ CLI import | ✅ | `test_fsq_importer.py` |
 | Geoapify autocomplete | ✅ | `test_geoapify_service.py` |
 | Itinerary timing | ✅ | `test_itinerary_timing.py` |
-| OSM discovery + Audiala | ✅⚠️ | `test_openstreetmap_discovery_service.py` (modified, uncommitted) |
-| OSM Overpass queries | ✅⚠️ | `test_openstreetmap_places_service.py` (modified, uncommitted) |
+| OSM discovery + Audiala | ✅ | `test_openstreetmap_discovery_service.py` |
+| OSM Overpass queries | ✅ | `test_openstreetmap_places_service.py` |
 | Preference weighting | ✅ | `test_preference_weighting.py` |
 | Recommendation quality | ✅ | `test_recommendation_quality.py` |
 | Recommendation service | ✅ | `test_recommendation_service.py` |
@@ -469,55 +488,53 @@ Flutter: Not run (flutter analyze/test not part of this audit scope)
 | Trip editing | ✅ | `test_trip_editing.py` |
 | VRPTW solver | ✅ | `test_vrptw_solver.py` |
 | Weather advisories | ✅ | `test_weather_advisories.py` |
-
-**No tests exist for:** `place_discovery_service.py` (dead code — expected).
+| Flutter UI & Widgets | ✅ | 58 widget and unit tests including `select_dates_test.dart` |
 
 ---
 
-## 17. Technical Debt
+## 17. Technical Debt (Post-Stabilization)
 
 ### CRITICAL
-- **Audiala feature never committed.** 14 modified/untracked files form a coherent feature wired into production endpoints. Risk: accidental `git clean` or branch switch could lose this work.
+- **None remaining.** All code in working tree is tested, cleanly decoupled, and ready for commit.
 
 ### HIGH
-- **Flutter calendar hardcoded to August 2026.** Trip date selection is non-functional for real users.
-- **No authentication.** `user_id` is a server-generated placeholder.
-- **`place_discovery_service.py` imports non-existent `GooglePlacesService`.** Would fail at import time if ever directly imported. Dead code risk.
-- **Two Place rows for same venue** (OSM node + Audiala QID). Spatial dedup at query time helps but DB holds redundant rows.
+- **Canonical Multi-Source Place Identity & Merge:** When Place X exists in both OpenStreetMap and Audiala, it may currently create two Place rows in PostgreSQL (`Place A` and `Place B`) and only deduplicate spatially during recommendations. Needs a canonical place identity with provenance tracking across multiple sources.
+- **Authentication:** `user_id` is a server-generated placeholder; Supabase Auth integration is pending.
 
 ### MEDIUM
-- No versioned migration runner — schema evolution via `create_all` + manual SQL is fragile.
-- Three Haversine implementations across codebase.
-- Three config keys (`GOOGLE_NEARBY_RADIUS_METERS`, `PLACE_POPULAR_MIN_RATING`, `PLACE_POPULAR_MIN_REVIEW_COUNT`) loaded but only used by dead code.
-- Admin panel has no real API or connectivity.
+- Multiple Haversine implementations across codebase (intentionally deferred to preserve stability).
+- `GoogleRoutesService` is retained as legacy fallback adapter; primary flow uses `LocalRoutesService`.
+- No versioned migration runner — schema evolution via `create_all` + manual SQL.
+- Admin panel has mock UI but no real backend API.
 - No `GET /trips` list endpoint — trip history is inaccessible.
-- `TripDraft` is in-memory only — app restart loses state.
+- `TripDraft` is in-memory only — app restart resets draft.
 
 ### LOW
-- `City.google_place_id` retained but not populated by current flow.
-- `PlaceCategory` and `PlaceImportReview` models have no service or router usage.
-- `lib/main_admin.dart` is 135 bytes with no real content.
-- `docs/ARCHITECTURE.md` incorrectly marks Flutter map as `[PLANNED]`.
+- `City.google_place_id` column retained but not populated by current Geoapify flow.
+- `PlaceCategory` and `PlaceImportReview` models have no active service or router usage.
 
 ---
 
 ## 18. Current Project Status
 
-As of 2026-09-04, YatraCanvas is a well-implemented travel-planning backend with a functioning Flutter UI for the complete trip-creation-to-itinerary flow. The 199-test suite passes cleanly. The majority of committed code is production-quality and correctly organized.
-
-The development session that produced the Audiala integration (`feature/audiala-city-seed-layer`) stopped before committing. 14 modified/untracked files contain a complete and coherent Audiala seed-layer feature — an in-memory JSON dataset provider that supplements OSM with Wikidata-derived important POIs for major Indian cities. This code is injected into production endpoints but is not in git history.
-
-No features were accidentally broken. The committed HEAD (`721b04a`) is clean.
+As of 2026-09-04, YatraCanvas has reached a stabilized, fully verified baseline.
+- Backend test suite: **203/203 tests passing**.
+- Flutter test suite: **58/58 tests passing**.
+- Flutter analyzer: **clean (0 issues)**.
+- Dead code: `backend/app/services/place_discovery_service.py` deleted.
+- Dead config: `GOOGLE_NEARBY_RADIUS_METERS`, `PLACE_POPULAR_MIN_RATING`, `PLACE_POPULAR_MIN_REVIEW_COUNT` removed.
+- Calendar: Dynamic future-aware calendar operational.
+- Audiala: Stabilized in production `backend/app/data/audiala_places.json`, lazily loaded with class-level caching and bounding-box optimization.
 
 ---
 
-## 19. Recommended Next Steps (Top 3 Only)
+## 19. SINGLE Next Engineering Task
 
-1. **Commit the Audiala feature.** All modified + untracked files are a coherent unit. `git add` all of them and commit as `feat: Audiala city seed layer — OSM + Wikidata POI overlay`. Verify 199 tests still pass after commit.
+```text
+canonical multi-source Place identity and provenance
+```
 
-2. **Fix the Flutter calendar hardcoding** in `select_dates_screen.dart`. Replace the fixed August 2026 initial month with `DateTime.now()`. This is a contained, high-impact bug fix.
-
-3. **Label `place_discovery_service.py` as `[LEGACY/DEAD]`** by updating its module docstring. This removes ambiguity for future agents. Do not delete yet.
+Resolve the duplicate-row limitation by implementing canonical place resolution between OSM Overpass and Audiala entities, linking multiple source records (ODbL OSM + CC BY 4.0 Audiala) to a single canonical `Place`.
 
 ---
 

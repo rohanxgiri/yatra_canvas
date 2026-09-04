@@ -1,32 +1,31 @@
-# YatraCanvas complete ChatGPT project handoff
+# YatraCanvas Complete ChatGPT Project Handoff
 
-Last reviewed: 2026-09-01
+Last reviewed: 2026-09-04
+LAST VERIFIED AGAINST REPOSITORY: 2026-09-04
 
-> **2026-09-01 provider update:** Normal recommendations now use bounded, cached
-> OpenStreetMap/Overpass discovery and normal route optimization uses labelled local coordinate
-> estimates; neither flow requires Google keys. Google Places/Routes adapters are legacy
-> `[DEPRECATED]` paths. Geoapify remains the freemium destination/arrival autocomplete dependency.
-> The modular architecture, API/data-source, environment, and decisions documents are
-> authoritative where older provider descriptions remain later in this snapshot.
+> **Status Notice:** This handoff summarizes the state of YatraCanvas as of September 4, 2026.
+> The primary provider stack is 100% provider-neutral: OpenStreetMap/Overpass for place discovery,
+> Audiala as a secondary seed layer, Geoapify for autocomplete, local coordinate estimates for route
+> matrices, Google OR-Tools for multi-day VRPTW scheduling, OSRM for road geometry, FlutterMap for
+> map display, and Open-Meteo for weather advisories. Google Places and Routes are legacy `[DEPRECATED]`
+> adapters not required by normal flows.
+> 
+> When working in the codebase, the modular documents under `docs/` are authoritative.
 
-## How to use this file
+---
 
-Upload this file to a new ChatGPT conversation. It is a self-contained snapshot of the product,
-repository, architecture, integrations, configuration, known gaps, risks, and recommended next
-work. It contains no real credentials.
+## How to Use This File
 
-If ChatGPT also has repository access, the modular documents under `docs/` and the current code
-remain authoritative when newer than this snapshot. ChatGPT must verify code before making a new
-architectural claim.
+Upload this file to a new ChatGPT or AI assistant conversation to provide a self-contained, accurate snapshot of the product, architecture, data model, configuration, testing state, and roadmap.
 
-Use this prompt with the uploaded file:
+Use this prompt when onboarding an AI assistant:
 
 ```text
 You are helping me continue the YatraCanvas project. Read the complete attached handoff before
 suggesting or changing anything.
 
 Rules:
-1. Use the status labels IMPLEMENTED, PARTIAL, PLANNED, DEPRECATED, and UNKNOWN exactly as
+1. Use the status labels IMPLEMENTED, PARTIAL, PLANNED, DEPRECATED, DEAD, and UNKNOWN exactly as
    defined in the handoff.
 2. Do not describe a partial or planned feature as complete.
 3. Base project claims on the handoff or inspected repository code.
@@ -45,571 +44,176 @@ First:
 - stop for my approval before performing destructive database or production actions.
 ```
 
-## 1. Snapshot and status vocabulary
-
-Project: **YatraCanvas**
-
-Stage: **pre-alpha functional prototype; not ready for public or production use**
-
-Primary market direction: travel planning for Indian destinations.
-
-Repository stack: Flutter/Dart client, Python FastAPI backend, SQLModel, and PostgreSQL. A
-Supabase PostgreSQL connection is supported, but Supabase Auth, the Supabase Flutter SDK, and
-tracked Row Level Security policies are not implemented.
-
-Status labels:
-
-- `[IMPLEMENTED]`: a working code path exists in the repository and has supporting evidence.
-- `[PARTIAL]`: code or UI exists, but an essential part of the real flow is missing.
-- `[PLANNED]`: intended direction without a complete repository implementation.
-- `[DEPRECATED]`: retained temporarily or explicitly avoided in the target architecture.
-- `[UNKNOWN]`: the repository and verified documentation do not provide enough evidence.
-
-## 2. Product purpose
-
-YatraCanvas is intended to help a traveller:
-
-1. authenticate and maintain a profile;
-2. choose an Indian destination city;
-3. select trip dates, purpose, and interests;
-4. enter an arrival airport, railway station, bus station, hotel, or address;
-5. discover attractions and useful places;
-6. save, prioritize, lock, and reorder places;
-7. generate an optimized multi-day itinerary;
-8. view places and routes on an interactive map;
-9. see weather and, where relevant, currency information;
-10. receive data that administrators can verify and correct.
-
-Target users are independent travellers and small groups. Data reviewers/administrators are a
-secondary user group. Bookings, ticket sales, payments, travel-agent commerce, and a global
-social network are not current scope.
-
-## 3. Current readiness verdict
-
-The application is **not ready for normal public use**.
-
-It can be used as a development prototype for individual screens, provider-backed endpoints,
-place importing, and seeded-trip tests. It is not yet a complete private alpha because the normal
-Flutter journey does not persist a new trip or establish an authenticated user.
-
-Critical launch blockers:
-
-- `[PARTIAL]` The phone login screen does not authenticate anyone.
-- `[PARTIAL]` The normal create-trip flow never calls a trip-create endpoint and never receives a
-  real `trip_id`.
-- `[PARTIAL]` Saved places, start-location persistence, and route optimization require an already
-  existing trip, so they do not work end-to-end for a normal newly created trip.
-- `[PARTIAL]` The optimizer writes only day 1, not a genuine multi-day itinerary.
-- `[PARTIAL]` Database evolution uses `create_all` plus standalone SQL scripts rather than an
-  ordered, versioned migration system.
-- `[UNKNOWN]` Supabase RLS, production deployment, backups, monitoring, privacy operations, and
-  incident recovery are not represented in the repository.
-- `[PARTIAL]` Admin pages use mock values and do not call authorized admin APIs.
-- `[PLANNED]` There is no interactive map, weather, or currency feature.
-
-## 4. Current Flutter application
-
-### Application structure
-
-- `[IMPLEMENTED]` `lib/main.dart` starts the traveller app.
-- `[IMPLEMENTED]` `lib/main_admin.dart` starts a separate admin shell.
-- `[IMPLEMENTED]` Material widgets, `http`, `geolocator`, and `flutter_svg` are used.
-- `[IMPLEMENTED]` Navigation uses `Navigator` and `MaterialPageRoute` directly.
-- `[IMPLEMENTED]` State is mainly local `StatefulWidget` state and a shared in-memory `TripDraft`.
-- No router package, dependency-injection system, global state-management package, local database,
-  secure token storage, or Supabase SDK is installed.
-- External services are called through Dart REST service classes using `API_BASE_URL`.
-
-### Traveller screens
-
-| Screen/flow | Status | Reality |
-| --- | --- | --- |
-| Splash | `[IMPLEMENTED]` | Starts the app and advances to welcome. |
-| Welcome | `[IMPLEMENTED]` | Entry UI and navigation. |
-| Phone login | `[PARTIAL]` | Input/validation UI only; no OTP or session. |
-| Personal-interests onboarding | `[PARTIAL]` | Multi-step visual onboarding in one screen; not persisted to a user profile. |
-| Home | `[PARTIAL]` | Layout and navigation exist; content includes mock/local data. |
-| Destination selection | `[PARTIAL]` | Stored and Google city lookup exist; no final persisted trip. |
-| Date selection | `[PARTIAL]` | Updates in-memory draft only. |
-| Arrival details | `[PARTIAL]` | Geoapify, device, and custom input paths exist; saving requires an existing trip ID. |
-| Trip purpose | `[PARTIAL]` | Captured in the draft but not persisted by the normal flow. |
-| Trip preferences | `[PARTIAL]` | Captured in the draft but not persisted by the normal flow. |
-| Place discovery | `[PARTIAL]` end-to-end | Discovery/recommendation APIs work, but save/route actions depend on a trip ID. |
-| Interactive map | `[PLANNED]` | Decorative map artwork is present, but no actual map SDK/widget exists. |
-
-### Admin UI
-
-The admin shell has Overview, Trips, Destinations, Travellers, Reports, and Management pages.
-It is `[PARTIAL]`: visual structure exists, but metrics/rows are hard-coded, callbacks do not
-perform real work, and no authenticated admin API exists.
-
-### Flutter services
-
-- `CityService`: stored city search, Google city autocomplete/details, city resolution.
-- `LocationService`: backend Geoapify location autocomplete.
-- `PlaceService`: city place discovery.
-- `RecommendationService`: place recommendations.
-- `SavedPlaceService`: list/add/update/reorder/delete saved trip places.
-- `RouteOptimizationService`: optimize a seeded/existing trip.
-- `TripService`: get/update start location only.
-- `DeviceLocationService`: device geolocation through `geolocator`.
-
-## 5. Current FastAPI backend
-
-`backend/app/main.py` creates missing SQLModel tables at startup and includes the application
-routers. `create_all` does not upgrade an existing database schema.
-
-### Current endpoints
-
-| Method | Path | Status/purpose |
-| --- | --- | --- |
-| `GET` | `/` | `[IMPLEMENTED]` backend status |
-| `POST` | `/cities` | `[IMPLEMENTED]` create canonical city |
-| `GET` | `/cities` | `[IMPLEMENTED]` list stored cities |
-| `GET` | `/cities/search` | `[IMPLEMENTED]` search stored cities |
-| `GET` | `/cities/{city_id}` | `[IMPLEMENTED]` get one city |
-| `GET` | `/cities/autocomplete` | `[IMPLEMENTED]` Google Places city predictions |
-| `GET` | `/cities/place-details/{google_place_id}` | `[IMPLEMENTED]` Google city details |
-| `POST` | `/cities/resolve` | `[IMPLEMENTED]` find/create normalized Google or non-Google city |
-| `GET` | `/locations/autocomplete` | `[IMPLEMENTED]` Geoapify destination and arrival autocomplete |
-| `POST` | `/places` | `[IMPLEMENTED]` create a canonical place |
-| `GET` | `/cities/{city_id}/places` | `[IMPLEMENTED]` list stored places |
-| `GET` | `/cities/{city_id}/discover-places` | `[IMPLEMENTED]` cache-aware discovery/Google refresh |
-| `POST` | `/cities/{city_id}/recommendations` | `[IMPLEMENTED]` preference-based recommendations |
-| `GET` | `/trips/{trip_id}/saved-places` | `[IMPLEMENTED]` for an existing trip |
-| `POST` | `/trips/{trip_id}/saved-places` | `[IMPLEMENTED]` for an existing trip |
-| `PATCH` | `/trips/{trip_id}/saved-places/reorder` | `[IMPLEMENTED]` reorder all selected places |
-| `PATCH` | `/trips/{trip_id}/saved-places/{place_id}` | `[IMPLEMENTED]` update priority/lock/must-visit/notes |
-| `DELETE` | `/trips/{trip_id}/saved-places/{place_id}` | `[IMPLEMENTED]` remove saved place |
-| `GET` | `/trips/{trip_id}/start-location` | `[IMPLEMENTED]` get existing trip start point |
-| `PATCH` | `/trips/{trip_id}/start-location` | `[IMPLEMENTED]` update existing trip start point |
-| `POST` | `/trips/{trip_id}/optimize-route` | `[PARTIAL]` Google matrix plus day-1 itinerary |
-
-Important missing endpoints:
-
-- authentication/session/profile endpoints;
-- create/list/update/delete trip endpoints;
-- trip-purpose/preference persistence as a complete workflow;
-- real multi-day itinerary generation;
-- map/route-geometry endpoints;
-- weather and currency endpoints;
-- admin review, merge, correction, and audit endpoints;
-- ingestion-job status endpoints.
-
-## 6. Current runtime architecture
-
-```mermaid
-flowchart LR
-    Traveller --> Flutter
-    Flutter -->|REST via API_BASE_URL| FastAPI
-    FastAPI --> PostgreSQL
-    FastAPI -->|city and nearby POI| GooglePlaces[Google Places API New]
-    FastAPI -->|arrival autocomplete| Geoapify
-    FastAPI -->|route matrices| GoogleRoutes[Google Routes API]
-```
-
-Provider keys belong only on the backend. Flutter consumes YatraCanvas-owned response schemas.
-
-Current provider-neutrality is limited: location autocomplete has a provider protocol, while
-place discovery and route matrices instantiate Google-specific services directly.
-
-## 7. Database model
-
-The current canonical database models are:
-
-| Entity | Purpose |
-| --- | --- |
-| `City` | Destination name/state/country, coordinates, nullable legacy `google_place_id` |
-| `Place` | Canonical POI, category, coordinates, optional rating/reviews and feature flags |
-| `CityCategoryCache` | City/category discovery freshness and expiry |
-| `PlaceTag` | Application tag unique per place |
-| `PlaceSource` | Provider namespace/ID, license, URL, address/contact, lifecycle dates, flags and timestamps |
-| `PlaceCategory` | Provider-specific category identity/label |
-| `PlaceImportReview` | Pending/resolved/ignored ambiguous-import review with match evidence |
-| `Trip` | User UUID, city, name, days/date, arrival/start location and provider identifiers |
-| `TripPreference` | Weighted preference unique within a trip |
-| `UserSavedPlace` | Selected place, order, priority, lock, must-visit, and notes |
-| `RouteMatrixCache` | Directed trip pair/mode, coordinates, distance, static/traffic durations and expiry |
-| `TripItinerary` | Day/order/place and optional visit/travel timing |
-
-Important facts:
-
-- `Trip.user_id` is a UUID but is not a foreign key to a tracked user or Supabase Auth table.
-- `City.google_place_id` is nullable and protected by `uq_cities_google_place_id`. It must remain
-  as a legacy identifier until a verified backfill and reversible migration are complete.
-- Google POI identities are stored in `PlaceSource`, not directly on `Place`.
-- Provider records are candidates; they are not automatically trusted canonical truth.
-- `PlaceImportReview` has review status, but canonical `Place` has no overall verification status,
-  reviewer, field-level provenance, or audit trail.
-- The current optimizer writes `TripItinerary.day_number = 1` only.
-- There are no profile, weather, currency, media-license, admin-audit, or ingestion-run tables.
-
-## 8. Place ingestion and provenance
-
-`[IMPLEMENTED]` A local CLI imports bounded FSQ Open Source Places exports in CSV, JSONL, or
-NDJSON form. It does not call the proprietary Foursquare Places API.
-
-The importer:
-
-- validates configured Indian city/locality boundaries;
-- streams input and commits in configurable batches;
-- updates repeated FSQ external IDs without creating a duplicate source;
-- preserves FSQ lifecycle dates, contact fields, categories, source URL, Apache-2.0 identifier,
-  and unresolved quality flags;
-- skips a new source already marked closed while retaining closure information for known sources;
-- attaches a source automatically only when normalized name/category match and exactly one nearby
-  canonical candidate exists;
-- creates a `PlaceImportReview` for ambiguous or conflicting candidates;
-- does not overwrite manually curated canonical place values.
-
-The current official FSQ access flow uses the Places Portal and an Iceberg catalog. An operator
-must export a bounded file outside the app. Portal token automation is not implemented and no
-portal token is an application environment variable.
-
-## 9. Provider status and target responsibility
-
-| Provider | Current status | Current/target responsibility | Key now? |
-| --- | --- | --- | --- |
-| PostgreSQL | `[IMPLEMENTED]` | Canonical application/place data | `DATABASE_URL` required |
-| Supabase Auth | `[PLANNED]` | Target authentication/identity | No configured variable yet |
-| FSQ Open Source Places | `[IMPLEMENTED]` local import | Batch open-POI candidates | No runtime key |
-| Geoapify | `[IMPLEMENTED]` | Runtime autocomplete/geocoding only | `GEOAPIFY_API_KEY` optional by feature |
-| Google Places API (New) | `[IMPLEMENTED]`, target `[DEPRECATED]` | Current cities and nearby discovery | `GOOGLE_PLACES_API_KEY` optional by feature |
-| Google Routes API | `[IMPLEMENTED]`, replacement planned | Current route matrix | `GOOGLE_ROUTES_API_KEY` optional by feature |
-| OpenStreetMap/Overpass | `[PLANNED]` | Supplemental batch geographic/POI data | None defined |
-| Wikimedia/Wikipedia/Wikidata | `[PLANNED]` | Descriptions, context, licensed images | None defined |
-| openrouteservice | `[PLANNED]` | Target directions and route matrices | None defined |
-| Open-Meteo | `[PLANNED]` | Weather forecasts | None defined; commercial decision required |
-| Frankfurter | `[PLANNED]` | Dated reference exchange rates | Public API requires no key currently |
-| Interactive map provider/SDK | `[PLANNED]` decision | Map rendering and tiles | None defined |
-| Proprietary Foursquare Places API | `[DEPRECATED]`/not integrated | No approved responsibility | Not required |
-
-Provider policies, pricing, quotas, and licenses are volatile and must be rechecked using official
-documentation before implementation or launch.
-
-## 10. Exact current environment contract
-
-### Required
-
-- `DATABASE_URL`: backend-only PostgreSQL connection secret. This is the only setting required
-  for the backend process to start.
-
-### Optional implemented provider keys
-
-- `GOOGLE_PLACES_API_KEY`: backend secret for current city and nearby-place paths.
-- `GOOGLE_ROUTES_API_KEY`: backend secret for current route matrices.
-- `GEOAPIFY_API_KEY`: backend secret for location autocomplete/geocoding.
-
-### Optional backend configuration
-
-- `GEOAPIFY_BASE_URL`
-- `GEOAPIFY_TIMEOUT_SECONDS`
-- `GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS`
-- `FSQ_OS_PLACES_PATH`
-- `FSQ_DEDUPE_DISTANCE_METERS`
-- `FSQ_IMPORT_BATCH_SIZE`
-- `ROUTE_MATRIX_TRAFFIC_TTL_MINUTES`
-- `PLACE_DISCOVERY_CACHE_TTL_HOURS`
-- `GOOGLE_NEARBY_RADIUS_METERS`
-- `PLACE_POPULAR_MIN_RATING`
-- `PLACE_POPULAR_MIN_REVIEW_COUNT`
-
-### Flutter build configuration
-
-- `API_BASE_URL`: safe public backend origin supplied with `--dart-define` when overriding the
-  emulator-friendly development default.
-
-Do not request or add Supabase, openrouteservice, Open-Meteo, Frankfurter, Wikimedia, Overpass,
-or provider-selection variables until corresponding code actually reads them. Do not place
-provider/database secrets in Flutter.
-
-## 11. Caching and failure behavior
-
-- Place discovery uses `CityCategoryCache` and `PLACE_DISCOVERY_CACHE_TTL_HOURS`. Canonical place
-  and provenance rows remain stored after the refresh expires.
-- Geoapify autocomplete uses a short in-process cache. It is lost at restart and is not shared
-  across multiple backend replicas.
-- Route matrices persist distance, static duration, optional traffic duration, calculation time,
-  and traffic expiry. When Google is unavailable, a complete static cached matrix may be used.
-  If any required pair is absent, optimization fails rather than inventing a duration.
-- Missing optional provider keys produce safe provider-configuration failures while unrelated
-  backend features remain available.
-- No general ingestion scheduler, deletion/tombstone processor, cache purge job, retry queue, or
-  production observability layer exists.
-
-## 12. Google dependency assessment
-
-Currently used:
-
-- **Google Places API (New):** autocomplete, place details, city resolution, and nearby discovery.
-- **Google Routes API:** `computeRouteMatrix` for optimizer legs.
-
-Not found in the repository:
-
-- Google Maps SDK for Android/iOS/JavaScript;
-- Google Places platform SDK;
-- Google Geocoding API;
-- Google Directions API;
-- legacy Google Distance Matrix API.
-
-Google Places and Routes cannot be disabled yet without breaking implemented features. Google
-Maps is a separate product decision and must not be added or removed solely because Places is
-being migrated. External consumers in the same Google Cloud project are `[UNKNOWN]`, so repository
-evidence alone cannot authorize disabling a Cloud API.
-
-## 13. Target architecture
+---
+
+## 1. Status Vocabulary
+
+- `[IMPLEMENTED]`: A working code path exists in the repository with supporting evidence and passing tests.
+- `[PARTIAL]`: Code or UI exists, but an essential part of the real flow is missing.
+- `[PLANNED]`: Intended direction without a complete repository implementation.
+- `[DEPRECATED]`: Retained temporarily or explicitly avoided in the target architecture.
+- `[DEAD]`: Unreferenced code retained in the repository that is not called by any active router/flow.
+- `[UNKNOWN]`: The repository and verified documentation do not provide enough evidence.
+
+---
+
+## 2. Product Purpose and Target Users
+
+YatraCanvas is a travel-planning application designed for Indian destinations. It helps travellers:
+1. Select a destination city and arrival point (airport, railway station, bus stand, hotel, address);
+2. Choose trip dates, trip purpose (e.g., Heritage, Food, Relaxation), and secondary interests;
+3. Discover attractions and venues via open geographic data (OpenStreetMap) and curated seeds (Audiala);
+4. Save, lock, prioritize, annotate, and reorder places;
+5. Generate an optimized multi-day itinerary with realistic travel times, category visit durations, midday lunch breaks, opening hours, and locked stops;
+6. View the itinerary and road-following route polylines on an interactive map;
+7. Receive weather advisories with indoor/outdoor activity awareness;
+8. Benefit from smart re-planning when modifying saved places or trip parameters.
+
+**Target users:** Independent travellers and small travel groups. Data reviewers/administrators are a secondary user group. Commercial bookings, ticketing, payments, and social networking are non-goals.
+
+---
+
+## 3. Current Product Readiness Verdict
+
+**Stage: Pre-alpha functional prototype for single-trip planning.**
+
+### What Genuinely Works Today:
+- `[IMPLEMENTED]` **Trip Creation Lifecycle:** `POST /trips` persists destination, dates, arrival points, trip purposes (weight 2.0/2.5), and preferences (weight 1.0) transactionally. `GET /trips/{trip_id}` and `PATCH /trips/{trip_id}` support full roundtrip editing and cache invalidation.
+- `[IMPLEMENTED]` **Destination & Arrival Autocomplete:** `GET /locations/autocomplete` via Geoapify with coordinate extraction and client-side draft integration.
+- `[IMPLEMENTED]` **Place Discovery:** Bounded OpenStreetMap/Overpass candidate retrieval across 7 categories (`tourism`, `heritage`, `religious`, `food`, `cafe`, `markets`, `nature`) with city-category caching.
+- `[IMPLEMENTED]` **Recommendation Pipeline:** Canonical and spatial deduplication ($\le 75$m distance threshold), traveller suitability / access confidence filtering (excluding student messes/staff canteens), purpose/interest scoring, category filtering, and diversity ranking with explainable reasons.
+- `[IMPLEMENTED]` **Saved Places:** `UserSavedPlace` CRUD with custom ordering, locks, must-visit flags, priorities, notes, and authoritative backend reconciliation.
+- `[IMPLEMENTED]` **Multi-Day Itinerary Optimization:** Google OR-Tools VRPTW solver with daily touring budgets (`09:00–19:00`), category visit duration heuristics, lunch breaks (`12:30–14:00`), opening hours, locked stops, and must-visit penalties.
+- `[IMPLEMENTED]` **Road-Following Route Geometry:** `GET /trips/{trip_id}/route-geometry` using keyless OSRM (or openrouteservice) with in-memory caching.
+- `[IMPLEMENTED]` **Interactive Map:** `FlutterMap` widget in Flutter with OpenStreetMap tiles, start/place markers, and day-filtered road polylines.
+- `[IMPLEMENTED]` **Weather Advisories:** `WeatherAdvisoryService` via Open-Meteo with itinerary-aware threshold detection (heat, rain, storms, wind) and deterministic indoor/outdoor place environment classification.
+- `[IMPLEMENTED]` **Smart Re-planning:** Impact analysis on trip/place mutations, selective cache invalidation, non-destructive diff preview, and atomic apply.
+
+### Launch Blockers & Remaining Gaps:
+- `[PARTIAL]` **Authentication & Session Management:** Phone login screen does not authenticate anyone; backend assigns a fixed development placeholder `user_id`. Supabase Auth JWT verification is planned.
+- `[PARTIAL]` **Multi-Trip / Account Persistence:** `TripDraft` is stored in Flutter memory and survives navigation, but does not survive an app restart. Multi-trip listing/history is not implemented.
+- `[PARTIAL]` **Versioned Database Migrations:** Database relies on `SQLModel.metadata.create_all` plus manual `.sql` scripts; no Alembic runner is configured.
+- `[PARTIAL]` **Admin API:** Admin shell in Flutter uses mock values; no authorized backend admin APIs exist.
+- `[PARTIAL]` **Audiala Integration:** Audiala secondary POI discovery layer is present in working tree (`audiala_places_provider.py` and `audiala_places.json`) but uncommitted.
+- `[PARTIAL]` **Flutter Calendar:** Date picker in trip creation is currently locked to August 2026.
+
+---
+
+## 4. Current Stack & Architecture
 
 ```mermaid
 flowchart TB
-    Flutter --> FastAPI
-    FastAPI --> SupabaseAuth[Supabase Auth verification]
-    FastAPI --> CanonicalDB[(PostgreSQL canonical data)]
-    FastAPI --> Geoapify[Geoapify autocomplete]
-    FastAPI --> ORS[openrouteservice routing]
-    FastAPI --> Weather[Open-Meteo weather]
-    FastAPI --> Currency[Frankfurter rates]
-    FSQ[FSQ OS Places extract] --> Ingestion[Reviewed ingestion pipeline]
-    OSM[OSM/Overpass] --> Ingestion
-    Wikimedia --> Ingestion
-    Ingestion --> CanonicalDB
-    Admin[Authorized admin review] --> FastAPI
+    Traveller[Traveller] --> Flutter[Flutter Client (Material 3 + flutter_map)]
+    Flutter -->|REST JSON via API_BASE_URL| FastAPI[FastAPI Backend]
+    
+    FastAPI --> DB[(PostgreSQL Canonical Database)]
+    FastAPI --> Geoapify[Geoapify Autocomplete / Geocoding]
+    FastAPI --> OSM[OpenStreetMap / Overpass POI Discovery]
+    FastAPI --> Audiala[Audiala Local Seed POIs]
+    FastAPI --> ORTools[Google OR-Tools VRPTW Solver]
+    FastAPI --> OSRM[OSRM / ORS Route Geometry]
+    FastAPI --> OpenMeteo[Open-Meteo Weather Forecasts]
+    
+    FSQ[FSQ OS Places Extracts] -.->|Batch CLI Importer| DB
 ```
 
-Target principles:
+### Stack Summary:
+- **Client:** Flutter (Dart `^3.13.0`), `flutter_map: ^8.3.2`, `http`, `geolocator`, `flutter_svg`. State: `StatefulWidget` + `TripDraft`.
+- **Backend:** FastAPI (Python 3.12+), SQLModel, SQLAlchemy, Pydantic v2, psycopg 3, httpx.
+- **Optimization:** Google OR-Tools (`>=9.9.0`) VRPTW solver.
+- **Database:** PostgreSQL (local or Supabase-hosted), 11 canonical tables + 1 review table.
+- **Routing & Maps:** Local coordinate estimates (matrix) + OSRM / openrouteservice (road polylines) + OpenStreetMap tiles.
+- **Weather:** Open-Meteo API with in-memory TTL caching.
 
-- PostgreSQL is canonical; Supabase Auth is the intended identity provider.
-- FastAPI owns authentication verification, authorization, provider secrets, adapters, caching,
-  safe error translation, and stable application schemas.
-- Flutter normally calls FastAPI instead of external providers directly.
-- FSQ OS, OSM, and Wikimedia are ingestion/enrichment sources with provenance and review.
-- Geoapify stays narrowly focused on runtime autocomplete/geocoding.
-- openrouteservice replaces Google Routes only after parity and fallback tests.
-- Google Places is removed only after city and POI backfill is verified.
-- Map rendering is selected independently with explicit tile/SDK attribution and offline policy.
+---
 
-## 14. Security and migration state
+## 5. Current Provider Matrix
 
-- Provider and database secrets use backend Pydantic `SecretStr` values and are unwrapped only at
-  provider boundaries.
-- No real `.env` or real secret value should be committed, pasted, logged, or shipped to Flutter.
-- There is no implemented authentication or authorization boundary today.
-- The backend currently trusts database `Trip.user_id`; it is not derived from a verified token.
-- Supabase RLS/grant status is `[UNKNOWN]` because policies are not tracked in this repository.
-- New databases use SQLModel `create_all`; existing schemas require standalone SQL scripts.
-- Only the FSQ/Geoapify foundation SQL change has a dedicated tracked rollback script.
-- No migration was applied to production during the architecture audit.
+| Provider | Status | Role in Repository | Runtime Key Needed? |
+|---|---|---|---|
+| **PostgreSQL / Supabase** | `[IMPLEMENTED]` | Canonical data storage (local or Supabase connection) | `DATABASE_URL` required |
+| **OpenStreetMap / Overpass** | `[IMPLEMENTED]` | Runtime city POI candidate discovery across 7 categories | No key (configured endpoint) |
+| **Audiala** | `[PARTIAL]` | Secondary POI candidate discovery from local dataset | No key (`AUDIALA_DATASET_PATH`) |
+| **Geoapify** | `[IMPLEMENTED]` | Destination and arrival location autocomplete | `GEOAPIFY_API_KEY` optional/feature |
+| **Open-Meteo** | `[IMPLEMENTED]` | Weather forecasts and itinerary advisory engine | No key for free endpoint |
+| **OSRM** | `[IMPLEMENTED]` | Keyless road-route geometry polyline generation | No key (`OSRM_ROUTER_URL`) |
+| **openrouteservice** | `[IMPLEMENTED]` (geom) | Alternative road-route geometry provider | `OPENROUTESERVICE_API_KEY` optional |
+| **Local Estimator** | `[IMPLEMENTED]` | Route matrix distance/duration calculation | No key (app-owned) |
+| **Google Places (New)** | `[DEPRECATED]`, `[DEAD]` file | Legacy adapter retained; `place_discovery_service.py` dead | `GOOGLE_PLACES_API_KEY` (legacy only) |
+| **Google Routes** | `[DEPRECATED]` | Legacy route matrix adapter; not used by optimizer | `GOOGLE_ROUTES_API_KEY` (legacy only) |
+| **FSQ OS Places** | `[IMPLEMENTED]` (batch CLI) | Operator-driven batch POI importer for open datasets | No runtime key |
+| **Wikidata / Wikimedia** | `[PLANNED]` / Experimental | Validated experimentally; not production code | None |
 
-Before production, adopt ordered migrations and treat RLS/grants as versioned schema code. Every
-database change needs preconditions, backup/restore considerations, forward verification,
-backfill behavior, and rollback or roll-forward recovery. Additive nullable migrations should
-precede backfill and legacy-field retirement.
+---
 
-## 15. Testing status and known technical debt
+## 6. Current Database Schema
 
-Most recent validation of this snapshot:
+Source of truth: `backend/app/models/entities.py`.
 
-- Backend tests: **82 passed**, with one dependency deprecation warning.
-- Flutter analysis: **no issues**.
-- Flutter tests: **22 passed**.
-- New documentation/config test: Black, Ruff, and mypy clean.
-- Documentation local links and environment-variable consistency checks passed.
-- Git whitespace check passed.
-- Safe name-only secret-pattern scan found no likely live credentials; history contains known
-  placeholders and a dummy Flutter toolchain TLS fixture, not evidence of a production key.
+| Table | Entity | Purpose |
+|---|---|---|
+| `cities` | `City` | Canonical destination name, state, country, coordinates, nullable legacy `google_place_id`. |
+| `places` | `Place` | Canonical POI with category, coordinates, rating, review count, feature flags. |
+| `place_sources` | `PlaceSource` | Provider provenance (source namespace, external ID, URL, license, contact, flags). |
+| `place_categories` | `PlaceCategory` | Provider category ID/label attached to place. |
+| `place_tags` | `PlaceTag` | Application tags unique per place. |
+| `city_category_cache` | `CityCategoryCache` | City/category discovery freshness and expiry tracking. |
+| `trips` | `Trip` | User UUID, city, name, dates/days, arrival/start coordinates and provider IDs. |
+| `trip_preferences` | `TripPreference` | Weighted trip preferences (purpose: 2.0/2.5, interest: 1.0) and weather ignore flags. |
+| `user_saved_places` | `UserSavedPlace` | Selected trip places with order, priority, lock, must-visit, and notes. |
+| `route_matrix_cache` | `RouteMatrixCache` | Pairwise distance and static/traffic duration cache per trip/mode. |
+| `trip_itinerary` | `TripItinerary` | Multi-day schedule: day number, visit order, arrival/departure timestamps, duration. |
+| `place_import_reviews` | `PlaceImportReview` | Schema for ambiguous import candidates (pending/resolved/ignored). |
 
-Existing unrelated repository-wide debt:
+---
 
-- Black would reformat 18 backend files.
-- Ruff reports 18 existing issues.
-- Mypy reports 31 existing errors across 8 files when checking all app/tests.
-- Dart formatting reports the untouched login screen would be reformatted.
-- No CI workflow, Docker setup, or deployment configuration is tracked.
+## 7. Testing Baseline
 
-Do not mix broad formatting/type-debt cleanup into an unrelated product feature without a
-separate reviewed change.
+- **Backend (pytest):** **199 tests** collected across 20 test files.
+  - Baseline: 199 tests pass (100%).
+  - Working tree note: 197 pass, 2 fail in `test_routes.py` solely because unmocked Audiala seed data injects Ujjain POIs into route smoke test assertions.
+- **Flutter (flutter_test):** **49 test definitions** across 7 test files.
+  - 45 tests pass.
+  - Working tree note: 4 test files fail to compile due to an uncommitted syntax typo in `lib/screens/home/home_screen.dart:313:1`.
 
-## 16. Recommended next milestone
+---
 
-The next milestone should be: **a persisted, authenticated trip lifecycle suitable for a private
-alpha**.
+## 8. Current Development Frontier
 
-This should come before maps, weather, currency, new POI providers, or visual expansion. The
-existing discovery, saved-place, and optimizer work cannot form a normal end-to-end journey until
-the app creates an authenticated trip and retains its ID.
+1. **OSM Candidate Discovery:** Fully functional and cached across 7 categories.
+2. **Audiala Candidate Discovery:** Partially integrated as a secondary seed layer on the working branch.
+3. **Canonical Place Identity & Multi-Source Provenance:** Needs final consolidation so OSM, Audiala, and FSQ POIs cleanly attach to canonical `Place` and `PlaceSource` rows.
+4. **Wikidata/Wikimedia Enrichment:** Validated in research experiments (`docs/poi_importance_experiment.md`), but not yet implemented in production code.
 
-### Decisions required before implementation
+---
 
-1. Confirm Supabase Auth as the identity provider and select the first sign-in method (phone OTP
-   versus email/password or email OTP). The current phone UI does not decide the backend policy.
-2. Select the versioned migration workflow (for example Alembic or Supabase CLI migrations) and
-   define how existing standalone SQL scripts are baselined.
-3. Decide whether Flutter calls only FastAPI for trip data or also uses Supabase directly. Direct
-   access requires tracked/tested RLS; FastAPI-only is the simpler first private-alpha boundary.
-4. Define the minimal trip-create request: city, name, dates/days, arrival/start location,
-   purpose, and preferences.
-5. Define token verification, user/profile linkage, logout/session expiry, and authorization
-   error behavior.
+## 9. Recommended Next Milestones
 
-### Ordered implementation plan
+1. **Repository Stabilization & Cleanup:**
+   - Commit or cleanly stage Audiala provider (`audiala_places_provider.py` and data file);
+   - Fix syntax typo in `home_screen.dart` to restore 100% Flutter test compilation;
+   - Update `test_routes.py` test fixtures to mock or accommodate Audiala discovery;
+   - Delete dead `place_discovery_service.py` file.
+2. **Authentication & Multi-Trip Persistence:**
+   - Implement Supabase Auth JWT verification in FastAPI;
+   - Connect Flutter login screen to real session tokens;
+   - Persist and list trips per authenticated user.
+3. **Versioned Database Migrations:**
+   - Initialize Alembic migration baseline.
+4. **Dynamic Calendar & UI Polish:**
+   - Unfreeze Flutter date picker from August 2026.
 
-#### Step 1 — Establish versioned migrations
+---
 
-- Baseline the current SQLModel schema in a local/test database.
-- Import or supersede existing forward SQL scripts without rerunning applied changes.
-- Add migration commands and tests to backend setup documentation.
-- Add no destructive production action.
+## 10. Modular Source of Truth
 
-Acceptance criteria:
+Read these modular documents for specific subsystems:
 
-- A fresh test database and an upgraded test database reach the same expected schema.
-- Migration status is inspectable and repeat runs are safe.
-- Rollback/roll-forward notes exist for each migration.
-
-#### Step 2 — Implement authentication verification
-
-- Configure Supabase Auth only after defining exact variables and key ownership.
-- Flutter obtains a user session; FastAPI verifies the JWT using the approved mechanism.
-- FastAPI derives the current user ID from the verified token.
-- Add authorization dependencies and safe 401/403 behavior.
-
-Acceptance criteria:
-
-- Valid session succeeds; missing, expired, malformed, and wrong-user tokens fail in tests.
-- No service-role or provider secret is bundled in Flutter.
-- Logout/session-expiry behavior is tested.
-
-#### Step 3 — Add the trip lifecycle API
-
-- Add create, list, get, and update endpoints for owned trips.
-- Persist dates/days, purpose, preferences, arrival point, and start location transactionally.
-- Do not accept an arbitrary `user_id` from the client.
-- Define deletion/archive behavior separately; avoid destructive delete until product policy exists.
-
-Acceptance criteria:
-
-- A user can create and retrieve their trip.
-- A different user cannot access or modify it.
-- Validation covers coordinate pairs, positive days, date consistency, and provider identifiers.
-- Existing seeded-trip endpoints remain compatible or receive a documented migration.
-
-#### Step 4 — Connect Flutter to the persisted trip
-
-- Replace fake login completion with the real session flow.
-- Submit `TripDraft` through the create-trip API.
-- Store the returned `trip_id` in the current session/state and recover it after navigation or
-  app restart using an owned-trip lookup.
-- Show recoverable loading, validation, authentication, and network errors.
-
-Acceptance criteria:
-
-- A new user completes login and trip creation without seeded database data.
-- Arrival/start location, purpose, and preferences survive reload/restart.
-- No downstream screen is entered with a silently missing trip ID.
-
-#### Step 5 — Prove existing downstream features end-to-end
-
-- Save, update, reorder, and remove places for the newly created trip.
-- Optimize the newly created trip using current Google Routes/cached fallback.
-- Add an integration test covering authentication → trip creation → arrival → place selection →
-  route optimization.
-
-Acceptance criteria:
-
-- The whole flow works on a local/test PostgreSQL database.
-- Ownership is enforced at every trip-scoped endpoint.
-- Provider outage behavior is explicit and does not lose saved trip data.
-
-#### Step 6 — Implement true multi-day planning
-
-- Define daily time budgets, place duration assumptions, start/end behavior, and locked/must-visit
-  rules before changing the algorithm.
-- Allocate visits across `Trip.days` rather than writing only day 1.
-- Keep the routing-provider replacement separate until multi-day behavior is deterministic.
-
-Acceptance criteria:
-
-- Tests cover one-day and multi-day trips, infeasible must-visits, locked order, empty days,
-  deterministic output, and partial matrix failure.
-- Itinerary rows have valid unique day/order values and can be regenerated transactionally.
-
-### Private-alpha exit criteria
-
-- Real authentication and per-user authorization.
-- Versioned and locally verified database migrations.
-- A complete persisted trip-create/reopen journey.
-- Saved places and itinerary generation work without seeded trip IDs.
-- True multi-day output or an explicitly limited single-day alpha scope.
-- Restricted provider keys and no secrets in Flutter/source control.
-- Tested backup/restore procedure for the alpha database.
-- Basic structured logs, provider/cache failure visibility, and a documented deployment.
-- Privacy policy/data-deletion decisions appropriate to stored user/location data.
-
-Meeting these criteria supports controlled private testing; it does not by itself prove readiness
-for a public production launch.
-
-## 17. Later roadmap, after the next milestone
-
-1. Complete provider-neutral place ingestion and source lifecycle handling.
-2. Add compliant bounded OSM/Overpass ingestion.
-3. Add Wikimedia enrichment with item-level creator/license/attribution.
-4. Complete Geoapify-based destination resolution and Google Places exit readiness.
-5. Add an openrouteservice adapter and migrate matrices after parity tests.
-6. Add weather only after an Open-Meteo commercial/self-host licensing decision.
-7. Add Frankfurter dated reference rates.
-8. Implement authorized admin review, corrections, dedupe, and audit history.
-9. Retire Google Places and Routes independently after verified backfill/parity.
-10. Select and implement an interactive map renderer/tiles independently.
-
-## 18. Non-negotiable constraints for future work
-
-- Inspect code, migrations, and tests before changing a status label.
-- Never claim planned work is production-ready.
-- Never invent API schemas, quotas, fields, keys, or provider behavior.
-- Verify changing external facts against current official documentation.
-- Keep provider and database secrets on the backend.
-- Do not silently introduce a provider or change a provider's responsibility.
-- Preserve source IDs, licensing, attribution, timestamps, provenance, and review evidence.
-- Do not infer ratings or popularity from FSQ OS Places; those fields are not in the selected open
-  schema.
-- Preserve nullable Google legacy identifiers until a tested backfill and reversible migration.
-- Never apply repository migrations/imports directly to production without review and backup.
-- Architecture, provider, environment, endpoint, and schema changes must update documentation in
-  the same change.
-- New environment variables must be added to `backend/.env.example`, documented, validated, and
-  tested.
-- Run relevant backend and Flutter tests before declaring completion.
-
-## 19. Authoritative repository documents
-
-When repository access is available, read these before implementation:
-
-- `AGENTS.md`
-- `docs/PROJECT_CONTEXT.md`
-- `docs/ARCHITECTURE.md`
-- `docs/API_AND_DATA_SOURCES.md`
-- `docs/DATA_MODEL.md`
-- `docs/ENVIRONMENT_VARIABLES.md`
-- `docs/ROADMAP.md`
-- `docs/DECISIONS.md`
-- `docs/api-key-audit.md`
-- `backend/README.md`
-
-Historical screenshots and `docs/PROJECT_DOCUMENTATION.md` are UI references, not the current
-architecture source of truth.
-
-## 20. Questions ChatGPT should ask only when needed
-
-The following product choices cannot be safely inferred from the repository:
-
-- Which real sign-in method should launch first?
-- Is Supabase-hosted PostgreSQL already in use, or only planned?
-- Will Flutter access only FastAPI, or also Supabase data APIs under RLS?
-- What existing database environments/data must the first migration preserve?
-- Is a single-day private alpha acceptable before true multi-day planning?
-- Which Indian launch cities and minimum POI quality/coverage thresholds are required?
-- Is YatraCanvas commercial? This affects Open-Meteo and other provider terms.
-- What deployment platform, backup objective, logging retention, and privacy requirements apply?
-- Which map renderer/tile provider is acceptable for cost, attribution, and platform support?
-
-If these choices materially change implementation, ChatGPT should present options and wait for a
-decision instead of guessing.
+- [Project context](PROJECT_CONTEXT.md): Short authoritative overview.
+- [Architecture](ARCHITECTURE.md): Full component flows, VRPTW solver specs, and smart replanning rules.
+- [APIs and data sources](API_AND_DATA_SOURCES.md): Provider policies, caching, licenses, and fallback.
+- [Data model](DATA_MODEL.md): Database models and provenance rules.
+- [Environment variables](ENVIRONMENT_VARIABLES.md): Complete configuration reference.
+- [Roadmap](ROADMAP.md): Phased roadmap milestones.
+- [Decisions](DECISIONS.md): Accepted Architectural Decision Records.
+- [Repository audit](REPOSITORY_AUDIT.md): Comprehensive September 4, 2026 repository audit.
