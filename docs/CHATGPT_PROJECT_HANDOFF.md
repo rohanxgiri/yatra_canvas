@@ -188,15 +188,13 @@ Source of truth: `backend/app/models/entities.py`.
 ---
 
 ## 9. Recommended Next Milestones
-
-1. **Wikidata Importance Scoring (`wikidata-importance-scoring`):**
-   - Promote Audiala/Wikidata popularity signals (`sitelinks`, `wikidata_pagerank`, `article_tier`) from candidate tags into the recommendation scoring formula in `RecommendationService` to replace zero-review bias with global prominence signals.
-2. **Authentication & Multi-Trip Persistence:**
+ 
+1. **Authentication & Multi-Trip Persistence (`supabase-auth-jwt`):**
    - Implement Supabase Auth JWT verification in FastAPI;
    - Connect Flutter login screen to real session tokens;
    - Persist and list trips per authenticated user.
-3. **Versioned Database Migrations:**
-   - Initialize Alembic migration baseline.
+2. **Versioned Database Migrations (`alembic-migrations`):**
+   - Initialize Alembic migration baseline for reproducible DDL management.
 
 ---
 

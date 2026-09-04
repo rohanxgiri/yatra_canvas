@@ -123,7 +123,7 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
 | **Google Places API (New)** | `[DEPRECATED]` / REMOVED | Dead `place_discovery_service.py` deleted; config purged. City flow uses Geoapify. | None. |
 | **Google Routes API** | `[DEPRECATED]` | Legacy route matrix adapter retained; not used by normal optimizer. | `GOOGLE_ROUTES_API_KEY` (legacy adapter only). |
 | **FSQ Open Source Places** | `[IMPLEMENTED]` (batch CLI) | Operator-driven batch POI importer for open CSV/JSONL extracts. | None (offline file import). |
-| **Wikidata / Wikimedia** | `[PLANNED]` / Experimental | Validated experimentally in `docs/poi_importance_experiment.md`; not yet production code. | None. |
+| **Wikidata / Audiala Importance** | `[IMPLEMENTED]` | Bounded POI prominence scoring via `PlaceImportanceScorer` using log-normalized sitelinks & PageRank. | None (`audiala_places.json` seed). |
 | **FlutterMap / OSM Tiles** | `[IMPLEMENTED]` | Interactive map widget rendering in Flutter with OSM tile layer. | None. |
 
 ---
@@ -138,10 +138,13 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
   - Deterministic Rule 2: Shared strong global identifier (Wikidata QID) cross-provider matching.
   - Conservative Rule 3: Geographic ($\le 100$m), category-compatible, and strict name variant matching fallback.
   - Rule 4: Canonical Place creation with full `PlaceSource` provenance and licensing (CC BY 4.0 and ODbL-1.0).
-- **Wikidata/Wikimedia place importance** has been validated experimentally (`docs/poi_importance_experiment.md`) but is not production code.
-
+- **Experiment-First Wikidata/Audiala Prominence Scoring (`PlaceImportanceScorer`)** is `[IMPLEMENTED]`:
+  - Log-normalized bounded sitelinks ($\le 100$) and PageRank ($\le 25.0$).
+  - Composite prominence in $[0.0, 1.0]$ blended at $60\%$ sitelinks consensus and $40\%$ PageRank network centrality.
+  - Importance weight ($15.0$ pts) activates inside relevant candidates ($category\_score > 0$), protecting personalization from being overwhelmed by famous irrelevant monuments.
+  - Missing Wikidata metadata is neutral ($0.0$ boost, zero penalty), preserving local-speciality dining and unindexed regional POIs.
 **Next recommended engineering task:**
-`wikidata-importance-scoring` (Promote Wikidata sitelinks and PageRank signals into the recommendation scoring pipeline).
+`supabase-auth-jwt` (Implement Supabase Auth JWT verification in FastAPI and connect Flutter session tokens to trips).
 
 ---
 

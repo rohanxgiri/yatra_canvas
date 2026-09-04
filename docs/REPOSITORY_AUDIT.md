@@ -125,6 +125,7 @@ FastAPI Backend  backend/app/main.py
     place_deduplication_service.py      Canonical spatial dedup
     place_suitability_service.py        Traveller suitability filter
     preference_model.py                 Purpose/interest weighting
+    place_importance_scorer.py          Bounded prominence scoring (Wikidata/Audiala)
 
   Routing:
     route_matrix_service.py             Matrix cache + provider bridge
