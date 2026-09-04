@@ -114,7 +114,7 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
 | Provider | Status | Role in Repository | Key / Auth Required |
 |---|---|---|---|
 | **OpenStreetMap / Overpass** | `[IMPLEMENTED]` | Primary runtime POI discovery across 7 categories with city-category TTL caching. | None (`OVERPASS_API_URL` defaults to public FOSSGIS endpoint). |
-| **Audiala** | `[PARTIAL]` | Secondary POI candidate discovery layer; reads local JSON extract on working branch. | None (`AUDIALA_DATASET_PATH`). |
+| **Audiala** | `[IMPLEMENTED]` | Production seed and secondary POI candidate discovery layer; reads local JSON extract and resolves into canonical places. | None (`AUDIALA_DATASET_PATH`). |
 | **Geoapify** | `[IMPLEMENTED]` | Destination city and arrival location autocomplete/geocoding. | `GEOAPIFY_API_KEY` (backend-only). |
 | **Open-Meteo** | `[IMPLEMENTED]` | Weather forecasts and itinerary-aware advisory engine. | None for free non-commercial endpoint (`OPEN_METEO_BASE_URL`). |
 | **OSRM** | `[IMPLEMENTED]` | Default keyless road-route geometry polyline generation. | None (`OSRM_ROUTER_URL`). |
@@ -132,11 +132,16 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
 
 - **Core trip → recommendation → itinerary → map flow** is operational.
 - **OSM city-wide candidate discovery** is operational.
-- **Audiala secondary candidate discovery** is integrated but remains `[PARTIAL]` because canonical multi-source place identity / source merging has not been finalized.
+- **Audiala secondary candidate discovery** is operational and seeded.
+- **Canonical multi-source Place identity and provenance resolution (`CanonicalPlaceService`)** is `[IMPLEMENTED]`:
+  - Deterministic Rule 1: Existing provider identity `(source, external_place_id)` reuse.
+  - Deterministic Rule 2: Shared strong global identifier (Wikidata QID) cross-provider matching.
+  - Conservative Rule 3: Geographic ($\le 100$m), category-compatible, and strict name variant matching fallback.
+  - Rule 4: Canonical Place creation with full `PlaceSource` provenance and licensing (CC BY 4.0 and ODbL-1.0).
 - **Wikidata/Wikimedia place importance** has been validated experimentally (`docs/poi_importance_experiment.md`) but is not production code.
 
-**Next engineering task:**
-`canonical multi-source Place identity and provenance`
+**Next recommended engineering task:**
+`wikidata-importance-scoring` (Promote Wikidata sitelinks and PageRank signals into the recommendation scoring pipeline).
 
 ---
 

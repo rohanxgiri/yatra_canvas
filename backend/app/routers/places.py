@@ -27,6 +27,7 @@ from app.services.openstreetmap_places_service import (
     OpenStreetMapPlacesUnavailableError,
 )
 from app.services.audiala_places_provider import AudialaPlacesProvider
+from app.services.canonical_place_service import CanonicalPlaceService
 from app.services.recommendation_service import RecommendationService
 
 router = APIRouter(tags=["places"])
@@ -76,12 +77,27 @@ AudialaPlacesDependency = Annotated[
 ]
 
 
+def get_canonical_place_service() -> CanonicalPlaceService:
+    return CanonicalPlaceService()
+
+
+CanonicalPlaceDependency = Annotated[
+    CanonicalPlaceService, Depends(get_canonical_place_service)
+]
+
+
 def get_openstreetmap_discovery_service(
     settings: SettingsDependency,
     provider: OpenStreetMapPlacesDependency,
     audiala_provider: AudialaPlacesDependency,
+    canonical_service: CanonicalPlaceDependency,
 ) -> OpenStreetMapDiscoveryService:
-    return OpenStreetMapDiscoveryService(settings, provider, audiala_provider)
+    return OpenStreetMapDiscoveryService(
+        settings,
+        provider,
+        audiala_provider,
+        canonical_service=canonical_service,
+    )
 
 
 OpenStreetMapDiscoveryDependency = Annotated[

@@ -211,6 +211,8 @@ class AudialaPlacesProvider:
                 if not external_id:
                     continue
 
+                tags["wikidata"] = external_id
+
                 place = OpenStreetMapNearbyPlace(
                     external_place_id=external_id,
                     name=name,

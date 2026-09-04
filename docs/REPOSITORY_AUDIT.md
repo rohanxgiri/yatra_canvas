@@ -263,25 +263,23 @@ GET /trips/{trip_id}/weather-advisories
 
 ## 7. Audiala Status — Detailed
 
-**Classification: PARTIAL (uncommitted production code; logically complete)**
+**Classification: IMPLEMENTED (production provider with canonical multi-source resolution)**
 
 | Question | Answer |
 |---|---|
 | Does `AudialaPlacesProvider` exist? | YES — `backend/app/services/audiala_places_provider.py` |
-| Is it production or experiment? | Production services directory, **UNTRACKED** (not committed) |
-| Is it injected into FastAPI? | YES — `places.py` imports `AudialaPlacesDependency` |
+| Is it production or experiment? | Production provider backed by `backend/app/data/audiala_places.json` |
+| Is it injected into FastAPI? | YES — `places.py` imports and injects `AudialaPlacesDependency` |
 | Does discovery call it? | YES — `openstreetmap_discovery_service.py` calls `search_nearby_places_for_categories()` |
-| How does it load data? | Lazy load from `AUDIALA_DATASET_PATH` JSON file on first search |
-| Where is the dataset? | `scripts/experiments/poi_importance/data/audiala_india.json` (~435KB) |
-| Does it persist Place records? | YES — via `_persist_category()` with `source_name="audiala"` |
-| Does it persist PlaceSource records? | YES — with `licence_identifier="CC BY 4.0"` |
-| How is deduplication handled? | `_existing_external_ids()` checks DB before persisting; OSM batch places also excluded |
-| Is Wikidata QID the identity key? | YES — `external_place_id = record.get("wikidata_id")` |
-| Can OSM + Audiala → two Place rows? | YES — different external IDs → different Place rows. Spatial dedup at query time collapses them during recommendations. |
-| Does Audiala affect scoring? | Indirectly — `sitelinks` sorts within the provider but does NOT feed `calculate_recommendation_score()` |
-| Does Audiala affect caching? | YES — inside the same `CityCategoryCache` TTL window |
-
-**Critical finding:** The provider is wired into production endpoints but has no committed state. All 14 modified/untracked files form a coherent feature that **could and should be committed**.
+| How does it load data? | Lazy load from `AUDIALA_DATASET_PATH` JSON file with thread-safe cross-instance caching |
+| Where is the dataset? | `backend/app/data/audiala_places.json` |
+| Does it persist Place records? | YES — resolved via `CanonicalPlaceService` |
+| Does it persist PlaceSource records? | YES — with `licence_identifier="CC BY 4.0"` and `wikidata_id` |
+| How is deduplication handled? | Centralized `CanonicalPlaceService` (Rule 1: Provider ID, Rule 2: Wikidata QID, Rule 3: Conservative Fallback) |
+| Is Wikidata QID the identity key? | YES — `external_place_id = record.get("wikidata_id")` and indexed `wikidata_id` column |
+| Can OSM + Audiala → two Place rows? | NO — resolved deterministically into ONE canonical `Place` with two `PlaceSource` records |
+| Does Audiala affect scoring? | In-provider popularity sorting by sitelinks; sitelinks/PageRank scoring integration planned next |
+| Does Audiala affect caching? | YES — within `CityCategoryCache` TTL window |
 
 ---
 

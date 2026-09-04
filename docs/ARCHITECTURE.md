@@ -74,9 +74,14 @@ provider boundary.
 - `UPDATE_DATES`: marks weather advisories stale and realigns schedule dates without discarding route matrix rows or geometry.
 - `UPDATE_CITY`: purges all route matrix cache and itinerary rows for the trip (`all`).
 
-`[IMPLEMENTED]` Place Discovery & Recommendation Quality Pipeline (`RecommendationService`):
-- Candidate Retrieval: multi-category queries across stored POIs and bounded OpenStreetMap discovery.
-- Canonical & Spatial Deduplication (`deduplicate_places`): identity resolution hierarchy using canonical `Place.id`, provider namespace keys (`source:external_id`), and spatial proximity ($\le 75$m distance threshold with normalized tokenized name similarity). Genuinely separate branches of the same chain (e.g. 4 km apart) are strictly preserved as distinct venues.
+`[IMPLEMENTED]` Place Discovery & Canonical Identity Architecture:
+- Canonical Multi-Source Place Identity Resolver (`CanonicalPlaceService`): Central resolution layer resolving place identity across multiple providers (OpenStreetMap, Audiala) into a single canonical `Place` database entity while maintaining complete provider-specific provenance, licensing, and metadata in `PlaceSource` records:
+  - **Rule 1 (Existing Provider Identity)**: Deterministic lookup by `(source, external_place_id)` ensures 100% idempotency during repeated ingestions from the same provider.
+  - **Rule 2 (Shared Global Identifier)**: Cross-provider deterministic matching via shared Wikidata QID (from Overpass `wikidata` tag or Audiala `external_place_id`) links both provider sources (e.g. OSM and Audiala) to one canonical `Place` row.
+  - **Rule 3 (Conservative Fallback Matching)**: For candidates lacking strong global IDs, conservative matching requires spatial distance $\le 100$m, category compatibility (`{heritage, tourism}`, `{heritage, religious}`, `{food, cafes}`, `{food, markets}`), and strict tokenized name match with only recognized benign variants (e.g. Indian honorifics "Devi", "Mandir"). Disqualifying specifiers (e.g. "Gate 1" vs "Gate 2", "North" vs "South") and incompatible categories never merge. Prefers false negatives over incorrect merges.
+  - **Rule 4 (New Place Creation)**: Creates canonical `Place` with initial `PlaceSource` provenance and category `PlaceTag`.
+  - **Provenance Preservation**: Full attribution and licensing (`ODbL-1.0` for OSM, `CC BY 4.0` for Audiala) and provider URLs/contact data are fully preserved on `PlaceSource`.
+- Recommendation-Level Deduplication (`deduplicate_places` in `RecommendationService`): Operates downstream of database identity as a presentation-layer filter, clustering any unmerged ambiguous items ($\le 75$m distance threshold with normalized tokenized name similarity) so travelers never see duplicate cards in recommendation results while database provenance remains completely intact.
 - Traveller-Suitability & Access Confidence (`is_traveller_suitable`): general context-based evaluation classifying venues into `PUBLIC_LIKELY`, `UNKNOWN`, `RESTRICTED_LIKELY`, and `RESTRICTED`. Automatically excludes student messes, institutional canteens, staff cafeterias, and restricted-access venues without blacklisting individual university/company names.
 - Scoring & Diversity: deterministic scoring combining category match, access confidence, verified ratings/reviews, and city center proximity without fabricated data; generates explainable recommendation reasons and flags saved places.
 

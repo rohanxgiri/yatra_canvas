@@ -16,6 +16,7 @@ from app.services.openstreetmap_places_service import (
     OpenStreetMapPlacesUnavailableError,
 )
 from app.services.audiala_places_provider import AudialaPlacesProvider
+from app.services.canonical_place_service import CanonicalPlaceService
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +27,13 @@ class OpenStreetMapDiscoveryService:
         settings: Settings,
         provider: OpenStreetMapPlacesService,
         audiala_provider: AudialaPlacesProvider | None = None,
+        canonical_service: CanonicalPlaceService | None = None,
     ) -> None:
         self._settings = settings
         self._cache_ttl = timedelta(hours=settings.place_discovery_cache_ttl_hours)
         self._provider = provider
         self._audiala_provider = audiala_provider
+        self._canonical_service = canonical_service or CanonicalPlaceService()
 
     async def discover(
         self,
@@ -197,21 +200,15 @@ class OpenStreetMapDiscoveryService:
                         licence_identifier="ODbL-1.0",
                     )
                 if aud_places:
-                    # Filter out Audiala places that already exist from other sources (e.g., OSM) to avoid duplicates
-                    existing_external_ids = self._existing_external_ids(session, city.id, aud_places)
-                    # Include OSM places already persisted in this iteration
-                    existing_external_ids.update(p.external_place_id for p in osm_places)
-                    filtered_aud_places = [p for p in aud_places if p.external_place_id not in existing_external_ids]
-                    if filtered_aud_places:
-                        self._persist_category(
-                            session=session,
-                            city=city,
-                            category=category,
-                            nearby_places=filtered_aud_places,
-                            fetched_at=now,
-                            source_name="audiala",
-                            licence_identifier="CC BY 4.0",
-                        )
+                    self._persist_category(
+                        session=session,
+                        city=city,
+                        category=category,
+                        nearby_places=aud_places,
+                        fetched_at=now,
+                        source_name="audiala",
+                        licence_identifier="CC BY 4.0",
+                    )
 
                 cache = caches.get(category)
                 if cache is None:
@@ -319,92 +316,16 @@ class OpenStreetMapDiscoveryService:
             session.delete(membership)
         session.flush()
 
-        sources_by_ext_id = {}
-        places_by_id = {}
-        tags_by_place_id: dict[UUID, set[str]] = {}
-
-        if current_external_ids:
-            existing_sources = session.exec(
-                select(PlaceSource).where(
-                    PlaceSource.source == source_name,
-                    PlaceSource.external_place_id.in_(current_external_ids),  # type: ignore[union-attr]
-                )
-            ).all()
-            sources_by_ext_id = {s.external_place_id: s for s in existing_sources}
-
-            existing_place_ids = [s.place_id for s in existing_sources]
-            if existing_place_ids:
-                existing_places = session.exec(
-                    select(Place).where(Place.id.in_(existing_place_ids))  # type: ignore[union-attr]
-                ).all()
-                places_by_id = {p.id: p for p in existing_places}
-
-                existing_tags = session.exec(
-                    select(PlaceTag).where(PlaceTag.place_id.in_(existing_place_ids))  # type: ignore[union-attr]
-                ).all()
-                for t in existing_tags:
-                    tags_by_place_id.setdefault(t.place_id, set()).add(t.tag)
-
         for nearby in nearby_places:
-            source = sources_by_ext_id.get(nearby.external_place_id)
-            place = places_by_id.get(source.place_id) if source else None
-
-            if place is None:
-                place = Place(
-                    city_id=city.id,
-                    name=nearby.name,
-                    category=category.value,
-                    latitude=nearby.latitude,
-                    longitude=nearby.longitude,
-                    rating=None,
-                    review_count=0,
-                    is_popular=False,
-                    is_heritage=(category is DiscoveryCategory.HERITAGE),
-                    is_local_speciality=False,
-                    last_fetched_at=fetched_at,
-                )
-                session.add(place)
-                session.flush()
-            else:
-                place.city_id = city.id
-                place.name = nearby.name
-                place.latitude = nearby.latitude
-                place.longitude = nearby.longitude
-                place.is_heritage = (
-                    place.is_heritage or category is DiscoveryCategory.HERITAGE
-                )
-                place.last_fetched_at = fetched_at
-
-            if source is None:
-                source = PlaceSource(
-                    place_id=place.id,
-                    source=source_name,
-                    external_place_id=nearby.external_place_id,
-                    source_url=nearby.source_url,
-                    licence_identifier=licence_identifier,
-                    website=OpenStreetMapDiscoveryService._bounded(
-                        nearby.tags.get("website"), 1000
-                    ),
-                    telephone=OpenStreetMapDiscoveryService._bounded(
-                        nearby.tags.get("phone"), 80
-                    ),
-                    last_fetched_at=fetched_at,
-                )
-                session.add(source)
-            else:
-                source.source_url = nearby.source_url
-                source.website = OpenStreetMapDiscoveryService._bounded(
-                    nearby.tags.get("website"), 1000
-                )
-                source.telephone = OpenStreetMapDiscoveryService._bounded(
-                    nearby.tags.get("phone"), 80
-                )
-                source.last_fetched_at = fetched_at
-
-            existing_place_tags = tags_by_place_id.get(place.id, set())
-            for tag in sorted({category.value} - existing_place_tags):
-                session.add(PlaceTag(place_id=place.id, tag=tag))
-                tags_by_place_id.setdefault(place.id, set()).add(tag)
+            self._canonical_service.resolve_or_create_nearby_place(
+                session=session,
+                city=city,
+                category=category,
+                nearby=nearby,
+                source_name=source_name,
+                licence_identifier=licence_identifier,
+                fetched_at=fetched_at,
+            )
 
     @staticmethod
     def _stored_places(

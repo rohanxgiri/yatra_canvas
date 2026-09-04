@@ -429,6 +429,7 @@ def test_discover_places_persists_and_uses_fresh_cache(
         "is_popular": False,
         "is_heritage": False,
         "is_local_speciality": False,
+        "wikidata_id": None,
         "last_fetched_at": first.json()[0]["last_fetched_at"],
         "created_at": first.json()[0]["created_at"],
     }

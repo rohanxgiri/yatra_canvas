@@ -181,9 +181,9 @@ Source of truth: `backend/app/models/entities.py`.
 ## 8. Current Development Frontier
 
 1. **OSM Candidate Discovery:** Fully functional and cached across 7 categories.
-2. **Audiala Candidate Discovery:** Partially integrated as a secondary seed layer on the working branch.
-3. **Canonical Place Identity & Multi-Source Provenance:** Needs final consolidation so OSM, Audiala, and FSQ POIs cleanly attach to canonical `Place` and `PlaceSource` rows.
-4. **Wikidata/Wikimedia Enrichment:** Validated in research experiments (`docs/poi_importance_experiment.md`), but not yet implemented in production code.
+2. **Audiala Candidate Discovery:** Fully operational production seed provider using `backend/app/data/audiala_places.json`.
+3. **Canonical Place Identity & Multi-Source Provenance:** Implemented via `CanonicalPlaceService` (Rule 1: Provider ID, Rule 2: Shared Wikidata QID, Rule 3: Conservative Fallback, Rule 4: Canonical Place creation) with complete provenance and licensing retention (`ODbL-1.0` and `CC BY 4.0`).
+4. **Wikidata/Wikimedia Enrichment:** Validated in research experiments (`docs/poi_importance_experiment.md`), sitelinks/PageRank scoring integration planned as the next milestone.
 
 ---
 
