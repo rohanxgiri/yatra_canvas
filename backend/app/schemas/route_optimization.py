@@ -35,6 +35,7 @@ class RouteOptimizationRead(SQLModel):
     optimized_places: list[OptimizedPlaceRead]
     total_distance: float = Field(ge=0)
     total_travel_time_minutes: int = Field(ge=0)
+    total_days: int = Field(default=1, ge=1)
     breaks: list[ItineraryBreakRead] = Field(default_factory=list)
     conflicts: list[str] = Field(default_factory=list)
     route_geometry: "TripRouteGeometryRead | None" = None

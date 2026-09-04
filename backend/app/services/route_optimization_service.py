@@ -183,6 +183,7 @@ class RouteOptimizationService:
             optimized_places=scheduled_places,
             total_distance=round(total_dist_meters / 1000, 3),
             total_travel_time_minutes=total_travel_mins,
+            total_days=trip.days,
             breaks=breaks,
             conflicts=conflicts,
             route_geometry=route_geometry,

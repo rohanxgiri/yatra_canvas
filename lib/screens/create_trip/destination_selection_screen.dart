@@ -322,14 +322,26 @@ class _DestinationSelectionScreenState
                     ? null
                     : () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (_) => PlaceDiscoveryScreen(
-                            city: city,
-                            tripId: _draft.tripId,
-                            tripPurposes: {..._draft.purposes},
-                            routeStartReady:
-                                _draft.startLatitude != null &&
-                                _draft.startLongitude != null,
-                          ),
+                          builder: (_) {
+                            final hasStart = _draft.startLatitude != null &&
+                                _draft.startLongitude != null;
+                            return PlaceDiscoveryScreen(
+                              city: city,
+                              tripId: _draft.tripId,
+                              tripPurposes: {..._draft.purposes},
+                              routeStartReady: hasStart,
+                              durationDays: _draft.durationDays,
+                              startLocation: hasStart
+                                  ? TripStartLocation(
+                                      tripId: _draft.tripId ?? '',
+                                      type: _draft.startLocationType,
+                                      name: _draft.startLocationName ?? 'Trip Start',
+                                      latitude: _draft.startLatitude!,
+                                      longitude: _draft.startLongitude!,
+                                    )
+                                  : null,
+                            );
+                          },
                         ),
                       ),
                 icon: const Icon(Icons.explore_outlined),

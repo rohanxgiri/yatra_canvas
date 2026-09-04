@@ -1,3 +1,7 @@
+import 'dart:math' as math;
+
+import 'route_geometry.dart';
+
 class OptimizedRoutePlace {
   const OptimizedRoutePlace({
     required this.placeId,
@@ -46,12 +50,15 @@ class OptimizedRoutePlace {
       name: json['name'] as String,
       dayNumber: json['day_number'] as int,
       visitOrder: json['visit_order'] as int,
-      distanceFromPrevious: (json['distance_from_previous'] as num).toDouble(),
+      distanceFromPrevious:
+          (json['distance_from_previous'] as num).toDouble(),
       travelTimeMinutes: json['travel_time_minutes'] as int,
       plannedArrivalTime: json['planned_arrival_time'] as String?,
       plannedDepartureTime: json['planned_departure_time'] as String?,
-      visitDurationMinutes: (json['visit_duration_minutes'] as num?)?.toInt() ?? 60,
-      isOpeningHoursKnown: json['is_opening_hours_known'] as bool? ?? false,
+      visitDurationMinutes:
+          (json['visit_duration_minutes'] as num?)?.toInt() ?? 60,
+      isOpeningHoursKnown:
+          json['is_opening_hours_known'] as bool? ?? false,
     );
   }
 }
@@ -62,7 +69,7 @@ class ItineraryBreak {
     required this.startTime,
     required this.endTime,
     required this.durationMinutes,
-    required this.label,
+    this.label = 'Midday Break',
   });
 
   final int dayNumber;
@@ -94,36 +101,65 @@ class OptimizedRoute {
     required this.places,
     required this.totalDistance,
     required this.totalTravelTimeMinutes,
+    this.totalDays = 1,
     this.breaks = const [],
     this.conflicts = const [],
+    this.routeGeometry,
   });
 
   final String tripId;
   final List<OptimizedRoutePlace> places;
   final double totalDistance;
   final int totalTravelTimeMinutes;
+  final int totalDays;
   final List<ItineraryBreak> breaks;
   final List<String> conflicts;
+  final TripRouteGeometry? routeGeometry;
+
+  List<int> get logicalDays =>
+      List.generate(totalDays < 1 ? 1 : totalDays, (i) => i + 1);
+
+  Map<int, List<OptimizedRoutePlace>> get placesByDay {
+    final map = <int, List<OptimizedRoutePlace>>{
+      for (final d in logicalDays) d: <OptimizedRoutePlace>[],
+    };
+    for (final place in places) {
+      map.putIfAbsent(place.dayNumber, () => <OptimizedRoutePlace>[]).add(place);
+    }
+    return map;
+  }
 
   factory OptimizedRoute.fromJson(Map<String, dynamic> json) {
-    final places = json['optimized_places'] as List<dynamic>;
+    final placesJson = json['optimized_places'] as List<dynamic>? ?? [];
     final breaksJson = json['breaks'] as List<dynamic>? ?? [];
     final conflictsJson = json['conflicts'] as List<dynamic>? ?? [];
+    final geomJson = json['route_geometry'] as Map<String, dynamic>?;
+
+    final parsedPlaces = placesJson
+        .map(
+          (item) =>
+              OptimizedRoutePlace.fromJson(item as Map<String, dynamic>),
+        )
+        .toList(growable: false);
+
+    final rawTotalDays = json['total_days'] as num? ?? json['days'] as num?;
+    final maxDayInPlaces = parsedPlaces.isEmpty
+        ? 1
+        : parsedPlaces.map((p) => p.dayNumber).reduce(math.max);
+    final calculatedDays = rawTotalDays?.toInt() ?? maxDayInPlaces;
 
     return OptimizedRoute(
       tripId: json['trip_id'] as String,
-      places: places
-          .map(
-            (item) =>
-                OptimizedRoutePlace.fromJson(item as Map<String, dynamic>),
-          )
-          .toList(growable: false),
+      places: parsedPlaces,
       totalDistance: (json['total_distance'] as num).toDouble(),
       totalTravelTimeMinutes: json['total_travel_time_minutes'] as int,
+      totalDays: calculatedDays,
       breaks: breaksJson
           .map((item) => ItineraryBreak.fromJson(item as Map<String, dynamic>))
           .toList(growable: false),
       conflicts: conflictsJson.map((e) => e.toString()).toList(growable: false),
+      routeGeometry:
+          geomJson != null ? TripRouteGeometry.fromJson(geomJson) : null,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/trip_draft.dart';
+import '../../models/trip_start_location.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
@@ -98,15 +99,25 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
           'Choose and confirm a destination before creating the trip.',
         );
       }
+      final hasRouteStart = widget.draft.startLatitude != null &&
+          widget.draft.startLongitude != null;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => PlaceDiscoveryScreen(
             city: city,
             tripId: effectiveTripId,
             tripPurposes: {...widget.draft.purposes},
-            routeStartReady:
-                widget.draft.startLatitude != null &&
-                widget.draft.startLongitude != null,
+            routeStartReady: hasRouteStart,
+            durationDays: widget.draft.durationDays,
+            startLocation: hasRouteStart
+                ? TripStartLocation(
+                    tripId: effectiveTripId,
+                    type: widget.draft.startLocationType,
+                    name: widget.draft.startLocationName ?? 'Trip Start',
+                    latitude: widget.draft.startLatitude!,
+                    longitude: widget.draft.startLongitude!,
+                  )
+                : null,
           ),
         ),
       );
