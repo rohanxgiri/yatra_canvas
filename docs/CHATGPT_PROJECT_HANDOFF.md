@@ -169,12 +169,12 @@ Source of truth: `backend/app/models/entities.py`.
 
 ## 7. Testing Baseline
 
-- **Backend (pytest):** **199 tests** collected across 20 test files.
-  - Baseline: 199 tests pass (100%).
-  - Working tree note: 197 pass, 2 fail in `test_routes.py` solely because unmocked Audiala seed data injects Ujjain POIs into route smoke test assertions.
-- **Flutter (flutter_test):** **49 test definitions** across 7 test files.
-  - 45 tests pass.
-  - Working tree note: 4 test files fail to compile due to an uncommitted syntax typo in `lib/screens/home/home_screen.dart:313:1`.
+- **Backend (pytest):** **215 tests** collected across 21 test files.
+  - Baseline: 215 tests pass (100%).
+  - Canonical place identity and multi-source resolution verified with 12 dedicated tests.
+- **Flutter (flutter_test):** **58 tests** across 8 test files.
+  - 58 tests pass (100%).
+  - `flutter analyze`: 0 issues found.
 
 ---
 
@@ -189,19 +189,14 @@ Source of truth: `backend/app/models/entities.py`.
 
 ## 9. Recommended Next Milestones
 
-1. **Repository Stabilization & Cleanup:**
-   - Commit or cleanly stage Audiala provider (`audiala_places_provider.py` and data file);
-   - Fix syntax typo in `home_screen.dart` to restore 100% Flutter test compilation;
-   - Update `test_routes.py` test fixtures to mock or accommodate Audiala discovery;
-   - Delete dead `place_discovery_service.py` file.
+1. **Wikidata Importance Scoring (`wikidata-importance-scoring`):**
+   - Promote Audiala/Wikidata popularity signals (`sitelinks`, `wikidata_pagerank`, `article_tier`) from candidate tags into the recommendation scoring formula in `RecommendationService` to replace zero-review bias with global prominence signals.
 2. **Authentication & Multi-Trip Persistence:**
    - Implement Supabase Auth JWT verification in FastAPI;
    - Connect Flutter login screen to real session tokens;
    - Persist and list trips per authenticated user.
 3. **Versioned Database Migrations:**
    - Initialize Alembic migration baseline.
-4. **Dynamic Calendar & UI Polish:**
-   - Unfreeze Flutter date picker from August 2026.
 
 ---
 
