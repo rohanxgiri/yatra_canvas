@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -5,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../../models/optimized_route.dart';
 import '../../models/route_geometry.dart';
 import '../../models/saved_place.dart';
+import '../../models/trip_draft.dart';
 import '../../models/trip_start_location.dart';
 import '../../services/route_geometry_service.dart';
 import '../../services/route_optimization_service.dart';
@@ -16,6 +19,11 @@ import '../../theme/app_text_styles.dart';
 class TripMapScreen extends StatefulWidget {
   const TripMapScreen({
     required this.tripId,
+    this.initialStartLocation,
+    this.initialSavedPlaces,
+    this.initialOptimizedRoute,
+    this.initialRouteGeometry,
+    this.initialDurationDays,
     this.tripService,
     this.savedPlaceService,
     this.routeOptimizationService,
@@ -24,6 +32,11 @@ class TripMapScreen extends StatefulWidget {
   });
 
   final String tripId;
+  final TripStartLocation? initialStartLocation;
+  final List<SavedPlace>? initialSavedPlaces;
+  final OptimizedRoute? initialOptimizedRoute;
+  final TripRouteGeometry? initialRouteGeometry;
+  final int? initialDurationDays;
   final TripService? tripService;
   final SavedPlaceService? savedPlaceService;
   final RouteOptimizationService? routeOptimizationService;
@@ -44,8 +57,10 @@ class _TripMapScreenState extends State<TripMapScreen> {
   late final bool _ownsRouteGeometryService;
 
   final MapController _mapController = MapController();
+  final Stopwatch _perfWatch = Stopwatch();
 
   bool _isLoading = true;
+  bool _isRouteLoading = false;
   String? _error;
 
   TripStartLocation? _startLocation;
@@ -53,10 +68,17 @@ class _TripMapScreenState extends State<TripMapScreen> {
   OptimizedRoute? _optimizedRoute;
   TripRouteGeometry? _routeGeometry;
   int? _selectedDay;
+  int? _durationDays;
+
+  List<int> get _logicalDays {
+    final total = _durationDays ?? _optimizedRoute?.totalDays ?? 1;
+    return List.generate(total < 1 ? 1 : total, (i) => i + 1);
+  }
 
   @override
   void initState() {
     super.initState();
+    _perfWatch.start();
     _ownsTripService = widget.tripService == null;
     _tripService = widget.tripService ?? TripService();
 
@@ -71,7 +93,30 @@ class _TripMapScreenState extends State<TripMapScreen> {
     _routeGeometryService =
         widget.routeGeometryService ?? RouteGeometryService();
 
-    _loadMapData();
+    _durationDays = widget.initialDurationDays ?? widget.initialOptimizedRoute?.totalDays;
+
+    if (widget.initialStartLocation != null ||
+        (widget.initialSavedPlaces != null && widget.initialSavedPlaces!.isNotEmpty)) {
+      _startLocation = widget.initialStartLocation;
+      _savedPlaces = widget.initialSavedPlaces ?? [];
+      _optimizedRoute = widget.initialOptimizedRoute;
+      _routeGeometry = widget.initialRouteGeometry ?? widget.initialOptimizedRoute?.routeGeometry;
+      _isLoading = false;
+
+      developer.log(
+        '[MapPerformance] Screen created and initialized with pre-passed state in ${_perfWatch.elapsedMilliseconds}ms. Markers: ${_savedPlaces.length}',
+        name: 'TripMap',
+      );
+
+      if (_routeGeometry == null && _optimizedRoute != null) {
+        _fetchRouteGeometryAsync();
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fitMapBounds();
+      });
+    } else {
+      _loadMapData();
+    }
   }
 
   @override
@@ -84,6 +129,26 @@ class _TripMapScreenState extends State<TripMapScreen> {
     super.dispose();
   }
 
+  Future<void> _fetchRouteGeometryAsync() async {
+    if (!mounted) return;
+    setState(() => _isRouteLoading = true);
+    try {
+      final geom = await _routeGeometryService.getRouteGeometry(widget.tripId);
+      if (!mounted) return;
+      setState(() {
+        _routeGeometry = geom;
+        _isRouteLoading = false;
+      });
+      developer.log(
+        '[MapPerformance] Route geometry ready in ${_perfWatch.elapsedMilliseconds}ms',
+        name: 'TripMap',
+      );
+      _fitMapBounds();
+    } catch (_) {
+      if (mounted) setState(() => _isRouteLoading = false);
+    }
+  }
+
   Future<void> _loadMapData() async {
     setState(() {
       _isLoading = true;
@@ -91,55 +156,48 @@ class _TripMapScreenState extends State<TripMapScreen> {
     });
 
     try {
-      final tripDraft = await _tripService.getTrip(widget.tripId);
-      final savedPlacesResult = await _savedPlaceService.getSavedPlaces(
-        widget.tripId,
-      );
+      final results = await Future.wait([
+        _tripService.getTrip(widget.tripId),
+        _savedPlaceService.getSavedPlaces(widget.tripId),
+      ]);
 
-      OptimizedRoute? routeResult;
-      try {
-        routeResult = await _routeOptimizationService.optimizeRoute(
-          widget.tripId,
-        );
-      } catch (_) {
-        // If optimization fails or doesn't exist, we continue without it.
-      }
-
-      TripRouteGeometry? geometryResult;
-      try {
-        geometryResult = await _routeGeometryService.getRouteGeometry(
-          widget.tripId,
-        );
-      } catch (_) {
-        // Safe degradation: if geometry cannot be fetched, map still shows markers.
-      }
+      final tripDraft = results[0] as TripDraft;
+      final savedPlacesResult = results[1] as List<SavedPlace>;
 
       if (!mounted) return;
 
+      final stType = tripDraft.startLocationType;
+      final name = tripDraft.startLocationName ?? tripDraft.arrivalPoint;
+      final lat = tripDraft.startLatitude ?? tripDraft.arrivalLatitude ?? 0.0;
+      final lng =
+          tripDraft.startLongitude ?? tripDraft.arrivalLongitude ?? 0.0;
+
+      TripStartLocation? start;
+      if (lat != 0.0 && lng != 0.0) {
+        start = TripStartLocation(
+          tripId: widget.tripId,
+          type: stType,
+          name: name,
+          latitude: lat,
+          longitude: lng,
+        );
+      }
+
       setState(() {
-        final stType = tripDraft.startLocationType;
-        final name = tripDraft.startLocationName ?? tripDraft.arrivalPoint;
-        final lat = tripDraft.startLatitude ?? tripDraft.arrivalLatitude ?? 0.0;
-        final lng =
-            tripDraft.startLongitude ?? tripDraft.arrivalLongitude ?? 0.0;
-
-        if (lat != 0.0 && lng != 0.0) {
-          _startLocation = TripStartLocation(
-            tripId: widget.tripId,
-            type: stType,
-            name: name,
-            latitude: lat,
-            longitude: lng,
-          );
-        }
-
+        _startLocation = start;
         _savedPlaces = savedPlacesResult;
-        _optimizedRoute = routeResult;
-        _routeGeometry = geometryResult;
+        _durationDays = tripDraft.durationDays;
         _isLoading = false;
       });
 
+      developer.log(
+        '[MapPerformance] Base map and ${_savedPlaces.length} markers ready in ${_perfWatch.elapsedMilliseconds}ms',
+        name: 'TripMap',
+      );
+
       _fitMapBounds();
+
+      _fetchRouteAsync();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -147,6 +205,44 @@ class _TripMapScreenState extends State<TripMapScreen> {
         _error = 'Could not load map data. Please try again.';
       });
     }
+  }
+
+  Future<void> _fetchRouteAsync() async {
+    if (!mounted) return;
+    setState(() => _isRouteLoading = true);
+
+    OptimizedRoute? routeResult;
+    try {
+      routeResult = await _routeOptimizationService.optimizeRoute(widget.tripId);
+    } catch (_) {
+      // Route optimization optional
+    }
+
+    TripRouteGeometry? geometryResult = routeResult?.routeGeometry;
+    if (geometryResult == null) {
+      try {
+        geometryResult =
+            await _routeGeometryService.getRouteGeometry(widget.tripId);
+      } catch (_) {
+        // Safe degradation: if geometry cannot be fetched, map still shows markers.
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _optimizedRoute = routeResult;
+      _routeGeometry = geometryResult;
+      if (routeResult != null && _durationDays == null) {
+        _durationDays = routeResult.totalDays;
+      }
+      _isRouteLoading = false;
+    });
+
+    developer.log(
+      '[MapPerformance] Route ready in ${_perfWatch.elapsedMilliseconds}ms',
+      name: 'TripMap',
+    );
+    _fitMapBounds();
   }
 
   void _fitMapBounds() {
@@ -384,7 +480,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
       appBar: AppBar(
         title: const Text('Trip Map'),
         actions: [
-          if (_optimizedRoute != null)
+          if (_logicalDays.isNotEmpty)
             PopupMenuButton<int?>(
               icon: const Icon(Icons.filter_list_rounded),
               onSelected: (day) {
@@ -394,12 +490,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 _fitMapBounds();
               },
               itemBuilder: (context) {
-                final days =
-                    _optimizedRoute!.places
-                        .map((p) => p.dayNumber)
-                        .toSet()
-                        .toList()
-                      ..sort();
+                final days = _logicalDays;
                 return [
                   const PopupMenuItem(value: null, child: Text('All Days')),
                   for (final day in days)
@@ -476,6 +567,71 @@ class _TripMapScreenState extends State<TripMapScreen> {
             ),
           ],
         ),
+        if (_selectedDay != null &&
+            _optimizedRoute != null &&
+            !_optimizedRoute!.places.any((p) => p.dayNumber == _selectedDay))
+          Positioned(
+            top: 16,
+            left: 16,
+            right: 16,
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(12),
+              color: AppColors.surface,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 18, color: AppColors.teal),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Day $_selectedDay · No places scheduled yet.',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.charcoal,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        if (_isRouteLoading)
+          Positioned(
+            bottom: 24,
+            left: 24,
+            child: Material(
+              elevation: 3,
+              borderRadius: BorderRadius.circular(20),
+              color: AppColors.surface,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Calculating route…',
+                      style: AppTextStyles.caption.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
