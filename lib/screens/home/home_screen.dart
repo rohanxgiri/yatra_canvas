@@ -72,6 +72,11 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               const Expanded(child: YatraBrand(compact: true)),
+              FilledButton.tonalIcon(
+                onPressed: _openCreateTrip,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Create'),
+              ),
             ],
           ),
           const SizedBox(height: 26),
@@ -310,4 +315,40 @@ class _CreateJourneyCard extends StatelessWidget {
   }
 }
 
+class _TravelArtwork extends StatelessWidget {
+  const _TravelArtwork({required this.icon, this.warm = false});
+
+  final IconData icon;
+  final bool warm;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: warm
+              ? const [Color(0xFFF6C895), Color(0xFFD96C4D)]
+              : const [Color(0xFF8DC9BE), Color(0xFF126E69)],
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            right: -16,
+            bottom: -16,
+            child: Icon(icon, size: 122, color: Colors.white24),
+          ),
+          Center(child: Icon(icon, size: 56, color: Colors.white)),
+          const Positioned(
+            left: 12,
+            top: 12,
+            child: Icon(Icons.route_rounded, color: Colors.white70, size: 24),
+          ),
+        ],
+      ),
+    );
+  }
 }

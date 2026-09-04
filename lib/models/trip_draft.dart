@@ -40,11 +40,21 @@ class TripDraft {
     this.travelPace = 'Balanced',
     this.budget = 'Chill',
     Set<String>? transportPreferences,
-  }) : startDate = startDate ?? DateTime(2026, 8, 25),
-       endDate = endDate ?? DateTime(2026, 8, 26),
+  }) : startDate = startDate ?? _defaultStartDate(),
+       endDate = endDate ?? _defaultEndDate(startDate),
        arrivalTime = arrivalTime ?? const TimeOfDayValue(hour: 8, minute: 30),
        purposes = purposes ?? {'Religious / Spiritual'},
        transportPreferences = transportPreferences ?? {'Walking', 'Auto / Cab'};
+
+  static DateTime _defaultStartDate() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  static DateTime _defaultEndDate(DateTime? start) {
+    final s = start ?? _defaultStartDate();
+    return s.add(const Duration(days: 1));
+  }
 
   String? tripId;
   City? destination;

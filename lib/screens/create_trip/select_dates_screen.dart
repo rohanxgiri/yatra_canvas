@@ -24,14 +24,28 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
   late bool _datesFlexible;
   late int _durationDays;
   bool _selectingEnd = false;
+  late DateTime _displayedMonth;
+
+  static DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+  DateTime get _today => _dateOnly(DateTime.now());
 
   @override
   void initState() {
     super.initState();
-    _startDate = widget.draft.startDate;
-    _endDate = widget.draft.endDate;
+    final today = _today;
+    var start = _dateOnly(widget.draft.startDate);
+    if (start.isBefore(today)) {
+      start = today;
+    }
+    _startDate = start;
+    if (widget.draft.endDate.isBefore(_startDate)) {
+      _endDate = _startDate.add(Duration(days: widget.draft.durationDays > 0 ? widget.draft.durationDays - 1 : 1));
+    } else {
+      _endDate = _dateOnly(widget.draft.endDate);
+    }
     _datesFlexible = widget.draft.datesFlexible;
     _durationDays = widget.draft.durationDays;
+    _displayedMonth = DateTime(_startDate.year, _startDate.month, 1);
   }
 
   int get _selectedDays {
@@ -40,16 +54,36 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
   }
 
   void _selectDate(DateTime date) {
+    final normalized = _dateOnly(date);
+    if (normalized.isBefore(_today)) return;
+
     setState(() {
-      if (!_selectingEnd || date.isBefore(_startDate)) {
-        _startDate = date;
+      if (!_selectingEnd || normalized.isBefore(_startDate)) {
+        _startDate = normalized;
         _endDate = null;
         _selectingEnd = true;
       } else {
-        _endDate = date;
+        _endDate = normalized;
         _selectingEnd = false;
       }
     });
+  }
+
+  void _previousMonth() {
+    setState(() {
+      _displayedMonth = DateTime(_displayedMonth.year, _displayedMonth.month - 1, 1);
+    });
+  }
+
+  void _nextMonth() {
+    setState(() {
+      _displayedMonth = DateTime(_displayedMonth.year, _displayedMonth.month + 1, 1);
+    });
+  }
+
+  bool get _canGoPrevious {
+    final todayMonth = DateTime(_today.year, _today.month, 1);
+    return _displayedMonth.isAfter(todayMonth);
   }
 
   void _continue() {
@@ -98,8 +132,13 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
                   )
                 : _CalendarCard(
                     key: const ValueKey('calendar'),
+                    displayedMonth: _displayedMonth,
                     startDate: _startDate,
                     endDate: _endDate,
+                    today: _today,
+                    canGoPrevious: _canGoPrevious,
+                    onPreviousMonth: _previousMonth,
+                    onNextMonth: _nextMonth,
                     onSelected: _selectDate,
                   ),
           ),
@@ -198,27 +237,49 @@ class _DurationPicker extends StatelessWidget {
 
 class _CalendarCard extends StatelessWidget {
   const _CalendarCard({
+    required this.displayedMonth,
     required this.startDate,
     required this.endDate,
+    required this.today,
+    required this.canGoPrevious,
+    required this.onPreviousMonth,
+    required this.onNextMonth,
     required this.onSelected,
     super.key,
   });
 
+  final DateTime displayedMonth;
   final DateTime startDate;
   final DateTime? endDate;
+  final DateTime today;
+  final bool canGoPrevious;
+  final VoidCallback onPreviousMonth;
+  final VoidCallback onNextMonth;
   final ValueChanged<DateTime> onSelected;
 
   static const _weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  static const _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
-  bool _isSelected(int day) {
-    final date = DateTime(2026, 8, day);
+  bool _isSelected(DateTime date) {
     final end = endDate ?? startDate;
     return !date.isBefore(startDate) && !date.isAfter(end);
   }
 
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   @override
   Widget build(BuildContext context) {
-    const leadingEmptyDays = 6;
+    final year = displayedMonth.year;
+    final month = displayedMonth.month;
+    final firstDayOfMonth = DateTime(year, month, 1);
+    final leadingEmptyDays = firstDayOfMonth.weekday % 7;
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    final totalGridCount = leadingEmptyDays + daysInMonth;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 18, 14, 16),
       decoration: BoxDecoration(
@@ -230,19 +291,45 @@ class _CalendarCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.calendar_month_rounded, color: AppColors.teal),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text('August 2026', style: AppTextStyles.sectionTitle),
+              const Icon(Icons.calendar_month_rounded, color: AppColors.teal, size: 20),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.chevron_left_rounded, size: 20),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                onPressed: canGoPrevious ? onPreviousMonth : null,
+                tooltip: 'Previous month',
+                color: canGoPrevious ? AppColors.teal : AppColors.textTertiary,
               ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    '${_monthNames[month - 1]} $year',
+                    style: AppTextStyles.sectionTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded, size: 20),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                onPressed: onNextMonth,
+                tooltip: 'Next month',
+                color: AppColors.teal,
+              ),
+              const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.tealLight,
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: Text(
-                  endDate == null ? 'Select end' : 'Dates selected',
+                  endDate == null ? 'Select end' : 'Selected',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.tealDark,
                     fontWeight: FontWeight.w700,
@@ -267,7 +354,7 @@ class _CalendarCard extends StatelessWidget {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: 37,
+            itemCount: totalGridCount,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
               mainAxisSpacing: 4,
@@ -277,30 +364,42 @@ class _CalendarCard extends StatelessWidget {
             itemBuilder: (context, index) {
               if (index < leadingEmptyDays) return const SizedBox.shrink();
               final day = index - leadingEmptyDays + 1;
-              final selected = _isSelected(day);
-              final isEdge = day == startDate.day || day == endDate?.day;
+              final date = DateTime(year, month, day);
+              final isPast = date.isBefore(today);
+              final selected = _isSelected(date);
+              final isEdge = _isSameDay(date, startDate) ||
+                  (endDate != null && _isSameDay(date, endDate!));
+
               return Semantics(
-                button: true,
+                button: !isPast,
                 selected: selected,
-                label: '$day August 2026',
+                label: isPast
+                    ? '$day ${_monthNames[month - 1]} $year (past)'
+                    : '$day ${_monthNames[month - 1]} $year',
                 child: InkWell(
-                  onTap: () => onSelected(DateTime(2026, 8, day)),
+                  onTap: isPast ? null : () => onSelected(date),
                   customBorder: const CircleBorder(),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
                     decoration: BoxDecoration(
-                      color: isEdge
-                          ? AppColors.teal
-                          : selected
-                          ? AppColors.tealLight
-                          : Colors.transparent,
+                      color: isPast
+                          ? Colors.transparent
+                          : isEdge
+                              ? AppColors.teal
+                              : selected
+                                  ? AppColors.tealLight
+                                  : Colors.transparent,
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       '$day',
                       style: AppTextStyles.label.copyWith(
-                        color: isEdge ? Colors.white : AppColors.charcoal,
+                        color: isPast
+                            ? AppColors.textTertiary
+                            : isEdge
+                                ? Colors.white
+                                : AppColors.charcoal,
                       ),
                     ),
                   ),
@@ -327,9 +426,27 @@ class _DateSummary extends StatelessWidget {
   final DateTime? endDate;
   final int durationDays;
 
+  static const _monthAbbr = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
+  String _formatDateRange() {
+    final end = endDate ?? startDate;
+    if (startDate.year == end.year && startDate.month == end.month) {
+      if (startDate.day == end.day) {
+        return '${startDate.day} ${_monthAbbr[startDate.month - 1]} ${startDate.year}';
+      }
+      return '${startDate.day} — ${end.day} ${_monthAbbr[startDate.month - 1]}';
+    } else if (startDate.year == end.year) {
+      return '${startDate.day} ${_monthAbbr[startDate.month - 1]} — ${end.day} ${_monthAbbr[end.month - 1]}';
+    } else {
+      return '${startDate.day} ${_monthAbbr[startDate.month - 1]} ${startDate.year} — ${end.day} ${_monthAbbr[end.month - 1]} ${end.year}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final end = endDate ?? startDate;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -357,9 +474,7 @@ class _DateSummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  flexible
-                      ? 'Flexible dates'
-                      : '${startDate.day} Aug — ${end.day} Aug',
+                  flexible ? 'Flexible dates' : _formatDateRange(),
                   style: AppTextStyles.cardTitle.copyWith(color: Colors.white),
                 ),
                 const SizedBox(height: 4),
