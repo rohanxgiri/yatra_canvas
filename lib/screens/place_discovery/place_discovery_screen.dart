@@ -212,9 +212,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     } on Object catch (error) {
       if (!mounted || requestGeneration != _requestGeneration) return;
       setState(() {
-        _recommendations = const [];
+        final friendlyMsg = _friendlyError(error);
+        if (_recommendations.isEmpty) {
+          _error = friendlyMsg;
+        } else {
+          _showSavedMessage(friendlyMsg, isError: true);
+        }
         _isLoading = false;
-        _error = _friendlyError(error);
       });
     }
   }
@@ -1105,7 +1109,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   }
 
   Widget _buildResults() {
-    if (_isLoading) {
+    if (_isLoading && _recommendations.isEmpty) {
       final categoryCount = _effectiveCategories.length;
       return _DiscoveryStatus(
         key: const ValueKey('loading-recommendations'),
@@ -1117,11 +1121,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       );
     }
     if (_error case final error?) {
-      return _DiscoveryError(
-        key: const ValueKey('error'),
-        message: error,
-        onRetry: _loadRecommendations,
-      );
+      if (_recommendations.isEmpty) {
+        return _DiscoveryError(
+          key: const ValueKey('error'),
+          message: error,
+          onRetry: _loadRecommendations,
+        );
+      }
     }
     if (!_hasRequested) {
       return const _DiscoveryStatus(
@@ -1145,6 +1151,30 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       key: const ValueKey('ranked-recommendations'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_isLoading) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: AppColors.tealLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.teal,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Text('Updating nearby places…', style: AppTextStyles.caption),
+              ],
+            ),
+          ),
+        ],
         Row(
           children: [
             Expanded(

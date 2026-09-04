@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from app.schemas import DiscoveryCategory
+from app.services.provider_circuit_breaker import ProviderCircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,7 @@ class OpenStreetMapPlacesService:
         category_radii: dict[DiscoveryCategory, int] | None = None,
         category_limits: dict[DiscoveryCategory, int] | None = None,
         client: httpx.AsyncClient | None = None,
+        circuit_breaker: ProviderCircuitBreaker | None = None,
     ) -> None:
         self._api_url = api_url.rstrip("/")
         self._timeout = httpx.Timeout(
@@ -139,6 +141,7 @@ class OpenStreetMapPlacesService:
             else _DEFAULT_CATEGORY_LIMITS.copy()
         )
         self._client = client
+        self._circuit_breaker = circuit_breaker
 
     def get_radius_for_category(self, category: DiscoveryCategory) -> int:
         return self._category_radii.get(category, self._radius_meters)
@@ -155,6 +158,16 @@ class OpenStreetMapPlacesService:
         limit: int | None = None,
         radius_meters: int | None = None,
     ) -> list[OpenStreetMapNearbyPlace]:
+        if self._circuit_breaker and not self._circuit_breaker.allow_request():
+            logger.info(
+                "Skipping OpenStreetMap query for category=%s because circuit breaker %s is OPEN",
+                category.value,
+                self._circuit_breaker.name,
+            )
+            raise OpenStreetMapPlacesUnavailableError(
+                f"OpenStreetMap circuit breaker {self._circuit_breaker.name} is open."
+            )
+
         effective_limit = (
             limit if limit is not None else self.get_limit_for_category(category)
         )
@@ -183,6 +196,8 @@ class OpenStreetMapPlacesService:
                 duration,
                 exc,
             )
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure(exc)
             raise OpenStreetMapPlacesUnavailableError(
                 "OpenStreetMap returned an invalid discovery response."
             ) from exc
@@ -195,7 +210,12 @@ class OpenStreetMapPlacesService:
                 duration,
                 exc,
             )
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure(exc)
             raise
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_success()
 
         if not isinstance(payload, dict) or not isinstance(
             payload.get("elements"), list
@@ -240,7 +260,7 @@ class OpenStreetMapPlacesService:
         category_limits: dict[DiscoveryCategory, int] | None = None,
         category_radii: dict[DiscoveryCategory, int] | None = None,
     ) -> dict[DiscoveryCategory, list[OpenStreetMapNearbyPlace]]:
-        """Fetch several discovery categories using independent queries and quotas with failure isolation."""
+        """Fetch several discovery categories concurrently using independent queries and quotas with failure isolation."""
 
         unique_categories = list(dict.fromkeys(categories))
         if not unique_categories:
@@ -249,7 +269,7 @@ class OpenStreetMapPlacesService:
         results: dict[DiscoveryCategory, list[OpenStreetMapNearbyPlace]] = {}
         errors: list[tuple[DiscoveryCategory, Exception]] = []
 
-        for category in unique_categories:
+        async def _fetch_category(category: DiscoveryCategory):
             limit = (
                 category_limits.get(category)
                 if category_limits and category in category_limits
@@ -272,14 +292,23 @@ class OpenStreetMapPlacesService:
                     limit=limit,
                     radius_meters=radius,
                 )
-                results[category] = places
+                return category, places, None
             except OpenStreetMapPlacesError as exc:
+                return category, [], exc
+
+        tasks = [_fetch_category(c) for c in unique_categories]
+        completed = await asyncio.gather(*tasks)
+
+        for cat, places, exc in completed:
+            if exc is None:
+                results[cat] = places
+            else:
                 logger.warning(
                     "Isolated failure for category %s: %s",
-                    category.value,
+                    cat.value,
                     exc,
                 )
-                errors.append((category, exc))
+                errors.append((cat, exc))
 
         if not results and errors:
             raise errors[0][1]
@@ -473,15 +502,12 @@ class OpenStreetMapPlacesService:
                     continue
                 return response
             except httpx.TimeoutException as exc:
-                if attempt < max_attempts - 1:
-                    await asyncio.sleep(2.0)
-                    continue
                 raise OpenStreetMapPlacesTimeoutError(
                     "OpenStreetMap discovery did not respond in time."
                 ) from exc
             except httpx.RequestError as exc:
                 if attempt < max_attempts - 1:
-                    await asyncio.sleep(2.0)
+                    await asyncio.sleep(1.0)
                     continue
                 raise OpenStreetMapPlacesUnavailableError(
                     "OpenStreetMap discovery could not be reached."
