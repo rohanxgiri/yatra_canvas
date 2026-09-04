@@ -78,6 +78,7 @@ class Place(SQLModel, table=True):
     is_popular: bool = Field(default=False)
     is_heritage: bool = Field(default=False)
     is_local_speciality: bool = Field(default=False)
+    wikidata_id: str | None = Field(default=None, max_length=50, index=True)
     last_fetched_at: datetime | None = Field(
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
@@ -137,6 +138,7 @@ class PlaceSource(SQLModel, table=True):
     place_id: UUID = Field(foreign_key="places.id", index=True)
     source: str = Field(max_length=50, index=True)
     external_place_id: str = Field(max_length=255, index=True)
+    wikidata_id: str | None = Field(default=None, max_length=50, index=True)
     source_url: str | None = Field(default=None, max_length=1000)
     licence_identifier: str = Field(
         default="unknown",

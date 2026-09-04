@@ -17,6 +17,7 @@ class PlaceBase(SQLModel):
     is_popular: bool = False
     is_heritage: bool = False
     is_local_speciality: bool = False
+    wikidata_id: str | None = None
     last_fetched_at: datetime | None = None
 
     @field_validator("name", "category")

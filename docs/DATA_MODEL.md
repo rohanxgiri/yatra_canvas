@@ -91,6 +91,10 @@ forward migration, rollback/data-preservation plan, admin authorization, and tes
   canonical `Place` column.
 - OpenStreetMap POIs use `PlaceSource(source="openstreetmap", external_place_id="type/id")`
   with their element URL and `ODbL-1.0` licence identifier.
+- Audiala POIs use `PlaceSource(source="audiala", external_place_id="Q...")` with their Wikipedia
+  URL and `CC BY 4.0` licence identifier.
+- Both `Place` and `PlaceSource` support an optional indexed `wikidata_id` for deterministic
+  cross-provider canonical place identity resolution.
 - Start-location provider IDs are stored on `Trip` with their provider name. They are not a
   canonical place foreign key.
 
@@ -126,6 +130,7 @@ reviewed SQL changes because `create_all` does not alter columns or constraints.
 | `backend/sql/rollback_fsq_geoapify_foundation.sql` | Reviewed rollback paired with the FSQ/Geoapify foundation |
 | `backend/sql/add_route_matrix_priorities_start_location.sql` | Forward; no dedicated rollback script |
 | `backend/sql/repair_current_schema_parity.sql` | Transactional forward parity repair; recovery is roll-forward or verified backup restore after new-column writes |
+| `backend/sql/add_places_canonical_wikidata.sql` | Forward; adds `wikidata_id` columns, indices, and non-destructive backfill for Audiala places/sources |
 
 No ordered/versioned runner records which scripts ran. A read-only 2026-09-01 audit found the
 configured remote catalog compatible with current model metadata, but its environment
