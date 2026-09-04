@@ -19,13 +19,13 @@ YatraCanvas is a Flutter + FastAPI travel-planning application focused on helpin
 - Core trip flow (destination, dates, arrival, purpose, preferences)
 - OpenStreetMap candidate discovery (Overpass API)
 - Audiala secondary seed discovery (in-memory JSON dataset under `backend/app/data/audiala_places.json`, CC BY 4.0)
-- Multi-stage recommendation pipeline (category-balanced, preference-weighted, deduplicated)
+- Multi-stage recommendation pipeline (category-balanced, preference-weighted, brand-capped, deduplicated, hardened across 7 benchmark cities with 0 restricted POI leakage)
 - User saved places and pinned ordering
 - Itinerary optimization via Google OR-Tools VRPTW solver (time windows, lunch breaks, visit durations)
 - Road route geometry via OSRM (with optional openrouteservice adapter)
 - Interactive Flutter map visualization with day-based polyline filtering
 - Weather forecast and smart replanning advisories via Open-Meteo
-- All 203 backend tests passing (100%)
+- All 241 backend tests passing (100%)
 - All 58 Flutter tests passing (100%)
 - Flutter analyze completely clean (0 issues)
 
