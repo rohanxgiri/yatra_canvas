@@ -1,6 +1,6 @@
 # YatraCanvas architecture
 
-Last reviewed: 2026-09-01
+Last reviewed: 2026-09-04 (audit by chore/project-audit-cleanup)
 
 Status labels are defined in [Project context](PROJECT_CONTEXT.md). This document separates
 repository reality from the intended provider architecture.
@@ -41,8 +41,10 @@ coordinate-backed start.
 an app restart. Trip listing/editing and authenticated ownership are absent. The admin shell
 uses hard-coded metrics and rows and has no admin API client.
 
-`[PLANNED]` No interactive map package or platform Maps SDK is present. Android location and
-internet permissions support device location and HTTP; they are not evidence of a map SDK.
+`[IMPLEMENTED]` `flutter_map: ^8.3.2` provides an interactive OpenStreetMap tile map in
+`trip_map_screen.dart`. It renders start/place markers, day-filtered road-following
+`PolylineLayer` geometry from `RouteGeometryService`, and camera bounds fitting. No proprietary
+platform Maps SDK is required.
 
 ### FastAPI
 
@@ -147,7 +149,8 @@ environment variable.
 
 ## Caching and fallback today
 
-- `[IMPLEMENTED]` `CityCategoryCache` gives Google-backed place discovery a configurable expiry.
+- `[IMPLEMENTED]` `CityCategoryCache` gives OpenStreetMap/Audiala-backed place discovery a
+  configurable expiry (`PLACE_DISCOVERY_CACHE_TTL_HOURS`, default 24h).
   Canonical `Place`, `PlaceSource`, and `PlaceTag` records remain stored after refresh.
 - `[IMPLEMENTED]` Geoapify autocomplete uses an in-process TTL cache. It disappears on restart,
   is not shared across replicas, and returns a recoverable provider/configuration error when it

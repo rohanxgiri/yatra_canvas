@@ -39,6 +39,10 @@ __pycache__/
 # Project-local temporary SDKs and tool caches
 tmp/
 
+# Experiment script caches (Overpass API responses, not source or results)
+scripts/experiments/*/cache/
+scripts/experiments/*/cache_*/
+
 # Android generated files
 android/.gradle/
 android/.kotlin/

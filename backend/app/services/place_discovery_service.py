@@ -1,4 +1,12 @@
-"""Cache-aware discovery and persistence for Google nearby places."""
+"""[LEGACY/DEAD] Cache-aware discovery and persistence for Google nearby places.
+
+This module is no longer used in production. It has been replaced by
+``OpenStreetMapDiscoveryService`` (openstreetmap_discovery_service.py).
+``GooglePlacesService`` (imported below) does not exist in this repository —
+importing this file at runtime would raise an ImportError. Do not import it.
+
+Status: [DEPRECATED] — no router dependency, no DI usage, no tests.
+"""
 
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
