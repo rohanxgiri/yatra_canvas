@@ -1,0 +1,6187 @@
+{
+  "timestamp": 1788539642.058322,
+  "scenarios_count": 8,
+  "total_evaluations": 32,
+  "results": [
+    {
+      "scenario_key": "jaipur",
+      "city_name": "Jaipur",
+      "k": 5,
+      "requested_k": 5,
+      "returned_k": 5,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "City Palace",
+        "Nahargarh Fort",
+        "Jaigarh Fort",
+        "Jal Mahal",
+        "Albert Hall Museum"
+      ],
+      "category_distribution": {
+        "heritage": 5
+      },
+      "category_diversity_entropy": 0.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 106,
+        "returned_recommendations": 5
+      },
+      "runtime_ms": 17.55,
+      "top_recommendations": [
+        {
+          "id": "15693712-2667-5c30-89b8-4b398851878f",
+          "name": "City Palace",
+          "category": "heritage",
+          "latitude": 26.9255,
+          "longitude": 75.8236,
+          "score": 86.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "a6bcad4b-999b-5269-9b4e-4226d5fd8a80",
+          "name": "Nahargarh Fort",
+          "category": "heritage",
+          "latitude": 26.9374,
+          "longitude": 75.8157,
+          "score": 85.8,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "c8d299b4-0421-5a28-8463-c517dfd68c99",
+          "name": "Albert Hall Museum",
+          "category": "heritage",
+          "latitude": 26.9116,
+          "longitude": 75.8195,
+          "score": 85.6,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "703e9eb4-2783-5daa-b112-82951509b4c7",
+          "name": "Jal Mahal",
+          "category": "heritage",
+          "latitude": 26.9535,
+          "longitude": 75.8461,
+          "score": 85.3,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "78033d1d-27f0-5e2b-bb4b-1d783694cdcd",
+          "name": "Jaigarh Fort",
+          "category": "heritage",
+          "latitude": 26.9847,
+          "longitude": 75.8454,
+          "score": 85.0,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "jaipur",
+      "city_name": "Jaipur",
+      "k": 10,
+      "requested_k": 10,
+      "returned_k": 10,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.875,
+      "gold_pois_found": [
+        "Amber Fort",
+        "Hawa Mahal",
+        "City Palace",
+        "Nahargarh Fort",
+        "Jaigarh Fort",
+        "Jal Mahal",
+        "Albert Hall Museum"
+      ],
+      "category_distribution": {
+        "heritage": 8,
+        "tourism": 2
+      },
+      "category_diversity_entropy": 0.722,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 106,
+        "returned_recommendations": 10
+      },
+      "runtime_ms": 4.53,
+      "top_recommendations": [
+        {
+          "id": "15693712-2667-5c30-89b8-4b398851878f",
+          "name": "City Palace",
+          "category": "heritage",
+          "latitude": 26.9255,
+          "longitude": 75.8236,
+          "score": 86.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "a6bcad4b-999b-5269-9b4e-4226d5fd8a80",
+          "name": "Nahargarh Fort",
+          "category": "heritage",
+          "latitude": 26.9374,
+          "longitude": 75.8157,
+          "score": 85.8,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "c8d299b4-0421-5a28-8463-c517dfd68c99",
+          "name": "Albert Hall Museum",
+          "category": "heritage",
+          "latitude": 26.9116,
+          "longitude": 75.8195,
+          "score": 85.6,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "703e9eb4-2783-5daa-b112-82951509b4c7",
+          "name": "Jal Mahal",
+          "category": "heritage",
+          "latitude": 26.9535,
+          "longitude": 75.8461,
+          "score": 85.3,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "78033d1d-27f0-5e2b-bb4b-1d783694cdcd",
+          "name": "Jaigarh Fort",
+          "category": "heritage",
+          "latitude": 26.9847,
+          "longitude": 75.8454,
+          "score": 85.0,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "60add9c2-d880-5dda-81cf-0ce13272df97",
+          "name": "Ajmeri Gate",
+          "category": "heritage",
+          "latitude": 26.9174,
+          "longitude": 75.8202,
+          "score": 69.8,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "987c0073-77f9-5425-b6f8-92f1b8875ca6",
+          "name": "Amber Fort",
+          "category": "heritage",
+          "latitude": 26.9863104,
+          "longitude": 75.8506607,
+          "score": 67.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "9b1c0dd2-bb81-599b-9aa8-9490bff3d1da",
+          "name": "Sheesh Mahal",
+          "category": "heritage",
+          "latitude": 26.9854678,
+          "longitude": 75.8500935,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "03a6d677-20aa-5282-b1d0-c0e8721ea5ea",
+          "name": "Hawa Mahal",
+          "category": "tourism",
+          "latitude": 26.923932,
+          "longitude": 75.8268652,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "d05df5d2-1ef2-5936-b5f1-564b0b4a29e5",
+          "name": "Jaighar Fort",
+          "category": "tourism",
+          "latitude": 26.9846903,
+          "longitude": 75.8453997,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "jaipur",
+      "city_name": "Jaipur",
+      "k": 15,
+      "requested_k": 15,
+      "returned_k": 15,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "Amber Fort",
+        "Hawa Mahal",
+        "City Palace",
+        "Jantar Mantar",
+        "Nahargarh Fort",
+        "Jaigarh Fort",
+        "Jal Mahal",
+        "Albert Hall Museum"
+      ],
+      "category_distribution": {
+        "heritage": 8,
+        "tourism": 7
+      },
+      "category_diversity_entropy": 0.997,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 106,
+        "returned_recommendations": 15
+      },
+      "runtime_ms": 4.37,
+      "top_recommendations": [
+        {
+          "id": "15693712-2667-5c30-89b8-4b398851878f",
+          "name": "City Palace",
+          "category": "heritage",
+          "latitude": 26.9255,
+          "longitude": 75.8236,
+          "score": 86.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "a6bcad4b-999b-5269-9b4e-4226d5fd8a80",
+          "name": "Nahargarh Fort",
+          "category": "heritage",
+          "latitude": 26.9374,
+          "longitude": 75.8157,
+          "score": 85.8,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "c8d299b4-0421-5a28-8463-c517dfd68c99",
+          "name": "Albert Hall Museum",
+          "category": "heritage",
+          "latitude": 26.9116,
+          "longitude": 75.8195,
+          "score": 85.6,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "703e9eb4-2783-5daa-b112-82951509b4c7",
+          "name": "Jal Mahal",
+          "category": "heritage",
+          "latitude": 26.9535,
+          "longitude": 75.8461,
+          "score": 85.3,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "78033d1d-27f0-5e2b-bb4b-1d783694cdcd",
+          "name": "Jaigarh Fort",
+          "category": "heritage",
+          "latitude": 26.9847,
+          "longitude": 75.8454,
+          "score": 85.0,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "60add9c2-d880-5dda-81cf-0ce13272df97",
+          "name": "Ajmeri Gate",
+          "category": "heritage",
+          "latitude": 26.9174,
+          "longitude": 75.8202,
+          "score": 69.8,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "987c0073-77f9-5425-b6f8-92f1b8875ca6",
+          "name": "Amber Fort",
+          "category": "heritage",
+          "latitude": 26.9863104,
+          "longitude": 75.8506607,
+          "score": 67.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "9b1c0dd2-bb81-599b-9aa8-9490bff3d1da",
+          "name": "Sheesh Mahal",
+          "category": "heritage",
+          "latitude": 26.9854678,
+          "longitude": 75.8500935,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "03a6d677-20aa-5282-b1d0-c0e8721ea5ea",
+          "name": "Hawa Mahal",
+          "category": "tourism",
+          "latitude": 26.923932,
+          "longitude": 75.8268652,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "d05df5d2-1ef2-5936-b5f1-564b0b4a29e5",
+          "name": "Jaighar Fort",
+          "category": "tourism",
+          "latitude": 26.9846903,
+          "longitude": 75.8453997,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "9ac54968-c962-5864-95d6-823cfc6c13c1",
+          "name": "Jantar Mantar",
+          "category": "tourism",
+          "latitude": 26.9247389,
+          "longitude": 75.8244663,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "84db5f80-4985-5adb-85fe-c8edd4db3c5c",
+          "name": "Moon Gate",
+          "category": "tourism",
+          "latitude": 26.987223,
+          "longitude": 75.8508634,
+          "score": 32.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "4657247b-b5d4-5248-8ff3-27e867ecda78",
+          "name": "Sun Gate",
+          "category": "tourism",
+          "latitude": 26.9867232,
+          "longitude": 75.8513569,
+          "score": 32.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "61dd78f2-69fe-5f05-b8c5-ab310e3f4a7f",
+          "name": "Alice Garg Seashell Museum",
+          "category": "tourism",
+          "latitude": 26.8443983,
+          "longitude": 75.8072115,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "b286144f-c2fe-5835-89c7-697441e00a37",
+          "name": "Ashok Vihar, Jagatpura",
+          "category": "tourism",
+          "latitude": 26.8296105,
+          "longitude": 75.8425582,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "jaipur",
+      "city_name": "Jaipur",
+      "k": 20,
+      "requested_k": 20,
+      "returned_k": 20,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "Amber Fort",
+        "Hawa Mahal",
+        "City Palace",
+        "Jantar Mantar",
+        "Nahargarh Fort",
+        "Jaigarh Fort",
+        "Jal Mahal",
+        "Albert Hall Museum"
+      ],
+      "category_distribution": {
+        "heritage": 8,
+        "tourism": 12
+      },
+      "category_diversity_entropy": 0.971,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 106,
+        "returned_recommendations": 20
+      },
+      "runtime_ms": 4.72,
+      "top_recommendations": [
+        {
+          "id": "15693712-2667-5c30-89b8-4b398851878f",
+          "name": "City Palace",
+          "category": "heritage",
+          "latitude": 26.9255,
+          "longitude": 75.8236,
+          "score": 86.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "a6bcad4b-999b-5269-9b4e-4226d5fd8a80",
+          "name": "Nahargarh Fort",
+          "category": "heritage",
+          "latitude": 26.9374,
+          "longitude": 75.8157,
+          "score": 85.8,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "c8d299b4-0421-5a28-8463-c517dfd68c99",
+          "name": "Albert Hall Museum",
+          "category": "heritage",
+          "latitude": 26.9116,
+          "longitude": 75.8195,
+          "score": 85.6,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "703e9eb4-2783-5daa-b112-82951509b4c7",
+          "name": "Jal Mahal",
+          "category": "heritage",
+          "latitude": 26.9535,
+          "longitude": 75.8461,
+          "score": 85.3,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "78033d1d-27f0-5e2b-bb4b-1d783694cdcd",
+          "name": "Jaigarh Fort",
+          "category": "heritage",
+          "latitude": 26.9847,
+          "longitude": 75.8454,
+          "score": 85.0,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "60add9c2-d880-5dda-81cf-0ce13272df97",
+          "name": "Ajmeri Gate",
+          "category": "heritage",
+          "latitude": 26.9174,
+          "longitude": 75.8202,
+          "score": 69.8,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "987c0073-77f9-5425-b6f8-92f1b8875ca6",
+          "name": "Amber Fort",
+          "category": "heritage",
+          "latitude": 26.9863104,
+          "longitude": 75.8506607,
+          "score": 67.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "9b1c0dd2-bb81-599b-9aa8-9490bff3d1da",
+          "name": "Sheesh Mahal",
+          "category": "heritage",
+          "latitude": 26.9854678,
+          "longitude": 75.8500935,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "03a6d677-20aa-5282-b1d0-c0e8721ea5ea",
+          "name": "Hawa Mahal",
+          "category": "tourism",
+          "latitude": 26.923932,
+          "longitude": 75.8268652,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "d05df5d2-1ef2-5936-b5f1-564b0b4a29e5",
+          "name": "Jaighar Fort",
+          "category": "tourism",
+          "latitude": 26.9846903,
+          "longitude": 75.8453997,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "9ac54968-c962-5864-95d6-823cfc6c13c1",
+          "name": "Jantar Mantar",
+          "category": "tourism",
+          "latitude": 26.9247389,
+          "longitude": 75.8244663,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "84db5f80-4985-5adb-85fe-c8edd4db3c5c",
+          "name": "Moon Gate",
+          "category": "tourism",
+          "latitude": 26.987223,
+          "longitude": 75.8508634,
+          "score": 32.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "4657247b-b5d4-5248-8ff3-27e867ecda78",
+          "name": "Sun Gate",
+          "category": "tourism",
+          "latitude": 26.9867232,
+          "longitude": 75.8513569,
+          "score": 32.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "61dd78f2-69fe-5f05-b8c5-ab310e3f4a7f",
+          "name": "Alice Garg Seashell Museum",
+          "category": "tourism",
+          "latitude": 26.8443983,
+          "longitude": 75.8072115,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "b286144f-c2fe-5835-89c7-697441e00a37",
+          "name": "Ashok Vihar, Jagatpura",
+          "category": "tourism",
+          "latitude": 26.8296105,
+          "longitude": 75.8425582,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "fa39dbc3-d00e-54a5-a7af-0bde788150e6",
+          "name": "Diwan-i-Am",
+          "category": "tourism",
+          "latitude": 26.9862904,
+          "longitude": 75.8509196,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "984b483a-ea67-593a-a4dc-8ed64bdc8ce0",
+          "name": "Elefantastic",
+          "category": "tourism",
+          "latitude": 26.9956318,
+          "longitude": 75.8764569,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "90b61e5b-e7b5-5407-be15-a0957baeaead",
+          "name": "Elephant Riding",
+          "category": "tourism",
+          "latitude": 26.9867146,
+          "longitude": 75.8661354,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "611b6ffb-8767-5942-84c4-aa1e034f6129",
+          "name": "Jaipur Wax Museum",
+          "category": "tourism",
+          "latitude": 26.9391114,
+          "longitude": 75.8163025,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "23326000-547b-57f6-ab89-117d7499eacb",
+          "name": "Jaipur Zoo",
+          "category": "tourism",
+          "latitude": 26.9126972,
+          "longitude": 75.8209769,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "varanasi",
+      "city_name": "Varanasi",
+      "k": 5,
+      "requested_k": 5,
+      "returned_k": 5,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.8,
+      "gold_pois_found": [
+        "Kashi Vishwanath Temple",
+        "Dashashwamedh Ghat",
+        "Assi Ghat",
+        "Sarnath Deer Park & Dhamek Stupa"
+      ],
+      "category_distribution": {
+        "heritage": 4,
+        "religious": 1
+      },
+      "category_diversity_entropy": 0.722,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 104,
+        "returned_recommendations": 5
+      },
+      "runtime_ms": 34.36,
+      "top_recommendations": [
+        {
+          "id": "7cd81b1b-77df-599e-81ed-cd2dae54d297",
+          "name": "Sarnath Deer Park & Dhamek Stupa",
+          "category": "heritage",
+          "latitude": 25.381,
+          "longitude": 83.0245,
+          "score": 58.6,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "0ab3ea34-9eb1-58fd-9ded-64852e0aed11",
+          "name": "Dashashwamedh Ghat",
+          "category": "heritage",
+          "latitude": 25.3072,
+          "longitude": 83.0103,
+          "score": 58.4,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "eb4b4b8f-abac-5b46-a658-1543c5234e3a",
+          "name": "Assi Ghat",
+          "category": "heritage",
+          "latitude": 25.2895,
+          "longitude": 83.0065,
+          "score": 58.1,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "f03950f1-c656-5a23-bda6-2719c163e721",
+          "name": "Kashi Vishwanath Temple",
+          "category": "religious",
+          "latitude": 25.3108,
+          "longitude": 83.0106,
+          "score": 38.4,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "323f5330-57e3-5211-9062-f6ba19d8be62",
+          "name": "Ashokan Pillar",
+          "category": "heritage",
+          "latitude": 25.3814435,
+          "longitude": 83.0227126,
+          "score": 29.8,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "varanasi",
+      "city_name": "Varanasi",
+      "k": 10,
+      "requested_k": 10,
+      "returned_k": 10,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.5714,
+      "gold_pois_found": [
+        "Kashi Vishwanath Temple",
+        "Dashashwamedh Ghat",
+        "Assi Ghat",
+        "Sarnath Deer Park & Dhamek Stupa"
+      ],
+      "category_distribution": {
+        "heritage": 5,
+        "religious": 5
+      },
+      "category_diversity_entropy": 1.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 104,
+        "returned_recommendations": 10
+      },
+      "runtime_ms": 15.8,
+      "top_recommendations": [
+        {
+          "id": "7cd81b1b-77df-599e-81ed-cd2dae54d297",
+          "name": "Sarnath Deer Park & Dhamek Stupa",
+          "category": "heritage",
+          "latitude": 25.381,
+          "longitude": 83.0245,
+          "score": 58.6,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "0ab3ea34-9eb1-58fd-9ded-64852e0aed11",
+          "name": "Dashashwamedh Ghat",
+          "category": "heritage",
+          "latitude": 25.3072,
+          "longitude": 83.0103,
+          "score": 58.4,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "eb4b4b8f-abac-5b46-a658-1543c5234e3a",
+          "name": "Assi Ghat",
+          "category": "heritage",
+          "latitude": 25.2895,
+          "longitude": 83.0065,
+          "score": 58.1,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "f03950f1-c656-5a23-bda6-2719c163e721",
+          "name": "Kashi Vishwanath Temple",
+          "category": "religious",
+          "latitude": 25.3108,
+          "longitude": 83.0106,
+          "score": 38.4,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "323f5330-57e3-5211-9062-f6ba19d8be62",
+          "name": "Ashokan Pillar",
+          "category": "heritage",
+          "latitude": 25.3814435,
+          "longitude": 83.0227126,
+          "score": 29.8,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "ccaf5d81-2602-58d0-a856-4d2854344503",
+          "name": "Madan Mohan Malviye Ji Statue",
+          "category": "heritage",
+          "latitude": 25.2778528,
+          "longitude": 83.002319,
+          "score": 29.8,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "346e8ac6-925a-572e-acd1-8439bf7c5ff0",
+          "name": "Baba Keenaram Ashram",
+          "category": "religious",
+          "latitude": 25.2958918,
+          "longitude": 83.0032762,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "48707467-d748-5d4e-badd-a64bddedc7f1",
+          "name": "Giant Buddha Statue",
+          "category": "religious",
+          "latitude": 25.3776905,
+          "longitude": 83.0213529,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "a184ad75-a313-572f-8ffd-8edc7b85bea7",
+          "name": "Lal Girja CNI Church",
+          "category": "religious",
+          "latitude": 25.3366096,
+          "longitude": 82.9830086,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "40c887a2-5a4f-5a7b-8a0a-7a7491ce4775",
+          "name": "Pracheen Hanumaan Mandir (Hindu Temple)",
+          "category": "religious",
+          "latitude": 25.2979523,
+          "longitude": 82.9722126,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "varanasi",
+      "city_name": "Varanasi",
+      "k": 15,
+      "requested_k": 15,
+      "returned_k": 14,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.7143,
+      "gold_pois_found": [
+        "Kashi Vishwanath Temple",
+        "Dashashwamedh Ghat",
+        "Assi Ghat",
+        "Sarnath Deer Park & Dhamek Stupa",
+        "Sankat Mochan Hanuman Temple"
+      ],
+      "category_distribution": {
+        "heritage": 5,
+        "religious": 9
+      },
+      "category_diversity_entropy": 0.94,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 104,
+        "returned_recommendations": 14
+      },
+      "runtime_ms": 17.17,
+      "top_recommendations": [
+        {
+          "id": "7cd81b1b-77df-599e-81ed-cd2dae54d297",
+          "name": "Sarnath Deer Park & Dhamek Stupa",
+          "category": "heritage",
+          "latitude": 25.381,
+          "longitude": 83.0245,
+          "score": 58.6,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "0ab3ea34-9eb1-58fd-9ded-64852e0aed11",
+          "name": "Dashashwamedh Ghat",
+          "category": "heritage",
+          "latitude": 25.3072,
+          "longitude": 83.0103,
+          "score": 58.4,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "eb4b4b8f-abac-5b46-a658-1543c5234e3a",
+          "name": "Assi Ghat",
+          "category": "heritage",
+          "latitude": 25.2895,
+          "longitude": 83.0065,
+          "score": 58.1,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "f03950f1-c656-5a23-bda6-2719c163e721",
+          "name": "Kashi Vishwanath Temple",
+          "category": "religious",
+          "latitude": 25.3108,
+          "longitude": 83.0106,
+          "score": 38.4,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "323f5330-57e3-5211-9062-f6ba19d8be62",
+          "name": "Ashokan Pillar",
+          "category": "heritage",
+          "latitude": 25.3814435,
+          "longitude": 83.0227126,
+          "score": 29.8,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "ccaf5d81-2602-58d0-a856-4d2854344503",
+          "name": "Madan Mohan Malviye Ji Statue",
+          "category": "heritage",
+          "latitude": 25.2778528,
+          "longitude": 83.002319,
+          "score": 29.8,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "346e8ac6-925a-572e-acd1-8439bf7c5ff0",
+          "name": "Baba Keenaram Ashram",
+          "category": "religious",
+          "latitude": 25.2958918,
+          "longitude": 83.0032762,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "48707467-d748-5d4e-badd-a64bddedc7f1",
+          "name": "Giant Buddha Statue",
+          "category": "religious",
+          "latitude": 25.3776905,
+          "longitude": 83.0213529,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "a184ad75-a313-572f-8ffd-8edc7b85bea7",
+          "name": "Lal Girja CNI Church",
+          "category": "religious",
+          "latitude": 25.3366096,
+          "longitude": 82.9830086,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "40c887a2-5a4f-5a7b-8a0a-7a7491ce4775",
+          "name": "Pracheen Hanumaan Mandir (Hindu Temple)",
+          "category": "religious",
+          "latitude": 25.2979523,
+          "longitude": 82.9722126,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "194037cc-12c2-57cf-a365-e272035d1c73",
+          "name": "Sankat Mochan Hanuman Temple (Mandir)",
+          "category": "religious",
+          "latitude": 25.2821387,
+          "longitude": 82.999981,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "ebd075bd-cc8d-5c60-a90e-5ee315686fb9",
+          "name": "Saraswati Mandir",
+          "category": "religious",
+          "latitude": 25.27516,
+          "longitude": 83.0056573,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "d9bd8608-3013-5a19-a40d-1e9f67737e31",
+          "name": "Shree Shiv Mahavir Mandir",
+          "category": "religious",
+          "latitude": 25.3025743,
+          "longitude": 82.9732372,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "c9ae3c00-fb19-5ae4-aefc-6d189d821cd5",
+          "name": "St Marys Church",
+          "category": "religious",
+          "latitude": 25.3361364,
+          "longitude": 82.9794466,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "varanasi",
+      "city_name": "Varanasi",
+      "k": 20,
+      "requested_k": 20,
+      "returned_k": 14,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.7143,
+      "gold_pois_found": [
+        "Kashi Vishwanath Temple",
+        "Dashashwamedh Ghat",
+        "Assi Ghat",
+        "Sarnath Deer Park & Dhamek Stupa",
+        "Sankat Mochan Hanuman Temple"
+      ],
+      "category_distribution": {
+        "heritage": 5,
+        "religious": 9
+      },
+      "category_diversity_entropy": 0.94,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 104,
+        "returned_recommendations": 14
+      },
+      "runtime_ms": 15.73,
+      "top_recommendations": [
+        {
+          "id": "7cd81b1b-77df-599e-81ed-cd2dae54d297",
+          "name": "Sarnath Deer Park & Dhamek Stupa",
+          "category": "heritage",
+          "latitude": 25.381,
+          "longitude": 83.0245,
+          "score": 58.6,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "0ab3ea34-9eb1-58fd-9ded-64852e0aed11",
+          "name": "Dashashwamedh Ghat",
+          "category": "heritage",
+          "latitude": 25.3072,
+          "longitude": 83.0103,
+          "score": 58.4,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "eb4b4b8f-abac-5b46-a658-1543c5234e3a",
+          "name": "Assi Ghat",
+          "category": "heritage",
+          "latitude": 25.2895,
+          "longitude": 83.0065,
+          "score": 58.1,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "f03950f1-c656-5a23-bda6-2719c163e721",
+          "name": "Kashi Vishwanath Temple",
+          "category": "religious",
+          "latitude": 25.3108,
+          "longitude": 83.0106,
+          "score": 38.4,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "323f5330-57e3-5211-9062-f6ba19d8be62",
+          "name": "Ashokan Pillar",
+          "category": "heritage",
+          "latitude": 25.3814435,
+          "longitude": 83.0227126,
+          "score": 29.8,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "ccaf5d81-2602-58d0-a856-4d2854344503",
+          "name": "Madan Mohan Malviye Ji Statue",
+          "category": "heritage",
+          "latitude": 25.2778528,
+          "longitude": 83.002319,
+          "score": 29.8,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "346e8ac6-925a-572e-acd1-8439bf7c5ff0",
+          "name": "Baba Keenaram Ashram",
+          "category": "religious",
+          "latitude": 25.2958918,
+          "longitude": 83.0032762,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "48707467-d748-5d4e-badd-a64bddedc7f1",
+          "name": "Giant Buddha Statue",
+          "category": "religious",
+          "latitude": 25.3776905,
+          "longitude": 83.0213529,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "a184ad75-a313-572f-8ffd-8edc7b85bea7",
+          "name": "Lal Girja CNI Church",
+          "category": "religious",
+          "latitude": 25.3366096,
+          "longitude": 82.9830086,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "40c887a2-5a4f-5a7b-8a0a-7a7491ce4775",
+          "name": "Pracheen Hanumaan Mandir (Hindu Temple)",
+          "category": "religious",
+          "latitude": 25.2979523,
+          "longitude": 82.9722126,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "194037cc-12c2-57cf-a365-e272035d1c73",
+          "name": "Sankat Mochan Hanuman Temple (Mandir)",
+          "category": "religious",
+          "latitude": 25.2821387,
+          "longitude": 82.999981,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "ebd075bd-cc8d-5c60-a90e-5ee315686fb9",
+          "name": "Saraswati Mandir",
+          "category": "religious",
+          "latitude": 25.27516,
+          "longitude": 83.0056573,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "d9bd8608-3013-5a19-a40d-1e9f67737e31",
+          "name": "Shree Shiv Mahavir Mandir",
+          "category": "religious",
+          "latitude": 25.3025743,
+          "longitude": 82.9732372,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        },
+        {
+          "id": "c9ae3c00-fb19-5ae4-aefc-6d189d821cd5",
+          "name": "St Marys Church",
+          "category": "religious",
+          "latitude": 25.3361364,
+          "longitude": 82.9794466,
+          "score": 18.5,
+          "reason": "Place of worship matching your spiritual journey",
+          "access_confidence": "UNKNOWN",
+          "matched_categories": [
+            "religious"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "surat",
+      "city_name": "Surat",
+      "k": 5,
+      "requested_k": 5,
+      "returned_k": 5,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "Sasumaa Gujarati Thali",
+        "Kansar Gujarati Thali",
+        "Jaani Locho",
+        "Rander Biryani House",
+        "Dumas Beach Food Plaza"
+      ],
+      "category_distribution": {
+        "food": 5
+      },
+      "category_diversity_entropy": 0.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 109,
+        "returned_recommendations": 5
+      },
+      "runtime_ms": 32.79,
+      "top_recommendations": [
+        {
+          "id": "731f7dbc-9120-5fde-9354-cfd0e3457c49",
+          "name": "Jaani Locho",
+          "category": "food",
+          "latitude": 21.172,
+          "longitude": 72.833,
+          "score": 89.6,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "bfc6878b-7b42-5567-b342-2fb6567e6af9",
+          "name": "Sasumaa Gujarati Thali",
+          "category": "food",
+          "latitude": 21.171,
+          "longitude": 72.8315,
+          "score": 88.6,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "44b637bd-100a-5797-945d-7522f8f5df83",
+          "name": "Kansar Gujarati Thali",
+          "category": "food",
+          "latitude": 21.173,
+          "longitude": 72.832,
+          "score": 87.4,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "4f3d64b1-6c7c-553c-b1ae-5bc52b19f583",
+          "name": "Dumas Beach Food Plaza",
+          "category": "food",
+          "latitude": 21.0775,
+          "longitude": 72.709,
+          "score": 85.8,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2524307d-87d9-5edf-b53b-d13099a5623d",
+          "name": "Rander Biryani House",
+          "category": "food",
+          "latitude": 21.215,
+          "longitude": 72.795,
+          "score": 76.0,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "surat",
+      "city_name": "Surat",
+      "k": 10,
+      "requested_k": 10,
+      "returned_k": 10,
+      "intent_precision": 1.0,
+      "restricted_count": 2,
+      "restricted_rate": 0.2,
+      "restricted_leakages": [
+        "SVNIT Food Point",
+        "Central Campus Dining"
+      ],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "Sasumaa Gujarati Thali",
+        "Kansar Gujarati Thali",
+        "Jaani Locho",
+        "Rander Biryani House",
+        "Dumas Beach Food Plaza"
+      ],
+      "category_distribution": {
+        "food": 10
+      },
+      "category_diversity_entropy": 0.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 109,
+        "returned_recommendations": 10
+      },
+      "runtime_ms": 15.45,
+      "top_recommendations": [
+        {
+          "id": "731f7dbc-9120-5fde-9354-cfd0e3457c49",
+          "name": "Jaani Locho",
+          "category": "food",
+          "latitude": 21.172,
+          "longitude": 72.833,
+          "score": 89.6,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "bfc6878b-7b42-5567-b342-2fb6567e6af9",
+          "name": "Sasumaa Gujarati Thali",
+          "category": "food",
+          "latitude": 21.171,
+          "longitude": 72.8315,
+          "score": 88.6,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "44b637bd-100a-5797-945d-7522f8f5df83",
+          "name": "Kansar Gujarati Thali",
+          "category": "food",
+          "latitude": 21.173,
+          "longitude": 72.832,
+          "score": 87.4,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "4f3d64b1-6c7c-553c-b1ae-5bc52b19f583",
+          "name": "Dumas Beach Food Plaza",
+          "category": "food",
+          "latitude": 21.0775,
+          "longitude": 72.709,
+          "score": 85.8,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2524307d-87d9-5edf-b53b-d13099a5623d",
+          "name": "Rander Biryani House",
+          "category": "food",
+          "latitude": 21.215,
+          "longitude": 72.795,
+          "score": 76.0,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "b4f9949c-5f34-5e0f-8d46-2321f8c12938",
+          "name": "Gopal Locho Centre",
+          "category": "food",
+          "latitude": 21.176,
+          "longitude": 72.834,
+          "score": 75.3,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "c4f8ffc6-c85b-5181-90ee-0c46c73f13db",
+          "name": "SVNIT Food Point",
+          "category": "food",
+          "latitude": 21.1665,
+          "longitude": 72.7835,
+          "score": 56.5,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "e67ec33a-f4e9-5f0f-8cd2-1890416795f9",
+          "name": "Central Campus Dining",
+          "category": "food",
+          "latitude": 21.1655,
+          "longitude": 72.7825,
+          "score": 55.1,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "04461239-cf6f-5978-bf42-aac9e4aa06aa",
+          "name": "adarsh",
+          "category": "food",
+          "latitude": 21.1970691,
+          "longitude": 72.8015788,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "07f79a0c-a755-5598-bff2-909edbcdb54b",
+          "name": "Anna's Kitchen",
+          "category": "food",
+          "latitude": 21.1679578,
+          "longitude": 72.7846624,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "surat",
+      "city_name": "Surat",
+      "k": 15,
+      "requested_k": 15,
+      "returned_k": 15,
+      "intent_precision": 1.0,
+      "restricted_count": 2,
+      "restricted_rate": 0.1333,
+      "restricted_leakages": [
+        "SVNIT Food Point",
+        "Central Campus Dining"
+      ],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "Sasumaa Gujarati Thali",
+        "Kansar Gujarati Thali",
+        "Jaani Locho",
+        "Rander Biryani House",
+        "Dumas Beach Food Plaza"
+      ],
+      "category_distribution": {
+        "food": 15
+      },
+      "category_diversity_entropy": 0.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 109,
+        "returned_recommendations": 15
+      },
+      "runtime_ms": 15.39,
+      "top_recommendations": [
+        {
+          "id": "731f7dbc-9120-5fde-9354-cfd0e3457c49",
+          "name": "Jaani Locho",
+          "category": "food",
+          "latitude": 21.172,
+          "longitude": 72.833,
+          "score": 89.6,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "bfc6878b-7b42-5567-b342-2fb6567e6af9",
+          "name": "Sasumaa Gujarati Thali",
+          "category": "food",
+          "latitude": 21.171,
+          "longitude": 72.8315,
+          "score": 88.6,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "44b637bd-100a-5797-945d-7522f8f5df83",
+          "name": "Kansar Gujarati Thali",
+          "category": "food",
+          "latitude": 21.173,
+          "longitude": 72.832,
+          "score": 87.4,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "4f3d64b1-6c7c-553c-b1ae-5bc52b19f583",
+          "name": "Dumas Beach Food Plaza",
+          "category": "food",
+          "latitude": 21.0775,
+          "longitude": 72.709,
+          "score": 85.8,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2524307d-87d9-5edf-b53b-d13099a5623d",
+          "name": "Rander Biryani House",
+          "category": "food",
+          "latitude": 21.215,
+          "longitude": 72.795,
+          "score": 76.0,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "b4f9949c-5f34-5e0f-8d46-2321f8c12938",
+          "name": "Gopal Locho Centre",
+          "category": "food",
+          "latitude": 21.176,
+          "longitude": 72.834,
+          "score": 75.3,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "c4f8ffc6-c85b-5181-90ee-0c46c73f13db",
+          "name": "SVNIT Food Point",
+          "category": "food",
+          "latitude": 21.1665,
+          "longitude": 72.7835,
+          "score": 56.5,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "e67ec33a-f4e9-5f0f-8cd2-1890416795f9",
+          "name": "Central Campus Dining",
+          "category": "food",
+          "latitude": 21.1655,
+          "longitude": 72.7825,
+          "score": 55.1,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "04461239-cf6f-5978-bf42-aac9e4aa06aa",
+          "name": "adarsh",
+          "category": "food",
+          "latitude": 21.1970691,
+          "longitude": 72.8015788,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "07f79a0c-a755-5598-bff2-909edbcdb54b",
+          "name": "Anna's Kitchen",
+          "category": "food",
+          "latitude": 21.1679578,
+          "longitude": 72.7846624,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "01a6563d-50bf-549b-98e2-974f8aec86d7",
+          "name": "Barbeque Nation",
+          "category": "food",
+          "latitude": 21.1712182,
+          "longitude": 72.7893442,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "50cbca27-c663-5f41-a510-94693296f55e",
+          "name": "Black Pepper",
+          "category": "food",
+          "latitude": 21.158015,
+          "longitude": 72.7690396,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "3ebeb4aa-8f8b-57ba-9e07-2d977617c66b",
+          "name": "Burger King",
+          "category": "food",
+          "latitude": 21.1581677,
+          "longitude": 72.7696204,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "ed927457-3cd6-5442-87db-7ee137eb238f",
+          "name": "Burger King",
+          "category": "food",
+          "latitude": 21.1894756,
+          "longitude": 72.7899221,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2007cc29-b17c-5c43-a4d5-f98b608d564d",
+          "name": "Burger King",
+          "category": "food",
+          "latitude": 21.1447746,
+          "longitude": 72.7573895,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "surat",
+      "city_name": "Surat",
+      "k": 20,
+      "requested_k": 20,
+      "returned_k": 20,
+      "intent_precision": 1.0,
+      "restricted_count": 2,
+      "restricted_rate": 0.1,
+      "restricted_leakages": [
+        "SVNIT Food Point",
+        "Central Campus Dining"
+      ],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "Sasumaa Gujarati Thali",
+        "Kansar Gujarati Thali",
+        "Jaani Locho",
+        "Rander Biryani House",
+        "Dumas Beach Food Plaza"
+      ],
+      "category_distribution": {
+        "food": 20
+      },
+      "category_diversity_entropy": 0.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 109,
+        "returned_recommendations": 20
+      },
+      "runtime_ms": 16.48,
+      "top_recommendations": [
+        {
+          "id": "731f7dbc-9120-5fde-9354-cfd0e3457c49",
+          "name": "Jaani Locho",
+          "category": "food",
+          "latitude": 21.172,
+          "longitude": 72.833,
+          "score": 89.6,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "bfc6878b-7b42-5567-b342-2fb6567e6af9",
+          "name": "Sasumaa Gujarati Thali",
+          "category": "food",
+          "latitude": 21.171,
+          "longitude": 72.8315,
+          "score": 88.6,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "44b637bd-100a-5797-945d-7522f8f5df83",
+          "name": "Kansar Gujarati Thali",
+          "category": "food",
+          "latitude": 21.173,
+          "longitude": 72.832,
+          "score": 87.4,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "4f3d64b1-6c7c-553c-b1ae-5bc52b19f583",
+          "name": "Dumas Beach Food Plaza",
+          "category": "food",
+          "latitude": 21.0775,
+          "longitude": 72.709,
+          "score": 85.8,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2524307d-87d9-5edf-b53b-d13099a5623d",
+          "name": "Rander Biryani House",
+          "category": "food",
+          "latitude": 21.215,
+          "longitude": 72.795,
+          "score": 76.0,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "b4f9949c-5f34-5e0f-8d46-2321f8c12938",
+          "name": "Gopal Locho Centre",
+          "category": "food",
+          "latitude": 21.176,
+          "longitude": 72.834,
+          "score": 75.3,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "c4f8ffc6-c85b-5181-90ee-0c46c73f13db",
+          "name": "SVNIT Food Point",
+          "category": "food",
+          "latitude": 21.1665,
+          "longitude": 72.7835,
+          "score": 56.5,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "e67ec33a-f4e9-5f0f-8cd2-1890416795f9",
+          "name": "Central Campus Dining",
+          "category": "food",
+          "latitude": 21.1655,
+          "longitude": 72.7825,
+          "score": 55.1,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "04461239-cf6f-5978-bf42-aac9e4aa06aa",
+          "name": "adarsh",
+          "category": "food",
+          "latitude": 21.1970691,
+          "longitude": 72.8015788,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "07f79a0c-a755-5598-bff2-909edbcdb54b",
+          "name": "Anna's Kitchen",
+          "category": "food",
+          "latitude": 21.1679578,
+          "longitude": 72.7846624,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "01a6563d-50bf-549b-98e2-974f8aec86d7",
+          "name": "Barbeque Nation",
+          "category": "food",
+          "latitude": 21.1712182,
+          "longitude": 72.7893442,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "50cbca27-c663-5f41-a510-94693296f55e",
+          "name": "Black Pepper",
+          "category": "food",
+          "latitude": 21.158015,
+          "longitude": 72.7690396,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "3ebeb4aa-8f8b-57ba-9e07-2d977617c66b",
+          "name": "Burger King",
+          "category": "food",
+          "latitude": 21.1581677,
+          "longitude": 72.7696204,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "ed927457-3cd6-5442-87db-7ee137eb238f",
+          "name": "Burger King",
+          "category": "food",
+          "latitude": 21.1894756,
+          "longitude": 72.7899221,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2007cc29-b17c-5c43-a4d5-f98b608d564d",
+          "name": "Burger King",
+          "category": "food",
+          "latitude": 21.1447746,
+          "longitude": 72.7573895,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "e5e610d3-29c6-5759-beeb-437596fee6f5",
+          "name": "D.S. dhosa",
+          "category": "food",
+          "latitude": 21.2131988,
+          "longitude": 72.8840563,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "20a9a79d-2a3e-5448-90f9-3937a63cac2d",
+          "name": "Domino's",
+          "category": "food",
+          "latitude": 21.1755739,
+          "longitude": 72.8176366,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "bd9cedd5-b139-57a2-a6f7-38585ba295ca",
+          "name": "Domino's",
+          "category": "food",
+          "latitude": 21.1740069,
+          "longitude": 72.7999983,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2f3ae0a2-ac08-53c1-bf32-f3985db530cc",
+          "name": "Domino's",
+          "category": "food",
+          "latitude": 21.1960571,
+          "longitude": 72.7975612,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "01bf0ceb-2cf6-5e62-88cc-7f361b350695",
+          "name": "Domino's",
+          "category": "food",
+          "latitude": 21.1913006,
+          "longitude": 72.7878355,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "ahmedabad_mixed",
+      "city_name": "Ahmedabad",
+      "k": 5,
+      "requested_k": 5,
+      "returned_k": 5,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.8,
+      "gold_pois_found": [
+        "Sabarmati Ashram",
+        "Adalaj Stepwell",
+        "Manek Chowk",
+        "Agashiye"
+      ],
+      "category_distribution": {
+        "food": 3,
+        "heritage": 2
+      },
+      "category_diversity_entropy": 0.971,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 105,
+        "returned_recommendations": 5
+      },
+      "runtime_ms": 21.29,
+      "top_recommendations": [
+        {
+          "id": "2b9f81fd-b755-52c0-ba1f-ca0d78bcca1a",
+          "name": "Manek Chowk Night Market",
+          "category": "food",
+          "latitude": 23.0246,
+          "longitude": 72.5901,
+          "score": 89.8,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "1b582965-d1fc-547f-8c70-027fc5cb0702",
+          "name": "Agashiye Heritage Lounge",
+          "category": "food",
+          "latitude": 23.027,
+          "longitude": 72.583,
+          "score": 89.3,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "22a157c8-8e61-5d30-a2b4-f2e38b745307",
+          "name": "Sabarmati Ashram",
+          "category": "heritage",
+          "latitude": 23.06,
+          "longitude": 72.5808,
+          "score": 47.4,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e7ad4fe3-1615-56ad-860d-54c7457f1b8a",
+          "name": "Adalaj Stepwell",
+          "category": "heritage",
+          "latitude": 23.1667,
+          "longitude": 72.58,
+          "score": 46.5,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "a1dab203-7fb5-51dc-9d7f-769b1813912c",
+          "name": "AKHBAR NAGAR CIRCLE",
+          "category": "food",
+          "latitude": 23.0674245,
+          "longitude": 72.5645716,
+          "score": 45.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "ahmedabad_mixed",
+      "city_name": "Ahmedabad",
+      "k": 10,
+      "requested_k": 10,
+      "returned_k": 10,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.7143,
+      "gold_pois_found": [
+        "Sabarmati Ashram",
+        "Adalaj Stepwell",
+        "Sidi Saiyyed Mosque",
+        "Manek Chowk",
+        "Agashiye"
+      ],
+      "category_distribution": {
+        "food": 6,
+        "heritage": 4
+      },
+      "category_diversity_entropy": 0.971,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 105,
+        "returned_recommendations": 10
+      },
+      "runtime_ms": 9.18,
+      "top_recommendations": [
+        {
+          "id": "2b9f81fd-b755-52c0-ba1f-ca0d78bcca1a",
+          "name": "Manek Chowk Night Market",
+          "category": "food",
+          "latitude": 23.0246,
+          "longitude": 72.5901,
+          "score": 89.8,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "1b582965-d1fc-547f-8c70-027fc5cb0702",
+          "name": "Agashiye Heritage Lounge",
+          "category": "food",
+          "latitude": 23.027,
+          "longitude": 72.583,
+          "score": 89.3,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "22a157c8-8e61-5d30-a2b4-f2e38b745307",
+          "name": "Sabarmati Ashram",
+          "category": "heritage",
+          "latitude": 23.06,
+          "longitude": 72.5808,
+          "score": 47.4,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e7ad4fe3-1615-56ad-860d-54c7457f1b8a",
+          "name": "Adalaj Stepwell",
+          "category": "heritage",
+          "latitude": 23.1667,
+          "longitude": 72.58,
+          "score": 46.5,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "a1dab203-7fb5-51dc-9d7f-769b1813912c",
+          "name": "AKHBAR NAGAR CIRCLE",
+          "category": "food",
+          "latitude": 23.0674245,
+          "longitude": 72.5645716,
+          "score": 45.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "7d3c8e7e-6731-5886-b9d2-df39acd53056",
+          "name": "Sidi Saiyyed Mosque",
+          "category": "heritage",
+          "latitude": 23.0268,
+          "longitude": 72.581,
+          "score": 46.2,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "53034298-290c-5e8b-bb88-b18a682879d7",
+          "name": "Agashiye Restaurant",
+          "category": "food",
+          "latitude": 23.0270378,
+          "longitude": 72.5816167,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "e6317c86-3758-558c-b5e3-56b7d13e9798",
+          "name": "Amul",
+          "category": "food",
+          "latitude": 23.0116852,
+          "longitude": 72.568823,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "fe8c6a7d-b322-5e09-999d-72cb2d91a835",
+          "name": "Teen Darwaza",
+          "category": "heritage",
+          "latitude": 23.0243491,
+          "longitude": 72.5845551,
+          "score": 30.0,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "bad73b74-b8d1-59a5-aba1-b34b019bbf5f",
+          "name": "Asharfilal Kulfi",
+          "category": "food",
+          "latitude": 23.0426757,
+          "longitude": 72.5492422,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "ahmedabad_mixed",
+      "city_name": "Ahmedabad",
+      "k": 15,
+      "requested_k": 15,
+      "returned_k": 15,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.7143,
+      "gold_pois_found": [
+        "Sabarmati Ashram",
+        "Adalaj Stepwell",
+        "Sidi Saiyyed Mosque",
+        "Manek Chowk",
+        "Agashiye"
+      ],
+      "category_distribution": {
+        "food": 10,
+        "heritage": 5
+      },
+      "category_diversity_entropy": 0.918,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 105,
+        "returned_recommendations": 15
+      },
+      "runtime_ms": 9.12,
+      "top_recommendations": [
+        {
+          "id": "2b9f81fd-b755-52c0-ba1f-ca0d78bcca1a",
+          "name": "Manek Chowk Night Market",
+          "category": "food",
+          "latitude": 23.0246,
+          "longitude": 72.5901,
+          "score": 89.8,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "1b582965-d1fc-547f-8c70-027fc5cb0702",
+          "name": "Agashiye Heritage Lounge",
+          "category": "food",
+          "latitude": 23.027,
+          "longitude": 72.583,
+          "score": 89.3,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "22a157c8-8e61-5d30-a2b4-f2e38b745307",
+          "name": "Sabarmati Ashram",
+          "category": "heritage",
+          "latitude": 23.06,
+          "longitude": 72.5808,
+          "score": 47.4,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e7ad4fe3-1615-56ad-860d-54c7457f1b8a",
+          "name": "Adalaj Stepwell",
+          "category": "heritage",
+          "latitude": 23.1667,
+          "longitude": 72.58,
+          "score": 46.5,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "a1dab203-7fb5-51dc-9d7f-769b1813912c",
+          "name": "AKHBAR NAGAR CIRCLE",
+          "category": "food",
+          "latitude": 23.0674245,
+          "longitude": 72.5645716,
+          "score": 45.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "7d3c8e7e-6731-5886-b9d2-df39acd53056",
+          "name": "Sidi Saiyyed Mosque",
+          "category": "heritage",
+          "latitude": 23.0268,
+          "longitude": 72.581,
+          "score": 46.2,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "53034298-290c-5e8b-bb88-b18a682879d7",
+          "name": "Agashiye Restaurant",
+          "category": "food",
+          "latitude": 23.0270378,
+          "longitude": 72.5816167,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "e6317c86-3758-558c-b5e3-56b7d13e9798",
+          "name": "Amul",
+          "category": "food",
+          "latitude": 23.0116852,
+          "longitude": 72.568823,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "fe8c6a7d-b322-5e09-999d-72cb2d91a835",
+          "name": "Teen Darwaza",
+          "category": "heritage",
+          "latitude": 23.0243491,
+          "longitude": 72.5845551,
+          "score": 30.0,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "bad73b74-b8d1-59a5-aba1-b34b019bbf5f",
+          "name": "Asharfilal Kulfi",
+          "category": "food",
+          "latitude": 23.0426757,
+          "longitude": 72.5492422,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "9e729016-6a8e-5660-8cbb-b44ad9303d42",
+          "name": "Barbeque Nation",
+          "category": "food",
+          "latitude": 23.0480405,
+          "longitude": 72.526862,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "abcaaacb-be15-5f61-9358-ea026ccd058a",
+          "name": "Astodia Gate",
+          "category": "heritage",
+          "latitude": 23.0168415,
+          "longitude": 72.5909706,
+          "score": 29.6,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "dfae770b-8bca-5ab1-b14f-1390106c7080",
+          "name": "Black Salt",
+          "category": "food",
+          "latitude": 23.0523024,
+          "longitude": 72.4998803,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "1b9e01e5-01ff-5ccb-bfe0-e733f89976f3",
+          "name": "Cafe Souq",
+          "category": "food",
+          "latitude": 23.0410467,
+          "longitude": 72.5485619,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "186558d5-1a16-5901-921d-cf454c078551",
+          "name": "choice",
+          "category": "food",
+          "latitude": 23.0344517,
+          "longitude": 72.5612536,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "ahmedabad_mixed",
+      "city_name": "Ahmedabad",
+      "k": 20,
+      "requested_k": 20,
+      "returned_k": 20,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.7143,
+      "gold_pois_found": [
+        "Sabarmati Ashram",
+        "Adalaj Stepwell",
+        "Sidi Saiyyed Mosque",
+        "Manek Chowk",
+        "Agashiye"
+      ],
+      "category_distribution": {
+        "food": 15,
+        "heritage": 5
+      },
+      "category_diversity_entropy": 0.811,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 105,
+        "returned_recommendations": 20
+      },
+      "runtime_ms": 9.48,
+      "top_recommendations": [
+        {
+          "id": "2b9f81fd-b755-52c0-ba1f-ca0d78bcca1a",
+          "name": "Manek Chowk Night Market",
+          "category": "food",
+          "latitude": 23.0246,
+          "longitude": 72.5901,
+          "score": 89.8,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "1b582965-d1fc-547f-8c70-027fc5cb0702",
+          "name": "Agashiye Heritage Lounge",
+          "category": "food",
+          "latitude": 23.027,
+          "longitude": 72.583,
+          "score": 89.3,
+          "reason": "Local speciality matching your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "22a157c8-8e61-5d30-a2b4-f2e38b745307",
+          "name": "Sabarmati Ashram",
+          "category": "heritage",
+          "latitude": 23.06,
+          "longitude": 72.5808,
+          "score": 47.4,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e7ad4fe3-1615-56ad-860d-54c7457f1b8a",
+          "name": "Adalaj Stepwell",
+          "category": "heritage",
+          "latitude": 23.1667,
+          "longitude": 72.58,
+          "score": 46.5,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "a1dab203-7fb5-51dc-9d7f-769b1813912c",
+          "name": "AKHBAR NAGAR CIRCLE",
+          "category": "food",
+          "latitude": 23.0674245,
+          "longitude": 72.5645716,
+          "score": 45.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "7d3c8e7e-6731-5886-b9d2-df39acd53056",
+          "name": "Sidi Saiyyed Mosque",
+          "category": "heritage",
+          "latitude": 23.0268,
+          "longitude": 72.581,
+          "score": 46.2,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "53034298-290c-5e8b-bb88-b18a682879d7",
+          "name": "Agashiye Restaurant",
+          "category": "food",
+          "latitude": 23.0270378,
+          "longitude": 72.5816167,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "e6317c86-3758-558c-b5e3-56b7d13e9798",
+          "name": "Amul",
+          "category": "food",
+          "latitude": 23.0116852,
+          "longitude": 72.568823,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "fe8c6a7d-b322-5e09-999d-72cb2d91a835",
+          "name": "Teen Darwaza",
+          "category": "heritage",
+          "latitude": 23.0243491,
+          "longitude": 72.5845551,
+          "score": 30.0,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "bad73b74-b8d1-59a5-aba1-b34b019bbf5f",
+          "name": "Asharfilal Kulfi",
+          "category": "food",
+          "latitude": 23.0426757,
+          "longitude": 72.5492422,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "9e729016-6a8e-5660-8cbb-b44ad9303d42",
+          "name": "Barbeque Nation",
+          "category": "food",
+          "latitude": 23.0480405,
+          "longitude": 72.526862,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "abcaaacb-be15-5f61-9358-ea026ccd058a",
+          "name": "Astodia Gate",
+          "category": "heritage",
+          "latitude": 23.0168415,
+          "longitude": 72.5909706,
+          "score": 29.6,
+          "reason": "Matches your interest in history",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "dfae770b-8bca-5ab1-b14f-1390106c7080",
+          "name": "Black Salt",
+          "category": "food",
+          "latitude": 23.0523024,
+          "longitude": 72.4998803,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "1b9e01e5-01ff-5ccb-bfe0-e733f89976f3",
+          "name": "Cafe Souq",
+          "category": "food",
+          "latitude": 23.0410467,
+          "longitude": 72.5485619,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "186558d5-1a16-5901-921d-cf454c078551",
+          "name": "choice",
+          "category": "food",
+          "latitude": 23.0344517,
+          "longitude": 72.5612536,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "18b36f2a-8413-566c-93ed-115aae450086",
+          "name": "Dinner Bell",
+          "category": "food",
+          "latitude": 23.0457522,
+          "longitude": 72.5524611,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "cb40e961-36c3-54d5-ac23-cb96856356fc",
+          "name": "Food Temple",
+          "category": "food",
+          "latitude": 23.0847638,
+          "longitude": 72.5647629,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "4a50d583-c8ec-5bee-8ea5-a485eac55b44",
+          "name": "Gol Limbda Bhajiya and Nashta House",
+          "category": "food",
+          "latitude": 23.0200882,
+          "longitude": 72.5860331,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "8b22b2df-d0ee-51eb-977c-5bf1e5159470",
+          "name": "Green House Restaurant",
+          "category": "food",
+          "latitude": 23.0272633,
+          "longitude": 72.5816108,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "af5c045e-5d6c-570a-88dd-c168905fb038",
+          "name": "havmor",
+          "category": "food",
+          "latitude": 23.0342641,
+          "longitude": 72.5608446,
+          "score": 42.0,
+          "reason": "Matches your food-focused trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "ahmedabad_heritage",
+      "city_name": "Ahmedabad",
+      "k": 5,
+      "requested_k": 5,
+      "returned_k": 5,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.75,
+      "gold_pois_found": [
+        "Sabarmati Ashram",
+        "Adalaj Stepwell",
+        "Sidi Saiyyed Mosque"
+      ],
+      "category_distribution": {
+        "heritage": 5
+      },
+      "category_diversity_entropy": 0.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 105,
+        "returned_recommendations": 5
+      },
+      "runtime_ms": 14.57,
+      "top_recommendations": [
+        {
+          "id": "22a157c8-8e61-5d30-a2b4-f2e38b745307",
+          "name": "Sabarmati Ashram",
+          "category": "heritage",
+          "latitude": 23.06,
+          "longitude": 72.5808,
+          "score": 87.4,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "e7ad4fe3-1615-56ad-860d-54c7457f1b8a",
+          "name": "Adalaj Stepwell",
+          "category": "heritage",
+          "latitude": 23.1667,
+          "longitude": 72.58,
+          "score": 86.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "7d3c8e7e-6731-5886-b9d2-df39acd53056",
+          "name": "Sidi Saiyyed Mosque",
+          "category": "heritage",
+          "latitude": 23.0268,
+          "longitude": 72.581,
+          "score": 86.2,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "fe8c6a7d-b322-5e09-999d-72cb2d91a835",
+          "name": "Teen Darwaza",
+          "category": "heritage",
+          "latitude": 23.0243491,
+          "longitude": 72.5845551,
+          "score": 67.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "abcaaacb-be15-5f61-9358-ea026ccd058a",
+          "name": "Astodia Gate",
+          "category": "heritage",
+          "latitude": 23.0168415,
+          "longitude": 72.5909706,
+          "score": 67.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "ahmedabad_heritage",
+      "city_name": "Ahmedabad",
+      "k": 10,
+      "requested_k": 10,
+      "returned_k": 10,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.75,
+      "gold_pois_found": [
+        "Sabarmati Ashram",
+        "Adalaj Stepwell",
+        "Sidi Saiyyed Mosque"
+      ],
+      "category_distribution": {
+        "heritage": 10
+      },
+      "category_diversity_entropy": 0.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 105,
+        "returned_recommendations": 10
+      },
+      "runtime_ms": 5.05,
+      "top_recommendations": [
+        {
+          "id": "22a157c8-8e61-5d30-a2b4-f2e38b745307",
+          "name": "Sabarmati Ashram",
+          "category": "heritage",
+          "latitude": 23.06,
+          "longitude": 72.5808,
+          "score": 87.4,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "e7ad4fe3-1615-56ad-860d-54c7457f1b8a",
+          "name": "Adalaj Stepwell",
+          "category": "heritage",
+          "latitude": 23.1667,
+          "longitude": 72.58,
+          "score": 86.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "7d3c8e7e-6731-5886-b9d2-df39acd53056",
+          "name": "Sidi Saiyyed Mosque",
+          "category": "heritage",
+          "latitude": 23.0268,
+          "longitude": 72.581,
+          "score": 86.2,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "fe8c6a7d-b322-5e09-999d-72cb2d91a835",
+          "name": "Teen Darwaza",
+          "category": "heritage",
+          "latitude": 23.0243491,
+          "longitude": 72.5845551,
+          "score": 67.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "abcaaacb-be15-5f61-9358-ea026ccd058a",
+          "name": "Astodia Gate",
+          "category": "heritage",
+          "latitude": 23.0168415,
+          "longitude": 72.5909706,
+          "score": 67.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "4ea0cae3-00fd-5ab0-b002-5e136674c757",
+          "name": "Prem Darwaza",
+          "category": "heritage",
+          "latitude": 23.0350026,
+          "longitude": 72.5968882,
+          "score": 65.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "de6d37ee-9a7c-513e-8830-2cab58b8660f",
+          "name": "Jain temple",
+          "category": "heritage",
+          "latitude": 23.0396601,
+          "longitude": 72.5502314,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "d9ec97aa-8a0e-5d0c-90b7-b4aff6ffc4c0",
+          "name": "Kalupur Darwaza",
+          "category": "heritage",
+          "latitude": 23.0308435,
+          "longitude": 72.5979371,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "cd6f112e-7d8f-579e-af36-8e6f61e5302f",
+          "name": "Panch Kua Dawaza",
+          "category": "heritage",
+          "latitude": 23.0269688,
+          "longitude": 72.6001949,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "f60b3cf2-eaed-524e-8995-f9183720342b",
+          "name": "Panch Kuva Darwaja",
+          "category": "heritage",
+          "latitude": 23.0251588,
+          "longitude": 72.5972035,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "ahmedabad_heritage",
+      "city_name": "Ahmedabad",
+      "k": 15,
+      "requested_k": 15,
+      "returned_k": 15,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.75,
+      "gold_pois_found": [
+        "Sabarmati Ashram",
+        "Adalaj Stepwell",
+        "Sidi Saiyyed Mosque"
+      ],
+      "category_distribution": {
+        "heritage": 10,
+        "tourism": 5
+      },
+      "category_diversity_entropy": 0.918,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 105,
+        "returned_recommendations": 15
+      },
+      "runtime_ms": 4.77,
+      "top_recommendations": [
+        {
+          "id": "22a157c8-8e61-5d30-a2b4-f2e38b745307",
+          "name": "Sabarmati Ashram",
+          "category": "heritage",
+          "latitude": 23.06,
+          "longitude": 72.5808,
+          "score": 87.4,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "e7ad4fe3-1615-56ad-860d-54c7457f1b8a",
+          "name": "Adalaj Stepwell",
+          "category": "heritage",
+          "latitude": 23.1667,
+          "longitude": 72.58,
+          "score": 86.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "7d3c8e7e-6731-5886-b9d2-df39acd53056",
+          "name": "Sidi Saiyyed Mosque",
+          "category": "heritage",
+          "latitude": 23.0268,
+          "longitude": 72.581,
+          "score": 86.2,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "fe8c6a7d-b322-5e09-999d-72cb2d91a835",
+          "name": "Teen Darwaza",
+          "category": "heritage",
+          "latitude": 23.0243491,
+          "longitude": 72.5845551,
+          "score": 67.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "abcaaacb-be15-5f61-9358-ea026ccd058a",
+          "name": "Astodia Gate",
+          "category": "heritage",
+          "latitude": 23.0168415,
+          "longitude": 72.5909706,
+          "score": 67.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "4ea0cae3-00fd-5ab0-b002-5e136674c757",
+          "name": "Prem Darwaza",
+          "category": "heritage",
+          "latitude": 23.0350026,
+          "longitude": 72.5968882,
+          "score": 65.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "de6d37ee-9a7c-513e-8830-2cab58b8660f",
+          "name": "Jain temple",
+          "category": "heritage",
+          "latitude": 23.0396601,
+          "longitude": 72.5502314,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "d9ec97aa-8a0e-5d0c-90b7-b4aff6ffc4c0",
+          "name": "Kalupur Darwaza",
+          "category": "heritage",
+          "latitude": 23.0308435,
+          "longitude": 72.5979371,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "cd6f112e-7d8f-579e-af36-8e6f61e5302f",
+          "name": "Panch Kua Dawaza",
+          "category": "heritage",
+          "latitude": 23.0269688,
+          "longitude": 72.6001949,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "f60b3cf2-eaed-524e-8995-f9183720342b",
+          "name": "Panch Kuva Darwaja",
+          "category": "heritage",
+          "latitude": 23.0251588,
+          "longitude": 72.5972035,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "29b63ad7-1623-5a62-9090-717cf5b61fcb",
+          "name": "Dada Harir Stepwell",
+          "category": "tourism",
+          "latitude": 23.0406958,
+          "longitude": 72.6054713,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "01e989d9-1d7d-5da6-9960-1c923b1c0604",
+          "name": "Raipur Gate",
+          "category": "tourism",
+          "latitude": 23.0174361,
+          "longitude": 72.5947812,
+          "score": 39.6,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "d80a4f74-7b21-5f2d-a82a-a8c3c6f0d09a",
+          "name": "Sanskar Kendra - City Museum",
+          "category": "tourism",
+          "latitude": 23.0130948,
+          "longitude": 72.5694038,
+          "score": 39.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7b4d4530-5a60-5943-aeb3-3844bd17df87",
+          "name": "Calico Textile Museum",
+          "category": "tourism",
+          "latitude": 23.05418,
+          "longitude": 72.5924764,
+          "score": 38.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "17540a37-dbbc-5c06-b9e8-e4e00a17e4e2",
+          "name": "Kochrab Satyagraha Ashram",
+          "category": "tourism",
+          "latitude": 23.0158902,
+          "longitude": 72.5667508,
+          "score": 35.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "ahmedabad_heritage",
+      "city_name": "Ahmedabad",
+      "k": 20,
+      "requested_k": 20,
+      "returned_k": 20,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.75,
+      "gold_pois_found": [
+        "Sabarmati Ashram",
+        "Adalaj Stepwell",
+        "Sidi Saiyyed Mosque"
+      ],
+      "category_distribution": {
+        "heritage": 10,
+        "tourism": 10
+      },
+      "category_diversity_entropy": 1.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 105,
+        "returned_recommendations": 20
+      },
+      "runtime_ms": 4.88,
+      "top_recommendations": [
+        {
+          "id": "22a157c8-8e61-5d30-a2b4-f2e38b745307",
+          "name": "Sabarmati Ashram",
+          "category": "heritage",
+          "latitude": 23.06,
+          "longitude": 72.5808,
+          "score": 87.4,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "e7ad4fe3-1615-56ad-860d-54c7457f1b8a",
+          "name": "Adalaj Stepwell",
+          "category": "heritage",
+          "latitude": 23.1667,
+          "longitude": 72.58,
+          "score": 86.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "7d3c8e7e-6731-5886-b9d2-df39acd53056",
+          "name": "Sidi Saiyyed Mosque",
+          "category": "heritage",
+          "latitude": 23.0268,
+          "longitude": 72.581,
+          "score": 86.2,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "fe8c6a7d-b322-5e09-999d-72cb2d91a835",
+          "name": "Teen Darwaza",
+          "category": "heritage",
+          "latitude": 23.0243491,
+          "longitude": 72.5845551,
+          "score": 67.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "abcaaacb-be15-5f61-9358-ea026ccd058a",
+          "name": "Astodia Gate",
+          "category": "heritage",
+          "latitude": 23.0168415,
+          "longitude": 72.5909706,
+          "score": 67.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "4ea0cae3-00fd-5ab0-b002-5e136674c757",
+          "name": "Prem Darwaza",
+          "category": "heritage",
+          "latitude": 23.0350026,
+          "longitude": 72.5968882,
+          "score": 65.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "de6d37ee-9a7c-513e-8830-2cab58b8660f",
+          "name": "Jain temple",
+          "category": "heritage",
+          "latitude": 23.0396601,
+          "longitude": 72.5502314,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "d9ec97aa-8a0e-5d0c-90b7-b4aff6ffc4c0",
+          "name": "Kalupur Darwaza",
+          "category": "heritage",
+          "latitude": 23.0308435,
+          "longitude": 72.5979371,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "cd6f112e-7d8f-579e-af36-8e6f61e5302f",
+          "name": "Panch Kua Dawaza",
+          "category": "heritage",
+          "latitude": 23.0269688,
+          "longitude": 72.6001949,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "f60b3cf2-eaed-524e-8995-f9183720342b",
+          "name": "Panch Kuva Darwaja",
+          "category": "heritage",
+          "latitude": 23.0251588,
+          "longitude": 72.5972035,
+          "score": 60.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "29b63ad7-1623-5a62-9090-717cf5b61fcb",
+          "name": "Dada Harir Stepwell",
+          "category": "tourism",
+          "latitude": 23.0406958,
+          "longitude": 72.6054713,
+          "score": 40.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "01e989d9-1d7d-5da6-9960-1c923b1c0604",
+          "name": "Raipur Gate",
+          "category": "tourism",
+          "latitude": 23.0174361,
+          "longitude": 72.5947812,
+          "score": 39.6,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "d80a4f74-7b21-5f2d-a82a-a8c3c6f0d09a",
+          "name": "Sanskar Kendra - City Museum",
+          "category": "tourism",
+          "latitude": 23.0130948,
+          "longitude": 72.5694038,
+          "score": 39.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7b4d4530-5a60-5943-aeb3-3844bd17df87",
+          "name": "Calico Textile Museum",
+          "category": "tourism",
+          "latitude": 23.05418,
+          "longitude": 72.5924764,
+          "score": 38.0,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "17540a37-dbbc-5c06-b9e8-e4e00a17e4e2",
+          "name": "Kochrab Satyagraha Ashram",
+          "category": "tourism",
+          "latitude": 23.0158902,
+          "longitude": 72.5667508,
+          "score": 35.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "154c109e-e2a9-5352-9fff-9bb4f56f7791",
+          "name": "ashram-managers guesthouse",
+          "category": "tourism",
+          "latitude": 23.0616847,
+          "longitude": 72.5793767,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "d7ab3663-ddea-5b97-b670-cc4455f64733",
+          "name": "Bird Feeder",
+          "category": "tourism",
+          "latitude": 23.023616,
+          "longitude": 72.5907685,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "a108d8e1-d5cb-5dd4-b6a2-0ae7a564691a",
+          "name": "Dai Halima tomb",
+          "category": "tourism",
+          "latitude": 23.0409874,
+          "longitude": 72.6049887,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "301bbe45-73a2-51ec-a187-bbd9b5ca0460",
+          "name": "Handmade Paper Shop",
+          "category": "tourism",
+          "latitude": 23.0635723,
+          "longitude": 72.5798948,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "26abcce4-aceb-5593-8617-f46492dff57e",
+          "name": "Imam Manzil - Khadi Weaving and Gramodhyog",
+          "category": "tourism",
+          "latitude": 23.0615878,
+          "longitude": 72.5803317,
+          "score": 29.5,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "udaipur",
+      "city_name": "Udaipur",
+      "k": 5,
+      "requested_k": 5,
+      "returned_k": 5,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.4,
+      "gold_pois_found": [
+        "City Palace Udaipur",
+        "Bagore Ki Haveli"
+      ],
+      "category_distribution": {
+        "heritage": 5
+      },
+      "category_diversity_entropy": 0.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 14,
+        "returned_recommendations": 5
+      },
+      "runtime_ms": 8.01,
+      "top_recommendations": [
+        {
+          "id": "5f5a30e2-082d-5d3a-959d-c3fc52fd84d3",
+          "name": "City Palace Udaipur",
+          "category": "heritage",
+          "latitude": 24.5764,
+          "longitude": 73.6835,
+          "score": 87.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism",
+            "heritage"
+          ]
+        },
+        {
+          "id": "4ce8f370-663d-5e4a-b3f9-1303d431964c",
+          "name": "Bagore Ki Haveli",
+          "category": "heritage",
+          "latitude": 24.5794,
+          "longitude": 73.6811,
+          "score": 86.2,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e4edfb9d-94dd-597d-82ea-d91f9debcc57",
+          "name": "Lake Palace",
+          "category": "heritage",
+          "latitude": 24.57507,
+          "longitude": 73.68022,
+          "score": 65.7,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "41940bc4-101b-5f69-900f-6032b258fb02",
+          "name": "Ahar Cenotaphs",
+          "category": "heritage",
+          "latitude": 24.587778,
+          "longitude": 73.719444,
+          "score": 65.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "12b1f7e1-b747-5df8-83f4-00ea88302095",
+          "name": "Shiv Niwas Palace",
+          "category": "heritage",
+          "latitude": 24.574329,
+          "longitude": 73.681686,
+          "score": 65.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "udaipur",
+      "city_name": "Udaipur",
+      "k": 10,
+      "requested_k": 10,
+      "returned_k": 10,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.7143,
+      "gold_pois_found": [
+        "City Palace Udaipur",
+        "Lake Pichola",
+        "Bagore Ki Haveli",
+        "Jagdish Temple",
+        "Monsoon Palace"
+      ],
+      "category_distribution": {
+        "heritage": 7,
+        "tourism": 3
+      },
+      "category_diversity_entropy": 0.881,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 14,
+        "returned_recommendations": 10
+      },
+      "runtime_ms": 2.12,
+      "top_recommendations": [
+        {
+          "id": "5f5a30e2-082d-5d3a-959d-c3fc52fd84d3",
+          "name": "City Palace Udaipur",
+          "category": "heritage",
+          "latitude": 24.5764,
+          "longitude": 73.6835,
+          "score": 87.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism",
+            "heritage"
+          ]
+        },
+        {
+          "id": "4ce8f370-663d-5e4a-b3f9-1303d431964c",
+          "name": "Bagore Ki Haveli",
+          "category": "heritage",
+          "latitude": 24.5794,
+          "longitude": 73.6811,
+          "score": 86.2,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e4edfb9d-94dd-597d-82ea-d91f9debcc57",
+          "name": "Lake Palace",
+          "category": "heritage",
+          "latitude": 24.57507,
+          "longitude": 73.68022,
+          "score": 65.7,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "41940bc4-101b-5f69-900f-6032b258fb02",
+          "name": "Ahar Cenotaphs",
+          "category": "heritage",
+          "latitude": 24.587778,
+          "longitude": 73.719444,
+          "score": 65.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "12b1f7e1-b747-5df8-83f4-00ea88302095",
+          "name": "Shiv Niwas Palace",
+          "category": "heritage",
+          "latitude": 24.574329,
+          "longitude": 73.681686,
+          "score": 65.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "4f507e3f-3cc0-5ec5-8ddc-b65aa7bfac4e",
+          "name": "Monsoon Palace",
+          "category": "heritage",
+          "latitude": 24.5932,
+          "longitude": 73.639453,
+          "score": 64.1,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "ffed7e6c-7adf-5777-b922-208c8d43be17",
+          "name": "Bagore-Ki-Haveli",
+          "category": "heritage",
+          "latitude": 24.579669,
+          "longitude": 73.680036,
+          "score": 64.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "bd41e519-0576-5532-8cf6-13e8cf034309",
+          "name": "Lake Pichola",
+          "category": "tourism",
+          "latitude": 24.567055,
+          "longitude": 73.680695,
+          "score": 35.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "095c24cd-b25c-5db3-98c1-0c00fb5c4ab2",
+          "name": "Jagdish Temple, Udaipur",
+          "category": "tourism",
+          "latitude": 24.579722,
+          "longitude": 73.683611,
+          "score": 34.8,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "0bc8f403-829b-5b76-a493-3feb290d0a98",
+          "name": "Udaipur Solar Observatory",
+          "category": "tourism",
+          "latitude": 24.604589,
+          "longitude": 73.674189,
+          "score": 34.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "udaipur",
+      "city_name": "Udaipur",
+      "k": 15,
+      "requested_k": 15,
+      "returned_k": 14,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "City Palace Udaipur",
+        "Lake Pichola",
+        "Bagore Ki Haveli",
+        "Saheliyon-ki-Bari",
+        "Jagdish Temple",
+        "Monsoon Palace",
+        "Ambrai Ghat"
+      ],
+      "category_distribution": {
+        "heritage": 7,
+        "tourism": 7
+      },
+      "category_diversity_entropy": 1.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 14,
+        "returned_recommendations": 14
+      },
+      "runtime_ms": 2.17,
+      "top_recommendations": [
+        {
+          "id": "5f5a30e2-082d-5d3a-959d-c3fc52fd84d3",
+          "name": "City Palace Udaipur",
+          "category": "heritage",
+          "latitude": 24.5764,
+          "longitude": 73.6835,
+          "score": 87.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism",
+            "heritage"
+          ]
+        },
+        {
+          "id": "4ce8f370-663d-5e4a-b3f9-1303d431964c",
+          "name": "Bagore Ki Haveli",
+          "category": "heritage",
+          "latitude": 24.5794,
+          "longitude": 73.6811,
+          "score": 86.2,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e4edfb9d-94dd-597d-82ea-d91f9debcc57",
+          "name": "Lake Palace",
+          "category": "heritage",
+          "latitude": 24.57507,
+          "longitude": 73.68022,
+          "score": 65.7,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "41940bc4-101b-5f69-900f-6032b258fb02",
+          "name": "Ahar Cenotaphs",
+          "category": "heritage",
+          "latitude": 24.587778,
+          "longitude": 73.719444,
+          "score": 65.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "12b1f7e1-b747-5df8-83f4-00ea88302095",
+          "name": "Shiv Niwas Palace",
+          "category": "heritage",
+          "latitude": 24.574329,
+          "longitude": 73.681686,
+          "score": 65.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "4f507e3f-3cc0-5ec5-8ddc-b65aa7bfac4e",
+          "name": "Monsoon Palace",
+          "category": "heritage",
+          "latitude": 24.5932,
+          "longitude": 73.639453,
+          "score": 64.1,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "ffed7e6c-7adf-5777-b922-208c8d43be17",
+          "name": "Bagore-Ki-Haveli",
+          "category": "heritage",
+          "latitude": 24.579669,
+          "longitude": 73.680036,
+          "score": 64.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "bd41e519-0576-5532-8cf6-13e8cf034309",
+          "name": "Lake Pichola",
+          "category": "tourism",
+          "latitude": 24.567055,
+          "longitude": 73.680695,
+          "score": 35.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "095c24cd-b25c-5db3-98c1-0c00fb5c4ab2",
+          "name": "Jagdish Temple, Udaipur",
+          "category": "tourism",
+          "latitude": 24.579722,
+          "longitude": 73.683611,
+          "score": 34.8,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "0bc8f403-829b-5b76-a493-3feb290d0a98",
+          "name": "Udaipur Solar Observatory",
+          "category": "tourism",
+          "latitude": 24.604589,
+          "longitude": 73.674189,
+          "score": 34.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "f24b385a-3778-5dfc-8c51-a5c6530f8fde",
+          "name": "Gangaur Ghat",
+          "category": "tourism",
+          "latitude": 24.579924,
+          "longitude": 73.681925,
+          "score": 34.3,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "4c2b6375-a63a-5d2b-99c3-ba795d1b149d",
+          "name": "Saheliyon-Ki-Bari",
+          "category": "tourism",
+          "latitude": 24.603006,
+          "longitude": 73.68549,
+          "score": 34.3,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "3f5a7ac2-9e73-5f16-9410-1a05af503362",
+          "name": "Ambrai Ghat",
+          "category": "tourism",
+          "latitude": 24.577512,
+          "longitude": 73.677877,
+          "score": 34.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "49142792-40c3-5064-8390-bcea3c15a101",
+          "name": "Sajjangarh Wildlife Sanctuary",
+          "category": "tourism",
+          "latitude": 24.594375,
+          "longitude": 73.641647,
+          "score": 33.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "udaipur",
+      "city_name": "Udaipur",
+      "k": 20,
+      "requested_k": 20,
+      "returned_k": 14,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "City Palace Udaipur",
+        "Lake Pichola",
+        "Bagore Ki Haveli",
+        "Saheliyon-ki-Bari",
+        "Jagdish Temple",
+        "Monsoon Palace",
+        "Ambrai Ghat"
+      ],
+      "category_distribution": {
+        "heritage": 7,
+        "tourism": 7
+      },
+      "category_diversity_entropy": 1.0,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 14,
+        "returned_recommendations": 14
+      },
+      "runtime_ms": 2.16,
+      "top_recommendations": [
+        {
+          "id": "5f5a30e2-082d-5d3a-959d-c3fc52fd84d3",
+          "name": "City Palace Udaipur",
+          "category": "heritage",
+          "latitude": 24.5764,
+          "longitude": 73.6835,
+          "score": 87.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism",
+            "heritage"
+          ]
+        },
+        {
+          "id": "4ce8f370-663d-5e4a-b3f9-1303d431964c",
+          "name": "Bagore Ki Haveli",
+          "category": "heritage",
+          "latitude": 24.5794,
+          "longitude": 73.6811,
+          "score": 86.2,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e4edfb9d-94dd-597d-82ea-d91f9debcc57",
+          "name": "Lake Palace",
+          "category": "heritage",
+          "latitude": 24.57507,
+          "longitude": 73.68022,
+          "score": 65.7,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "41940bc4-101b-5f69-900f-6032b258fb02",
+          "name": "Ahar Cenotaphs",
+          "category": "heritage",
+          "latitude": 24.587778,
+          "longitude": 73.719444,
+          "score": 65.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "12b1f7e1-b747-5df8-83f4-00ea88302095",
+          "name": "Shiv Niwas Palace",
+          "category": "heritage",
+          "latitude": 24.574329,
+          "longitude": 73.681686,
+          "score": 65.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "4f507e3f-3cc0-5ec5-8ddc-b65aa7bfac4e",
+          "name": "Monsoon Palace",
+          "category": "heritage",
+          "latitude": 24.5932,
+          "longitude": 73.639453,
+          "score": 64.1,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "ffed7e6c-7adf-5777-b922-208c8d43be17",
+          "name": "Bagore-Ki-Haveli",
+          "category": "heritage",
+          "latitude": 24.579669,
+          "longitude": 73.680036,
+          "score": 64.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "bd41e519-0576-5532-8cf6-13e8cf034309",
+          "name": "Lake Pichola",
+          "category": "tourism",
+          "latitude": 24.567055,
+          "longitude": 73.680695,
+          "score": 35.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "095c24cd-b25c-5db3-98c1-0c00fb5c4ab2",
+          "name": "Jagdish Temple, Udaipur",
+          "category": "tourism",
+          "latitude": 24.579722,
+          "longitude": 73.683611,
+          "score": 34.8,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "0bc8f403-829b-5b76-a493-3feb290d0a98",
+          "name": "Udaipur Solar Observatory",
+          "category": "tourism",
+          "latitude": 24.604589,
+          "longitude": 73.674189,
+          "score": 34.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "f24b385a-3778-5dfc-8c51-a5c6530f8fde",
+          "name": "Gangaur Ghat",
+          "category": "tourism",
+          "latitude": 24.579924,
+          "longitude": 73.681925,
+          "score": 34.3,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "4c2b6375-a63a-5d2b-99c3-ba795d1b149d",
+          "name": "Saheliyon-Ki-Bari",
+          "category": "tourism",
+          "latitude": 24.603006,
+          "longitude": 73.68549,
+          "score": 34.3,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "3f5a7ac2-9e73-5f16-9410-1a05af503362",
+          "name": "Ambrai Ghat",
+          "category": "tourism",
+          "latitude": 24.577512,
+          "longitude": 73.677877,
+          "score": 34.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "49142792-40c3-5064-8390-bcea3c15a101",
+          "name": "Sajjangarh Wildlife Sanctuary",
+          "category": "tourism",
+          "latitude": 24.594375,
+          "longitude": 73.641647,
+          "score": 33.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "mumbai_mixed",
+      "city_name": "Mumbai",
+      "k": 5,
+      "requested_k": 5,
+      "returned_k": 5,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.6,
+      "gold_pois_found": [
+        "Chhatrapati Shivaji Maharaj Terminus",
+        "Leopold Cafe",
+        "Britannia & Co. Restaurant"
+      ],
+      "category_distribution": {
+        "tourism": 1,
+        "food": 2,
+        "cafes": 2
+      },
+      "category_diversity_entropy": 1.522,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 66,
+        "returned_recommendations": 5
+      },
+      "runtime_ms": 77.0,
+      "top_recommendations": [
+        {
+          "id": "f851904c-bc0a-5e94-a8e5-664ebfe15c83",
+          "name": "Chhatrapati Shivaji Maharaj Terminus",
+          "category": "tourism",
+          "latitude": 18.94,
+          "longitude": 72.8353,
+          "score": 68.3,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "1200e10f-af7a-5a76-a135-570d60b8b31e",
+          "name": "Britannia & Co. Restaurant",
+          "category": "food",
+          "latitude": 18.937,
+          "longitude": 72.838,
+          "score": 61.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "3366e097-af9a-5e5d-882f-4ae4cbb1d2d1",
+          "name": "Leopold Cafe",
+          "category": "cafes",
+          "latitude": 18.923,
+          "longitude": 72.832,
+          "score": 61.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "cafes"
+          ]
+        },
+        {
+          "id": "bdeeab58-d509-5220-a274-e299c714bab5",
+          "name": "Cafe Mondegar",
+          "category": "cafes",
+          "latitude": 18.9245,
+          "longitude": 72.8325,
+          "score": 53.4,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "cafes"
+          ]
+        },
+        {
+          "id": "e1a34701-c1a1-5541-aa0a-5310433644af",
+          "name": "Mahesh Lunch Home",
+          "category": "food",
+          "latitude": 18.932,
+          "longitude": 72.834,
+          "score": 50.4,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "mumbai_mixed",
+      "city_name": "Mumbai",
+      "k": 10,
+      "requested_k": 10,
+      "returned_k": 10,
+      "intent_precision": 1.0,
+      "restricted_count": 1,
+      "restricted_rate": 0.1,
+      "restricted_leakages": [
+        "IIT Bombay Campus Food Court"
+      ],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.5714,
+      "gold_pois_found": [
+        "Marine Drive",
+        "Chhatrapati Shivaji Maharaj Terminus",
+        "Leopold Cafe",
+        "Britannia & Co. Restaurant"
+      ],
+      "category_distribution": {
+        "tourism": 4,
+        "food": 4,
+        "cafes": 2
+      },
+      "category_diversity_entropy": 1.522,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 66,
+        "returned_recommendations": 10
+      },
+      "runtime_ms": 20.88,
+      "top_recommendations": [
+        {
+          "id": "f851904c-bc0a-5e94-a8e5-664ebfe15c83",
+          "name": "Chhatrapati Shivaji Maharaj Terminus",
+          "category": "tourism",
+          "latitude": 18.94,
+          "longitude": 72.8353,
+          "score": 68.3,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "1200e10f-af7a-5a76-a135-570d60b8b31e",
+          "name": "Britannia & Co. Restaurant",
+          "category": "food",
+          "latitude": 18.937,
+          "longitude": 72.838,
+          "score": 61.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "3366e097-af9a-5e5d-882f-4ae4cbb1d2d1",
+          "name": "Leopold Cafe",
+          "category": "cafes",
+          "latitude": 18.923,
+          "longitude": 72.832,
+          "score": 61.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "cafes"
+          ]
+        },
+        {
+          "id": "bdeeab58-d509-5220-a274-e299c714bab5",
+          "name": "Cafe Mondegar",
+          "category": "cafes",
+          "latitude": 18.9245,
+          "longitude": 72.8325,
+          "score": 53.4,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "cafes"
+          ]
+        },
+        {
+          "id": "e1a34701-c1a1-5541-aa0a-5310433644af",
+          "name": "Mahesh Lunch Home",
+          "category": "food",
+          "latitude": 18.932,
+          "longitude": 72.834,
+          "score": 50.4,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "44163ce3-6448-5079-bcdb-22b3f047a4d3",
+          "name": "Bademiya",
+          "category": "food",
+          "latitude": 18.9225,
+          "longitude": 72.8335,
+          "score": 50.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "f1050b51-5e3d-55be-b045-8f588a33bb91",
+          "name": "Marine Drive",
+          "category": "tourism",
+          "latitude": 18.9432,
+          "longitude": 72.823,
+          "score": 46.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7188eafe-8d48-5889-97ad-f27f247fee6f",
+          "name": "Chhatrapati Shivaji Maharaj International Airport",
+          "category": "tourism",
+          "latitude": 19.088611,
+          "longitude": 72.868056,
+          "score": 37.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7211e0e6-ac32-5437-9881-6d9263db4dcd",
+          "name": "IIT Bombay Campus Food Court",
+          "category": "food",
+          "latitude": 19.134,
+          "longitude": 72.914,
+          "score": 35.6,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "c4a7cce3-e1cf-5d67-bfc9-db2d570c7d45",
+          "name": "Wankhede Stadium",
+          "category": "tourism",
+          "latitude": 18.938917,
+          "longitude": 72.825722,
+          "score": 32.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "mumbai_mixed",
+      "city_name": "Mumbai",
+      "k": 15,
+      "requested_k": 15,
+      "returned_k": 15,
+      "intent_precision": 1.0,
+      "restricted_count": 2,
+      "restricted_rate": 0.1333,
+      "restricted_leakages": [
+        "IIT Bombay Campus Food Court",
+        "Hdfc Bank Malabar Hill Ec Branch"
+      ],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.5714,
+      "gold_pois_found": [
+        "Marine Drive",
+        "Chhatrapati Shivaji Maharaj Terminus",
+        "Leopold Cafe",
+        "Britannia & Co. Restaurant"
+      ],
+      "category_distribution": {
+        "tourism": 9,
+        "food": 4,
+        "cafes": 2
+      },
+      "category_diversity_entropy": 1.338,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 66,
+        "returned_recommendations": 15
+      },
+      "runtime_ms": 17.56,
+      "top_recommendations": [
+        {
+          "id": "f851904c-bc0a-5e94-a8e5-664ebfe15c83",
+          "name": "Chhatrapati Shivaji Maharaj Terminus",
+          "category": "tourism",
+          "latitude": 18.94,
+          "longitude": 72.8353,
+          "score": 68.3,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "1200e10f-af7a-5a76-a135-570d60b8b31e",
+          "name": "Britannia & Co. Restaurant",
+          "category": "food",
+          "latitude": 18.937,
+          "longitude": 72.838,
+          "score": 61.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "3366e097-af9a-5e5d-882f-4ae4cbb1d2d1",
+          "name": "Leopold Cafe",
+          "category": "cafes",
+          "latitude": 18.923,
+          "longitude": 72.832,
+          "score": 61.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "cafes"
+          ]
+        },
+        {
+          "id": "bdeeab58-d509-5220-a274-e299c714bab5",
+          "name": "Cafe Mondegar",
+          "category": "cafes",
+          "latitude": 18.9245,
+          "longitude": 72.8325,
+          "score": 53.4,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "cafes"
+          ]
+        },
+        {
+          "id": "e1a34701-c1a1-5541-aa0a-5310433644af",
+          "name": "Mahesh Lunch Home",
+          "category": "food",
+          "latitude": 18.932,
+          "longitude": 72.834,
+          "score": 50.4,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "44163ce3-6448-5079-bcdb-22b3f047a4d3",
+          "name": "Bademiya",
+          "category": "food",
+          "latitude": 18.9225,
+          "longitude": 72.8335,
+          "score": 50.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "f1050b51-5e3d-55be-b045-8f588a33bb91",
+          "name": "Marine Drive",
+          "category": "tourism",
+          "latitude": 18.9432,
+          "longitude": 72.823,
+          "score": 46.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7188eafe-8d48-5889-97ad-f27f247fee6f",
+          "name": "Chhatrapati Shivaji Maharaj International Airport",
+          "category": "tourism",
+          "latitude": 19.088611,
+          "longitude": 72.868056,
+          "score": 37.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7211e0e6-ac32-5437-9881-6d9263db4dcd",
+          "name": "IIT Bombay Campus Food Court",
+          "category": "food",
+          "latitude": 19.134,
+          "longitude": 72.914,
+          "score": 35.6,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "c4a7cce3-e1cf-5d67-bfc9-db2d570c7d45",
+          "name": "Wankhede Stadium",
+          "category": "tourism",
+          "latitude": 18.938917,
+          "longitude": 72.825722,
+          "score": 32.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7a62cb0a-6229-50d1-b1d4-a13e38d442b2",
+          "name": "Hdfc Bank Malabar Hill Ec Branch",
+          "category": "tourism",
+          "latitude": 18.954027,
+          "longitude": 72.804263,
+          "score": 31.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "3a0acd8d-4a4a-5721-b3d2-746c03dd8e42",
+          "name": "Taj Mahal Palace Hotel",
+          "category": "tourism",
+          "latitude": 18.92164,
+          "longitude": 72.83317,
+          "score": 29.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "efb839d5-b164-5335-8ed4-2b6c1beeb490",
+          "name": "Haji Ali Dargah",
+          "category": "tourism",
+          "latitude": 18.9825,
+          "longitude": 72.8088,
+          "score": 29.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "c394cbc3-a9c6-5647-b1bd-f84be386f702",
+          "name": "Sanjay Gandhi National Park",
+          "category": "tourism",
+          "latitude": 19.25,
+          "longitude": 72.9167,
+          "score": 29.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "72993223-23cf-5956-b760-b24480235337",
+          "name": "Chhatrapati Shivaji Maharaj Vastu Sangrahalaya",
+          "category": "tourism",
+          "latitude": 18.926877,
+          "longitude": 72.832592,
+          "score": 26.9,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "mumbai_mixed",
+      "city_name": "Mumbai",
+      "k": 20,
+      "requested_k": 20,
+      "returned_k": 20,
+      "intent_precision": 1.0,
+      "restricted_count": 2,
+      "restricted_rate": 0.1,
+      "restricted_leakages": [
+        "IIT Bombay Campus Food Court",
+        "Hdfc Bank Malabar Hill Ec Branch"
+      ],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.7143,
+      "gold_pois_found": [
+        "Marine Drive",
+        "Chhatrapati Shivaji Maharaj Terminus",
+        "Siddhivinayak Temple",
+        "Leopold Cafe",
+        "Britannia & Co. Restaurant"
+      ],
+      "category_distribution": {
+        "tourism": 14,
+        "food": 4,
+        "cafes": 2
+      },
+      "category_diversity_entropy": 1.157,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 66,
+        "returned_recommendations": 20
+      },
+      "runtime_ms": 22.63,
+      "top_recommendations": [
+        {
+          "id": "f851904c-bc0a-5e94-a8e5-664ebfe15c83",
+          "name": "Chhatrapati Shivaji Maharaj Terminus",
+          "category": "tourism",
+          "latitude": 18.94,
+          "longitude": 72.8353,
+          "score": 68.3,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "1200e10f-af7a-5a76-a135-570d60b8b31e",
+          "name": "Britannia & Co. Restaurant",
+          "category": "food",
+          "latitude": 18.937,
+          "longitude": 72.838,
+          "score": 61.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "3366e097-af9a-5e5d-882f-4ae4cbb1d2d1",
+          "name": "Leopold Cafe",
+          "category": "cafes",
+          "latitude": 18.923,
+          "longitude": 72.832,
+          "score": 61.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "cafes"
+          ]
+        },
+        {
+          "id": "bdeeab58-d509-5220-a274-e299c714bab5",
+          "name": "Cafe Mondegar",
+          "category": "cafes",
+          "latitude": 18.9245,
+          "longitude": 72.8325,
+          "score": 53.4,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "cafes"
+          ]
+        },
+        {
+          "id": "e1a34701-c1a1-5541-aa0a-5310433644af",
+          "name": "Mahesh Lunch Home",
+          "category": "food",
+          "latitude": 18.932,
+          "longitude": 72.834,
+          "score": 50.4,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "44163ce3-6448-5079-bcdb-22b3f047a4d3",
+          "name": "Bademiya",
+          "category": "food",
+          "latitude": 18.9225,
+          "longitude": 72.8335,
+          "score": 50.3,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "f1050b51-5e3d-55be-b045-8f588a33bb91",
+          "name": "Marine Drive",
+          "category": "tourism",
+          "latitude": 18.9432,
+          "longitude": 72.823,
+          "score": 46.6,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7188eafe-8d48-5889-97ad-f27f247fee6f",
+          "name": "Chhatrapati Shivaji Maharaj International Airport",
+          "category": "tourism",
+          "latitude": 19.088611,
+          "longitude": 72.868056,
+          "score": 37.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7211e0e6-ac32-5437-9881-6d9263db4dcd",
+          "name": "IIT Bombay Campus Food Court",
+          "category": "food",
+          "latitude": 19.134,
+          "longitude": 72.914,
+          "score": 35.6,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "c4a7cce3-e1cf-5d67-bfc9-db2d570c7d45",
+          "name": "Wankhede Stadium",
+          "category": "tourism",
+          "latitude": 18.938917,
+          "longitude": 72.825722,
+          "score": 32.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7a62cb0a-6229-50d1-b1d4-a13e38d442b2",
+          "name": "Hdfc Bank Malabar Hill Ec Branch",
+          "category": "tourism",
+          "latitude": 18.954027,
+          "longitude": 72.804263,
+          "score": 31.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "3a0acd8d-4a4a-5721-b3d2-746c03dd8e42",
+          "name": "Taj Mahal Palace Hotel",
+          "category": "tourism",
+          "latitude": 18.92164,
+          "longitude": 72.83317,
+          "score": 29.4,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "efb839d5-b164-5335-8ed4-2b6c1beeb490",
+          "name": "Haji Ali Dargah",
+          "category": "tourism",
+          "latitude": 18.9825,
+          "longitude": 72.8088,
+          "score": 29.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "c394cbc3-a9c6-5647-b1bd-f84be386f702",
+          "name": "Sanjay Gandhi National Park",
+          "category": "tourism",
+          "latitude": 19.25,
+          "longitude": 72.9167,
+          "score": 29.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "72993223-23cf-5956-b760-b24480235337",
+          "name": "Chhatrapati Shivaji Maharaj Vastu Sangrahalaya",
+          "category": "tourism",
+          "latitude": 18.926877,
+          "longitude": 72.832592,
+          "score": 26.9,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "044ad014-e9ca-5289-8f9b-8cbd909ab106",
+          "name": "Bandra–Worli Sea Link",
+          "category": "tourism",
+          "latitude": 19.03648,
+          "longitude": 72.81725,
+          "score": 26.8,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "1b698cf3-9670-5e61-b450-bf4d3195856e",
+          "name": "Siddhivinayak Temple, Mumbai",
+          "category": "tourism",
+          "latitude": 19.01692,
+          "longitude": 72.830409,
+          "score": 26.0,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "adb9fdac-b78f-5280-83a8-1ae8a58678fa",
+          "name": "Madh Island",
+          "category": "tourism",
+          "latitude": 19.148491,
+          "longitude": 72.789161,
+          "score": 25.8,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "827f47c8-8223-5508-bd0a-dffb1f77c6cd",
+          "name": "India Tower",
+          "category": "tourism",
+          "latitude": 18.950159,
+          "longitude": 72.821348,
+          "score": 25.7,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        },
+        {
+          "id": "7b2a91aa-6d86-590b-b091-89c0a6dfdcc6",
+          "name": "Jama Masjid, Mumbai",
+          "category": "tourism",
+          "latitude": 18.9491,
+          "longitude": 72.8322,
+          "score": 25.7,
+          "reason": "Notable attraction matching your sightseeing trip",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "tourism"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "delhi_mixed",
+      "city_name": "Delhi",
+      "k": 5,
+      "requested_k": 5,
+      "returned_k": 5,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 1.0,
+      "gold_pois_found": [
+        "India Gate",
+        "Red Fort",
+        "Qutub Minar",
+        "Humayun's Tomb",
+        "Chandni Chowk"
+      ],
+      "category_distribution": {
+        "heritage": 4,
+        "food": 1
+      },
+      "category_diversity_entropy": 0.722,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 107,
+        "returned_recommendations": 5
+      },
+      "runtime_ms": 40.9,
+      "top_recommendations": [
+        {
+          "id": "2a325136-19e0-5732-9184-d432f3b7f668",
+          "name": "India Gate",
+          "category": "heritage",
+          "latitude": 28.6129,
+          "longitude": 77.2295,
+          "score": 80.7,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "46e0c91f-6bbc-53a1-ad8e-b52afce654f8",
+          "name": "Red Fort",
+          "category": "heritage",
+          "latitude": 28.6562,
+          "longitude": 77.241,
+          "score": 80.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "875d9353-896b-5871-a48a-9c0dbf470bed",
+          "name": "Chandni Chowk Food Street",
+          "category": "food",
+          "latitude": 28.6506,
+          "longitude": 77.2303,
+          "score": 59.6,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "5101b90f-ad1f-5f3a-aad4-786b77eaf406",
+          "name": "Qutub Minar",
+          "category": "heritage",
+          "latitude": 28.5245,
+          "longitude": 77.1855,
+          "score": 80.4,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "26b98624-331c-5bc4-b015-43d0d6b1a6bc",
+          "name": "Humayun's Tomb",
+          "category": "heritage",
+          "latitude": 28.5933,
+          "longitude": 77.2507,
+          "score": 80.1,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "delhi_mixed",
+      "city_name": "Delhi",
+      "k": 10,
+      "requested_k": 10,
+      "returned_k": 10,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.75,
+      "gold_pois_found": [
+        "India Gate",
+        "Red Fort",
+        "Qutub Minar",
+        "Humayun's Tomb",
+        "Chandni Chowk",
+        "Karim's"
+      ],
+      "category_distribution": {
+        "heritage": 8,
+        "food": 2
+      },
+      "category_diversity_entropy": 0.722,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 107,
+        "returned_recommendations": 10
+      },
+      "runtime_ms": 21.39,
+      "top_recommendations": [
+        {
+          "id": "2a325136-19e0-5732-9184-d432f3b7f668",
+          "name": "India Gate",
+          "category": "heritage",
+          "latitude": 28.6129,
+          "longitude": 77.2295,
+          "score": 80.7,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "46e0c91f-6bbc-53a1-ad8e-b52afce654f8",
+          "name": "Red Fort",
+          "category": "heritage",
+          "latitude": 28.6562,
+          "longitude": 77.241,
+          "score": 80.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "875d9353-896b-5871-a48a-9c0dbf470bed",
+          "name": "Chandni Chowk Food Street",
+          "category": "food",
+          "latitude": 28.6506,
+          "longitude": 77.2303,
+          "score": 59.6,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "5101b90f-ad1f-5f3a-aad4-786b77eaf406",
+          "name": "Qutub Minar",
+          "category": "heritage",
+          "latitude": 28.5245,
+          "longitude": 77.1855,
+          "score": 80.4,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "26b98624-331c-5bc4-b015-43d0d6b1a6bc",
+          "name": "Humayun's Tomb",
+          "category": "heritage",
+          "latitude": 28.5933,
+          "longitude": 77.2507,
+          "score": 80.1,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "3fee4eb7-15ec-53d2-93f6-c0508864596e",
+          "name": "Karim's Original Old Delhi",
+          "category": "food",
+          "latitude": 28.6508,
+          "longitude": 77.2335,
+          "score": 58.2,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2b0386f3-c288-58a9-81ce-b5547acbffc1",
+          "name": "Iron Pillar",
+          "category": "heritage",
+          "latitude": 28.5247493,
+          "longitude": 77.1849651,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e32cfe71-8806-57d4-9634-e79cb49cbd17",
+          "name": "Isa Khan's Tomb",
+          "category": "heritage",
+          "latitude": 28.5922299,
+          "longitude": 77.2461834,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "3a89abcc-fbf7-50d7-8a01-ca5ab4282868",
+          "name": "Jamali Kamali Tomb",
+          "category": "heritage",
+          "latitude": 28.5198643,
+          "longitude": 77.1871761,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "144cb1ba-f8f3-5c73-a04c-414303a484f7",
+          "name": "Tomb of Abdul Rahim Khan-i-Khanan",
+          "category": "heritage",
+          "latitude": 28.5880612,
+          "longitude": 77.2480222,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "delhi_mixed",
+      "city_name": "Delhi",
+      "k": 15,
+      "requested_k": 15,
+      "returned_k": 15,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.75,
+      "gold_pois_found": [
+        "India Gate",
+        "Red Fort",
+        "Qutub Minar",
+        "Humayun's Tomb",
+        "Chandni Chowk",
+        "Karim's"
+      ],
+      "category_distribution": {
+        "heritage": 13,
+        "food": 2
+      },
+      "category_diversity_entropy": 0.567,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 107,
+        "returned_recommendations": 15
+      },
+      "runtime_ms": 19.5,
+      "top_recommendations": [
+        {
+          "id": "2a325136-19e0-5732-9184-d432f3b7f668",
+          "name": "India Gate",
+          "category": "heritage",
+          "latitude": 28.6129,
+          "longitude": 77.2295,
+          "score": 80.7,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "46e0c91f-6bbc-53a1-ad8e-b52afce654f8",
+          "name": "Red Fort",
+          "category": "heritage",
+          "latitude": 28.6562,
+          "longitude": 77.241,
+          "score": 80.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "875d9353-896b-5871-a48a-9c0dbf470bed",
+          "name": "Chandni Chowk Food Street",
+          "category": "food",
+          "latitude": 28.6506,
+          "longitude": 77.2303,
+          "score": 59.6,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "5101b90f-ad1f-5f3a-aad4-786b77eaf406",
+          "name": "Qutub Minar",
+          "category": "heritage",
+          "latitude": 28.5245,
+          "longitude": 77.1855,
+          "score": 80.4,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "26b98624-331c-5bc4-b015-43d0d6b1a6bc",
+          "name": "Humayun's Tomb",
+          "category": "heritage",
+          "latitude": 28.5933,
+          "longitude": 77.2507,
+          "score": 80.1,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "3fee4eb7-15ec-53d2-93f6-c0508864596e",
+          "name": "Karim's Original Old Delhi",
+          "category": "food",
+          "latitude": 28.6508,
+          "longitude": 77.2335,
+          "score": 58.2,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2b0386f3-c288-58a9-81ce-b5547acbffc1",
+          "name": "Iron Pillar",
+          "category": "heritage",
+          "latitude": 28.5247493,
+          "longitude": 77.1849651,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e32cfe71-8806-57d4-9634-e79cb49cbd17",
+          "name": "Isa Khan's Tomb",
+          "category": "heritage",
+          "latitude": 28.5922299,
+          "longitude": 77.2461834,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "3a89abcc-fbf7-50d7-8a01-ca5ab4282868",
+          "name": "Jamali Kamali Tomb",
+          "category": "heritage",
+          "latitude": 28.5198643,
+          "longitude": 77.1871761,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "144cb1ba-f8f3-5c73-a04c-414303a484f7",
+          "name": "Tomb of Abdul Rahim Khan-i-Khanan",
+          "category": "heritage",
+          "latitude": 28.5880612,
+          "longitude": 77.2480222,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "dc55cd5a-f346-5553-99fe-9f579cb9aecb",
+          "name": "Munda Gumbad",
+          "category": "heritage",
+          "latitude": 28.5566158,
+          "longitude": 77.1917047,
+          "score": 54.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "1a640507-478b-51fe-a8bd-97b8e561e64c",
+          "name": "Kisan Ghat",
+          "category": "heritage",
+          "latitude": 28.6396119,
+          "longitude": 77.2528353,
+          "score": 51.6,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "6de3be2a-d3ae-525d-b506-a1eca5450895",
+          "name": "Biran Ka Gumbad",
+          "category": "heritage",
+          "latitude": 28.5555149,
+          "longitude": 77.2029261,
+          "score": 51.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "2011f860-1946-5498-afbe-d789c234640f",
+          "name": "Mirza Ghalib's Tomb",
+          "category": "heritage",
+          "latitude": 28.5914282,
+          "longitude": 77.2430127,
+          "score": 51.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "50478dc3-8d07-5061-8701-84f9567e589c",
+          "name": "Bijaymandal Hall Ruins",
+          "category": "heritage",
+          "latitude": 28.5406262,
+          "longitude": 77.2061002,
+          "score": 49.8,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario_key": "delhi_mixed",
+      "city_name": "Delhi",
+      "k": 20,
+      "requested_k": 20,
+      "returned_k": 20,
+      "intent_precision": 1.0,
+      "restricted_count": 0,
+      "restricted_rate": 0.0,
+      "restricted_leakages": [],
+      "canonical_duplicate_count": 0,
+      "near_duplicate_count": 0,
+      "duplicate_rate": 0.0,
+      "gold_major_poi_recall": 0.75,
+      "gold_pois_found": [
+        "India Gate",
+        "Red Fort",
+        "Qutub Minar",
+        "Humayun's Tomb",
+        "Chandni Chowk",
+        "Karim's"
+      ],
+      "category_distribution": {
+        "heritage": 18,
+        "food": 2
+      },
+      "category_diversity_entropy": 0.469,
+      "is_deterministic": true,
+      "pipeline_funnel": {
+        "raw_candidates": 107,
+        "returned_recommendations": 20
+      },
+      "runtime_ms": 19.71,
+      "top_recommendations": [
+        {
+          "id": "2a325136-19e0-5732-9184-d432f3b7f668",
+          "name": "India Gate",
+          "category": "heritage",
+          "latitude": 28.6129,
+          "longitude": 77.2295,
+          "score": 80.7,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage",
+            "tourism"
+          ]
+        },
+        {
+          "id": "46e0c91f-6bbc-53a1-ad8e-b52afce654f8",
+          "name": "Red Fort",
+          "category": "heritage",
+          "latitude": 28.6562,
+          "longitude": 77.241,
+          "score": 80.5,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "875d9353-896b-5871-a48a-9c0dbf470bed",
+          "name": "Chandni Chowk Food Street",
+          "category": "food",
+          "latitude": 28.6506,
+          "longitude": 77.2303,
+          "score": 59.6,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "5101b90f-ad1f-5f3a-aad4-786b77eaf406",
+          "name": "Qutub Minar",
+          "category": "heritage",
+          "latitude": 28.5245,
+          "longitude": 77.1855,
+          "score": 80.4,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "26b98624-331c-5bc4-b015-43d0d6b1a6bc",
+          "name": "Humayun's Tomb",
+          "category": "heritage",
+          "latitude": 28.5933,
+          "longitude": 77.2507,
+          "score": 80.1,
+          "reason": "Historic landmark matching your heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "3fee4eb7-15ec-53d2-93f6-c0508864596e",
+          "name": "Karim's Original Old Delhi",
+          "category": "food",
+          "latitude": 28.6508,
+          "longitude": 77.2335,
+          "score": 58.2,
+          "reason": "Matches your interest in local food",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "food"
+          ]
+        },
+        {
+          "id": "2b0386f3-c288-58a9-81ce-b5547acbffc1",
+          "name": "Iron Pillar",
+          "category": "heritage",
+          "latitude": 28.5247493,
+          "longitude": 77.1849651,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "e32cfe71-8806-57d4-9634-e79cb49cbd17",
+          "name": "Isa Khan's Tomb",
+          "category": "heritage",
+          "latitude": 28.5922299,
+          "longitude": 77.2461834,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "3a89abcc-fbf7-50d7-8a01-ca5ab4282868",
+          "name": "Jamali Kamali Tomb",
+          "category": "heritage",
+          "latitude": 28.5198643,
+          "longitude": 77.1871761,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "144cb1ba-f8f3-5c73-a04c-414303a484f7",
+          "name": "Tomb of Abdul Rahim Khan-i-Khanan",
+          "category": "heritage",
+          "latitude": 28.5880612,
+          "longitude": 77.2480222,
+          "score": 57.3,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "dc55cd5a-f346-5553-99fe-9f579cb9aecb",
+          "name": "Munda Gumbad",
+          "category": "heritage",
+          "latitude": 28.5566158,
+          "longitude": 77.1917047,
+          "score": 54.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "1a640507-478b-51fe-a8bd-97b8e561e64c",
+          "name": "Kisan Ghat",
+          "category": "heritage",
+          "latitude": 28.6396119,
+          "longitude": 77.2528353,
+          "score": 51.6,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "6de3be2a-d3ae-525d-b506-a1eca5450895",
+          "name": "Biran Ka Gumbad",
+          "category": "heritage",
+          "latitude": 28.5555149,
+          "longitude": 77.2029261,
+          "score": 51.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "2011f860-1946-5498-afbe-d789c234640f",
+          "name": "Mirza Ghalib's Tomb",
+          "category": "heritage",
+          "latitude": 28.5914282,
+          "longitude": 77.2430127,
+          "score": 51.1,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "50478dc3-8d07-5061-8701-84f9567e589c",
+          "name": "Bijaymandal Hall Ruins",
+          "category": "heritage",
+          "latitude": 28.5406262,
+          "longitude": 77.2061002,
+          "score": 49.8,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "1963dcb2-f07f-523c-b575-a942a5d4ddbc",
+          "name": "Dome",
+          "category": "heritage",
+          "latitude": 28.5408107,
+          "longitude": 77.2056042,
+          "score": 49.8,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "cbb2af5f-5fc3-5754-a673-4dbc67d6b343",
+          "name": "Gateway Guest House (Metcalfe's Retreat)",
+          "category": "heritage",
+          "latitude": 28.5230419,
+          "longitude": 77.1863121,
+          "score": 49.8,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "bbfb48c0-e260-5222-91e5-9afa04e875c7",
+          "name": "Gumti",
+          "category": "heritage",
+          "latitude": 28.5187218,
+          "longitude": 77.1879422,
+          "score": 49.8,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "23fc647a-9649-5786-9858-097fb61e1ae5",
+          "name": "Lal Gumbad",
+          "category": "heritage",
+          "latitude": 28.539902,
+          "longitude": 77.213146,
+          "score": 49.8,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        },
+        {
+          "id": "a98c7d40-d793-53bf-85ee-4a0608b00260",
+          "name": "Moluddin Chisti's Grave",
+          "category": "heritage",
+          "latitude": 28.6070826,
+          "longitude": 77.1800207,
+          "score": 49.8,
+          "reason": "Matches your culture & heritage focus",
+          "access_confidence": "PUBLIC_LIKELY",
+          "matched_categories": [
+            "heritage"
+          ]
+        }
+      ]
+    }
+  ]
+}
