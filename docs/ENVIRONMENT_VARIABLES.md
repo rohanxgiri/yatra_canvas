@@ -34,12 +34,18 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 | `OVERPASS_CAFE_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for cafes category, default 40 | Non-secret | `[IMPLEMENTED]` |
 | `OVERPASS_MARKETS_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for markets category, default 40 | Non-secret | `[IMPLEMENTED]` |
 | `OVERPASS_NATURE_LIMIT` | OpenStreetMap / Overpass | Optional | Backend | Candidate discovery limit for nature category, default 40 | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_CIRCUIT_BREAKER_THRESHOLD` | OpenStreetMap / Overpass | Optional | Backend | Consecutive failure count before circuit trips to open, default 3 | Non-secret | `[IMPLEMENTED]` |
+| `OVERPASS_CIRCUIT_BREAKER_COOLDOWN_SECONDS` | OpenStreetMap / Overpass | Optional | Backend | Cooldown duration while circuit is open, default 60 seconds | Non-secret | `[IMPLEMENTED]` |
 | `FSQ_OS_PLACES_PATH` | FSQ OS Places | Optional | Backend CLI/operator | Default local CSV/JSONL/NDJSON source path | Usually private path, not a credential | `[IMPLEMENTED]`; portal access token is intentionally not accepted here |
 | `AUDIALA_DATASET_PATH` | Audiala | Optional | Backend | Default local JSON file path for Audiala dataset (`backend/app/data/audiala_places.json`) | Usually private path, not a credential | `[PARTIAL]`; secondary seed layer for POI discovery; multi-source identity pending |
 | `FSQ_DEDUPE_DISTANCE_METERS` | FSQ importer | Optional | Backend CLI | Maximum nearby-candidate distance, default 75 m | Non-secret | `[IMPLEMENTED]`; change conservatively and test dense cities |
 | `FSQ_IMPORT_BATCH_SIZE` | FSQ importer | Optional | Backend CLI | Commit batch size, default 250 | Non-secret | `[IMPLEMENTED]` |
 | `ROUTE_MATRIX_TRAFFIC_TTL_MINUTES` | Route matrix | Optional | Backend | Traffic-duration freshness, default 30 minutes | Non-secret | `[IMPLEMENTED]`; retain semantics across provider migration |
 | `PLACE_DISCOVERY_CACHE_TTL_HOURS` | Place discovery | Optional | Backend | City/category refresh TTL, default 24 hours | Non-secret | `[IMPLEMENTED]`; target ingestion may revise the mechanism |
+| `DISCOVERY_INTERACTIVE_TIMEOUT_SECONDS` | Place discovery | Optional | Backend | Maximum interactive wait budget for foreground recommendation queries, default 12 seconds | Non-secret | `[IMPLEMENTED]` |
+| `DISCOVERY_SHALLOW_LIMIT` | Place discovery | Optional | Backend | Candidate limit per category during broad shallow prefetch, default 15 | Non-secret | `[IMPLEMENTED]` |
+| `DISCOVERY_STALE_USABLE_HOURS` | Place discovery | Optional | Backend | Grace period for stale-while-revalidate POI serving, default 168 hours (7 days) | Non-secret | `[IMPLEMENTED]` |
+| `DISCOVERY_MIN_USABLE_CANDIDATES_PER_CATEGORY` | Place discovery | Optional | Backend | Minimum usable candidates to treat category cache as sufficient, default 6 | Non-secret | `[IMPLEMENTED]` |
 | `ROUTING_PROVIDER` | Routing provider selection | Optional | Backend | Routing geometry provider, default `osrm` (or `openrouteservice`) | Non-secret | `[IMPLEMENTED]`; provider-neutral routing selection |
 | `OPENROUTESERVICE_API_KEY` | openrouteservice | Optional | Backend | API token for hosted openrouteservice directions v2 | Secret | `[IMPLEMENTED]`; optional when using self-hosted ORS or OSRM |
 | `OPENROUTESERVICE_BASE_URL` | openrouteservice | Optional | Backend | openrouteservice base URL, default `https://api.openrouteservice.org` | Non-secret | `[IMPLEMENTED]` |

@@ -138,6 +138,14 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
   - Deterministic Rule 2: Shared strong global identifier (Wikidata QID) cross-provider matching.
   - Conservative Rule 3: Geographic ($\le 100$m), category-compatible, and strict name variant matching fallback.
   - Rule 4: Canonical Place creation with full `PlaceSource` provenance and licensing (CC BY 4.0 and ODbL-1.0).
+- **Progressive POI Prefetch & Cache-First Live Discovery Reliability** is `[IMPLEMENTED]`:
+  - 3-tier cache semantics (`FRESH` $\le 24$h, `STALE_USABLE` $\le 168$h, `MISSING`) with `DISCOVERY_MIN_USABLE_CANDIDATES_PER_CATEGORY=6`.
+  - Non-blocking destination-triggered broad shallow prefetch (`POST /places/prefetch` with stage `shallow`, `DISCOVERY_SHALLOW_LIMIT=15`).
+  - Non-blocking purpose/interest-triggered targeted prefetch (`POST /places/prefetch` with stage `targeted`).
+  - In-memory concurrency deduplication for `(city_id, category)` background refreshes.
+  - Multi-provider fallback hierarchy: Cached DB places $\to$ `GeoapifyPlacesProvider` $\to$ `AudialaPlacesProvider` $\to$ `OpenStreetMapPlacesService`.
+  - Circuit breaker for Overpass OSM with consecutive failure threshold (3) and cooldown (60s).
+  - Partial category provider failure tolerance returning scored usable recommendations.
 - **Experiment-First Wikidata/Audiala Prominence Scoring (`PlaceImportanceScorer`)** is `[IMPLEMENTED]`:
   - Log-normalized bounded sitelinks ($\le 100$) and PageRank ($\le 25.0$).
   - Composite prominence in $[0.0, 1.0]$ blended at $60\%$ sitelinks consensus and $40\%$ PageRank network centrality.

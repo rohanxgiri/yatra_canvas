@@ -183,7 +183,8 @@ Source of truth: `backend/app/models/entities.py`.
 1. **OSM Candidate Discovery:** Fully functional and cached across 7 categories.
 2. **Audiala Candidate Discovery:** Fully operational production seed provider using `backend/app/data/audiala_places.json`.
 3. **Canonical Place Identity & Multi-Source Provenance:** Implemented via `CanonicalPlaceService` (Rule 1: Provider ID, Rule 2: Shared Wikidata QID, Rule 3: Conservative Fallback, Rule 4: Canonical Place creation) with complete provenance and licensing retention (`ODbL-1.0` and `CC BY 4.0`).
-4. **Wikidata/Wikimedia Enrichment:** Validated in research experiments (`docs/poi_importance_experiment.md`), sitelinks/PageRank scoring integration planned as the next milestone.
+4. **Wikidata Prominence Scoring & Recommendation Quality:** Implemented via `PlaceImportanceScorer` blending log-normalized sitelinks and PageRank centrality for relevant candidates with institutional venue filtering and mixed-interest category balancing.
+5. **Progressive POI Prefetch & Cache-First Live Discovery Reliability:** Implemented via `CityPlacePrefetchService`, `GeoapifyPlacesProvider`, and `ProviderCircuitBreaker` (non-blocking shallow prefetch on destination continue, targeted prefetch on trip purposes continue, 3-tier cache semantics, in-memory concurrency deduplication, resilient provider fallback, and partial provider success tolerance).
 
 ---
 
