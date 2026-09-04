@@ -1,6 +1,6 @@
 # YatraCanvas architecture
 
-Last reviewed: 2026-09-04 (audit by chore/project-audit-cleanup)
+Last reviewed: 2026-09-04
 
 Status labels are defined in [Project context](PROJECT_CONTEXT.md). This document separates
 repository reality from the intended provider architecture.
