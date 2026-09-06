@@ -1,10 +1,14 @@
 # YatraCanvas
 
-YatraCanvas is an early-stage Flutter and FastAPI travel-planning application focused first
-on Indian destinations. The repository currently supports destination lookup, arrival-location
-autocomplete, stored-place discovery, saved places, and a single-day route-optimization
-foundation. Authentication, durable trip listing/resume, multi-day itinerary generation,
-interactive maps, weather, currency, and real admin workflows are not complete.
+YatraCanvas is a Flutter and FastAPI travel-planning application focused first
+on Indian destinations. The repository currently supports destination and arrival lookup,
+cache-first POI discovery with progressive prefetch (OpenStreetMap, Audiala seed, Geoapify fallback),
+canonical multi-source Place identity and importance scoring, destination-scoped manual place search,
+saved place curation, multi-day itinerary optimization via Google OR-Tools VRPTW solver (with complete
+logical day sequence preservation), keyless road-route geometry (OSRM / openrouteservice), progressive
+Frame-1 interactive map rendering (FlutterMap + OSM tiles), weather-aware trip assistance (Open-Meteo),
+and smart re-planning. Supabase Auth JWT verification, restart-durable multi-trip account persistence,
+and real admin review APIs remain planned.
 
 Start with [the project context](docs/PROJECT_CONTEXT.md). It is the entry point to the
 evidence-backed source of truth:

@@ -1,6 +1,6 @@
 # Environment variables
 
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-06
 
 This is the complete repository-owned configuration inventory. Names are documented; real
 values are not. Backend settings load from process environment or untracked `backend/.env`.
@@ -37,7 +37,7 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 | `OVERPASS_CIRCUIT_BREAKER_THRESHOLD` | OpenStreetMap / Overpass | Optional | Backend | Consecutive failure count before circuit trips to open, default 3 | Non-secret | `[IMPLEMENTED]` |
 | `OVERPASS_CIRCUIT_BREAKER_COOLDOWN_SECONDS` | OpenStreetMap / Overpass | Optional | Backend | Cooldown duration while circuit is open, default 60 seconds | Non-secret | `[IMPLEMENTED]` |
 | `FSQ_OS_PLACES_PATH` | FSQ OS Places | Optional | Backend CLI/operator | Default local CSV/JSONL/NDJSON source path | Usually private path, not a credential | `[IMPLEMENTED]`; portal access token is intentionally not accepted here |
-| `AUDIALA_DATASET_PATH` | Audiala | Optional | Backend | Default local JSON file path for Audiala dataset (`backend/app/data/audiala_places.json`) | Usually private path, not a credential | `[PARTIAL]`; secondary seed layer for POI discovery; multi-source identity pending |
+| `AUDIALA_DATASET_PATH` | Audiala | Optional | Backend | Default local JSON file path for Audiala dataset (`backend/app/data/audiala_places.json`) | Usually private path, not a credential | `[IMPLEMENTED]`; secondary seed layer for POI discovery and canonical multi-source identity |
 | `FSQ_DEDUPE_DISTANCE_METERS` | FSQ importer | Optional | Backend CLI | Maximum nearby-candidate distance, default 75 m | Non-secret | `[IMPLEMENTED]`; change conservatively and test dense cities |
 | `FSQ_IMPORT_BATCH_SIZE` | FSQ importer | Optional | Backend CLI | Commit batch size, default 250 | Non-secret | `[IMPLEMENTED]` |
 | `ROUTE_MATRIX_TRAFFIC_TTL_MINUTES` | Route matrix | Optional | Backend | Traffic-duration freshness, default 30 minutes | Non-secret | `[IMPLEMENTED]`; retain semantics across provider migration |

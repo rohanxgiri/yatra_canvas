@@ -1,6 +1,6 @@
 # YatraCanvas roadmap
 
-Last reviewed: 2026-09-01
+Last reviewed: 2026-09-06
 
 This roadmap is sequenced for reversible, testable changes. A phase is not complete until its
 acceptance criteria pass in a local/test environment and the source-of-truth documents are
@@ -8,7 +8,7 @@ updated. It is not a release-date commitment.
 
 ## Phase 1 — Source of truth and configuration alignment
 
-Status: `[IMPLEMENTED]` in the architecture-source-of-truth branch, pending review/merge.
+Status: `[IMPLEMENTED]` (reconciled, verified, and passing documentation consistency tests).
 
 Scope: document repository reality, provider responsibilities, model/migration constraints, and
 the exact existing environment contract. Label old UI documentation as historical and add a
@@ -97,8 +97,7 @@ Acceptance criteria:
 
 ## Phase 6 — Geoapify completion and Google Places exit readiness
 
-Status: `[PARTIAL]` (destination and arrival autocomplete use Geoapify; Google remains for
-uncached POI discovery and legacy city endpoints; Geoapify city IDs are not persisted).
+Status: `[IMPLEMENTED]` (destination and arrival autocomplete use Geoapify; Geoapify Places fallback and destination-scoped manual search `GET /cities/{city_id}/places/search` are operational; dead Google Places discovery service `place_discovery_service.py` has been purged).
 
 Scope: use the existing provider-neutral location boundary for city and arrival geocoding where
 product tests prove parity. Build discovery from reviewed canonical ingestion rather than a new
@@ -116,7 +115,7 @@ Acceptance criteria:
 
 ## Phase 7 — openrouteservice and provider parity
 
-Status: `[IMPLEMENTED]` for Google OR-Tools multi-day VRPTW itinerary optimization (`VrptwSolverService`) with opening hours, category visit durations, multi-day vehicle partitioning, midday lunch breaks, locked places, priority/must-visit rules, and road-route geometry integration (`RouteGeometryService`). Matrix provider migration for TSP route solving remains `[PARTIAL]`.
+Status: `[IMPLEMENTED]` for Google OR-Tools multi-day VRPTW itinerary optimization (`VrptwSolverService`) with opening hours, category visit durations, multi-day vehicle partitioning, midday lunch breaks, locked places, priority/must-visit rules, deterministic logical day sequences (`total_days=trip.days`), and road-route geometry integration (`RouteGeometryService`). Matrix provider migration for TSP route solving remains `[PARTIAL]`.
 
 Scope: introduce a provider-neutral directions/matrix interface, select hosted versus self-hosted
 openrouteservice, migrate cache semantics, and implement actual multi-day scheduling. Keep Google
@@ -132,7 +131,7 @@ Acceptance criteria:
 - A test deployment can disable Google Routes with complete cached/static fallback and explicit
   failure for missing legs.
 
-## Phase 8 — Weather-aware trip assistance, realistic itinerary timing, smart re-planning, and recommendation quality
+## Phase 8 — Weather-aware trip assistance, realistic itinerary timing, smart re-planning, recommendation quality, and core trip flow hardening
 
 Status: `[IMPLEMENTED]`. Weather-aware trip assistance is implemented with provider-neutral
 `WeatherProvider` protocol, `OpenMeteoWeatherProvider` adapter, in-memory TTL caching, itinerary-aware
@@ -150,6 +149,10 @@ suitability filtering (`is_traveller_suitable`) excluding institutional canteens
 and centralized trip purpose and interest weighting (`preference_model.py`) with primary purpose (2.5x)
 dominance, secondary interest (1.0x) balancing, low-relevance cutoff filtering, explicit non-destructive
 category filtering, soft diversity interleaving, and truthful natural-language recommendation reasons.
+Core trip flow hardening is implemented with:
+- Multi-day day-sequence invariant: `RouteOptimizationRead.total_days` guarantees all logical days ($1 \dots N$) exist in models, map day filters, and itinerary views, rendering friendly empty day cards when a day has 0 stops.
+- Manual place search: 350ms debounced destination-scoped search (`GET /cities/{city_id}/places/search`) across Geoapify (50km radius) and local DB, canonical resolution (`POST /cities/{city_id}/places/resolve`) via `CanonicalPlaceService`, duplicate prevention, and route eligibility.
+- Progressive interactive map rendering: pre-passes trip state to `TripMapScreen`, rendering base map and markers on Frame 1 ($12-25\text{ ms}$) without blocking on route recalculation, with non-blocking asynchronous route polyline loading.
 Currency conversion has been removed from the active roadmap.
 
 Scope: make a commercial-use/licensing decision for Open-Meteo before commercial deployment;
@@ -171,6 +174,7 @@ Acceptance criteria:
   transparent change previews, and apply updates transactionally.
 - Place discovery eliminates institutional dining, resolves node/way duplicates, preserves distinct
   chain branches, and provides explainable recommendation reasons without fabricating popularity.
+- Logical day sequence ($1 \dots N$) is strictly preserved in optimizer, itinerary, and map navigation.
 - No secrets are shipped to Flutter.
 
 ## Phase 9 — Authorized admin verification tools
@@ -189,9 +193,9 @@ Acceptance criteria:
 
 ## Phase 10 — Verified Google retirement and map-rendering decision
 
-Status: `[PARTIAL]`. Interactive map rendering using FlutterMap with OpenStreetMap tiles and
-real road-route geometry `PolylineLayer` is `[IMPLEMENTED]`. Full retirement of retained legacy
-Google adapters remains `[PLANNED]`.
+Status: `[PARTIAL]`. Interactive map progressive rendering using FlutterMap with OpenStreetMap tiles and
+real road-route geometry `PolylineLayer` is `[IMPLEMENTED]`. Dead Google Places discovery code has been
+purged. Full retirement of retained legacy Google Routes adapters remains `[PLANNED]`.
 
 Scope: retire Google Places and Routes independently after their replacements pass acceptance.
 Separately choose a Flutter map renderer, tile provider, attribution, key restrictions, and

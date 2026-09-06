@@ -1,6 +1,6 @@
 # Architectural decisions
 
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-06
 
 These records describe accepted direction without claiming all consequences are implemented.
 Changing an accepted decision requires a new or amended record plus updates to architecture,
@@ -188,7 +188,7 @@ provider, environment, and data-model documentation.
   [openrouteservice documentation](https://openrouteservice.org/dev/#/api-docs), and
   [OSRM project](https://project-osrm.org/), verified 2026-09-02.
 
-## ADR-009 — Google OR-Tools VRPTW Solver for Multi-Day Itinerary Optimization
+## ADR-010 — Google OR-Tools VRPTW Solver for Multi-Day Itinerary Optimization
 
 - **Status:** Accepted and `[IMPLEMENTED]`.
 - **Date:** 2026-09-03.
@@ -215,7 +215,7 @@ provider, environment, and data-model documentation.
   [Google OR-Tools Routing documentation](https://developers.google.com/optimization/routing/vrptw),
   verified 2026-09-03.
 
-## ADR-010 — Weather-Aware Trip Assistance via Open-Meteo and itinerary-aware advisory engine
+## ADR-011 — Weather-Aware Trip Assistance via Open-Meteo and itinerary-aware advisory engine
 
 - **Status:** Accepted and `[IMPLEMENTED]`.
 - **Date:** 2026-09-02.
@@ -246,3 +246,61 @@ provider, environment, and data-model documentation.
   `backend/tests/test_weather_advisories.py`, `test/weather_advisory_test.dart`,
   [Open-Meteo API docs](https://open-meteo.com/en/docs), and
   [Open-Meteo Terms](https://open-meteo.com/en/terms), verified 2026-09-02.
+
+## ADR-012 — Canonical Multi-Source Place Identity and Provenance Resolution
+
+- **Status:** Accepted and `[IMPLEMENTED]`.
+- **Date:** 2026-09-04.
+- **Context:** Multiple providers (OpenStreetMap, Audiala seed dataset, Geoapify) provide overlapping POI coverage.
+  Without an explicit canonical resolution system, items from different sources duplicate or corrupt canonical fields,
+  and provider provenance/licensing is lost.
+- **Decision:** Implement `CanonicalPlaceService` as the authoritative resolution layer mapping provider records
+  into single canonical `Place` database rows with linked `PlaceSource` provenance. Apply a 4-rule hierarchy:
+  (1) Deterministic lookup by `(source, external_place_id)` for idempotency; (2) Shared global identifier (Wikidata QID)
+  cross-provider matching; (3) Conservative geographic ($\le 100$m), category-compatible, and tokenized name variant
+  matching with strict disqualifiers (e.g. gates, directional terms); (4) New canonical `Place` creation.
+  Attribution and licensing (`ODbL-1.0` for OSM, `CC BY 4.0` for Audiala) are preserved on `PlaceSource`.
+- **Consequences:** Prevents duplicate places in database while preserving provider metadata and legal attribution.
+  Downstream presentation deduplication (`deduplicate_places`) handles unresolved cosmetic variations and caps multi-outlet chains.
+- **Evidence:** `backend/app/services/canonical_place_service.py`, `backend/tests/test_canonical_place_service.py`,
+  `docs/DATA_MODEL.md`, `docs/ARCHITECTURE.md`.
+
+## ADR-013 — Progressive POI Prefetch and Cache-First Live Discovery Reliability
+
+- **Status:** Accepted and `[IMPLEMENTED]`.
+- **Date:** 2026-09-04.
+- **Context:** Live Overpass/OSM queries on the critical discovery path frequently timed out or returned HTTP 504
+  gateway errors, causing blocking error screens for users.
+- **Decision:** Implement 3-tier cache semantics (`FRESH` $\le 24$h, `STALE_USABLE` $\le 168$h, `MISSING`) with
+  stale-while-revalidate background refresh. Introduce non-blocking progressive prefetch: broad shallow prefetch
+  (`stage=shallow`) upon destination confirmation and targeted prefetch (`stage=targeted`) upon trip purpose confirmation.
+  Implement a provider hierarchy: Cached DB $\to$ `GeoapifyPlacesProvider` $\to$ `AudialaPlacesProvider` $\to$ `OpenStreetMapPlacesService`.
+  Protect Overpass with an in-memory circuit breaker (`OVERPASS_CIRCUIT_BREAKER_THRESHOLD=3`, `OVERPASS_CIRCUIT_BREAKER_COOLDOWN_SECONDS=60s`).
+- **Consequences:** Eliminates cold discovery loading delays. Discovery queries serve cached places in under 50ms.
+  External provider failures degrade gracefully to fallback providers or stale usable cache without breaking user journeys.
+- **Evidence:** `backend/app/services/city_place_prefetch_service.py`, `backend/app/services/provider_circuit_breaker.py`,
+  `backend/app/services/geoapify_places_provider.py`, `backend/tests/test_live_discovery_reliability.py`,
+  `docs/live_discovery_reliability.md`.
+
+## ADR-014 — Core Trip Flow Hardening (Logical Day Invariant, Destination-Scoped Manual Search, Frame-1 Progressive Map)
+
+- **Status:** Accepted and `[IMPLEMENTED]`.
+- **Date:** 2026-09-05.
+- **Context:** Real manual testing revealed three core trip flow defects: (1) Days with 0 stops disappeared in multi-day trips
+  (e.g. Day 2 missing from a 3-day trip); (2) Manual place search was a placeholder stub; (3) Interactive map took seconds
+  to open behind a full-screen blocking spinner while recalculating routes.
+- **Decision:**
+  1. **Logical Day Invariant**: Canonical logical day sequence is $\{1 \dots N\}$ derived from trip dates. `RouteOptimizationRead`
+     returns explicit `total_days=trip.days`. Models normalize sparse schedules to empty lists (`[]`), rendering clear empty-day
+     cards in the itinerary and non-empty day selections in map filters.
+  2. **Manual Place Search**: Implement 350ms debounced destination-scoped search (`GET /cities/{city_id}/places/search`) querying
+     local places and concurrent Geoapify Autocomplete within 50km destination radius, resolving candidates through `CanonicalPlaceService`
+     (`POST /cities/{city_id}/places/resolve`), preventing duplicates, and marking places route-eligible.
+  3. **Progressive Map Performance**: Pre-pass known trip state (`initialStartLocation`, `initialSavedPlaces`, `initialOptimizedRoute`,
+     `initialRouteGeometry`, `initialDurationDays`) to `TripMapScreen`. Render base map and markers immediately on Frame 1 ($12-25\text{ ms}$).
+     Fetch route geometry asynchronously in background with a non-blocking indicator, and reuse pre-calculated route state (0 network calls on open).
+- **Consequences:** Trips of any duration ($1, 2, 3, 5, 7$ days) preserve full day integrity. Map opens instantly. Users can manually
+  search and add attractions with guaranteed route participation.
+- **Evidence:** `backend/app/services/route_optimization_service.py`, `backend/app/routers/places.py`, `lib/models/optimized_route.dart`,
+  `lib/screens/place_discovery/place_discovery_screen.dart`, `lib/screens/trip_map/trip_map_screen.dart`,
+  `backend/tests/test_core_trip_flow_hardening.py`, `test/core_trip_flow_hardening_test.dart`, `docs/core_trip_flow_hardening.md`.

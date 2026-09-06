@@ -1,6 +1,6 @@
 # Data model
 
-Last reviewed: 2026-09-01
+Last reviewed: 2026-09-06
 
 The source of truth for the current schema is `backend/app/models/entities.py`. This document
 describes those SQLModel tables and the tracked SQL scripts; it does not assert what exists in
@@ -33,10 +33,10 @@ Deletion/cascade behavior is not specified by these models and must not be assum
 | Table/model | Status | Purpose and important constraints |
 | --- | --- | --- |
 | `cities` / `City` | `[IMPLEMENTED]` | Canonical destination name/state/country and coordinates. Nullable indexed `google_place_id` has unique constraint `uq_cities_google_place_id`; coordinate checks apply. |
-| `places` / `Place` | `[IMPLEMENTED]` | Canonical curated POI tied to a city, with category, coordinates, optional rating, review count, feature flags, `last_fetched_at`, and `created_at`. Rating/review and coordinate checks apply. |
+| `places` / `Place` | `[IMPLEMENTED]` | Canonical curated POI tied to a city, with category, coordinates, optional rating, review count, feature flags, `wikidata_id`, `importance_score`, `last_fetched_at`, and `created_at`. Rating/review and coordinate checks apply. |
 | `city_category_cache` / `CityCategoryCache` | `[IMPLEMENTED]` | One row per city/category with `last_fetched_at` and required `expires_at`; prevents unnecessary nearby refresh. |
 | `place_tags` / `PlaceTag` | `[IMPLEMENTED]` | Application tags unique per place/tag pair. |
-| `place_sources` / `PlaceSource` | `[IMPLEMENTED]` | Provider provenance and external identity. Unique per place/source and globally per source/external ID. Stores source URL, licence identifier, address/contact/social fields, provider lifecycle dates, unresolved flags, fetch/import timestamps. |
+| `place_sources` / `PlaceSource` | `[IMPLEMENTED]` | Provider provenance and external identity. Unique per place/source and globally per source/external ID. Stores `wikidata_id`, source URL, licence identifier, address/contact/social fields, provider lifecycle dates, unresolved flags, fetch/import timestamps. |
 | `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label, unique for place/source/external category. |
 | `place_import_reviews` / `PlaceImportReview` | `[IMPLEMENTED]` schema, `[PARTIAL]` workflow | One review per provider/external place ID. Status is `pending`, `resolved`, or `ignored`; stores candidates, match evidence, and a source snapshot. No connected admin endpoint/UI action exists. |
 | `trips` / `Trip` | `[IMPLEMENTED]` schema, create, get, and patch APIs, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. `GET /trips/{trip_id}` returns the complete application trip representation, and `PATCH /trips/{trip_id}` supports partial updates with date/coordinate/preference validation and downstream cache invalidation. List/delete and authentication remain absent. |

@@ -1,8 +1,8 @@
 # APIs and data sources
 
-Last reviewed: 2026-09-01
+Last reviewed: 2026-09-06
 
-Last verified: 2026-09-01 for Geoapify autocomplete and OpenStreetMap/Overpass;
+Last verified: 2026-09-06 for Geoapify autocomplete/places, Audiala, and OpenStreetMap/Overpass;
 2026-08-31 for other provider rows
 
 Provider behavior, pricing, quotas, schemas, and policies are volatile. The facts below were
@@ -15,17 +15,18 @@ provider change. `[PLANNED]` entries are not configured or callable in this repo
 | --- | --- | --- | --- | --- | --- | --- |
 | PostgreSQL / Supabase | Canonical app data; target auth | `[IMPLEMENTED]` PostgreSQL connection; `[PLANNED]` Supabase Auth/client | Runtime | Backend/database | `DATABASE_URL`; no Supabase API key is used | PostgreSQL open source; hosted Supabase is freemium/paid |
 | FSQ Open Source Places | Open POI candidate ingestion | `[IMPLEMENTED]` local CSV/JSONL importer | Operator export + batch import | Backend CLI | No importer key; current Places Portal access uses an operator token outside app config | Free/open dataset |
-| Geoapify | Destination city and arrival/address/transport-location autocomplete | `[IMPLEMENTED]` | Runtime | Backend | `GEOAPIFY_API_KEY` | Freemium |
-| OpenStreetMap / Overpass | Bounded POI discovery for recommendations | `[IMPLEMENTED]` with a public-instance availability caveat | Runtime cache refresh | Backend | No key for the configured public endpoint | Open data/public service; commercial/self-hosted options vary |
-| Wikimedia / Wikipedia / Wikidata | Descriptions, notable context, licensed images | `[PLANNED]` | Batch enrichment | Backend ingestion | No key for intended public read API; identify the application | Open-access API; content license varies by item |
+| Geoapify | Destination city & arrival autocomplete; Places fallback provider (`GeoapifyPlacesProvider`); destination-scoped manual search | `[IMPLEMENTED]` | Runtime | Backend | `GEOAPIFY_API_KEY` | Freemium |
+| Audiala | Curated seed dataset & secondary POI candidate discovery (`AudialaPlacesProvider`) | `[IMPLEMENTED]` | Runtime / local seed | Backend | None (`AUDIALA_DATASET_PATH`) | Open data (CC BY 4.0) |
+| OpenStreetMap / Overpass | Bounded POI discovery for recommendations with circuit breaker | `[IMPLEMENTED]` with a public-instance availability caveat | Runtime cache refresh | Backend | No key for the configured public endpoint | Open data/public service; commercial/self-hosted options vary |
+| Wikimedia / Wikipedia / Wikidata | Descriptions, notable context, licensed images; Wikidata prominence scoring (`PlaceImportanceScorer`) | `[IMPLEMENTED]` prominence scoring; `[PLANNED]` media enrichment | Batch / seed / calculation | Backend ingestion | No key for intended public read API; identify the application | Open-access API; content license varies by item |
 | openrouteservice | Real road-route geometry (directions v2) and target route matrices | `[IMPLEMENTED]` directions geometry; `[PLANNED]` matrix | Runtime | Backend | `OPENROUTESERVICE_API_KEY` for hosted API; self-host URL differs | Freemium hosted / open-source self-host option |
 | OSRM | Keyless open-data road-route geometry | `[IMPLEMENTED]` | Runtime | Backend | None (`OSRM_ROUTER_URL`) | Open source / open data (OSM) |
 | Open-Meteo | Hourly/daily forecasts for weather-aware advisories | `[IMPLEMENTED]` | Runtime via backend | Backend | Free non-commercial endpoint: no key; commercial customer endpoint: key | Freemium; commercial plan decision required |
 | Frankfurter | Exchange rates | `[PLANNED]` | Runtime via backend | Backend | Public API: no key | Free/open-source public API |
-| Google Places API (New) | Legacy city autocomplete/details and legacy POI discovery endpoint | `[DEPRECATED]` for normal flows; adapter retained | Runtime | Backend | `GOOGLE_PLACES_API_KEY` only for legacy endpoints | Commercial, billed/quota-controlled |
+| Google Places API (New) | Legacy city autocomplete/details adapter (discovery service deleted) | `[DEPRECATED]` for normal flows; adapter retained | Runtime | Backend | `GOOGLE_PLACES_API_KEY` only for legacy endpoints | Commercial, billed/quota-controlled |
 | Local coordinate estimator | Approximate route-order distance and time matrices | `[IMPLEMENTED]` for the normal optimizer | Runtime | Backend | None | Application-owned calculation |
 | Google Routes API | Legacy route-matrix adapter | `[DEPRECATED]` for normal flows; adapter retained | Not used by the normal endpoint | Backend | `GOOGLE_ROUTES_API_KEY` only for legacy adapter use | Commercial, billed/quota-controlled |
-| FlutterMap / OSM Tiles | Interactive map rendering and road polyline display | `[IMPLEMENTED]` | Runtime | Flutter | None (`com.yatracanvas.app` user agent) | Open source / OpenStreetMap tile usage policy |
+| FlutterMap / OSM Tiles | Interactive map rendering with progressive Frame 1 render and road polyline display | `[IMPLEMENTED]` | Runtime | Flutter | None (`com.yatracanvas.app` user agent) | Open source / OpenStreetMap tile usage policy |
 | Google Maps SDK | Interactive map rendering | `[DEPRECATED]` decision; **not installed** | None | None | None in current repo | Not applicable currently |
 | Proprietary Foursquare Places API | No approved responsibility | `[DEPRECATED]`/not integrated | None | None | None | Not applicable |
 
