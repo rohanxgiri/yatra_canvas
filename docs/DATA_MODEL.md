@@ -18,6 +18,7 @@ erDiagram
     PLACE ||--o{ PLACE_CATEGORY : classified_by
     PLACE ||--o{ PLACE_TAG : tagged
     TRIP ||--o{ TRIP_PREFERENCE : has
+    TRIP ||--o{ TRIP_DAY : configures
     TRIP ||--o{ USER_SAVED_PLACE : selects
     PLACE ||--o{ USER_SAVED_PLACE : selected
     TRIP ||--o{ ROUTE_MATRIX_CACHE : caches
@@ -40,6 +41,7 @@ Deletion/cascade behavior is not specified by these models and must not be assum
 | `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label, unique for place/source/external category. |
 | `place_import_reviews` / `PlaceImportReview` | `[IMPLEMENTED]` schema, `[PARTIAL]` workflow | One review per provider/external place ID. Status is `pending`, `resolved`, or `ignored`; stores candidates, match evidence, and a source snapshot. No connected admin endpoint/UI action exists. |
 | `trips` / `Trip` | `[IMPLEMENTED]` schema, create, get, and patch APIs, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. `GET /trips/{trip_id}` returns the complete application trip representation, and `PATCH /trips/{trip_id}` supports partial updates with date/coordinate/preference validation and downstream cache invalidation. List/delete and authentication remain absent. |
+| `trip_days` / `TripDay` | `[IMPLEMENTED]` schema, create, get, and patch APIs | Individual configurable trip days tied to `trips.id` with `ondelete="CASCADE"`. Stores `day_number`, `date`, `day_type` (`FULL_DAY`, `HALF_DAY`, `REST`, `TRAVEL`), optional touring window (`start_time`, `end_time`), and `created_at`. Unique constraint `uq_trip_days_trip_day_number` enforces unique `day_number` per trip. Check constraints enforce `day_number > 0` and valid `day_type`. Automatically generated on trip creation and date updates, and protected against destructive duration reduction when scheduled `TripItinerary` visits exist. Serves as the foundation for future day-aware itinerary optimization constraints (`[PLANNED]`). |
 | `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema/create/edit path | The trip-create and trip-edit transactions store unique purposes with weight 2.0 and secondary preferences (pace, budget, transport, extra interests) with weight 1.0 as generic weighted preference rows, unique per trip/preference. These weights inform recommendation relevance scoring and ranking. Also stores `ignore_weather_advisories` to suppress future weather advisories for the trip. |
 | `user_saved_places` / `UserSavedPlace` | `[IMPLEMENTED]` API | Unique trip/place selection with custom order, priority, locked, must-visit, notes. Requires an existing trip. |
 | `route_matrix_cache` / `RouteMatrixCache` | `[IMPLEMENTED]` | Per-trip directed pair/mode cache with place IDs or coordinate snapshots. The normal path stores approximate offline costs under `local_estimate`; legacy Google rows remain distinguishable by mode. Selectively purged: start-location edits purge only start-related pairs (`start_only`), preserving valid place-to-place legs; destination edits purge all rows (`all`). |
@@ -132,6 +134,8 @@ reviewed SQL changes because `create_all` does not alter columns or constraints.
 | `backend/sql/repair_current_schema_parity.sql` | Transactional forward parity repair; recovery is roll-forward or verified backup restore after new-column writes |
 | `backend/sql/add_places_canonical_wikidata.sql` | Forward; adds `wikidata_id` columns, indices, and non-destructive backfill for Audiala places/sources |
 | `backend/sql/add_places_importance_score.sql` | Forward; adds `importance_score` column, range check constraint (0..1), and index on places |
+| `backend/sql/add_trip_days_foundation.sql` | Forward; adds `trip_days` table, foreign key cascade, unique constraint, check constraints, and safe backfill for existing trips |
+| `backend/sql/rollback_trip_days_foundation.sql` | Reviewed rollback paired with the trip_days foundation |
 
 No ordered/versioned runner records which scripts ran. A read-only 2026-09-01 audit found the
 configured remote catalog compatible with current model metadata, but its environment

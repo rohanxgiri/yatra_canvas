@@ -42,6 +42,11 @@ from app.schemas.trip import (
     TripStartLocationUpdate,
     TripUpdate,
 )
+from app.schemas.trip_day import (
+    DayType,
+    TripDayRead,
+    TripDayUpdate,
+)
 from app.schemas.route_optimization import (
     ItineraryBreakRead,
     OptimizedPlaceRead,
@@ -105,6 +110,9 @@ __all__ = [
     "TripStartLocationRead",
     "TripStartLocationUpdate",
     "TripUpdate",
+    "DayType",
+    "TripDayRead",
+    "TripDayUpdate",
     "WeatherAdvisoryRead",
     "TripWeatherAdvisoriesRead",
     "PlaceAlternativeRead",

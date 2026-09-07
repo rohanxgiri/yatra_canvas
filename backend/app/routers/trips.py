@@ -9,10 +9,17 @@ from sqlmodel import Session
 from app.database import get_session
 from app.schemas import (
     TripCreate,
+    TripDayRead,
+    TripDayUpdate,
     TripRead,
     TripStartLocationRead,
     TripStartLocationUpdate,
     TripUpdate,
+)
+from app.services.trip_day_service import (
+    TripDayNotFoundError,
+    TripDayService,
+    TripDayValidationError,
 )
 from app.services.trip_service import (
     TripCityNotFoundError,
@@ -32,6 +39,13 @@ def get_trip_service() -> TripService:
 
 
 TripServiceDependency = Annotated[TripService, Depends(get_trip_service)]
+
+
+def get_trip_day_service() -> TripDayService:
+    return TripDayService()
+
+
+TripDayServiceDependency = Annotated[TripDayService, Depends(get_trip_day_service)]
 
 
 def _trip_error(error: Exception) -> HTTPException:
@@ -111,3 +125,36 @@ def update_trip_start_location(
     except (TripServiceNotFoundError, TripStartLocationError) as exc:
         session.rollback()
         raise _trip_error(exc) from exc
+
+
+@router.get("/{trip_id}/days", response_model=list[TripDayRead])
+def get_trip_days(
+    trip_id: UUID,
+    session: SessionDependency,
+    trip_days: TripDayServiceDependency,
+) -> list[TripDayRead]:
+    try:
+        return trip_days.get_trip_days(session, trip_id)
+    except TripServiceNotFoundError as exc:
+        raise _trip_error(exc) from exc
+
+
+@router.patch("/{trip_id}/days/{day_number}", response_model=TripDayRead)
+def update_trip_day(
+    trip_id: UUID,
+    day_number: int,
+    request: TripDayUpdate,
+    session: SessionDependency,
+    trip_days: TripDayServiceDependency,
+) -> TripDayRead:
+    try:
+        return trip_days.update_trip_day(session, trip_id, day_number, request)
+    except (
+        TripServiceNotFoundError,
+        TripDayNotFoundError,
+        TripDayValidationError,
+        TripServiceError,
+    ) as exc:
+        session.rollback()
+        raise _trip_error(exc) from exc
+

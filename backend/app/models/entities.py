@@ -1,5 +1,6 @@
 """SQLModel table definitions for YatraCanvas's initial data model."""
 
+import datetime as dt
 from datetime import date, datetime, time, timezone
 from typing import Any
 from uuid import UUID, uuid4
@@ -10,6 +11,7 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    Time,
     UniqueConstraint,
     func,
     text,
@@ -479,3 +481,46 @@ class TripItinerary(SQLModel, table=True):
         default=None,
         sa_column=created_at_column(),
     )
+
+
+class TripDay(SQLModel, table=True):
+    __tablename__ = "trip_days"
+    __table_args__ = (
+        UniqueConstraint(
+            "trip_id",
+            "day_number",
+            name="uq_trip_days_trip_day_number",
+        ),
+        CheckConstraint("day_number > 0", name="ck_trip_days_day_number"),
+        CheckConstraint(
+            "day_type IN ('FULL_DAY', 'HALF_DAY', 'REST', 'TRAVEL')",
+            name="ck_trip_days_day_type",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    trip_id: UUID = Field(
+        foreign_key="trips.id",
+        ondelete="CASCADE",
+        index=True,
+    )
+    day_number: int
+    date: dt.date = Field(sa_column=Column(Date, nullable=False))
+    day_type: str = Field(
+        default="FULL_DAY",
+        max_length=20,
+        sa_column_kwargs={"server_default": text("'FULL_DAY'")},
+    )
+    start_time: time | None = Field(
+        default=None,
+        sa_column=Column(Time, nullable=True),
+    )
+    end_time: time | None = Field(
+        default=None,
+        sa_column=Column(Time, nullable=True),
+    )
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+

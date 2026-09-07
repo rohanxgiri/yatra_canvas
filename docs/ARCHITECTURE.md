@@ -62,7 +62,7 @@ notices on unassigned days.
 | Locations | Geoapify-backed `GET /locations/autocomplete` |
 | Places | create/list; legacy Google discovery; OpenStreetMap recommendations; progressive prefetch (`POST /places/prefetch`); destination-scoped search (`GET /cities/{city_id}/places/search`); canonical resolution (`POST /cities/{city_id}/places/resolve`) |
 | Saved places | list/create/update/reorder/delete under a trip |
-| Trips | create a trip; get/update start location |
+| Trips | create a trip; get/update start location; list trip days (`GET /trips/{trip_id}/days`); configure individual trip day (`PATCH /trips/{trip_id}/days/{day_number}`) |
 | Routing | optimize an existing trip using cached travel-time matrix and Google OR-Tools VRPTW solver with opening hours, visit durations, multi-day vehicle partitioning, lunch breaks, locked places, and priority/must-visit rules; returns `total_days` and attaches final route geometry |
 | Route geometry | `GET /trips/{trip_id}/route-geometry` using OSRM or openrouteservice |
 | Weather advisories | `GET /trips/{trip_id}/weather-advisories`, `GET /trips/{trip_id}/weather-alternatives`, `POST /trips/{trip_id}/rearrange-preview`, `POST /trips/{trip_id}/apply-itinerary-adjustment`, `POST /trips/{trip_id}/ignore-weather` |
@@ -78,6 +78,13 @@ provider boundary.
 - `UPDATE_START_LOCATION`: selectively purges only start-related directional legs (`start_only`), keeping all place-to-place matrix rows intact.
 - `UPDATE_DATES`: marks weather advisories stale and realigns schedule dates without discarding route matrix rows or geometry.
 - `UPDATE_CITY`: purges all route matrix cache and itinerary rows for the trip (`all`).
+
+`[IMPLEMENTED]` Trip Day Planning Foundation (`TripDayService`):
+- **Concept**: A trip consists of a sequence of configurable days (`Trip` -> `TripDay[]`). A 5-day trip does not necessarily mean 5 sightseeing days; each day has a specific `DayType` (`FULL_DAY`, `HALF_DAY`, `REST`, `TRAVEL`) and daily touring window (`start_time`, `end_time`).
+- **Automatic Generation**: Newly created trips automatically generate sequential `TripDay` records defaulting to `FULL_DAY` with default touring windows (`DEFAULT_DAY_START_TIME` 09:00, `DEFAULT_DAY_END_TIME` 19:00).
+- **Individual Day Configuration**: Travelers can configure days individually (`FULL_DAY` -> `REST`, `HALF_DAY`, or `TRAVEL`), adjust touring start/end times, or configure `REST` days with no sightseeing window.
+- **Safe Date & Duration Reconciliation**: Updating trip dates or duration reconciles `TripDay` records safely. Expanding duration adds newly required days; shifting dates realigns day calendar dates while preserving configured day types and touring windows. If reducing trip duration would destroy existing `TripItinerary` visits on the eliminated days, the operation is explicitly rejected with a validation error to prevent silent data destruction.
+- **Future Optimization Role**: `[PLANNED]` In subsequent phases, `TripDay` records will provide day constraints, available sightseeing time budgets, and rest/travel boundaries directly to the VRPTW optimizer. Day-aware optimizer constraints and place-to-day locking are not yet implemented.
 
 `[IMPLEMENTED]` Place Discovery & Canonical Identity Architecture:
 - Canonical Multi-Source Place Identity Resolver (`CanonicalPlaceService`): Central resolution layer resolving place identity across multiple providers (OpenStreetMap, Audiala) into a single canonical `Place` database entity while maintaining complete provider-specific provenance, licensing, and metadata in `PlaceSource` records:
