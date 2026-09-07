@@ -646,6 +646,8 @@ class _FakeSavedPlaceService extends SavedPlaceService {
     int priority = 0,
     bool isLocked = false,
     bool mustVisit = false,
+    AssignmentMode assignmentMode = AssignmentMode.auto,
+    String? assignedDayId,
     String? notes,
   }) async {
     addTripIds.add(tripId);
@@ -664,6 +666,8 @@ class _FakeSavedPlaceService extends SavedPlaceService {
       priority: priority,
       isLocked: isLocked,
       mustVisit: mustVisit,
+      assignmentMode: assignmentMode,
+      assignedDayId: assignedDayId,
     );
     if (conflictOnNextAdd) {
       conflictOnNextAdd = false;
@@ -737,6 +741,8 @@ class _FakeSavedPlaceService extends SavedPlaceService {
     required bool isLocked,
     required bool mustVisit,
     required int customOrder,
+    AssignmentMode? assignmentMode,
+    String? assignedDayId,
     String? notes,
   }) async {
     settingsUpdates.add((
@@ -756,6 +762,28 @@ class _FakeSavedPlaceService extends SavedPlaceService {
       isLocked: isLocked,
       mustVisit: mustVisit,
       customOrder: customOrder,
+      assignmentMode: assignmentMode,
+      assignedDayId: assignedDayId,
+    );
+    savedPlaces = [
+      for (final item in savedPlaces)
+        if (item.placeId == placeId) updated else item,
+    ];
+    return updated;
+  }
+
+  @override
+  Future<SavedPlace> updateAssignment(
+    String tripId,
+    String placeId, {
+    required AssignmentMode assignmentMode,
+    String? assignedDayId,
+  }) async {
+    final current = savedPlaces.firstWhere((item) => item.placeId == placeId);
+    final updated = _copySavedPlace(
+      current,
+      assignmentMode: assignmentMode,
+      assignedDayId: assignedDayId,
     );
     savedPlaces = [
       for (final item in savedPlaces)
@@ -813,6 +841,8 @@ SavedPlace _savedPlace(
   int priority = 0,
   bool isLocked = false,
   bool mustVisit = false,
+  AssignmentMode assignmentMode = AssignmentMode.auto,
+  String? assignedDayId,
 }) {
   return SavedPlace(
     id: 'saved-$placeId',
@@ -822,6 +852,8 @@ SavedPlace _savedPlace(
     priority: priority,
     isLocked: isLocked,
     mustVisit: mustVisit,
+    assignmentMode: assignmentMode,
+    assignedDayId: assignedDayId,
     notes: notes,
     place: Place(
       id: placeId,
@@ -846,6 +878,8 @@ SavedPlace _copySavedPlace(
   int? priority,
   bool? isLocked,
   bool? mustVisit,
+  AssignmentMode? assignmentMode,
+  String? assignedDayId,
 }) {
   return SavedPlace(
     id: savedPlace.id,
@@ -855,6 +889,8 @@ SavedPlace _copySavedPlace(
     priority: priority ?? savedPlace.priority,
     isLocked: isLocked ?? savedPlace.isLocked,
     mustVisit: mustVisit ?? savedPlace.mustVisit,
+    assignmentMode: assignmentMode ?? savedPlace.assignmentMode,
+    assignedDayId: assignedDayId ?? savedPlace.assignedDayId,
     notes: notes ?? savedPlace.notes,
     place: savedPlace.place,
   );

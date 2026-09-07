@@ -18,6 +18,10 @@ import '../../models/weather_advisory.dart';
 import '../../models/smart_replanning.dart';
 import '../../services/weather_advisory_service.dart';
 import '../../services/smart_replanning_service.dart';
+import '../../models/itinerary_stop_status.dart';
+import '../../models/trip_day.dart';
+import '../../services/trip_service.dart';
+import '../create_trip/plan_days_screen.dart';
 import '../../widgets/place_card.dart';
 import '../../widgets/selection_chip.dart';
 import '../trip_map/trip_map_screen.dart';
@@ -37,6 +41,7 @@ class PlaceDiscoveryScreen extends StatefulWidget {
     this.weatherAdvisoryService,
     this.smartReplanningService,
     this.placeService,
+    this.tripService,
     super.key,
   });
 
@@ -52,6 +57,7 @@ class PlaceDiscoveryScreen extends StatefulWidget {
   final WeatherAdvisoryService? weatherAdvisoryService;
   final SmartReplanningService? smartReplanningService;
   final PlaceService? placeService;
+  final TripService? tripService;
 
   @override
   State<PlaceDiscoveryScreen> createState() => _PlaceDiscoveryScreenState();
@@ -70,12 +76,17 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   late final bool _ownsSmartReplanningService;
   late final PlaceService _placeService;
   late final bool _ownsPlaceService;
+  late final TripService _tripService;
+  late final bool _ownsTripService;
 
   late final Set<PlaceCategory> _purposeCategories;
   final Set<PlaceCategory> _refinementCategories = {};
   PlaceCategory? _activeCategoryFilter;
   List<Recommendation> _recommendations = const [];
   List<SavedPlace> _savedPlaces = const [];
+  List<TripDay> _tripDays = const [];
+  bool _isLoadingTripDays = false;
+  final Set<String> _updatingStopIds = {};
   List<WeatherAdvisory> _weatherAdvisories = const [];
   final Set<String> _dismissedAdvisoryIds = {};
   OptimizedRoute? _optimizedRoute;
@@ -124,9 +135,12 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         widget.smartReplanningService ?? SmartReplanningService();
     _ownsPlaceService = widget.placeService == null;
     _placeService = widget.placeService ?? PlaceService();
+    _ownsTripService = widget.tripService == null;
+    _tripService = widget.tripService ?? TripService();
     if (_tripId != null) {
       _loadSavedPlaces();
       _loadWeatherAdvisories();
+      _loadTripDays();
     }
     if (_purposeCategories.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -181,6 +195,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     if (_ownsRouteOptimizationService) _routeOptimizationService.close();
     if (_ownsWeatherAdvisoryService) _weatherAdvisoryService.close();
     if (_ownsSmartReplanningService) _smartReplanningService.dispose();
+    if (_ownsTripService) _tripService.close();
     super.dispose();
   }
 
@@ -307,6 +322,431 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     }
   }
 
+  Future<void> _loadTripDays() async {
+    final tripId = _tripId;
+    if (tripId == null) return;
+    setState(() => _isLoadingTripDays = true);
+    try {
+      final days = await _tripService.getTripDays(tripId);
+      if (!mounted) return;
+      setState(() {
+        _tripDays = days;
+        _isLoadingTripDays = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingTripDays = false);
+    }
+  }
+
+  Future<void> _showScheduleSheet(SavedPlace savedPlace) async {
+    final tripId = _tripId;
+    if (tripId == null) return;
+
+    final validDays = _tripDays
+        .where(
+          (d) =>
+              d.dayType != DayType.rest &&
+              d.startTime != null &&
+              d.endTime != null &&
+              d.endTime != d.startTime,
+        )
+        .toList();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Schedule ${savedPlace.place.name}',
+                    style: AppTextStyles.sectionTitle,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Choose when you would like to visit this place.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: AppColors.teal,
+                    ),
+                    title: const Text('Let YatraCanvas decide'),
+                    subtitle: const Text(
+                      'Auto schedule on the best active day',
+                    ),
+                    trailing: savedPlace.assignmentMode == AssignmentMode.auto
+                        ? const Icon(Icons.check_rounded, color: AppColors.teal)
+                        : null,
+                    onTap: () async {
+                      Navigator.pop(sheetCtx);
+                      await _updatePlaceAssignment(
+                        savedPlace,
+                        mode: AssignmentMode.auto,
+                        assignedDayId: null,
+                      );
+                    },
+                  ),
+                  const Divider(),
+                  if (validDays.isEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                        'No active sightseeing days available. Configure trip days first.',
+                        style: AppTextStyles.caption,
+                      ),
+                    ),
+                  ] else ...[
+                    for (final d in validDays) ...[
+                      ListTile(
+                        leading: const Icon(
+                          Icons.calendar_today_rounded,
+                          color: AppColors.teal,
+                        ),
+                        title: Text('Day ${d.dayNumber} · ${d.dayType.label}'),
+                        subtitle: Text(
+                          '${PlanDaysScreen.formatTimeDisplay(d.startTime)} – ${PlanDaysScreen.formatTimeDisplay(d.endTime)}',
+                        ),
+                        trailing:
+                            savedPlace.assignmentMode ==
+                                    AssignmentMode.locked &&
+                                savedPlace.assignedDayId == d.id
+                            ? const Icon(
+                                Icons.check_rounded,
+                                color: AppColors.teal,
+                              )
+                            : null,
+                        onTap: () async {
+                          Navigator.pop(sheetCtx);
+                          await _updatePlaceAssignment(
+                            savedPlace,
+                            mode: AssignmentMode.locked,
+                            assignedDayId: d.id,
+                          );
+                        },
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _updatePlaceAssignment(
+    SavedPlace savedPlace, {
+    required AssignmentMode mode,
+    required String? assignedDayId,
+  }) async {
+    final tripId = _tripId;
+    if (tripId == null) return;
+    if (_mutatingPlaceIds.contains(savedPlace.placeId)) return;
+
+    setState(() {
+      _mutatingPlaceIds.add(savedPlace.placeId);
+      _savedError = null;
+    });
+
+    try {
+      final updated = await _savedPlaceService.updateAssignment(
+        tripId,
+        savedPlace.placeId,
+        assignmentMode: mode,
+        assignedDayId: assignedDayId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _savedPlaces = [
+          for (final sp in _savedPlaces)
+            if (sp.placeId == savedPlace.placeId) updated else sp,
+        ];
+        _optimizedRoute = null;
+      });
+      final dayLabel = mode == AssignmentMode.auto
+          ? 'Auto schedule'
+          : 'Day ${_tripDays.where((d) => d.id == assignedDayId).firstOrNull?.dayNumber ?? ''}';
+      _showSavedMessage('${savedPlace.place.name} set to $dayLabel.');
+      await _checkReplanImpact();
+    } on Object catch (error) {
+      if (!mounted) return;
+      final msg = _savedPlaceError(error);
+      _showSavedMessage(msg, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _mutatingPlaceIds.remove(savedPlace.placeId));
+      }
+    }
+  }
+
+  Future<void> _updateStopStatus(
+    OptimizedRoutePlace place,
+    ItineraryStopStatus newStatus,
+  ) async {
+    final tripId = _tripId;
+    if (tripId == null) return;
+    final stopKey = place.id ?? place.placeId;
+    if (_updatingStopIds.contains(stopKey)) return;
+
+    setState(() => _updatingStopIds.add(stopKey));
+
+    try {
+      final updatedStop = await _smartReplanningService.updateStopStatus(
+        tripId: tripId,
+        stopOrPlaceId: place.id ?? place.placeId,
+        isPlaceId: place.id == null,
+        status: newStatus,
+      );
+
+      if (!mounted) return;
+
+      if (_optimizedRoute != null) {
+        final updatedPlaces = _optimizedRoute!.places.map((p) {
+          if (p.placeId == place.placeId) {
+            return OptimizedRoutePlace(
+              id: updatedStop.id ?? p.id,
+              placeId: p.placeId,
+              name: p.name,
+              dayNumber: p.dayNumber,
+              visitOrder: p.visitOrder,
+              distanceFromPrevious: p.distanceFromPrevious,
+              travelTimeMinutes: p.travelTimeMinutes,
+              plannedArrivalTime: p.plannedArrivalTime,
+              plannedDepartureTime: p.plannedDepartureTime,
+              visitDurationMinutes: p.visitDurationMinutes,
+              isOpeningHoursKnown: p.isOpeningHoursKnown,
+              status: updatedStop.status,
+            );
+          }
+          return p;
+        }).toList();
+
+        setState(() {
+          _optimizedRoute = OptimizedRoute(
+            tripId: _optimizedRoute!.tripId,
+            places: updatedPlaces,
+            totalDistance: _optimizedRoute!.totalDistance,
+            totalTravelTimeMinutes: _optimizedRoute!.totalTravelTimeMinutes,
+            totalDays: _optimizedRoute!.totalDays,
+            breaks: _optimizedRoute!.breaks,
+            conflicts: _optimizedRoute!.conflicts,
+            unscheduledPlaces: _optimizedRoute!.unscheduledPlaces,
+            routeGeometry: _optimizedRoute!.routeGeometry,
+          );
+        });
+      }
+
+      _showSavedMessage('Marked ${place.name} as ${newStatus.name}.');
+    } on Object catch (error) {
+      if (!mounted) return;
+      _showSavedMessage(
+        error is SmartReplanningException
+            ? error.message
+            : 'Could not update stop status.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingStopIds.remove(stopKey));
+      }
+    }
+  }
+
+  Future<void> _showMovePlaceSheet(OptimizedRoutePlace place) async {
+    final tripId = _tripId;
+    if (tripId == null) return;
+
+    final candidateDays = _tripDays
+        .where(
+          (d) =>
+              d.dayNumber != place.dayNumber &&
+              d.dayType != DayType.rest &&
+              d.startTime != null &&
+              d.endTime != null &&
+              d.endTime != d.startTime,
+        )
+        .toList();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Move ${place.name} to:',
+                    style: AppTextStyles.sectionTitle,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Select an active sightseeing day to reschedule this stop.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (candidateDays.isEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                        'No other sightseeing days available for moving.',
+                        style: AppTextStyles.caption,
+                      ),
+                    ),
+                  ] else ...[
+                    for (final d in candidateDays) ...[
+                      ListTile(
+                        leading: const Icon(
+                          Icons.calendar_today_rounded,
+                          color: AppColors.teal,
+                        ),
+                        title: Text('Day ${d.dayNumber} · ${d.dayType.label}'),
+                        subtitle: Text(
+                          '${PlanDaysScreen.formatTimeDisplay(d.startTime)} – ${PlanDaysScreen.formatTimeDisplay(d.endTime)}',
+                        ),
+                        onTap: () async {
+                          Navigator.pop(sheetCtx);
+                          await _movePlaceToDay(place, d);
+                        },
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _movePlaceToDay(
+    OptimizedRoutePlace place,
+    TripDay targetDay,
+  ) async {
+    final tripId = _tripId;
+    if (tripId == null) return;
+    final stopKey = place.id ?? place.placeId;
+    if (_updatingStopIds.contains(stopKey)) return;
+
+    setState(() => _updatingStopIds.add(stopKey));
+
+    try {
+      final response = await _smartReplanningService.movePlaceToDay(
+        tripId: tripId,
+        placeId: place.placeId,
+        targetDayNumber: targetDay.dayNumber,
+      );
+
+      if (!mounted) return;
+
+      if (!response.success) {
+        setState(() => _updatingStopIds.remove(stopKey));
+        if (response.reason == 'TARGET_DAY_INFEASIBLE') {
+          await showDialog<void>(
+            context: context,
+            builder: (dialogCtx) => AlertDialog(
+              title: const Text('Cannot Move Place'),
+              content: Text(
+                "This place doesn't fit into Day ${targetDay.dayNumber} with your current plan.",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.tonal(
+                  onPressed: () {
+                    Navigator.pop(dialogCtx);
+                    _showMovePlaceSheet(place);
+                  },
+                  child: const Text('Choose another day'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          _showSavedMessage(
+            'Cannot move place: ${response.reason ?? 'Unknown reason'}',
+            isError: true,
+          );
+        }
+        return;
+      }
+
+      try {
+        final freshRoute = await _smartReplanningService.getItinerary(tripId);
+        if (!mounted) return;
+        setState(() {
+          _optimizedRoute = freshRoute;
+        });
+      } catch (_) {
+        _loadSavedPlaces();
+      }
+
+      _showSavedMessage('Moved ${place.name} to Day ${targetDay.dayNumber}.');
+    } on Object catch (error) {
+      if (!mounted) return;
+      _showSavedMessage(
+        error is SmartReplanningException
+            ? error.message
+            : 'Could not move place.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _updatingStopIds.remove(stopKey));
+      }
+    }
+  }
+
   Future<void> _checkReplanImpact() async {
     final tripId = _tripId;
     if (tripId == null || _optimizedRoute == null) return;
@@ -348,42 +788,63 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               children: [
                 Text(
                   preview.summary,
-                  style: AppTextStyles.label.copyWith(fontWeight: FontWeight.w700),
+                  style: AppTextStyles.label.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 if (preview.addedPlaces.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
                     'Added to itinerary:',
-                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   for (final place in preview.addedPlaces)
                     Padding(
                       padding: const EdgeInsets.only(left: 8, top: 2),
-                      child: Text('• $place', style: AppTextStyles.caption.copyWith(color: AppColors.tealDark)),
+                      child: Text(
+                        '• $place',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.tealDark,
+                        ),
+                      ),
                     ),
                 ],
                 if (preview.removedPlaces.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
                     'Removed from itinerary:',
-                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   for (final place in preview.removedPlaces)
                     Padding(
                       padding: const EdgeInsets.only(left: 8, top: 2),
-                      child: Text('• $place', style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                      child: Text(
+                        '• $place',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.error,
+                        ),
+                      ),
                     ),
                 ],
                 if (preview.movedPlaces.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
                     'Rescheduled stops:',
-                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   for (final moved in preview.movedPlaces)
                     Padding(
                       padding: const EdgeInsets.only(left: 8, top: 2),
-                      child: Text('• ${moved.name}: ${moved.moveDescription}', style: AppTextStyles.caption),
+                      child: Text(
+                        '• ${moved.name}: ${moved.moveDescription}',
+                        style: AppTextStyles.caption,
+                      ),
                     ),
                 ],
                 if (preview.travelTimeDeltaMinutes != 0) ...[
@@ -396,11 +857,17 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.timelapse_rounded, size: 16, color: AppColors.textSecondary),
+                        const Icon(
+                          Icons.timelapse_rounded,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Estimated travel change: ${preview.travelTimeDeltaMinutes > 0 ? "+${preview.travelTimeDeltaMinutes}" : "${preview.travelTimeDeltaMinutes}"} min',
-                          style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600),
+                          style: AppTextStyles.caption.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
@@ -447,7 +914,9 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               onPressed: () async {
                 Navigator.of(dialogCtx).pop();
                 try {
-                  final applied = await _smartReplanningService.applyReplan(tripId);
+                  final applied = await _smartReplanningService.applyReplan(
+                    tripId,
+                  );
                   if (!mounted) return;
                   setState(() {
                     _optimizedRoute = applied;
@@ -456,7 +925,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   _showSavedMessage('New itinerary applied.');
                   _loadWeatherAdvisories();
                 } catch (e) {
-                  _showSavedMessage('Failed to apply re-plan: $e', isError: true);
+                  _showSavedMessage(
+                    'Failed to apply re-plan: $e',
+                    isError: true,
+                  );
                 }
               },
               child: const Text('Apply new plan'),
@@ -467,7 +939,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isLoadingReplanPreview = false);
-      _showSavedMessage('Could not generate re-plan preview: $error', isError: true);
+      _showSavedMessage(
+        'Could not generate re-plan preview: $error',
+        isError: true,
+      );
     }
   }
 
@@ -634,7 +1109,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     final alreadySaved = _savedPlaces.any(
       (sp) =>
           (result.placeId != null && sp.placeId == result.placeId) ||
-          sp.place.name.trim().toLowerCase() == result.name.trim().toLowerCase(),
+          sp.place.name.trim().toLowerCase() ==
+              result.name.trim().toLowerCase(),
     );
     if (alreadySaved) {
       _showSavedMessage('${result.name} is already in your selected places.');
@@ -682,9 +1158,12 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   }
 
   Widget _buildSearchResultTile(PlaceSearchResult result) {
-    final isAlreadySaved = _savedPlaces.any((sp) =>
-        (result.placeId != null && sp.placeId == result.placeId) ||
-        sp.place.name.trim().toLowerCase() == result.name.trim().toLowerCase());
+    final isAlreadySaved = _savedPlaces.any(
+      (sp) =>
+          (result.placeId != null && sp.placeId == result.placeId) ||
+          sp.place.name.trim().toLowerCase() ==
+              result.name.trim().toLowerCase(),
+    );
     final resultKey = result.externalPlaceId ?? result.placeId ?? result.name;
     final isAdding = _resolvingResultIds.contains(resultKey);
 
@@ -709,19 +1188,21 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               child: Icon(Icons.check_circle_rounded, color: AppColors.success),
             )
           : isAdding
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : FilledButton.tonal(
-                  key: ValueKey('add-search-result-${result.placeId ?? result.externalPlaceId ?? result.name}'),
-                  onPressed: _tripId == null ? null : () => _addManualPlace(result),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('Add to trip'),
-                ),
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : FilledButton.tonal(
+              key: ValueKey(
+                'add-search-result-${result.placeId ?? result.externalPlaceId ?? result.name}',
+              ),
+              onPressed: _tripId == null ? null : () => _addManualPlace(result),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Add to trip'),
+            ),
     );
   }
 
@@ -829,7 +1310,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             if (item.placeId == updated.placeId) updated else item,
         ];
       });
-      final constraintsChanged = settings.priority != savedPlace.priority ||
+      final constraintsChanged =
+          settings.priority != savedPlace.priority ||
           settings.isLocked != savedPlace.isLocked ||
           settings.mustVisit != savedPlace.mustVisit;
       if (constraintsChanged) {
@@ -896,7 +1378,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   Future<void> _optimizeRoute() async {
     final tripId = _tripId;
-    if (tripId == null || _savedPlaces.length < 2 || _isOptimizingRoute) {
+    if (tripId == null || _savedPlaces.isEmpty || _isOptimizingRoute) {
       return;
     }
     setState(() {
@@ -1117,6 +1599,66 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                 ),
             ],
           ),
+          if (_tripId != null && _savedPlaces.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            InkWell(
+              key: const ValueKey('plan-your-days-button'),
+              borderRadius: BorderRadius.circular(10),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => PlanDaysScreen(
+                      tripId: _tripId!,
+                      tripService: _tripService,
+                    ),
+                  ),
+                );
+                _loadTripDays();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceSoft,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_month_rounded,
+                      size: 16,
+                      color: AppColors.teal,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Plan your days (Full, Half, Rest, Travel)',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.charcoal,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (_isLoadingTripDays)
+                      const SizedBox.square(
+                        dimension: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: AppColors.textTertiary,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           Text(
             _tripId == null
@@ -1152,18 +1694,20 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                               padding: EdgeInsets.all(12),
                               child: SizedBox.square(
                                 dimension: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _onSearchChanged('');
-                                  },
-                                )
-                              : null,
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: () {
+                                _searchController.clear();
+                                _onSearchChanged('');
+                              },
+                            )
+                          : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1202,7 +1746,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               const SizedBox(height: 10),
               Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.border),
                 ),
@@ -1215,7 +1760,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   ],
                 ),
               ),
-            ] else if (_searchController.text.trim().isNotEmpty && !_isSearching) ...[
+            ] else if (_searchController.text.trim().isNotEmpty &&
+                !_isSearching) ...[
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1264,6 +1810,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                     index: index,
                     busy: _mutatingPlaceIds.contains(savedPlace.placeId),
                     dragEnabled: !_isReordering,
+                    tripDays: _tripDays,
+                    onSchedule: () => _showScheduleSheet(savedPlace),
                     onNotes: () => _editSavedPlace(savedPlace),
                     onRemove: () => _removeSavedPlace(savedPlace),
                   ),
@@ -1276,7 +1824,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed:
-                    _savedPlaces.length < 2 ||
+                    _savedPlaces.isEmpty ||
                         widget.routeStartReady == false ||
                         _isLoadingSavedPlaces ||
                         _isReordering ||
@@ -1300,10 +1848,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               'Route order uses offline distance estimates; times are approximate.',
               style: AppTextStyles.caption,
             ),
-            if (_savedPlaces.length < 2) ...[
+            if (_savedPlaces.isEmpty) ...[
               const SizedBox(height: 7),
               Text(
-                'Add at least 2 places to calculate a practical route.',
+                'Add a place to calculate a practical route.',
                 style: AppTextStyles.caption,
               ),
             ],
@@ -1350,7 +1898,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             ],
             if (_optimizedRoute case final route?) ...[
               const SizedBox(height: 12),
-              _OptimizedRouteCard(route: route),
+              _OptimizedRouteCard(
+                route: route,
+                tripDays: _tripDays,
+                onUpdateStopStatus: _updateStopStatus,
+                onMovePlace: _showMovePlaceSheet,
+                updatingStopIds: _updatingStopIds,
+              ),
             ],
             const SizedBox(height: 12),
             if (_tripId != null)
@@ -1367,7 +1921,14 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                           initialSavedPlaces: _savedPlaces,
                           initialOptimizedRoute: _optimizedRoute,
                           initialRouteGeometry: _optimizedRoute?.routeGeometry,
-                          initialDurationDays: widget.durationDays ?? _optimizedRoute?.totalDays,
+                          initialDurationDays:
+                              widget.durationDays ?? _optimizedRoute?.totalDays,
+                          initialTripDays: _tripDays,
+                          onItineraryChanged: (route) {
+                            if (mounted) {
+                              setState(() => _optimizedRoute = route);
+                            }
+                          },
                         ),
                       ),
                     );
@@ -1470,7 +2031,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             builder: (context) {
               final recommendation = _recommendations[index];
               final selected =
-                  recommendation.isSaved || _savedPlaceFor(recommendation.id) != null;
+                  recommendation.isSaved ||
+                  _savedPlaceFor(recommendation.id) != null;
               final busy = _mutatingPlaceIds.contains(recommendation.id);
               return PlaceCard(
                 name: recommendation.name,
@@ -1710,6 +2272,8 @@ class _SavedPlaceTile extends StatelessWidget {
     required this.index,
     required this.busy,
     required this.dragEnabled,
+    this.tripDays = const [],
+    this.onSchedule,
     required this.onNotes,
     required this.onRemove,
   });
@@ -1718,11 +2282,31 @@ class _SavedPlaceTile extends StatelessWidget {
   final int index;
   final bool busy;
   final bool dragEnabled;
+  final List<TripDay> tripDays;
+  final VoidCallback? onSchedule;
   final VoidCallback onNotes;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
+    final String scheduleText;
+    final bool isLockedDay;
+    if (savedPlace.assignmentMode == AssignmentMode.locked &&
+        savedPlace.assignedDayId != null) {
+      final assignedDay = tripDays
+          .where((d) => d.id == savedPlace.assignedDayId)
+          .firstOrNull;
+      if (assignedDay != null) {
+        scheduleText = 'Day ${assignedDay.dayNumber}';
+      } else {
+        scheduleText = 'Locked';
+      }
+      isLockedDay = true;
+    } else {
+      scheduleText = 'Auto schedule';
+      isLockedDay = false;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -1776,6 +2360,54 @@ class _SavedPlaceTile extends StatelessWidget {
                     style: AppTextStyles.caption,
                   ),
                 ],
+                const SizedBox(height: 3),
+                InkWell(
+                  key: ValueKey('schedule-badge-${savedPlace.placeId}'),
+                  onTap: busy ? null : onSchedule,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 2,
+                      horizontal: 2,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isLockedDay
+                              ? Icons.lock_clock_rounded
+                              : Icons.auto_awesome_rounded,
+                          size: 13,
+                          color: isLockedDay
+                              ? AppColors.terracotta
+                              : AppColors.teal,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            scheduleText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.caption.copyWith(
+                              color: isLockedDay
+                                  ? AppColors.terracotta
+                                  : AppColors.teal,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.arrow_drop_down_rounded,
+                          size: 16,
+                          color: isLockedDay
+                              ? AppColors.terracotta
+                              : AppColors.teal,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 if (savedPlace.priority > 0 ||
                     savedPlace.isLocked ||
                     savedPlace.mustVisit) ...[
@@ -1862,12 +2494,27 @@ class _PreferenceBadge extends StatelessWidget {
 }
 
 class _OptimizedRouteCard extends StatelessWidget {
-  const _OptimizedRouteCard({required this.route});
+  const _OptimizedRouteCard({
+    required this.route,
+    this.tripDays = const [],
+    this.onUpdateStopStatus,
+    this.onMovePlace,
+    this.updatingStopIds = const {},
+  });
 
   final OptimizedRoute route;
+  final List<TripDay> tripDays;
+  final void Function(OptimizedRoutePlace place, ItineraryStopStatus status)?
+  onUpdateStopStatus;
+  final void Function(OptimizedRoutePlace place)? onMovePlace;
+  final Set<String> updatingStopIds;
 
   @override
   Widget build(BuildContext context) {
+    final displayDays = tripDays.isNotEmpty
+        ? (tripDays.map((d) => d.dayNumber).toSet().toList()..sort())
+        : route.logicalDays;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(15),
@@ -1900,6 +2547,79 @@ class _OptimizedRouteCard extends StatelessWidget {
               ),
             ],
           ),
+          if (route.unscheduledPlaces.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.amber.shade800,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Could not fit into your itinerary',
+                        style: AppTextStyles.caption.copyWith(
+                          color: Colors.amber.shade900,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  for (final unscheduled in route.unscheduledPlaces) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '• ',
+                            style: TextStyle(
+                              color: Colors.amber.shade900,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  unscheduled.name,
+                                  style: AppTextStyles.caption.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.charcoal,
+                                  ),
+                                ),
+                                Text(
+                                  unscheduled.reason,
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           if (route.conflicts.isNotEmpty) ...[
             const SizedBox(height: 12),
             Container(
@@ -1915,7 +2635,11 @@ class _OptimizedRouteCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 16),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.amber.shade800,
+                        size: 16,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'Planning Advisory',
@@ -1932,24 +2656,34 @@ class _OptimizedRouteCard extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         '• $conflict',
-                        style: AppTextStyles.caption.copyWith(color: AppColors.charcoal),
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.charcoal,
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
           ],
-          for (var dayIndex = 0; dayIndex < route.logicalDays.length; dayIndex++) ...[
+          for (var dayIndex = 0; dayIndex < displayDays.length; dayIndex++) ...[
             if (dayIndex > 0) const SizedBox(height: 16),
             _buildDaySchedule(
-              route.logicalDays[dayIndex],
-              route.placesByDay[route.logicalDays[dayIndex]] ?? const <OptimizedRoutePlace>[],
+              displayDays[dayIndex],
+              route.placesByDay[displayDays[dayIndex]] ??
+                  const <OptimizedRoutePlace>[],
+              tripDay: tripDays
+                  .where((d) => d.dayNumber == displayDays[dayIndex])
+                  .firstOrNull,
             ),
           ],
           const SizedBox(height: 14),
           Row(
             children: [
-              const Icon(Icons.access_time_rounded, size: 13, color: AppColors.textTertiary),
+              const Icon(
+                Icons.access_time_rounded,
+                size: 13,
+                color: AppColors.textTertiary,
+              ),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
@@ -1967,29 +2701,76 @@ class _OptimizedRouteCard extends StatelessWidget {
     );
   }
 
-  Widget _buildDaySchedule(int day, List<OptimizedRoutePlace> dayPlaces) {
+  Widget _buildDaySchedule(
+    int day,
+    List<OptimizedRoutePlace> dayPlaces, {
+    TripDay? tripDay,
+  }) {
+    final isRest = tripDay?.dayType == DayType.rest;
+    final dayTypeLabel = tripDay?.dayType.label;
+    final timeWindow =
+        (tripDay?.startTime != null && tripDay?.endTime != null && !isRest)
+        ? '${PlanDaysScreen.formatTimeDisplay(tripDay!.startTime)} – ${PlanDaysScreen.formatTimeDisplay(tripDay.endTime)}'
+        : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Icon(
-              Icons.wb_sunny_rounded,
-              color: AppColors.teal,
+            Icon(
+              isRest ? Icons.nightlife_rounded : Icons.wb_sunny_rounded,
+              color: isRest ? AppColors.terracotta : AppColors.teal,
               size: 16,
             ),
             const SizedBox(width: 8),
             Text(
               'Day $day',
               style: AppTextStyles.label.copyWith(
-                color: AppColors.tealDark,
-                fontWeight: FontWeight.w700,
+                color: isRest ? AppColors.terracotta : AppColors.tealDark,
+                fontWeight: FontWeight.w800,
               ),
             ),
+            if (dayTypeLabel != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isRest
+                      ? AppColors.terracotta.withValues(alpha: 0.12)
+                      : AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isRest
+                        ? AppColors.terracotta.withValues(alpha: 0.3)
+                        : AppColors.border,
+                  ),
+                ),
+                child: Text(
+                  dayTypeLabel,
+                  style: AppTextStyles.caption.copyWith(
+                    color: isRest ? AppColors.terracotta : AppColors.charcoal,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+            if (timeWindow != null) ...[
+              const Spacer(),
+              Text(
+                timeWindow,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 10),
-        if (dayPlaces.isEmpty)
+        if (isRest)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -2000,12 +2781,47 @@ class _OptimizedRouteCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textTertiary),
+                const Icon(
+                  Icons.hotel_rounded,
+                  size: 18,
+                  color: AppColors.terracotta,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Rest Day · Recharge and explore at your own pace.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.charcoal,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (dayPlaces.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: AppColors.textTertiary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'No places scheduled yet. Add a place or optimize your itinerary.',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -2018,15 +2834,30 @@ class _OptimizedRouteCard extends StatelessWidget {
               fromArrival: placeIdx == 0,
             ),
             const SizedBox(height: 7),
-            _RouteStop(place: dayPlaces[placeIdx]),
+            _RouteStop(
+              place: dayPlaces[placeIdx],
+              isBusy: updatingStopIds.contains(
+                dayPlaces[placeIdx].id ?? dayPlaces[placeIdx].placeId,
+              ),
+              onUpdateStatus: onUpdateStopStatus,
+              onMove: onMovePlace != null
+                  ? () => onMovePlace!(dayPlaces[placeIdx])
+                  : null,
+            ),
             for (final b in route.breaks.where(
               (brk) =>
                   brk.dayNumber == day &&
                   (placeIdx < dayPlaces.length - 1 &&
                       dayPlaces[placeIdx].plannedDepartureTime != null &&
                       dayPlaces[placeIdx + 1].plannedArrivalTime != null &&
-                      brk.startTime.compareTo(dayPlaces[placeIdx].plannedDepartureTime!) >= 0 &&
-                      brk.endTime.compareTo(dayPlaces[placeIdx + 1].plannedArrivalTime!) <= 0),
+                      brk.startTime.compareTo(
+                            dayPlaces[placeIdx].plannedDepartureTime!,
+                          ) >=
+                          0 &&
+                      brk.endTime.compareTo(
+                            dayPlaces[placeIdx + 1].plannedArrivalTime!,
+                          ) <=
+                          0),
             ))
               _MiddayBreakCard(breakItem: b),
           ],
@@ -2048,13 +2879,19 @@ class _MiddayBreakCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.textTertiary.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: AppColors.textTertiary.withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         children: [
           const SizedBox(
             width: 34,
-            child: Icon(Icons.coffee_rounded, color: AppColors.textSecondary, size: 18),
+            child: Icon(
+              Icons.coffee_rounded,
+              color: AppColors.textSecondary,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -2116,54 +2953,341 @@ class _RouteConnector extends StatelessWidget {
 }
 
 class _RouteStop extends StatelessWidget {
-  const _RouteStop({required this.place});
+  const _RouteStop({
+    required this.place,
+    this.isBusy = false,
+    this.onUpdateStatus,
+    this.onMove,
+  });
 
   final OptimizedRoutePlace place;
+  final bool isBusy;
+  final void Function(OptimizedRoutePlace place, ItineraryStopStatus status)?
+  onUpdateStatus;
+  final VoidCallback? onMove;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: AppColors.teal,
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            '${place.visitOrder}',
-            style: AppTextStyles.caption.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
+    final isCompleted = place.isCompleted;
+    final isMissed = place.isMissed;
+    final isSkipped = place.isSkipped;
+
+    final Color statusColor;
+    final Widget statusBadge;
+    if (isCompleted) {
+      statusColor = AppColors.success;
+      statusBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          'Visited',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.success,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
           ),
         ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      );
+    } else if (isMissed) {
+      statusColor = Colors.amber.shade800;
+      statusBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade100,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          'Missed',
+          style: AppTextStyles.caption.copyWith(
+            color: Colors.amber.shade900,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+          ),
+        ),
+      );
+    } else if (isSkipped) {
+      statusColor = AppColors.textTertiary;
+      statusBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceSoft,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Text(
+          'Skipped',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+            fontSize: 11,
+          ),
+        ),
+      );
+    } else {
+      statusColor = AppColors.teal;
+      statusBadge = const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                place.name,
-                style: AppTextStyles.label.copyWith(
-                  color: AppColors.charcoal,
-                  fontWeight: FontWeight.w700,
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+                child: isCompleted
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      )
+                    : isMissed
+                    ? const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      )
+                    : isSkipped
+                    ? const Icon(
+                        Icons.skip_next_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      )
+                    : Text(
+                        '${place.visitOrder}',
+                        style: AppTextStyles.caption.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            place.name,
+                            style: AppTextStyles.label.copyWith(
+                              color: isCompleted
+                                  ? AppColors.textSecondary
+                                  : AppColors.charcoal,
+                              fontWeight: FontWeight.w700,
+                              decoration: isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        if (isCompleted || isMissed || isSkipped) ...[
+                          const SizedBox(width: 6),
+                          statusBadge,
+                        ],
+                      ],
+                    ),
+                    if (place.formattedTimeWindow != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '${place.formattedTimeWindow} · ~${place.visitDurationMinutes} min visit',
+                        style: AppTextStyles.caption.copyWith(
+                          color: isCompleted
+                              ? AppColors.success
+                              : AppColors.tealDark,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 3),
+                    _buildOpeningHoursTag(),
+                  ],
                 ),
               ),
-              if (place.formattedTimeWindow != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  '${place.formattedTimeWindow} · ~${place.visitDurationMinutes} min visit',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.tealDark,
-                    fontWeight: FontWeight.w600,
+              if (isBusy)
+                const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else if (!isCompleted && !isSkipped)
+                PopupMenuButton<String>(
+                  key: ValueKey('stop-actions-${place.placeId}'),
+                  constraints: const BoxConstraints(
+                    minWidth: 180,
+                    maxWidth: 340,
+                  ),
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                  tooltip: 'Stop actions',
+                  onSelected: (action) {
+                    if (action == 'complete') {
+                      onUpdateStatus?.call(
+                        place,
+                        ItineraryStopStatus.completed,
+                      );
+                    } else if (action == 'missed') {
+                      onUpdateStatus?.call(place, ItineraryStopStatus.missed);
+                    } else if (action == 'skip') {
+                      onUpdateStatus?.call(place, ItineraryStopStatus.skipped);
+                    } else if (action == 'move') {
+                      onMove?.call();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (!isMissed) ...[
+                      const PopupMenuItem(
+                        value: 'complete',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline_rounded,
+                              size: 18,
+                              color: AppColors.success,
+                            ),
+                            SizedBox(width: 8),
+                            Text('Mark completed'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'missed',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.cancel_outlined,
+                              size: 18,
+                              color: AppColors.terracotta,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text("Couldn't visit"),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const PopupMenuItem(
+                      value: 'skip',
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.skip_next_rounded,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
+                          SizedBox(width: 8),
+                          Text('Skip this place'),
+                        ],
+                      ),
+                    ),
+                    if (!isMissed)
+                      const PopupMenuItem(
+                        value: 'move',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.drive_file_move_outlined,
+                              size: 18,
+                              color: AppColors.teal,
+                            ),
+                            SizedBox(width: 8),
+                            Text('Move to another day'),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+          if (isMissed) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(left: 45),
+              child: OutlinedButton.icon(
+                key: ValueKey('move-missed-${place.placeId}'),
+                onPressed: isBusy ? null : onMove,
+                icon: const Icon(Icons.drive_file_move_outlined, size: 14),
+                label: const Text('Move to another day'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
                   ),
                 ),
-              ],
-            ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOpeningHoursTag() {
+    if (!place.isOpeningHoursKnown) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.help_outline_rounded,
+            size: 11,
+            color: AppColors.textTertiary,
+          ),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(
+              'Opening hours unavailable',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textTertiary,
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.check_circle_outline_rounded,
+          size: 11,
+          color: AppColors.success,
+        ),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            'Open during visit',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.success,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -2402,7 +3526,11 @@ class _ReplanAdvisoryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_fix_high_rounded, color: Colors.amber.shade900, size: 20),
+              Icon(
+                Icons.auto_fix_high_rounded,
+                color: Colors.amber.shade900,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -2434,7 +3562,10 @@ class _ReplanAdvisoryCard extends StatelessWidget {
                     ? const SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('Review proposed plan'),
               ),

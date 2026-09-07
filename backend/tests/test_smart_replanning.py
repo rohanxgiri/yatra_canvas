@@ -341,7 +341,7 @@ def test_remove_place_shows_in_preview(session_and_client):
 
 
 def test_replan_preview_conflict_when_must_visit_cannot_fit(session_and_client):
-    """Verify that an infeasible trip returns 422 with conflict details during replan preview."""
+    """Verify that an infeasible trip returns a partial preview with explicit drops."""
     session, client = session_and_client
     city = City(id=uuid4(), name="Jaipur", country="India", latitude=26.91, longitude=75.78)
     session.add(city)
@@ -370,6 +370,8 @@ def test_replan_preview_conflict_when_must_visit_cannot_fit(session_and_client):
     session.commit()
 
     resp = client.post(f"/trips/{trip.id}/replan-preview")
-    assert resp.status_code == 422
-    assert "Cannot fit all must-visit places" in resp.json()["detail"]
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["proposed_itinerary"] and body["unscheduled_places"]
+    assert len(body["proposed_itinerary"]) + len(body["unscheduled_places"]) == 10
 

@@ -9,27 +9,51 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final, Literal
-from uuid import UUID
+from typing import Literal
+from uuid import UUID, uuid4
 
 from sqlalchemy import delete, or_
 from sqlmodel import Session, select
 
-from app.models.entities import Place, RouteMatrixCache, Trip, TripItinerary, UserSavedPlace
+from app.core.itinerary_constants import estimate_visit_duration
+from app.models.entities import (
+    Place,
+    RouteMatrixCache,
+    Trip,
+    TripDay,
+    TripItinerary,
+    UserSavedPlace,
+)
+from app.schemas.route_optimization import (
+    OptimizedPlaceRead,
+    RouteOptimizationRead,
+)
 from app.schemas.smart_replanning import (
+    ItineraryStopStatus,
     MovedPlaceRead,
+    MoveItineraryPlaceRequest,
+    MoveItineraryPlaceResponse,
     TripReplanImpactRead,
     TripReplanPreviewRead,
 )
-from app.schemas.route_optimization import RouteOptimizationRead
-from app.services.itinerary_timing_service import ItineraryTimingService
-from app.services.route_matrix_service import RouteMatrixProvider, RouteMatrixService
+from app.services.planner_inputs import load_planner_inputs
+from app.services.route_matrix_service import (
+    RouteMatrixProvider,
+    RouteMatrixService,
+    RouteNode,
+)
 from app.services.route_optimization_service import (
+    MAX_SELECTED_PLACES,
+    RouteOptimizationError,
     RouteOptimizationService,
     RouteTripNotFoundError,
     RouteValidationError,
 )
 from app.services.vrptw_solver_service import VrptwSolverService
+
+
+class ItineraryStopNotFoundError(RouteOptimizationError):
+    pass
 
 
 class TripChangeType(str, Enum):
@@ -114,7 +138,10 @@ def evaluate_change_impact(change_type: TripChangeType) -> TripChangeImpact:
             summary="Custom place order changed. Itinerary recalculation required.",
         )
 
-    if change_type in (TripChangeType.UPDATE_PRIORITY, TripChangeType.UPDATE_MUST_VISIT):
+    if change_type in (
+        TripChangeType.UPDATE_PRIORITY,
+        TripChangeType.UPDATE_MUST_VISIT,
+    ):
         return TripChangeImpact(
             change_type=change_type,
             itinerary_stale=True,
@@ -290,12 +317,18 @@ class SmartReplanningService:
             )
 
         # 4. Locked places out of position
-        itin_order_map = {i.place_id: i.visit_order for i in itinerary_rows if i.day_number == 1}
+        itin_order_map = {
+            i.place_id: i.visit_order for i in itinerary_rows if i.day_number == 1
+        }
         for s in saved_rows:
-            if s.is_locked and s.custom_order is not None and s.place_id in itin_order_map:
+            if (
+                s.is_locked
+                and s.custom_order is not None
+                and s.place_id in itin_order_map
+            ):
                 if itin_order_map[s.place_id] != s.custom_order:
                     reasons.append(
-                        f"Locked place order is out of sync with scheduled visit order."
+                        "Locked place order is out of sync with scheduled visit order."
                     )
                     break
 
@@ -332,11 +365,6 @@ class SmartReplanningService:
                 .order_by(UserSavedPlace.custom_order)
             ).all()
         )
-        if len(saved_rows) < 2:
-            raise RouteValidationError(
-                "At least two saved places are required to generate an optimized itinerary."
-            )
-
         current_itinerary = list(
             session.exec(
                 select(TripItinerary)
@@ -352,7 +380,17 @@ class SmartReplanningService:
             session.exec(select(Place).where(Place.id.in_(all_place_ids))).all()  # type: ignore[union-attr]
         )
         places_by_id = {p.id: p for p in places_list}
-        places = [places_by_id[s.place_id] for s in saved_rows if s.place_id in places_by_id]
+        places = [
+            places_by_id[s.place_id] for s in saved_rows if s.place_id in places_by_id
+        ]
+        if len(places) != len(saved_rows):
+            raise RouteValidationError(
+                "A selected place no longer exists. Remove it and try again."
+            )
+        if len(saved_rows) > MAX_SELECTED_PLACES:
+            raise RouteValidationError(
+                f"Route optimization currently supports up to {MAX_SELECTED_PLACES} selected places."
+            )
 
         # Compute proposed schedule without persisting
         try:
@@ -365,6 +403,7 @@ class SmartReplanningService:
         except ValueError as exc:
             raise RouteValidationError(str(exc)) from exc
 
+        day_configs, weekly_hours = load_planner_inputs(session, trip, places)
         solver = VrptwSolverService()
         try:
             schedule_result = solver.solve(
@@ -374,6 +413,8 @@ class SmartReplanningService:
                 saved_rows=saved_rows,
                 matrix=matrix,
                 trip_days=trip.days,
+                day_configs=day_configs,
+                weekly_hours_map=weekly_hours,
                 start_date=trip.start_date,
             )
         except ValueError as exc:
@@ -441,11 +482,11 @@ class SmartReplanningService:
             summary=summary,
             added_places=added_places,
             removed_places=removed_places,
-            moved_places=moved_places,
             travel_time_delta_minutes=travel_time_delta,
             proposed_itinerary=schedule_result.optimized_places,
             breaks=schedule_result.breaks,
             conflicts=schedule_result.conflicts,
+            unscheduled_places=schedule_result.unscheduled_places,
         )
 
     async def apply_replan(
@@ -462,4 +503,584 @@ class SmartReplanningService:
             trip_id=trip_id,
             route_provider=route_provider,
             route_matrix=route_matrix,
+        )
+
+    def update_stop_status(
+        self,
+        session: Session,
+        trip_id: UUID,
+        stop_or_place_id: UUID,
+        new_status: ItineraryStopStatus | str,
+    ) -> OptimizedPlaceRead:
+        trip = session.get(Trip, trip_id)
+        if trip is None:
+            raise RouteTripNotFoundError("Trip not found.")
+
+        stop = session.exec(
+            select(TripItinerary).where(
+                TripItinerary.trip_id == trip_id,
+                or_(
+                    TripItinerary.id == stop_or_place_id,
+                    TripItinerary.place_id == stop_or_place_id,
+                ),
+            )
+        ).first()
+        if stop is None:
+            raise ItineraryStopNotFoundError("Itinerary stop not found.")
+
+        status_str = (
+            new_status.value if hasattr(new_status, "value") else str(new_status)
+        )
+        status_str = status_str.upper().strip()
+        if status_str not in ("PLANNED", "COMPLETED", "MISSED", "SKIPPED"):
+            raise RouteValidationError(f"Invalid itinerary stop status: {status_str}")
+
+        allowed_transitions = {
+            "PLANNED": {"PLANNED", "COMPLETED", "MISSED", "SKIPPED"},
+            "MISSED": {"MISSED", "SKIPPED"},
+            "COMPLETED": {"COMPLETED"},
+            "SKIPPED": {"SKIPPED"},
+        }
+        if status_str not in allowed_transitions.get(stop.status, set()):
+            raise RouteValidationError(
+                f"Cannot change itinerary stop status from {stop.status} to {status_str}."
+            )
+
+        stop.status = status_str
+        session.add(stop)
+        session.commit()
+        session.refresh(stop)
+
+        place = session.get(Place, stop.place_id)
+        place_name = place.name if place else "Unknown Place"
+
+        return OptimizedPlaceRead(
+            id=stop.id,
+            place_id=stop.place_id,
+            name=place_name,
+            day_number=stop.day_number,
+            visit_order=stop.visit_order,
+            distance_from_previous=stop.distance_from_previous or 0.0,
+            travel_time_minutes=stop.travel_time_minutes or 0,
+            planned_arrival_time=stop.planned_arrival_time,
+            planned_departure_time=stop.planned_departure_time,
+            visit_duration_minutes=estimate_visit_duration(place.category)
+            if place
+            else 60,
+            is_opening_hours_known=place.opening_hours_status == "KNOWN"
+            if place
+            else False,
+            status=stop.status,
+        )
+
+    def get_trip_itinerary(
+        self,
+        session: Session,
+        trip_id: UUID,
+    ) -> RouteOptimizationRead:
+        trip = session.get(Trip, trip_id)
+        if trip is None:
+            raise RouteTripNotFoundError("Trip not found.")
+
+        stops = list(
+            session.exec(
+                select(TripItinerary)
+                .where(TripItinerary.trip_id == trip_id)
+                .order_by(TripItinerary.day_number, TripItinerary.visit_order)
+            ).all()
+        )
+        place_ids = [s.place_id for s in stops]
+        places = (
+            {
+                p.id: p
+                for p in session.exec(
+                    select(Place).where(Place.id.in_(place_ids))
+                ).all()
+            }
+            if place_ids
+            else {}
+        )
+
+        optimized_places: list[OptimizedPlaceRead] = []
+        total_distance = 0.0
+        total_travel_minutes = 0
+
+        for s in stops:
+            p = places.get(s.place_id)
+            p_name = p.name if p else "Unknown"
+            p_cat = p.category if p else "tourism"
+            dist = s.distance_from_previous or 0.0
+            trav = s.travel_time_minutes or 0
+            total_distance += dist
+            total_travel_minutes += trav
+            optimized_places.append(
+                OptimizedPlaceRead(
+                    id=s.id,
+                    place_id=s.place_id,
+                    name=p_name,
+                    day_number=s.day_number,
+                    visit_order=s.visit_order,
+                    distance_from_previous=dist,
+                    travel_time_minutes=trav,
+                    planned_arrival_time=s.planned_arrival_time,
+                    planned_departure_time=s.planned_departure_time,
+                    visit_duration_minutes=estimate_visit_duration(p_cat),
+                    is_opening_hours_known=p.opening_hours_status == "KNOWN"
+                    if p
+                    else False,
+                    status=s.status,
+                )
+            )
+
+        return RouteOptimizationRead(
+            trip_id=trip_id,
+            optimized_places=optimized_places,
+            total_distance=round(total_distance, 3),
+            total_travel_time_minutes=total_travel_minutes,
+            total_days=trip.days,
+            breaks=[],
+            conflicts=[],
+            unscheduled_places=[],
+        )
+
+    async def move_itinerary_place(
+        self,
+        session: Session,
+        trip_id: UUID,
+        request: MoveItineraryPlaceRequest,
+        route_provider: RouteMatrixProvider,
+        route_matrix: RouteMatrixService,
+    ) -> MoveItineraryPlaceResponse:
+        trip = session.get(Trip, trip_id)
+        if trip is None:
+            raise RouteTripNotFoundError("Trip not found.")
+
+        # 1. Validate target TripDay
+        target_day: TripDay | None = None
+        if request.target_day_id is not None:
+            target_day = session.get(TripDay, request.target_day_id)
+        elif request.target_day_number is not None:
+            target_day = session.exec(
+                select(TripDay).where(
+                    TripDay.trip_id == trip_id,
+                    TripDay.day_number == request.target_day_number,
+                )
+            ).first()
+        else:
+            raise RouteValidationError(
+                "Either target_day_number or target_day_id is required."
+            )
+
+        if target_day is None or target_day.trip_id != trip_id:
+            raise RouteValidationError(
+                "Target trip day does not exist or does not belong to this trip."
+            )
+
+        if target_day.day_type == "REST":
+            return MoveItineraryPlaceResponse(
+                success=False,
+                reason="TARGET_DAY_REST",
+                trip_id=trip_id,
+                place_id=request.place_id,
+                target_day_number=target_day.day_number,
+            )
+
+        if (
+            not target_day.start_time
+            or not target_day.end_time
+            or target_day.end_time <= target_day.start_time
+        ):
+            return MoveItineraryPlaceResponse(
+                success=False,
+                reason="TARGET_DAY_NO_SIGHTSEEING_WINDOW",
+                trip_id=trip_id,
+                place_id=request.place_id,
+                target_day_number=target_day.day_number,
+            )
+
+        # 2. Inspect moved place
+        current_stop = session.exec(
+            select(TripItinerary).where(
+                TripItinerary.trip_id == trip_id,
+                TripItinerary.place_id == request.place_id,
+            )
+        ).first()
+        saved_place = session.exec(
+            select(UserSavedPlace).where(
+                UserSavedPlace.trip_id == trip_id,
+                UserSavedPlace.place_id == request.place_id,
+            )
+        ).first()
+
+        if current_stop is None and saved_place is None:
+            raise RouteValidationError("Place is not saved for this trip.")
+
+        source_day_number = current_stop.day_number if current_stop else None
+        if current_stop is not None:
+            if current_stop.status == "COMPLETED":
+                return MoveItineraryPlaceResponse(
+                    success=False,
+                    reason="CANNOT_MOVE_COMPLETED_PLACE",
+                    trip_id=trip_id,
+                    place_id=request.place_id,
+                    source_day_number=source_day_number,
+                    target_day_number=target_day.day_number,
+                )
+            if current_stop.status == "SKIPPED":
+                return MoveItineraryPlaceResponse(
+                    success=False,
+                    reason="CANNOT_MOVE_SKIPPED_PLACE",
+                    trip_id=trip_id,
+                    place_id=request.place_id,
+                    source_day_number=source_day_number,
+                    target_day_number=target_day.day_number,
+                )
+
+        if source_day_number == target_day.day_number:
+            return MoveItineraryPlaceResponse(
+                success=False,
+                reason="ALREADY_ON_TARGET_DAY",
+                trip_id=trip_id,
+                place_id=request.place_id,
+                source_day_number=source_day_number,
+                target_day_number=target_day.day_number,
+            )
+
+        # 3. Target Day Feasibility Evaluation
+        target_stops = list(
+            session.exec(
+                select(TripItinerary)
+                .where(
+                    TripItinerary.trip_id == trip_id,
+                    TripItinerary.day_number == target_day.day_number,
+                )
+                .order_by(TripItinerary.visit_order)
+            ).all()
+        )
+        completed_target = [s for s in target_stops if s.status == "COMPLETED"]
+        planned_target = [s for s in target_stops if s.status == "PLANNED"]
+
+        candidate_place_ids = [
+            s.place_id for s in planned_target if s.place_id != request.place_id
+        ]
+        if request.place_id not in candidate_place_ids:
+            candidate_place_ids.append(request.place_id)
+
+        all_target_place_ids = candidate_place_ids + [
+            s.place_id for s in completed_target
+        ]
+        places_by_id = {
+            p.id: p
+            for p in session.exec(
+                select(Place).where(Place.id.in_(all_target_place_ids))
+            ).all()
+        }
+        candidate_places = [
+            places_by_id[pid] for pid in candidate_place_ids if pid in places_by_id
+        ]
+        if len(candidate_places) != len(candidate_place_ids):
+            raise RouteValidationError(
+                "A place selected for the route no longer exists."
+            )
+
+        # Determine start node and effective start time for remaining route on target day
+        if completed_target:
+            last_completed = completed_target[-1]
+            last_completed_place = places_by_id[last_completed.place_id]
+            target_start_node = RouteNode.for_place(last_completed_place)
+            effective_start_time = max(
+                target_day.start_time,
+                last_completed.planned_departure_time or target_day.start_time,
+            )
+        else:
+            target_start_node = RouteNode.for_start(trip)
+            effective_start_time = target_day.start_time
+
+        if effective_start_time >= target_day.end_time:
+            return MoveItineraryPlaceResponse(
+                success=False,
+                reason="TARGET_DAY_INFEASIBLE",
+                trip_id=trip_id,
+                place_id=request.place_id,
+                source_day_number=source_day_number,
+                target_day_number=target_day.day_number,
+            )
+
+        try:
+            (
+                target_start_node,
+                place_nodes,
+                matrix,
+            ) = await route_matrix.get_complete_matrix(
+                session,
+                trip,
+                candidate_places,
+                route_provider,
+                start_node=target_start_node,
+            )
+        except ValueError as exc:
+            raise RouteValidationError(str(exc)) from exc
+
+        _, weekly_hours = load_planner_inputs(session, trip, candidate_places)
+
+        candidate_saved_rows: list[UserSavedPlace] = []
+        for place in candidate_places:
+            sp = session.exec(
+                select(UserSavedPlace).where(
+                    UserSavedPlace.trip_id == trip_id,
+                    UserSavedPlace.place_id == place.id,
+                )
+            ).first()
+            if place.id == request.place_id:
+                candidate_saved_rows.append(
+                    UserSavedPlace(
+                        trip_id=trip_id,
+                        place_id=place.id,
+                        assignment_mode="LOCKED",
+                        assigned_day_id=target_day.id,
+                        priority=sp.priority if sp else 0,
+                        must_visit=sp.must_visit if sp else False,
+                    )
+                )
+            else:
+                candidate_saved_rows.append(
+                    UserSavedPlace(
+                        trip_id=trip_id,
+                        place_id=place.id,
+                        assignment_mode="LOCKED",
+                        assigned_day_id=target_day.id,
+                        priority=sp.priority if sp else 0,
+                        must_visit=sp.must_visit if sp else False,
+                    )
+                )
+
+        target_day_eval = TripDay(
+            id=target_day.id,
+            trip_id=trip_id,
+            day_number=target_day.day_number,
+            date=target_day.date,
+            day_type=target_day.day_type,
+            start_time=effective_start_time,
+            end_time=target_day.end_time,
+        )
+        solver = VrptwSolverService(time_limit_seconds=1.5)
+        solution = solver.solve(
+            start_node=target_start_node,
+            place_nodes=place_nodes,
+            places=candidate_places,
+            saved_rows=candidate_saved_rows,
+            matrix=matrix,
+            trip_days=1,
+            start_date=target_day.date,
+            day_configs=[target_day_eval],
+            weekly_hours_map=weekly_hours,
+        )
+
+        # Infeasible if not every candidate place could fit on target day
+        if len(solution.optimized_places) != len(candidate_places):
+            return MoveItineraryPlaceResponse(
+                success=False,
+                reason="TARGET_DAY_INFEASIBLE",
+                trip_id=trip_id,
+                place_id=request.place_id,
+                source_day_number=source_day_number,
+                target_day_number=target_day.day_number,
+            )
+
+        # 4. Commit Target Day
+        session.exec(
+            delete(TripItinerary).where(
+                TripItinerary.trip_id == trip_id,
+                TripItinerary.day_number == target_day.day_number,
+                TripItinerary.status != "COMPLETED",
+            )
+        )
+        session.flush()
+
+        k_target = len(completed_target)
+        for item in solution.optimized_places:
+            k_target += 1
+            session.add(
+                TripItinerary(
+                    id=uuid4(),
+                    trip_id=trip_id,
+                    place_id=item.place_id,
+                    day_number=target_day.day_number,
+                    visit_order=k_target,
+                    planned_arrival_time=item.planned_arrival_time,
+                    planned_departure_time=item.planned_departure_time,
+                    distance_from_previous=item.distance_from_previous,
+                    travel_time_minutes=item.travel_time_minutes,
+                    status="PLANNED",
+                )
+            )
+
+        # Update UserSavedPlace lock for moved place
+        if saved_place is None:
+            saved_place = UserSavedPlace(
+                trip_id=trip_id,
+                place_id=request.place_id,
+                assignment_mode="LOCKED",
+                assigned_day_id=target_day.id,
+            )
+        else:
+            saved_place.assignment_mode = "LOCKED"
+            saved_place.assigned_day_id = target_day.id
+        session.add(saved_place)
+
+        # 5. Commit Source Day
+        if source_day_number is not None:
+            session.exec(
+                delete(TripItinerary).where(
+                    TripItinerary.trip_id == trip_id,
+                    TripItinerary.place_id == request.place_id,
+                    TripItinerary.day_number == source_day_number,
+                )
+            )
+            session.flush()
+
+            source_stops = list(
+                session.exec(
+                    select(TripItinerary)
+                    .where(
+                        TripItinerary.trip_id == trip_id,
+                        TripItinerary.day_number == source_day_number,
+                    )
+                    .order_by(TripItinerary.visit_order)
+                ).all()
+            )
+            completed_source = [s for s in source_stops if s.status == "COMPLETED"]
+            planned_source = [s for s in source_stops if s.status == "PLANNED"]
+
+            if planned_source:
+                source_day = session.exec(
+                    select(TripDay).where(
+                        TripDay.trip_id == trip_id,
+                        TripDay.day_number == source_day_number,
+                    )
+                ).first()
+
+                if (
+                    source_day
+                    and source_day.start_time
+                    and source_day.end_time
+                    and source_day.end_time > source_day.start_time
+                ):
+                    src_places = [
+                        session.get(Place, s.place_id) for s in planned_source
+                    ]
+                    src_places = [p for p in src_places if p is not None]
+
+                    if completed_source:
+                        last_src_comp = completed_source[-1]
+                        last_src_place = session.get(Place, last_src_comp.place_id)
+                        src_start_node = RouteNode.for_place(last_src_place)
+                        src_eff_start = max(
+                            source_day.start_time,
+                            last_src_comp.planned_departure_time
+                            or source_day.start_time,
+                        )
+                    else:
+                        src_start_node = RouteNode.for_start(trip)
+                        src_eff_start = source_day.start_time
+
+                    if src_eff_start < source_day.end_time and src_places:
+                        (
+                            src_start_node,
+                            src_place_nodes,
+                            src_matrix,
+                        ) = await route_matrix.get_complete_matrix(
+                            session,
+                            trip,
+                            src_places,
+                            route_provider,
+                            start_node=src_start_node,
+                        )
+                        _, src_weekly = load_planner_inputs(session, trip, src_places)
+                        src_saved_rows = [
+                            UserSavedPlace(
+                                trip_id=trip_id,
+                                place_id=p.id,
+                                assignment_mode="LOCKED",
+                                assigned_day_id=source_day.id,
+                            )
+                            for p in src_places
+                        ]
+                        src_day_eval = TripDay(
+                            id=source_day.id,
+                            trip_id=trip_id,
+                            day_number=source_day.day_number,
+                            date=source_day.date,
+                            day_type=source_day.day_type,
+                            start_time=src_eff_start,
+                            end_time=source_day.end_time,
+                        )
+                        src_solution = solver.solve(
+                            start_node=src_start_node,
+                            place_nodes=src_place_nodes,
+                            places=src_places,
+                            saved_rows=src_saved_rows,
+                            matrix=src_matrix,
+                            trip_days=1,
+                            start_date=source_day.date,
+                            day_configs=[src_day_eval],
+                            weekly_hours_map=src_weekly,
+                        )
+
+                        session.exec(
+                            delete(TripItinerary).where(
+                                TripItinerary.trip_id == trip_id,
+                                TripItinerary.day_number == source_day_number,
+                                TripItinerary.status == "PLANNED",
+                            )
+                        )
+                        session.flush()
+
+                        k_src = len(completed_source)
+                        for item in src_solution.optimized_places:
+                            k_src += 1
+                            session.add(
+                                TripItinerary(
+                                    id=uuid4(),
+                                    trip_id=trip_id,
+                                    place_id=item.place_id,
+                                    day_number=source_day_number,
+                                    visit_order=k_src,
+                                    planned_arrival_time=item.planned_arrival_time,
+                                    planned_departure_time=item.planned_departure_time,
+                                    distance_from_previous=item.distance_from_previous,
+                                    travel_time_minutes=item.travel_time_minutes,
+                                    status="PLANNED",
+                                )
+                            )
+
+        session.commit()
+
+        # Build response with updated day itineraries
+        full_itinerary = self.get_trip_itinerary(session, trip_id)
+        source_itin = (
+            [
+                p
+                for p in full_itinerary.optimized_places
+                if p.day_number == source_day_number
+            ]
+            if source_day_number is not None
+            else []
+        )
+        target_itin = [
+            p
+            for p in full_itinerary.optimized_places
+            if p.day_number == target_day.day_number
+        ]
+
+        return MoveItineraryPlaceResponse(
+            success=True,
+            reason=None,
+            trip_id=trip_id,
+            place_id=request.place_id,
+            source_day_number=source_day_number,
+            target_day_number=target_day.day_number,
+            source_itinerary=source_itin,
+            target_itinerary=target_itin,
+            updated_itinerary=full_itinerary,
         )

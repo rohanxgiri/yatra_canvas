@@ -81,6 +81,8 @@ class _FakeSavedPlaceService implements SavedPlaceService {
     int? customOrder,
     bool isLocked = false,
     bool mustVisit = false,
+    AssignmentMode assignmentMode = AssignmentMode.auto,
+    String? assignedDayId,
     String? notes,
     int priority = 0,
   }) async {
@@ -96,6 +98,8 @@ class _FakeSavedPlaceService implements SavedPlaceService {
       priority: priority,
       isLocked: isLocked,
       mustVisit: mustVisit,
+      assignmentMode: assignmentMode,
+      assignedDayId: assignedDayId,
       place: Place(
         id: placeId,
         cityId: 'city-kochi',
@@ -127,7 +131,27 @@ class _FakeSavedPlaceService implements SavedPlaceService {
   }
 
   @override
-  Future<SavedPlace> updateSettings(String tripId, String placeId, {String? notes, int? priority, bool? isLocked, bool? mustVisit, int? customOrder}) async {
+  Future<SavedPlace> updateSettings(
+    String tripId,
+    String placeId, {
+    required int customOrder,
+    required bool isLocked,
+    required bool mustVisit,
+    required int priority,
+    AssignmentMode? assignmentMode,
+    String? assignedDayId,
+    String? notes,
+  }) async {
+    return _saved.firstWhere((sp) => sp.placeId == placeId);
+  }
+
+  @override
+  Future<SavedPlace> updateAssignment(
+    String tripId,
+    String placeId, {
+    required AssignmentMode assignmentMode,
+    String? assignedDayId,
+  }) async {
     return _saved.firstWhere((sp) => sp.placeId == placeId);
   }
 }

@@ -281,6 +281,10 @@ conditions.
 
 ### Database change
 
+Read [`sql/README.md`](sql/README.md) before applying any manual SQL. It records dependency order,
+superseded scripts, rollback boundaries, and the latest read-only configured-database audit.
+Do not execute the directory alphabetically.
+
 Existing databases need the reversible scripts reviewed and applied in the
 safe migration environment:
 

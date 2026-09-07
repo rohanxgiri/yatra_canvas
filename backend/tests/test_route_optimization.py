@@ -344,11 +344,10 @@ def test_locked_must_visit_and_priority_constraints_are_respected(
 
     response = client.post(f"/trips/{trip_id}/optimize-route")
     assert response.status_code == 200
-    assert [item["name"] for item in response.json()["optimized_places"]] == [
-        "Locked A",
-        "Priority B",
-        "Nearby C",
-    ]
+    stops = response.json()["optimized_places"]
+    assert stops[0]["name"] == "Locked A"
+    assert {item["name"] for item in stops} == {"Locked A", "Priority B", "Nearby C"}
+    # Priority affects retention; it must not impose infeasible visit precedence.
 
 
 def test_stale_complete_cache_supports_offline_static_reuse(
@@ -520,7 +519,7 @@ def test_multi_day_chunking_respects_time_budget(
     assert [p["day_number"] for p in optimized] == [1, 2, 3, 4, 5]
 
 
-def test_infeasible_trip_drops_must_visit_raises_error(
+def test_infeasible_trip_returns_unscheduled_must_visits(
     client_engine_routes: tuple[TestClient, Engine, FakeGoogleRoutesService],
 ) -> None:
     client, engine, routes = client_engine_routes
@@ -550,11 +549,14 @@ def test_infeasible_trip_drops_must_visit_raises_error(
         session.commit()
 
     response = client.post(f"/trips/{trip_id}/optimize-route")
-    assert response.status_code == 422
-    assert response.json()["detail"] == "Cannot fit all must-visit places within the trip duration."
+    assert response.status_code == 200
+    body = response.json()
+    assert body["optimized_places"]
+    assert body["unscheduled_places"]
+    assert len(body["optimized_places"]) + len(body["unscheduled_places"]) == 5
 
 
-def test_fewer_places_than_days_raises_error(
+def test_fewer_places_than_days_preserves_empty_days(
     client_engine_routes: tuple[TestClient, Engine, FakeGoogleRoutesService],
 ) -> None:
     client, engine, _ = client_engine_routes
@@ -569,5 +571,52 @@ def test_fewer_places_than_days_raises_error(
         session.commit()
         
     response = client.post(f"/trips/{trip_id}/optimize-route")
-    assert response.status_code == 422
-    assert "Select at least 5 places" in response.json()["detail"]
+    assert response.status_code == 200
+    assert response.json()["total_days"] == 5
+    assert len(response.json()["optimized_places"]) == 1
+
+
+def test_persisted_days_hours_and_preview_use_same_constraints(client_engine_routes):
+    from datetime import date, time
+    from app.models.entities import TripDay, PlaceOpeningHours
+    from app.services.smart_replanning_service import SmartReplanningService
+    from app.services.route_matrix_service import RouteMatrixService
+    import asyncio
+
+    client, engine, provider = client_engine_routes
+    city = _create_city(client)
+    places = [_create_place(client, str(city["id"]), f"Stored {i}", 23.18+i*.01) for i in range(3)]
+    trip_id = _seed_trip_and_saved_places(engine, str(city["id"]), [p["id"] for p in places])
+    with Session(engine) as session:
+        trip = session.get(Trip, trip_id)
+        trip.days = 3
+        days = [TripDay(trip_id=trip.id, day_number=n, date=date(2026,9,6+n),
+                        day_type="REST" if n==2 else "HALF_DAY",
+                        start_time=time(14), end_time=time(17)) for n in range(1,4)]
+        session.add_all(days)
+        row = session.exec(select(UserSavedPlace).where(UserSavedPlace.trip_id==trip.id,
+                    UserSavedPlace.place_id==UUID(places[0]["id"]))).one()
+        row.assignment_mode, row.assigned_day_id = "LOCKED", days[2].id
+        for weekday in (0,2):
+            session.add(PlaceOpeningHours(place_id=UUID(places[1]["id"]),
+                        day_of_week=weekday,status="CLOSED"))
+            session.add(PlaceOpeningHours(place_id=UUID(places[0]["id"]),
+                        day_of_week=weekday,status="KNOWN",intervals=[{"open":"15:00","close":"17:00"}]))
+        session.add(trip)
+        session.commit()
+        preview = asyncio.run(SmartReplanningService().get_replan_preview(
+            session, trip.id, provider, RouteMatrixService()))
+        assert session.exec(select(TripItinerary).where(TripItinerary.trip_id==trip.id)).all()==[]
+        assert preview.unscheduled_places[0].reason=="CLOSED_ON_AVAILABLE_DAYS"
+        locked=next(p for p in preview.proposed_itinerary if str(p.place_id)==places[0]["id"])
+        assert locked.day_number==3 and locked.planned_arrival_time>=time(15)
+    response=client.post(f"/trips/{trip_id}/optimize-route")
+    assert response.status_code==200
+    body=response.json()
+    assert body["unscheduled_places"][0]["reason"]=="CLOSED_ON_AVAILABLE_DAYS"
+    assert {p["day_number"] for p in body["optimized_places"]} <= {1,3}
+    assert next(p for p in body["optimized_places"] if p["place_id"]==places[0]["id"])["is_opening_hours_known"]
+    with Session(engine) as session:
+        stored=session.exec(select(TripItinerary).where(TripItinerary.trip_id==trip_id)).all()
+        assert len(stored)==len(body["optimized_places"])
+        assert all(p.planned_arrival_time is not None and p.planned_departure_time<=time(17) for p in stored)

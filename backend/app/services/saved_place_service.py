@@ -7,11 +7,14 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from app.models import Place, Trip, UserSavedPlace
+from app.models import Place, Trip, TripDay, UserSavedPlace
 from app.schemas import (
+    AssignmentMode,
+    DayType,
     PlaceRead,
     SavedPlaceCreate,
     SavedPlaceUpdate,
+    SavedPlaceOrder,
     SavedPlaceRead,
     SavedPlaceReorder,
 )
@@ -38,6 +41,10 @@ class DuplicateSavedPlaceError(SavedPlaceServiceError):
 
 
 class InvalidSavedPlaceOrderError(SavedPlaceServiceError):
+    pass
+
+
+class InvalidSavedPlaceAssignmentError(SavedPlaceServiceError):
     pass
 
 
@@ -71,6 +78,13 @@ class SavedPlaceService:
             if row.custom_order is not None and row.custom_order >= requested_order:
                 row.custom_order += 1
 
+        mode, day_id = self._validate_and_resolve_assignment(
+            session=session,
+            trip_id=trip_id,
+            assignment_mode=request.assignment_mode,
+            assigned_day_id=request.assigned_day_id,
+        )
+
         saved = UserSavedPlace(
             trip_id=trip_id,
             place_id=request.place_id,
@@ -78,6 +92,8 @@ class SavedPlaceService:
             priority=request.priority,
             is_locked=request.is_locked,
             must_visit=request.must_visit,
+            assignment_mode=mode,
+            assigned_day_id=day_id,
             notes=request.notes,
         )
         session.add(saved)
@@ -122,6 +138,18 @@ class SavedPlaceService:
             saved.is_locked = request.is_locked
         if "must_visit" in fields and request.must_visit is not None:
             saved.must_visit = request.must_visit
+        if "assignment_mode" in fields or "assigned_day_id" in fields:
+            req_mode = request.assignment_mode if "assignment_mode" in fields else None
+            req_day_id = request.assigned_day_id if "assigned_day_id" in fields else None
+            mode, day_id = self._validate_and_resolve_assignment(
+                session=session,
+                trip_id=trip_id,
+                assignment_mode=req_mode,
+                assigned_day_id=req_day_id,
+                current_saved=saved,
+            )
+            saved.assignment_mode = mode
+            saved.assigned_day_id = day_id
         if "custom_order" in fields and request.custom_order is not None:
             rows = [
                 row
@@ -157,6 +185,66 @@ class SavedPlaceService:
             by_place_id[item.place_id].custom_order = item.custom_order
         session.commit()
         return self.list(session, trip_id)
+
+    def _validate_and_resolve_assignment(
+        self,
+        session: Session,
+        trip_id: UUID,
+        assignment_mode: AssignmentMode | str | None,
+        assigned_day_id: UUID | None,
+        current_saved: UserSavedPlace | None = None,
+    ) -> tuple[str, UUID | None]:
+        mode_str = (
+            assignment_mode.value
+            if isinstance(assignment_mode, AssignmentMode)
+            else (str(assignment_mode) if assignment_mode is not None else None)
+        )
+
+        if mode_str is None and assigned_day_id is not None:
+            mode_str = AssignmentMode.LOCKED.value
+
+        if mode_str is None:
+            if current_saved is not None:
+                mode_str = current_saved.assignment_mode
+                assigned_day_id = current_saved.assigned_day_id
+            else:
+                mode_str = AssignmentMode.AUTO.value
+                assigned_day_id = None
+
+        if mode_str == AssignmentMode.AUTO.value:
+            if assigned_day_id is not None:
+                raise InvalidSavedPlaceAssignmentError(
+                    "assigned_day_id must be null when assignment_mode is AUTO."
+                )
+            return AssignmentMode.AUTO.value, None
+
+        if mode_str == AssignmentMode.LOCKED.value:
+            if assigned_day_id is None:
+                if current_saved is not None and current_saved.assigned_day_id is not None:
+                    assigned_day_id = current_saved.assigned_day_id
+                else:
+                    raise InvalidSavedPlaceAssignmentError(
+                        "assigned_day_id is required when assignment_mode is LOCKED."
+                    )
+
+            day = session.get(TripDay, assigned_day_id)
+            if day is None:
+                raise InvalidSavedPlaceAssignmentError("Assigned day not found.")
+            if day.trip_id != trip_id:
+                raise InvalidSavedPlaceAssignmentError(
+                    "Assigned day does not belong to this trip."
+                )
+            if day.day_type == DayType.REST.value:
+                raise InvalidSavedPlaceAssignmentError(
+                    f"Cannot lock place to Day {day.day_number} because it is a REST day."
+                )
+            if day.start_time is None or day.end_time is None or day.end_time <= day.start_time:
+                raise InvalidSavedPlaceAssignmentError(
+                    f"Cannot lock place to Day {day.day_number} because it has no usable sightseeing window."
+                )
+            return AssignmentMode.LOCKED.value, day.id
+
+        raise InvalidSavedPlaceAssignmentError(f"Unsupported assignment_mode: {mode_str}")
 
     @staticmethod
     def _require_trip(session: Session, trip_id: UUID) -> Trip:
@@ -219,6 +307,10 @@ class SavedPlaceService:
             priority=saved.priority,
             is_locked=saved.is_locked,
             must_visit=saved.must_visit,
+            assignment_mode=AssignmentMode(saved.assignment_mode)
+            if saved.assignment_mode
+            else AssignmentMode.AUTO,
+            assigned_day_id=saved.assigned_day_id,
             notes=saved.notes,
             created_at=saved.created_at,
             place=PlaceRead.model_validate(place),

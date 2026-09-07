@@ -14,8 +14,9 @@ from uuid import UUID
 
 from sqlmodel import Session, select
 
-from app.models import City, Place, PlaceSource, PlaceTag
+from app.models import City, Place, PlaceOpeningHours, PlaceSource, PlaceTag
 from app.schemas import DiscoveryCategory
+from app.services.opening_hours_parser import OpeningHoursParser
 from app.services.place_deduplication_service import (
     haversine_distance_meters,
     normalize_name_for_dedupe,
@@ -137,6 +138,7 @@ class CanonicalPlaceService:
         telephone: str | None = None,
         website: str | None = None,
         wikidata_id: str | None = None,
+        raw_opening_hours: str | None = None,
         fetched_at: datetime | None = None,
     ) -> tuple[Place, PlaceSource]:
         """Resolve candidate place to a canonical Place row and upsert PlaceSource.
@@ -151,6 +153,14 @@ class CanonicalPlaceService:
         now = fetched_at or datetime.now(timezone.utc)
         cat_str = category.value if isinstance(category, DiscoveryCategory) else str(category)
         is_heritage_cat = cat_str == DiscoveryCategory.HERITAGE.value
+
+        # Extract effective raw opening hours
+        effective_raw_opening_hours = (
+            raw_opening_hours
+            or (tags.get("opening_hours") if tags else None)
+        )
+        if effective_raw_opening_hours and isinstance(effective_raw_opening_hours, str):
+            effective_raw_opening_hours = effective_raw_opening_hours.strip() or None
 
         # Extract strong Wikidata ID
         effective_wikidata_id = wikidata_id or extract_wikidata_id(
@@ -195,6 +205,8 @@ class CanonicalPlaceService:
                         **existing_source.social_identifiers,
                         **raw_metrics,
                     }
+                if effective_raw_opening_hours:
+                    existing_source.raw_opening_hours = effective_raw_opening_hours
 
                 # Update canonical place metadata if missing
                 if effective_wikidata_id and not place.wikidata_id:
@@ -205,6 +217,15 @@ class CanonicalPlaceService:
                     if place.importance_score is None or prominence > place.importance_score:
                         place.importance_score = prominence
                 place.last_fetched_at = now
+
+                # Ingest opening hours if provided and place doesn't already have them
+                if effective_raw_opening_hours:
+                    place.raw_opening_hours = effective_raw_opening_hours
+                    place.opening_hours_status = self._upsert_place_opening_hours(
+                        session, place.id, effective_raw_opening_hours
+                    )
+                elif not place.opening_hours_status:
+                    place.opening_hours_status = "UNKNOWN"
 
                 session.flush()
                 self._ensure_place_tag(session, place.id, cat_str)
@@ -276,8 +297,21 @@ class CanonicalPlaceService:
                     telephone=telephone,
                     website=website,
                     social_identifiers=raw_metrics,
+                    raw_opening_hours=effective_raw_opening_hours,
                     fetched_at=now,
                 )
+
+                if effective_raw_opening_hours and (
+                    not matched_place.raw_opening_hours
+                    or matched_place.opening_hours_status == "UNKNOWN"
+                ):
+                    matched_place.raw_opening_hours = effective_raw_opening_hours
+                    matched_place.opening_hours_status = self._upsert_place_opening_hours(
+                        session, matched_place.id, effective_raw_opening_hours
+                    )
+                elif not matched_place.opening_hours_status:
+                    matched_place.opening_hours_status = "UNKNOWN"
+
                 session.flush()
                 self._ensure_place_tag(session, matched_place.id, cat_str)
                 return matched_place, source
@@ -343,8 +377,21 @@ class CanonicalPlaceService:
                 telephone=telephone,
                 website=website,
                 social_identifiers=raw_metrics,
+                raw_opening_hours=effective_raw_opening_hours,
                 fetched_at=now,
             )
+
+            if effective_raw_opening_hours and (
+                not matched_fallback_place.raw_opening_hours
+                or matched_fallback_place.opening_hours_status == "UNKNOWN"
+            ):
+                matched_fallback_place.raw_opening_hours = effective_raw_opening_hours
+                matched_fallback_place.opening_hours_status = self._upsert_place_opening_hours(
+                    session, matched_fallback_place.id, effective_raw_opening_hours
+                )
+            elif not matched_fallback_place.opening_hours_status:
+                matched_fallback_place.opening_hours_status = "UNKNOWN"
+
             session.flush()
             self._ensure_place_tag(session, matched_fallback_place.id, cat_str)
             return matched_fallback_place, source
@@ -352,6 +399,11 @@ class CanonicalPlaceService:
         # ---------------------------------------------------------------------
         # Rule 4: New Canonical Place Creation
         # ---------------------------------------------------------------------
+        oh_status = "UNKNOWN"
+        if effective_raw_opening_hours:
+            parsed_hours = OpeningHoursParser.parse(effective_raw_opening_hours)
+            oh_status = parsed_hours.status.value
+
         new_place = Place(
             city_id=city.id,
             name=name,
@@ -366,9 +418,16 @@ class CanonicalPlaceService:
             wikidata_id=effective_wikidata_id,
             importance_score=prominence if prominence > 0.0 else None,
             last_fetched_at=now,
+            opening_hours_status=oh_status,
+            raw_opening_hours=effective_raw_opening_hours,
         )
         session.add(new_place)
         session.flush()
+
+        if effective_raw_opening_hours:
+            self._upsert_place_opening_hours(
+                session, new_place.id, effective_raw_opening_hours
+            )
 
         source = self._upsert_place_source(
             session=session,
@@ -381,6 +440,7 @@ class CanonicalPlaceService:
             telephone=telephone,
             website=website,
             social_identifiers=raw_metrics,
+            raw_opening_hours=effective_raw_opening_hours,
             fetched_at=now,
         )
         session.flush()
@@ -399,6 +459,7 @@ class CanonicalPlaceService:
     ) -> tuple[Place, PlaceSource]:
         """Convenience wrapper accepting an OpenStreetMapNearbyPlace instance."""
         tags = getattr(nearby, "tags", {}) or {}
+        raw_hours = tags.get("opening_hours")
         return self.resolve_or_create_place(
             session=session,
             city=city,
@@ -414,6 +475,7 @@ class CanonicalPlaceService:
             telephone=self._bounded(tags.get("phone"), 80),
             website=self._bounded(tags.get("website"), 1000),
             wikidata_id=extract_wikidata_id(nearby.external_place_id, tags),
+            raw_opening_hours=raw_hours,
             fetched_at=fetched_at,
         )
 
@@ -430,6 +492,7 @@ class CanonicalPlaceService:
         website: str | None,
         fetched_at: datetime,
         social_identifiers: dict[str, str] | None = None,
+        raw_opening_hours: str | None = None,
     ) -> PlaceSource:
         """Upsert PlaceSource record respecting database uniqueness constraints."""
         # Check by (source, external_place_id)
@@ -458,6 +521,8 @@ class CanonicalPlaceService:
                     **source.social_identifiers,
                     **social_identifiers,
                 }
+            if raw_opening_hours:
+                source.raw_opening_hours = raw_opening_hours
             return source
 
         # Check by (place_id, source)
@@ -486,6 +551,8 @@ class CanonicalPlaceService:
                     **source.social_identifiers,
                     **social_identifiers,
                 }
+            if raw_opening_hours:
+                source.raw_opening_hours = raw_opening_hours
             return source
 
         new_source = PlaceSource(
@@ -498,10 +565,46 @@ class CanonicalPlaceService:
             telephone=self._bounded(telephone, 80),
             website=self._bounded(website, 1000),
             social_identifiers=social_identifiers or {},
+            raw_opening_hours=raw_opening_hours,
             last_fetched_at=fetched_at,
         )
         session.add(new_source)
         return new_source
+
+    def _upsert_place_opening_hours(
+        self,
+        session: Session,
+        place_id: UUID,
+        raw_opening_hours: str | None,
+    ) -> str:
+        """Parse raw opening hours, upsert PlaceOpeningHours records, and return overall status."""
+        parsed = OpeningHoursParser.parse(raw_opening_hours)
+        now = datetime.now(timezone.utc)
+
+        existing_hours = session.exec(
+            select(PlaceOpeningHours).where(PlaceOpeningHours.place_id == place_id)
+        ).all()
+        by_day = {h.day_of_week: h for h in existing_hours}
+
+        for day_idx, schedule in parsed.days.items():
+            existing = by_day.get(day_idx)
+            intervals_data = schedule.intervals_dicts()
+            if existing is not None:
+                existing.status = schedule.status.value
+                existing.intervals = intervals_data
+                existing.updated_at = now
+            else:
+                new_entry = PlaceOpeningHours(
+                    place_id=place_id,
+                    day_of_week=day_idx,
+                    status=schedule.status.value,
+                    intervals=intervals_data,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(new_entry)
+
+        return parsed.status.value
 
     @staticmethod
     def _ensure_place_tag(session: Session, place_id: UUID, tag: str) -> None:

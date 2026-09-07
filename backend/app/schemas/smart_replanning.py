@@ -1,13 +1,47 @@
 """Schemas for smart trip re-planning and change impact evaluation."""
 
 from datetime import time
-from typing import Literal
+from enum import Enum
 from uuid import UUID
 
 from pydantic import Field
 from sqlmodel import SQLModel
 
-from app.schemas.route_optimization import ItineraryBreakRead, OptimizedPlaceRead
+from app.schemas.route_optimization import (
+    ItineraryBreakRead,
+    OptimizedPlaceRead,
+    RouteOptimizationRead,
+    UnscheduledPlaceRead,
+)
+
+
+class ItineraryStopStatus(str, Enum):
+    PLANNED = "PLANNED"
+    COMPLETED = "COMPLETED"
+    MISSED = "MISSED"
+    SKIPPED = "SKIPPED"
+
+
+class ItineraryStopStatusUpdate(SQLModel):
+    status: ItineraryStopStatus
+
+
+class MoveItineraryPlaceRequest(SQLModel):
+    place_id: UUID
+    target_day_number: int | None = Field(default=None, ge=1)
+    target_day_id: UUID | None = None
+
+
+class MoveItineraryPlaceResponse(SQLModel):
+    success: bool
+    reason: str | None = None
+    trip_id: UUID
+    place_id: UUID
+    source_day_number: int | None = None
+    target_day_number: int | None = None
+    source_itinerary: list[OptimizedPlaceRead] = Field(default_factory=list)
+    target_itinerary: list[OptimizedPlaceRead] = Field(default_factory=list)
+    updated_itinerary: RouteOptimizationRead | None = None
 
 
 class MovedPlaceRead(SQLModel):
@@ -38,3 +72,4 @@ class TripReplanPreviewRead(SQLModel):
     proposed_itinerary: list[OptimizedPlaceRead] = Field(default_factory=list)
     breaks: list[ItineraryBreakRead] = Field(default_factory=list)
     conflicts: list[str] = Field(default_factory=list)
+    unscheduled_places: list[UnscheduledPlaceRead] = Field(default_factory=list)

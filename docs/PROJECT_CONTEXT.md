@@ -1,6 +1,6 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-09-04
+Last reviewed: 2026-09-07
 Last verified against repository: 2026-09-04
 
 This document is the concise, authoritative primary overview for humans and agents. Status labels mean:
@@ -174,3 +174,17 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
 - **[Decisions](DECISIONS.md)**: Accepted Architectural Decision Records (ADRs).
 - **[Repository audit](REPOSITORY_AUDIT.md)**: Detailed September 4, 2026 audit of codebase health, tests, and branch status.
 - **[Complete ChatGPT handoff](CHATGPT_PROJECT_HANDOFF.md)**: Concise onboarding document for new AI/human sessions.
+
+## Day-aware planner update — 2026-09-07
+
+`[IMPLEMENTED]` Verified planner slice: the existing OR-Tools planner consumes actual
+TripDay windows, native assigned-day locks and normalized weekday opening intervals. It returns
+scheduled plus structured unscheduled places, keeps UNKNOWN hours unverified, and accepts
+underfilled trips and up to 50 selections. Full-trip previews use the same inputs. See
+[implementation report](PLANNER_IMPLEMENTATION.md) for exact behavior and measured solve times.
+# Core trip flow reliability status (2026-09-07)
+
+`[IMPLEMENTED]` The repository now has deterministic end-to-end coverage from trip creation through
+TripDay configuration, selection, assignment, planning, map viewing, execution status, and partial
+replanning. See [`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md). No new product feature
+or provider was introduced.

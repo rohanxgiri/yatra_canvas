@@ -41,8 +41,19 @@ class TripCityNotFoundError(TripServiceError):
 
 
 class TripService:
-    def __init__(self, *, development_user_id: UUID = DEVELOPMENT_USER_ID) -> None:
+    def __init__(
+        self,
+        *,
+        development_user_id: UUID = DEVELOPMENT_USER_ID,
+        trip_day_service: object | None = None,
+    ) -> None:
         self._development_user_id = development_user_id
+        if trip_day_service is None:
+            from app.services.trip_day_service import TripDayService
+
+            self._trip_day_service = TripDayService()
+        else:
+            self._trip_day_service = trip_day_service
 
     def create(self, session: Session, request: TripCreate) -> TripRead:
         city = session.get(City, request.city_id)
@@ -92,6 +103,9 @@ class TripService:
                 )
                 for preference in preference_values
             )
+            self._trip_day_service.create_default_trip_days(
+                session, trip.id, trip.start_date, trip.days
+            )
             session.commit()
             session.refresh(trip)
         except Exception:
@@ -123,6 +137,10 @@ class TripService:
                 raise TripCityNotFoundError("City not found.")
             trip.city_id = new_city.id
             city_changed = True
+
+        dates_changed = False
+        original_start = trip.start_date
+        original_days = trip.days
 
         effective_start = (
             request.start_date
@@ -166,6 +184,9 @@ class TripService:
                     if request.days < 1:
                         raise TripServiceError("Days must be greater than zero.")
                     trip.days = request.days
+
+            if trip.start_date != original_start or trip.days != original_days:
+                dates_changed = True
 
         if request.trip_name is not None:
             trip.trip_name = request.trip_name
@@ -255,6 +276,11 @@ class TripService:
                 )
 
         try:
+            if dates_changed and trip.start_date is not None:
+                self._trip_day_service.reconcile_trip_days_on_date_change(
+                    session, trip, trip.start_date, trip.days
+                )
+
             # Invalidation behavior:
             # If city changed, invalidate all route matrix cache and itinerary for this trip.
             # If only start coordinates changed, invalidate only start-related directional legs.

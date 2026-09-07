@@ -14,7 +14,10 @@ from app.services.google_routes_service import (
     GoogleRoutesUnavailableError,
     RouteMatrixLeg,
 )
-from app.services.itinerary_timing_service import ItineraryTimingService, PlaceOpeningHours
+from app.services.itinerary_timing_service import (
+    PlaceOpeningHours,
+)
+from app.services.planner_inputs import load_planner_inputs
 from app.services.route_matrix_service import (
     RouteMatrixProvider,
     RouteMatrixService,
@@ -28,7 +31,7 @@ if TYPE_CHECKING:
         RouteGeometryService,
     )
 
-MAX_SELECTED_PLACES = 24
+MAX_SELECTED_PLACES = 50
 
 
 class RouteOptimizationError(Exception):
@@ -82,10 +85,6 @@ class RouteOptimizationService:
                 str(row.id),
             )
         )
-        if len(saved_rows) < trip.days:
-            raise RouteValidationError(
-                f"Select at least {trip.days} places (one per day) before optimizing the route."
-            )
         if len(saved_rows) > MAX_SELECTED_PLACES:
             raise RouteValidationError(
                 f"Route optimization currently supports up to {MAX_SELECTED_PLACES} selected places."
@@ -118,6 +117,7 @@ class RouteOptimizationService:
             raise RouteValidationError(str(exc)) from exc
 
         # Use Google OR-Tools VRPTW solver
+        day_configs, weekly_hours = load_planner_inputs(session, trip, places)
         vrptw_solver = VrptwSolverService()
         try:
             solution = vrptw_solver.solve(
@@ -127,6 +127,8 @@ class RouteOptimizationService:
                 saved_rows=saved_rows,
                 matrix=matrix,
                 trip_days=trip.days,
+                day_configs=day_configs,
+                weekly_hours_map=weekly_hours,
                 start_date=trip.start_date,
                 opening_hours_map=opening_hours_map,
             )
@@ -145,25 +147,28 @@ class RouteOptimizationService:
             )
         )
         if scheduled_places:
-            session.execute(
-                insert(TripItinerary).values(
-                    [
-                        {
-                            "id": uuid4(),
-                            "trip_id": trip_id,
-                            "place_id": item.place_id,
-                            "day_number": item.day_number,
-                            "visit_order": item.visit_order,
-                            "planned_arrival_time": item.planned_arrival_time,
-                            "planned_departure_time": item.planned_departure_time,
-                            "distance_from_previous": item.distance_from_previous,
-                            "travel_time_minutes": item.travel_time_minutes,
-                        }
-                        for item in scheduled_places
-                    ]
+            itinerary_values = []
+            for item in scheduled_places:
+                stop_id = uuid4()
+                item.id = stop_id
+                item.status = "PLANNED"
+                itinerary_values.append(
+                    {
+                        "id": stop_id,
+                        "trip_id": trip_id,
+                        "place_id": item.place_id,
+                        "day_number": item.day_number,
+                        "visit_order": item.visit_order,
+                        "planned_arrival_time": item.planned_arrival_time,
+                        "planned_departure_time": item.planned_departure_time,
+                        "distance_from_previous": item.distance_from_previous,
+                        "travel_time_minutes": item.travel_time_minutes,
+                        "status": "PLANNED",
+                    }
                 )
-            )
+            session.execute(insert(TripItinerary).values(itinerary_values))
         session.commit()
+
 
         # Fetch route geometry for final route if provider is available
         route_geometry = None
@@ -186,6 +191,7 @@ class RouteOptimizationService:
             total_days=trip.days,
             breaks=breaks,
             conflicts=conflicts,
+            unscheduled_places=solution.unscheduled_places,
             route_geometry=route_geometry,
         )
 

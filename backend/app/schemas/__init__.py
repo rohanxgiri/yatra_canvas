@@ -9,6 +9,7 @@ from app.schemas.city import (
 )
 from app.schemas.place import (
     GoogleNearbyPlace,
+    OpeningHoursInterval,
     PlaceCreate,
     PlacePrefetchRequest,
     PlacePrefetchResponse,
@@ -26,6 +27,7 @@ from app.schemas.recommendation import (
     RecommendationRequest,
 )
 from app.schemas.saved_place import (
+    AssignmentMode,
     SavedPlaceCreate,
     SavedPlaceUpdate,
     SavedPlaceOrder,
@@ -42,6 +44,11 @@ from app.schemas.trip import (
     TripStartLocationUpdate,
     TripUpdate,
 )
+from app.schemas.trip_day import (
+    DayType,
+    TripDayRead,
+    TripDayUpdate,
+)
 from app.schemas.route_optimization import (
     ItineraryBreakRead,
     OptimizedPlaceRead,
@@ -53,10 +60,15 @@ from app.schemas.route_geometry import (
     TripRouteGeometryRead,
 )
 from app.schemas.smart_replanning import (
+    ItineraryStopStatus,
+    ItineraryStopStatusUpdate,
+    MoveItineraryPlaceRequest,
+    MoveItineraryPlaceResponse,
     MovedPlaceRead,
     TripReplanImpactRead,
     TripReplanPreviewRead,
 )
+
 from app.schemas.weather_advisory import (
     ApplyRearrangementRequest,
     DayRearrangePreviewRead,
@@ -74,6 +86,7 @@ __all__ = [
     "CityResolve",
     "CitySuggestion",
     "GoogleNearbyPlace",
+    "OpeningHoursInterval",
     "PlaceCreate",
     "PlaceRead",
     "PlaceResolveRequest",
@@ -81,6 +94,7 @@ __all__ = [
     "DiscoveryCategory",
     "RecommendationRead",
     "RecommendationRequest",
+    "AssignmentMode",
     "SavedPlaceCreate",
     "SavedPlaceUpdate",
     "SavedPlaceOrder",
@@ -89,9 +103,14 @@ __all__ = [
     "ItineraryBreakRead",
     "OptimizedPlaceRead",
     "RouteOptimizationRead",
+    "ItineraryStopStatus",
+    "ItineraryStopStatusUpdate",
+    "MoveItineraryPlaceRequest",
+    "MoveItineraryPlaceResponse",
     "MovedPlaceRead",
     "TripReplanImpactRead",
     "TripReplanPreviewRead",
+
     "DayRouteGeometryRead",
     "RouteLegGeometryRead",
     "TripRouteGeometryRead",
@@ -105,6 +124,9 @@ __all__ = [
     "TripStartLocationRead",
     "TripStartLocationUpdate",
     "TripUpdate",
+    "DayType",
+    "TripDayRead",
+    "TripDayUpdate",
     "WeatherAdvisoryRead",
     "TripWeatherAdvisoriesRead",
     "PlaceAlternativeRead",

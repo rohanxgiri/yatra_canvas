@@ -18,7 +18,9 @@ class MovedPlace {
   final String? toTime;
 
   String get moveDescription {
-    final fromTimeStr = fromTime != null ? ' at ${_stripSeconds(fromTime!)}' : '';
+    final fromTimeStr = fromTime != null
+        ? ' at ${_stripSeconds(fromTime!)}'
+        : '';
     final toTimeStr = toTime != null ? ' at ${_stripSeconds(toTime!)}' : '';
     if (fromDay == toDay) {
       return 'Rescheduled from$fromTimeStr →$toTimeStr';
@@ -66,7 +68,8 @@ class TripReplanImpact {
       tripId: json['trip_id'] as String,
       isStale: json['is_stale'] as bool,
       requiresReplanPreview: json['requires_replan_preview'] as bool,
-      reasons: (json['reasons'] as List<dynamic>?)
+      reasons:
+          (json['reasons'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList(growable: false) ??
           const [],
@@ -87,6 +90,7 @@ class TripReplanPreview {
     required this.proposedItinerary,
     required this.breaks,
     required this.conflicts,
+    this.unscheduledPlaces = const [],
   });
 
   final String tripId;
@@ -99,20 +103,24 @@ class TripReplanPreview {
   final List<OptimizedRoutePlace> proposedItinerary;
   final List<ItineraryBreak> breaks;
   final List<String> conflicts;
+  final List<UnscheduledRoutePlace> unscheduledPlaces;
 
   factory TripReplanPreview.fromJson(Map<String, dynamic> json) {
-    final added = (json['added_places'] as List<dynamic>?)
+    final added =
+        (json['added_places'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList(growable: false) ??
         const [];
-    final removed = (json['removed_places'] as List<dynamic>?)
+    final removed =
+        (json['removed_places'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList(growable: false) ??
         const [];
     final movedJson = json['moved_places'] as List<dynamic>? ?? const [];
     final itinJson = json['proposed_itinerary'] as List<dynamic>? ?? const [];
     final breaksJson = json['breaks'] as List<dynamic>? ?? const [];
-    final conflictsJson = (json['conflicts'] as List<dynamic>?)
+    final conflictsJson =
+        (json['conflicts'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList(growable: false) ??
         const [];
@@ -129,15 +137,15 @@ class TripReplanPreview {
       travelTimeDeltaMinutes:
           (json['travel_time_delta_minutes'] as num?)?.toInt() ?? 0,
       proposedItinerary: itinJson
-          .map(
-            (p) =>
-                OptimizedRoutePlace.fromJson(p as Map<String, dynamic>),
-          )
+          .map((p) => OptimizedRoutePlace.fromJson(p as Map<String, dynamic>))
           .toList(growable: false),
       breaks: breaksJson
           .map((b) => ItineraryBreak.fromJson(b as Map<String, dynamic>))
           .toList(growable: false),
       conflicts: conflictsJson,
+      unscheduledPlaces: (json['unscheduled_places'] as List<dynamic>? ?? [])
+          .map((p) => UnscheduledRoutePlace.fromJson(p as Map<String, dynamic>))
+          .toList(growable: false),
     );
   }
 }

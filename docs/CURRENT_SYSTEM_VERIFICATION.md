@@ -596,6 +596,22 @@ the same constraint names and semantics and are classified `MATCH`, not schema d
 
 ## Recommended Fixes
 
+### 2026-09-07 database follow-up
+
+A new read-only audit found that the configured Supabase database now contains 22 trips,
+80 complete TripDay rows, 100 assignment-consistent saved places, and 92 itinerary rows.
+Historical route/provider/parity/Wikidata/importance/TripDay/assignment changes are present.
+The pending current-model changes are `add_places_opening_hours.sql` and
+`add_trip_itinerary_status.sql`; exact details and dependency order are in
+[`backend/sql/README.md`](../backend/sql/README.md). No DDL was applied because the remote target's
+environment classification and recoverable backup remain `[UNKNOWN]`.
+
+The catalog comparison also found `place_categories.created_at`, which was created by the
+repository's FSQ/Geoapify foundation migration but omitted from the SQLModel class. The model now
+maps that preserved timestamp. Read-only integrity checks found zero missing TripDay rows, invalid
+saved-place assignments, duplicate saved-place pairs, duplicate itinerary slots, invalid place
+coordinates/ratings/counts, duplicate provider external IDs, or orphaned place-source rows.
+
 1. **CRITICAL:** Explicitly classify the configured database environment and record a verified
    backup/restore path before any future write probe or migration. Do not rely on `create_all` to
    upgrade existing tables.
@@ -774,3 +790,23 @@ Automated test results:
 - Flutter: 57/57 flutter tests passed (including new category filter and preference routing test in `test/place_discovery_test.dart`).
 - Static analysis: `flutter analyze` passed with 0 issues.
 - Git cleanliness: `git diff --check` passed with 0 issues.
+# End-to-end core trip flow reliability verification
+
+Verified: 2026-09-07.
+
+Status: `[IMPLEMENTED]` in repository tests; configured remote schema readiness remains `[PARTIAL]`.
+
+- Added `backend/tests/test_trip_flow_e2e.py` for realistic normal, under-filled, and over-packed
+  API journeys through TripDay configuration, AUTO/LOCKED selections, planning, lifecycle status,
+  missed-place movement, cache reuse, and persistence checks.
+- Fixed map reads so opening the map loads the persisted itinerary instead of invoking optimization.
+- Passed TripDay dates and valid non-REST move targets into POI sheets.
+- Aligned PLANNED, MISSED, COMPLETED, and SKIPPED UI actions with backend transition rules and made
+  COMPLETED/SKIPPED terminal at the API boundary.
+- Published map mutation responses back to the parent itinerary screen to prevent stale cross-screen state.
+- Backend full suite: **351 passed**, 0 failed, 4 dependency deprecation warnings in 275.95 seconds.
+- Flutter full suite: **170 passed**, 0 failed.
+- Flutter analyze: **0 issues**.
+- Performance and provider-call measurements are recorded in
+  [`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md).
+- No live external provider was used and no live database DDL was executed.

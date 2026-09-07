@@ -15,6 +15,7 @@ from app.schemas import (
 )
 from app.services.saved_place_service import (
     DuplicateSavedPlaceError,
+    InvalidSavedPlaceAssignmentError,
     InvalidSavedPlaceOrderError,
     PlaceNotFoundError,
     SavedPlaceNotFoundError,
@@ -44,6 +45,10 @@ def saved_place_http_error(error: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
     if isinstance(error, DuplicateSavedPlaceError):
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error))
+    if isinstance(error, InvalidSavedPlaceAssignmentError):
+        return HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
+        )
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
 
 
@@ -73,6 +78,7 @@ def add_saved_place(
         PlaceNotFoundError,
         DuplicateSavedPlaceError,
         InvalidSavedPlaceOrderError,
+        InvalidSavedPlaceAssignmentError,
     ) as exc:
         session.rollback()
         raise saved_place_http_error(exc) from exc
@@ -106,6 +112,7 @@ def update_saved_place(
         TripNotFoundError,
         SavedPlaceNotFoundError,
         InvalidSavedPlaceOrderError,
+        InvalidSavedPlaceAssignmentError,
     ) as exc:
         session.rollback()
         raise saved_place_http_error(exc) from exc

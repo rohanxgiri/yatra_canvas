@@ -1,6 +1,6 @@
 # YatraCanvas roadmap
 
-Last reviewed: 2026-09-06
+Last reviewed: 2026-09-07
 
 This roadmap is sequenced for reversible, testable changes. A phase is not complete until its
 acceptance criteria pass in a local/test environment and the source-of-truth documents are
@@ -218,3 +218,18 @@ keep provider payloads behind application schemas, update provider/license/envir
 avoid production migrations or paid API probes during repository development. CI/deployment,
 backup objectives, and production observability remain `[UNKNOWN]` until their infrastructure is
 placed in scope.
+
+## Day-aware planner slice — 2026-09-07
+
+`[IMPLEMENTED]` Verified actual TripDay routes, day locks, normalized
+split opening hours, capacity-based soft balancing, partial results and Flutter model support.
+This slice extends Phase 7/8 infrastructure only. No completed/missed/skipped states, missed-stop
+movement, partial/live replanning, map bottom sheet, deep links, automatic hours enrichment,
+recommendation changes or final day-planning UI are included. See
+[implementation report](PLANNER_IMPLEMENTATION.md).
+# Reliability milestone (2026-09-07)
+
+- `[IMPLEMENTED]` Core trip-flow end-to-end hardening, provider-call audit, cache verification, map/itinerary
+  state synchronization, terminal status enforcement, and realistic planner benchmarks.
+- `[PARTIAL]` Apply the reviewed opening-hours and itinerary-status migrations through an environment-aware
+  deployment process, then repeat PostgreSQL/RLS integration checks in staging.

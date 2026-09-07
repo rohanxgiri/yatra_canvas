@@ -1,6 +1,7 @@
 """Validation schemas for user-customized trip places."""
 
 from datetime import datetime
+from enum import Enum
 from uuid import UUID
 
 from pydantic import field_validator, model_validator
@@ -9,12 +10,19 @@ from sqlmodel import Field, SQLModel
 from app.schemas.place import PlaceRead
 
 
+class AssignmentMode(str, Enum):
+    AUTO = "AUTO"
+    LOCKED = "LOCKED"
+
+
 class SavedPlaceCreate(SQLModel):
     place_id: UUID
     custom_order: int | None = Field(default=None, ge=1)
     priority: int = Field(default=0, ge=0)
     is_locked: bool = False
     must_visit: bool = False
+    assignment_mode: AssignmentMode = AssignmentMode.AUTO
+    assigned_day_id: UUID | None = None
     notes: str | None = Field(default=None, max_length=1000)
 
     @field_validator("notes")
@@ -24,6 +32,16 @@ class SavedPlaceCreate(SQLModel):
             return None
         value = value.strip()
         return value or None
+
+    @model_validator(mode="after")
+    def validate_assignment(self) -> "SavedPlaceCreate":
+        if self.assignment_mode == AssignmentMode.LOCKED:
+            if self.assigned_day_id is None:
+                raise ValueError("assigned_day_id is required when assignment_mode is LOCKED.")
+        elif self.assignment_mode == AssignmentMode.AUTO:
+            if self.assigned_day_id is not None:
+                raise ValueError("assigned_day_id must be null when assignment_mode is AUTO.")
+        return self
 
 
 class SavedPlaceUpdate(SQLModel):
@@ -32,6 +50,8 @@ class SavedPlaceUpdate(SQLModel):
     is_locked: bool | None = None
     must_visit: bool | None = None
     custom_order: int | None = Field(default=None, ge=1)
+    assignment_mode: AssignmentMode | None = None
+    assigned_day_id: UUID | None = None
 
     @field_validator("notes")
     @classmethod
@@ -40,6 +60,16 @@ class SavedPlaceUpdate(SQLModel):
             return None
         value = value.strip()
         return value or None
+
+    @model_validator(mode="after")
+    def validate_assignment(self) -> "SavedPlaceUpdate":
+        if self.assignment_mode == AssignmentMode.LOCKED:
+            if self.assigned_day_id is None:
+                raise ValueError("assigned_day_id is required when assignment_mode is LOCKED.")
+        elif self.assignment_mode == AssignmentMode.AUTO:
+            if self.assigned_day_id is not None:
+                raise ValueError("assigned_day_id must be null when assignment_mode is AUTO.")
+        return self
 
 
 class SavedPlaceOrder(SQLModel):
@@ -71,6 +101,8 @@ class SavedPlaceRead(SQLModel):
     priority: int
     is_locked: bool
     must_visit: bool
+    assignment_mode: AssignmentMode = AssignmentMode.AUTO
+    assigned_day_id: UUID | None = None
     notes: str | None
     created_at: datetime
     place: PlaceRead

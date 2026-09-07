@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/created_trip.dart';
+import '../models/trip_day.dart';
 import '../models/trip_draft.dart';
 import '../models/trip_start_location.dart';
 
@@ -224,6 +225,101 @@ class TripService {
       );
     } on Object catch (error) {
       throw TripServiceException('Trip start location was invalid.', error);
+    }
+  }
+
+  Future<List<TripDay>> getTripDays(String tripId) async {
+    final encodedTripId = Uri.encodeComponent(tripId.trim());
+    late http.Response response;
+    try {
+      response = await _client
+          .get(
+            Uri.parse('$_baseUrl/trips/$encodedTripId/days'),
+            headers: const {'Accept': 'application/json'},
+          )
+          .timeout(_timeout);
+    } on TimeoutException catch (error) {
+      throw TripServiceException(
+        'Loading trip days took too long. Check your connection and try again.',
+        error,
+      );
+    } on http.ClientException catch (error) {
+      throw TripServiceException(
+        'Could not reach YatraCanvas. Check your connection and try again.',
+        error,
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw TripServiceException(_tripErrorMessage(response, 'load days for'));
+    }
+
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! List) {
+        throw const FormatException('Trip days response must be a list.');
+      }
+      return body
+          .map((item) => TripDay.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } on Object catch (error) {
+      throw TripServiceException(
+        'YatraCanvas returned an invalid trip days list.',
+        error,
+      );
+    }
+  }
+
+  Future<TripDay> updateTripDay(
+    String tripId,
+    int dayNumber, {
+    DayType? dayType,
+    String? startTime,
+    String? endTime,
+  }) async {
+    final encodedTripId = Uri.encodeComponent(tripId.trim());
+    final payload = <String, dynamic>{
+      'day_type': ?dayType?.apiValue,
+      'start_time': ?startTime,
+      'end_time': ?endTime,
+    };
+
+    late http.Response response;
+    try {
+      response = await _client
+          .patch(
+            Uri.parse('$_baseUrl/trips/$encodedTripId/days/$dayNumber'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(_timeout);
+    } on TimeoutException catch (error) {
+      throw TripServiceException(
+        'Updating trip day took too long. Check your connection and try again.',
+        error,
+      );
+    } on http.ClientException catch (error) {
+      throw TripServiceException(
+        'Could not reach YatraCanvas. Check your connection and try again.',
+        error,
+      );
+    }
+
+    if (response.statusCode != 200) {
+      throw TripServiceException(_tripErrorMessage(response, 'update day on'));
+    }
+
+    try {
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) {
+        throw const FormatException('Trip day response must be an object.');
+      }
+      return TripDay.fromJson(body);
+    } on Object catch (error) {
+      throw TripServiceException(
+        'YatraCanvas returned an invalid updated trip day.',
+        error,
+      );
     }
   }
 

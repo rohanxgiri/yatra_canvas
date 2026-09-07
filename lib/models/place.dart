@@ -43,6 +43,66 @@ extension PlaceCategoryLabel on PlaceCategory {
   }
 }
 
+enum OpeningHoursStatus {
+  known,
+  closed,
+  unknown;
+
+  static OpeningHoursStatus fromString(String? value) {
+    return switch (value?.trim().toUpperCase()) {
+      'KNOWN' => OpeningHoursStatus.known,
+      'CLOSED' => OpeningHoursStatus.closed,
+      _ => OpeningHoursStatus.unknown,
+    };
+  }
+
+  String get apiValue => switch (this) {
+    OpeningHoursStatus.known => 'KNOWN',
+    OpeningHoursStatus.closed => 'CLOSED',
+    OpeningHoursStatus.unknown => 'UNKNOWN',
+  };
+}
+
+class OpeningHoursInterval {
+  const OpeningHoursInterval({
+    required this.open,
+    required this.close,
+  });
+
+  final String open;
+  final String close;
+
+  factory OpeningHoursInterval.fromJson(Map<String, dynamic> json) {
+    return OpeningHoursInterval(
+      open: json['open'] as String? ?? '00:00',
+      close: json['close'] as String? ?? '24:00',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'open': open,
+    'close': close,
+  };
+
+  /// Returns true if given (hour, minute) is within [open, close).
+  bool containsTime(int hour, int minute) {
+    final currentMinutes = hour * 60 + minute;
+    final openParts = open.split(':');
+    final closeParts = close.split(':');
+    if (openParts.length != 2 || closeParts.length != 2) return false;
+
+    final openH = int.tryParse(openParts[0]) ?? 0;
+    final openM = int.tryParse(openParts[1]) ?? 0;
+    final closeH = int.tryParse(closeParts[0]) ?? 24;
+    final closeM = int.tryParse(closeParts[1]) ?? 0;
+
+    final startMinutes = openH * 60 + openM;
+    final endMinutes = (closeH == 24 && closeM == 0) ? 24 * 60 : closeH * 60 + closeM;
+
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  }
+}
+
 class Place {
   const Place({
     required this.id,
@@ -57,6 +117,9 @@ class Place {
     required this.isLocalSpeciality,
     this.rating,
     this.lastFetchedAt,
+    this.openingHoursStatus = OpeningHoursStatus.unknown,
+    this.rawOpeningHours,
+    this.openingHours = const {},
   });
 
   final String id;
@@ -71,9 +134,60 @@ class Place {
   final bool isHeritage;
   final bool isLocalSpeciality;
   final DateTime? lastFetchedAt;
+  final OpeningHoursStatus openingHoursStatus;
+  final String? rawOpeningHours;
+  final Map<String, List<OpeningHoursInterval>> openingHours;
+
+  /// Returns intervals for a given date.
+  List<OpeningHoursInterval> getIntervalsForDay(DateTime date) {
+    final dayKeys = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final dayKey = dayKeys[(date.weekday - 1) % 7];
+    return openingHours[dayKey] ?? const [];
+  }
+
+  /// Determines if the place is open at the specified [dateTime].
+  /// Returns null if status is UNKNOWN (indeterminate result).
+  bool? isOpenAt(DateTime dateTime) {
+    if (openingHoursStatus == OpeningHoursStatus.unknown) {
+      return null;
+    }
+    if (openingHoursStatus == OpeningHoursStatus.closed) {
+      return false;
+    }
+
+    final intervals = getIntervalsForDay(dateTime);
+    if (intervals.isEmpty) {
+      return false;
+    }
+
+    return intervals.any(
+      (interval) => interval.containsTime(dateTime.hour, dateTime.minute),
+    );
+  }
 
   factory Place.fromJson(Map<String, dynamic> json) {
     final lastFetchedAt = json['last_fetched_at'] as String?;
+
+    final openingHoursRaw = json['opening_hours'];
+    final Map<String, List<OpeningHoursInterval>> openingHoursMap = {};
+    if (openingHoursRaw is Map<String, dynamic>) {
+      for (final entry in openingHoursRaw.entries) {
+        if (entry.value is List) {
+          openingHoursMap[entry.key.toLowerCase()] = (entry.value as List)
+              .map((e) => OpeningHoursInterval.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList();
+        }
+      }
+    }
+
     return Place(
       id: json['id'] as String,
       cityId: json['city_id'] as String,
@@ -89,8 +203,33 @@ class Place {
       lastFetchedAt: lastFetchedAt == null
           ? null
           : DateTime.tryParse(lastFetchedAt),
+      openingHoursStatus: OpeningHoursStatus.fromString(
+        json['opening_hours_status'] as String?,
+      ),
+      rawOpeningHours: json['raw_opening_hours'] as String?,
+      openingHours: openingHoursMap,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'city_id': cityId,
+    'name': name,
+    'category': category,
+    'latitude': latitude,
+    'longitude': longitude,
+    'rating': rating,
+    'review_count': reviewCount,
+    'is_popular': isPopular,
+    'is_heritage': isHeritage,
+    'is_local_speciality': isLocalSpeciality,
+    'last_fetched_at': lastFetchedAt?.toIso8601String(),
+    'opening_hours_status': openingHoursStatus.apiValue,
+    'raw_opening_hours': rawOpeningHours,
+    'opening_hours': openingHours.map(
+      (k, v) => MapEntry(k, v.map((i) => i.toJson()).toList()),
+    ),
+  };
 }
 
 class PlaceSearchResult {

@@ -86,12 +86,14 @@ class RouteMatrixService:
         places: list[Place],
         provider: RouteMatrixProvider,
         *,
+        start_node: RouteNode | None = None,
         now: datetime | None = None,
     ) -> tuple[RouteNode, list[RouteNode], dict[tuple[str, str], RouteMatrixLeg]]:
         current_time = now or datetime.now(timezone.utc)
-        start = RouteNode.for_start(trip)
+        start = start_node if start_node is not None else RouteNode.for_start(trip)
         place_nodes = [RouteNode.for_place(place) for place in places]
         nodes = [start, *place_nodes]
+
         required_pairs = [
             (origin, destination)
             for origin in nodes
