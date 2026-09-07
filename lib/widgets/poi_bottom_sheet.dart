@@ -174,11 +174,15 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
     // handling spaces, &, apostrophes, and non-ASCII characters in place names.
     final Uri uri;
     if (directions) {
-      uri = Uri.https('www.google.com', '/maps/dir/', {
-        'api': '1',
-        'destination': '$lat,$lng',
-        'destination_place_id': '', // empty — we don't have a GPlaces ID
-      }..removeWhere((k, v) => v.isEmpty));
+      uri = Uri.https(
+        'www.google.com',
+        '/maps/dir/',
+        {
+          'api': '1',
+          'destination': '$lat,$lng',
+          'destination_place_id': '', // empty — we don't have a GPlaces ID
+        }..removeWhere((k, v) => v.isEmpty),
+      );
     } else {
       // "More details" — include name so Google Maps shows the correct POI.
       uri = Uri.https('www.google.com', '/maps/search/', {
@@ -345,10 +349,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
         ),
         const SizedBox(height: 10),
         // Place name
-        Text(
-          _place.name,
-          style: AppTextStyles.sectionTitle,
-        ),
+        Text(_place.name, style: AppTextStyles.sectionTitle),
       ],
     );
   }
@@ -394,9 +395,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
       final distPart = stop.distanceFromPrevious > 0
           ? _formatDistance(stop.distanceFromPrevious)
           : null;
-      final travelLabel = [timePart, distPart]
-          .whereType<String>()
-          .join(' · ');
+      final travelLabel = [timePart, distPart].whereType<String>().join(' · ');
 
       if (travelLabel.isNotEmpty) {
         rows.add(
@@ -412,7 +411,8 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
     // Opening hours
     final ohLabel = _openingHoursLabel;
     if (_place.openingHoursStatus == OpeningHoursStatus.unknown ||
-        (_place.openingHoursStatus == OpeningHoursStatus.known && ohLabel == null)) {
+        (_place.openingHoursStatus == OpeningHoursStatus.known &&
+            ohLabel == null)) {
       // UNKNOWN or KNOWN-without-date: cannot safely claim open/closed
       rows.add(
         _InfoRow(
@@ -447,9 +447,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: rows
-          .expand((w) => [w, const SizedBox(height: 10)])
-          .toList()
+      children: rows.expand((w) => [w, const SizedBox(height: 10)]).toList()
         ..removeLast(),
     );
   }
@@ -457,25 +455,25 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
   Widget _buildStatusBadge() {
     final (label, bg, fg) = switch (_status) {
       ItineraryStopStatus.planned => (
-          'Planned',
-          AppColors.surfaceSoft,
-          AppColors.textSecondary,
-        ),
+        'Planned',
+        AppColors.surfaceSoft,
+        AppColors.textSecondary,
+      ),
       ItineraryStopStatus.completed => (
-          'Visited',
-          const Color(0xFFE6F5F0),
-          AppColors.success,
-        ),
+        'Visited',
+        const Color(0xFFE6F5F0),
+        AppColors.success,
+      ),
       ItineraryStopStatus.missed => (
-          'Missed',
-          const Color(0xFFFFF4E5),
-          const Color(0xFFB45309),
-        ),
+        'Missed',
+        const Color(0xFFFFF4E5),
+        const Color(0xFFB45309),
+      ),
       ItineraryStopStatus.skipped => (
-          'Skipped',
-          AppColors.surfaceSoft,
-          AppColors.textTertiary,
-        ),
+        'Skipped',
+        AppColors.surfaceSoft,
+        AppColors.textTertiary,
+      ),
     };
 
     return Row(
@@ -565,28 +563,38 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
           onMarkVisited: () => _updateStatus(ItineraryStopStatus.completed),
           onCouldntVisit: () => _updateStatus(ItineraryStopStatus.missed),
           onSkip: () => _updateStatus(ItineraryStopStatus.skipped),
+          onMove: _showMoveDayPicker,
         );
 
       case ItineraryStopStatus.missed:
-      case ItineraryStopStatus.skipped:
-        // Both missed and skipped stops can be moved to another day.
-        return FilledButton.icon(
-          key: const Key('poi_move_day_button'),
-          onPressed: _showMoveDayPicker,
-          icon: const Icon(Icons.calendar_today_rounded, size: 18),
-          label: const Text('Move to Another Day'),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFF4B94F),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FilledButton.icon(
+              key: const Key('poi_move_day_button'),
+              onPressed: _showMoveDayPicker,
+              icon: const Icon(Icons.calendar_today_rounded, size: 18),
+              label: const Text('Move to Another Day'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFF4B94F),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              key: const Key('poi_skip_button'),
+              onPressed: () => _updateStatus(ItineraryStopStatus.skipped),
+              child: const Text('Skip'),
+            ),
+          ],
         );
 
+      case ItineraryStopStatus.skipped:
       case ItineraryStopStatus.completed:
-        // Completed stops are terminal — no move/reorder action.
         return const SizedBox.shrink();
     }
   }
@@ -599,11 +607,13 @@ class _StatusActionMenu extends StatelessWidget {
     required this.onMarkVisited,
     required this.onCouldntVisit,
     required this.onSkip,
+    required this.onMove,
   });
 
   final VoidCallback onMarkVisited;
   final VoidCallback onCouldntVisit;
   final VoidCallback onSkip;
+  final VoidCallback onMove;
 
   @override
   Widget build(BuildContext context) {
@@ -660,6 +670,13 @@ class _StatusActionMenu extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          key: const Key('poi_move_day_button'),
+          onPressed: onMove,
+          icon: const Icon(Icons.calendar_today_rounded, size: 18),
+          label: const Text('Move to Another Day'),
+        ),
       ],
     );
   }
@@ -668,10 +685,7 @@ class _StatusActionMenu extends StatelessWidget {
 // ── _MoveDayPicker ─────────────────────────────────────────────────────────────
 
 class _MoveDayPicker extends StatelessWidget {
-  const _MoveDayPicker({
-    required this.availableDays,
-    required this.placeName,
-  });
+  const _MoveDayPicker({required this.availableDays, required this.placeName});
 
   final List<int> availableDays;
   final String placeName;
@@ -705,10 +719,7 @@ class _MoveDayPicker extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Move to another day',
-                  style: AppTextStyles.cardTitle,
-                ),
+                Text('Move to another day', style: AppTextStyles.cardTitle),
                 const SizedBox(height: 4),
                 Text(
                   placeName,
@@ -744,10 +755,7 @@ class _MoveDayPicker extends StatelessWidget {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              'Day $day',
-                              style: AppTextStyles.label,
-                            ),
+                            child: Text('Day $day', style: AppTextStyles.label),
                           ),
                           const Icon(
                             Icons.chevron_right_rounded,

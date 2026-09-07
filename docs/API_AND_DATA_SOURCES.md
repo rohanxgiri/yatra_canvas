@@ -85,3 +85,10 @@ contract changes. Existing normalized hours are read from the database without e
 
 Native vehicle/time-domain APIs checked against the [official OR-Tools Python reference](https://or-tools.github.io/docs/python/classortools_1_1constraint__solver_1_1pywrapcp_1_1RoutingModel.html)
 on 2026-09-07 and exercised with locally installed OR-Tools 9.15.6755.
+# Core trip provider-call audit (2026-09-07)
+
+`[IMPLEMENTED]` TripDay updates, saved-place assignment changes, itinerary status writes, POI-sheet
+opening, and Google Maps URL construction make no Geoapify, OSM, or route-provider request. Missed-place
+moves reuse `RouteMatrixCache` and call routing only for missing or expired traffic-backed legs. Deep map
+loading uses `GET /trips/{trip_id}/itinerary`; it does not call `optimize-route`. See
+[`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md) for measured call counts and limitations.

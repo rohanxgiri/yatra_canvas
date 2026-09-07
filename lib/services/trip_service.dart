@@ -279,9 +279,9 @@ class TripService {
   }) async {
     final encodedTripId = Uri.encodeComponent(tripId.trim());
     final payload = <String, dynamic>{
-      if (dayType != null) 'day_type': dayType.apiValue,
-      if (startTime != null) 'start_time': startTime,
-      if (endTime != null) 'end_time': endTime,
+      'day_type': ?dayType?.apiValue,
+      'start_time': ?startTime,
+      'end_time': ?endTime,
     };
 
     late http.Response response;

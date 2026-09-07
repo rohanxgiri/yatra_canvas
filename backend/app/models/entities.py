@@ -228,6 +228,10 @@ class PlaceCategory(SQLModel, table=True):
     source: str = Field(max_length=50, index=True)
     external_category_id: str = Field(max_length=255, index=True)
     label: str | None = Field(default=None, max_length=255, index=True)
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
 
 
 class PlaceOpeningHours(SQLModel, table=True):

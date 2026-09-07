@@ -328,3 +328,20 @@ provider, environment, and data-model documentation.
   [official OR-Tools routing API reference](https://or-tools.github.io/docs/python/classortools_1_1constraint__solver_1_1pywrapcp_1_1RoutingModel.html),
   verified 2026-09-07 against local OR-Tools 9.15.6755. Vehicle-domain removal avoids the
   installed Windows SetAllowedVehiclesForIndex Python span-binding error.
+# ADR-016 — Core trip flow reliability and persisted map reads
+
+- **Status:** Accepted and `[IMPLEMENTED]` in repository tests.
+- **Date:** 2026-09-07.
+- **Context:** Cross-layer verification found that deep map loading could regenerate an itinerary, map
+  mutations did not update the parent itinerary, TripDay dates and REST exclusions were missing from the
+  POI sheet, and UI status actions did not match backend move rules.
+- **Decision:** Treat explicit optimization as a planning action. Map entry reads the persisted itinerary,
+  POI presentation consumes existing in-memory state, TripDay data determines weekday hours and move
+  targets, and map mutations publish the backend response to the parent screen. Enforce COMPLETED and
+  SKIPPED as terminal statuses while permitting MISSED to become SKIPPED or move through partial replanning.
+- **Consequences:** Viewing a map no longer mutates the itinerary or refreshes its matrix. UI and API
+  lifecycle rules agree, REST targets are removed before interaction, and parent/map state converges on the
+  same server response. Route geometry may still use its configured provider when geometry is absent.
+- **Evidence:** `backend/tests/test_trip_flow_e2e.py`, `backend/tests/test_partial_replanning.py`,
+  `test/trip_map_test.dart`, `test/poi_bottom_sheet_test.dart`, and
+  [`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md).

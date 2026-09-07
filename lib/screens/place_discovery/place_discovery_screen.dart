@@ -386,13 +386,20 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Choose when you would like to visit this place.',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   ListTile(
-                    leading: const Icon(Icons.auto_awesome_rounded, color: AppColors.teal),
+                    leading: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: AppColors.teal,
+                    ),
                     title: const Text('Let YatraCanvas decide'),
-                    subtitle: const Text('Auto schedule on the best active day'),
+                    subtitle: const Text(
+                      'Auto schedule on the best active day',
+                    ),
                     trailing: savedPlace.assignmentMode == AssignmentMode.auto
                         ? const Icon(Icons.check_rounded, color: AppColors.teal)
                         : null,
@@ -417,14 +424,22 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   ] else ...[
                     for (final d in validDays) ...[
                       ListTile(
-                        leading: const Icon(Icons.calendar_today_rounded, color: AppColors.teal),
+                        leading: const Icon(
+                          Icons.calendar_today_rounded,
+                          color: AppColors.teal,
+                        ),
                         title: Text('Day ${d.dayNumber} · ${d.dayType.label}'),
                         subtitle: Text(
                           '${PlanDaysScreen.formatTimeDisplay(d.startTime)} – ${PlanDaysScreen.formatTimeDisplay(d.endTime)}',
                         ),
-                        trailing: savedPlace.assignmentMode == AssignmentMode.locked &&
+                        trailing:
+                            savedPlace.assignmentMode ==
+                                    AssignmentMode.locked &&
                                 savedPlace.assignedDayId == d.id
-                            ? const Icon(Icons.check_rounded, color: AppColors.teal)
+                            ? const Icon(
+                                Icons.check_rounded,
+                                color: AppColors.teal,
+                              )
                             : null,
                         onTap: () async {
                           Navigator.pop(sheetCtx);
@@ -612,7 +627,9 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Select an active sightseeing day to reschedule this stop.',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (candidateDays.isEmpty) ...[
@@ -626,7 +643,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   ] else ...[
                     for (final d in candidateDays) ...[
                       ListTile(
-                        leading: const Icon(Icons.calendar_today_rounded, color: AppColors.teal),
+                        leading: const Icon(
+                          Icons.calendar_today_rounded,
+                          color: AppColors.teal,
+                        ),
                         title: Text('Day ${d.dayNumber} · ${d.dayType.label}'),
                         subtitle: Text(
                           '${PlanDaysScreen.formatTimeDisplay(d.startTime)} – ${PlanDaysScreen.formatTimeDisplay(d.endTime)}',
@@ -768,42 +788,63 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               children: [
                 Text(
                   preview.summary,
-                  style: AppTextStyles.label.copyWith(fontWeight: FontWeight.w700),
+                  style: AppTextStyles.label.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 if (preview.addedPlaces.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
                     'Added to itinerary:',
-                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   for (final place in preview.addedPlaces)
                     Padding(
                       padding: const EdgeInsets.only(left: 8, top: 2),
-                      child: Text('• $place', style: AppTextStyles.caption.copyWith(color: AppColors.tealDark)),
+                      child: Text(
+                        '• $place',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.tealDark,
+                        ),
+                      ),
                     ),
                 ],
                 if (preview.removedPlaces.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
                     'Removed from itinerary:',
-                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   for (final place in preview.removedPlaces)
                     Padding(
                       padding: const EdgeInsets.only(left: 8, top: 2),
-                      child: Text('• $place', style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                      child: Text(
+                        '• $place',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.error,
+                        ),
+                      ),
                     ),
                 ],
                 if (preview.movedPlaces.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
                     'Rescheduled stops:',
-                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   for (final moved in preview.movedPlaces)
                     Padding(
                       padding: const EdgeInsets.only(left: 8, top: 2),
-                      child: Text('• ${moved.name}: ${moved.moveDescription}', style: AppTextStyles.caption),
+                      child: Text(
+                        '• ${moved.name}: ${moved.moveDescription}',
+                        style: AppTextStyles.caption,
+                      ),
                     ),
                 ],
                 if (preview.travelTimeDeltaMinutes != 0) ...[
@@ -816,11 +857,17 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.timelapse_rounded, size: 16, color: AppColors.textSecondary),
+                        const Icon(
+                          Icons.timelapse_rounded,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Estimated travel change: ${preview.travelTimeDeltaMinutes > 0 ? "+${preview.travelTimeDeltaMinutes}" : "${preview.travelTimeDeltaMinutes}"} min',
-                          style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600),
+                          style: AppTextStyles.caption.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
@@ -867,7 +914,9 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               onPressed: () async {
                 Navigator.of(dialogCtx).pop();
                 try {
-                  final applied = await _smartReplanningService.applyReplan(tripId);
+                  final applied = await _smartReplanningService.applyReplan(
+                    tripId,
+                  );
                   if (!mounted) return;
                   setState(() {
                     _optimizedRoute = applied;
@@ -876,7 +925,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   _showSavedMessage('New itinerary applied.');
                   _loadWeatherAdvisories();
                 } catch (e) {
-                  _showSavedMessage('Failed to apply re-plan: $e', isError: true);
+                  _showSavedMessage(
+                    'Failed to apply re-plan: $e',
+                    isError: true,
+                  );
                 }
               },
               child: const Text('Apply new plan'),
@@ -887,7 +939,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isLoadingReplanPreview = false);
-      _showSavedMessage('Could not generate re-plan preview: $error', isError: true);
+      _showSavedMessage(
+        'Could not generate re-plan preview: $error',
+        isError: true,
+      );
     }
   }
 
@@ -1054,7 +1109,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     final alreadySaved = _savedPlaces.any(
       (sp) =>
           (result.placeId != null && sp.placeId == result.placeId) ||
-          sp.place.name.trim().toLowerCase() == result.name.trim().toLowerCase(),
+          sp.place.name.trim().toLowerCase() ==
+              result.name.trim().toLowerCase(),
     );
     if (alreadySaved) {
       _showSavedMessage('${result.name} is already in your selected places.');
@@ -1102,9 +1158,12 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   }
 
   Widget _buildSearchResultTile(PlaceSearchResult result) {
-    final isAlreadySaved = _savedPlaces.any((sp) =>
-        (result.placeId != null && sp.placeId == result.placeId) ||
-        sp.place.name.trim().toLowerCase() == result.name.trim().toLowerCase());
+    final isAlreadySaved = _savedPlaces.any(
+      (sp) =>
+          (result.placeId != null && sp.placeId == result.placeId) ||
+          sp.place.name.trim().toLowerCase() ==
+              result.name.trim().toLowerCase(),
+    );
     final resultKey = result.externalPlaceId ?? result.placeId ?? result.name;
     final isAdding = _resolvingResultIds.contains(resultKey);
 
@@ -1129,19 +1188,21 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               child: Icon(Icons.check_circle_rounded, color: AppColors.success),
             )
           : isAdding
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : FilledButton.tonal(
-                  key: ValueKey('add-search-result-${result.placeId ?? result.externalPlaceId ?? result.name}'),
-                  onPressed: _tripId == null ? null : () => _addManualPlace(result),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('Add to trip'),
-                ),
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : FilledButton.tonal(
+              key: ValueKey(
+                'add-search-result-${result.placeId ?? result.externalPlaceId ?? result.name}',
+              ),
+              onPressed: _tripId == null ? null : () => _addManualPlace(result),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                visualDensity: VisualDensity.compact,
+              ),
+              child: const Text('Add to trip'),
+            ),
     );
   }
 
@@ -1249,7 +1310,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             if (item.placeId == updated.placeId) updated else item,
         ];
       });
-      final constraintsChanged = settings.priority != savedPlace.priority ||
+      final constraintsChanged =
+          settings.priority != savedPlace.priority ||
           settings.isLocked != savedPlace.isLocked ||
           settings.mustVisit != savedPlace.mustVisit;
       if (constraintsChanged) {
@@ -1555,7 +1617,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                 _loadTripDays();
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceSoft,
                   borderRadius: BorderRadius.circular(10),
@@ -1563,7 +1628,11 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_month_rounded, size: 16, color: AppColors.teal),
+                    const Icon(
+                      Icons.calendar_month_rounded,
+                      size: 16,
+                      color: AppColors.teal,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -1580,7 +1649,11 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     else
-                      const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textTertiary),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 18,
+                        color: AppColors.textTertiary,
+                      ),
                   ],
                 ),
               ),
@@ -1621,18 +1694,20 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                               padding: EdgeInsets.all(12),
                               child: SizedBox.square(
                                 dimension: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _onSearchChanged('');
-                                  },
-                                )
-                              : null,
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: () {
+                                _searchController.clear();
+                                _onSearchChanged('');
+                              },
+                            )
+                          : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1671,7 +1746,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               const SizedBox(height: 10),
               Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.border),
                 ),
@@ -1684,7 +1760,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   ],
                 ),
               ),
-            ] else if (_searchController.text.trim().isNotEmpty && !_isSearching) ...[
+            ] else if (_searchController.text.trim().isNotEmpty &&
+                !_isSearching) ...[
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1844,7 +1921,14 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                           initialSavedPlaces: _savedPlaces,
                           initialOptimizedRoute: _optimizedRoute,
                           initialRouteGeometry: _optimizedRoute?.routeGeometry,
-                          initialDurationDays: widget.durationDays ?? _optimizedRoute?.totalDays,
+                          initialDurationDays:
+                              widget.durationDays ?? _optimizedRoute?.totalDays,
+                          initialTripDays: _tripDays,
+                          onItineraryChanged: (route) {
+                            if (mounted) {
+                              setState(() => _optimizedRoute = route);
+                            }
+                          },
                         ),
                       ),
                     );
@@ -1947,7 +2031,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             builder: (context) {
               final recommendation = _recommendations[index];
               final selected =
-                  recommendation.isSaved || _savedPlaceFor(recommendation.id) != null;
+                  recommendation.isSaved ||
+                  _savedPlaceFor(recommendation.id) != null;
               final busy = _mutatingPlaceIds.contains(recommendation.id);
               return PlaceCard(
                 name: recommendation.name,
@@ -2281,14 +2366,21 @@ class _SavedPlaceTile extends StatelessWidget {
                   onTap: busy ? null : onSchedule,
                   borderRadius: BorderRadius.circular(6),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 2,
+                      horizontal: 2,
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isLockedDay ? Icons.lock_clock_rounded : Icons.auto_awesome_rounded,
+                          isLockedDay
+                              ? Icons.lock_clock_rounded
+                              : Icons.auto_awesome_rounded,
                           size: 13,
-                          color: isLockedDay ? AppColors.terracotta : AppColors.teal,
+                          color: isLockedDay
+                              ? AppColors.terracotta
+                              : AppColors.teal,
                         ),
                         const SizedBox(width: 4),
                         Flexible(
@@ -2297,7 +2389,9 @@ class _SavedPlaceTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.caption.copyWith(
-                              color: isLockedDay ? AppColors.terracotta : AppColors.teal,
+                              color: isLockedDay
+                                  ? AppColors.terracotta
+                                  : AppColors.teal,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -2306,7 +2400,9 @@ class _SavedPlaceTile extends StatelessWidget {
                         Icon(
                           Icons.arrow_drop_down_rounded,
                           size: 16,
-                          color: isLockedDay ? AppColors.terracotta : AppColors.teal,
+                          color: isLockedDay
+                              ? AppColors.terracotta
+                              : AppColors.teal,
                         ),
                       ],
                     ),
@@ -2408,7 +2504,8 @@ class _OptimizedRouteCard extends StatelessWidget {
 
   final OptimizedRoute route;
   final List<TripDay> tripDays;
-  final void Function(OptimizedRoutePlace place, ItineraryStopStatus status)? onUpdateStopStatus;
+  final void Function(OptimizedRoutePlace place, ItineraryStopStatus status)?
+  onUpdateStopStatus;
   final void Function(OptimizedRoutePlace place)? onMovePlace;
   final Set<String> updatingStopIds;
 
@@ -2465,7 +2562,11 @@ class _OptimizedRouteCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 18),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.amber.shade800,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Could not fit into your itinerary',
@@ -2484,7 +2585,13 @@ class _OptimizedRouteCard extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('• ', style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold)),
+                          Text(
+                            '• ',
+                            style: TextStyle(
+                              color: Colors.amber.shade900,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2528,7 +2635,11 @@ class _OptimizedRouteCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 16),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.amber.shade800,
+                        size: 16,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'Planning Advisory',
@@ -2545,7 +2656,9 @@ class _OptimizedRouteCard extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         '• $conflict',
-                        style: AppTextStyles.caption.copyWith(color: AppColors.charcoal),
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.charcoal,
+                        ),
                       ),
                     ),
                 ],
@@ -2556,14 +2669,21 @@ class _OptimizedRouteCard extends StatelessWidget {
             if (dayIndex > 0) const SizedBox(height: 16),
             _buildDaySchedule(
               displayDays[dayIndex],
-              route.placesByDay[displayDays[dayIndex]] ?? const <OptimizedRoutePlace>[],
-              tripDay: tripDays.where((d) => d.dayNumber == displayDays[dayIndex]).firstOrNull,
+              route.placesByDay[displayDays[dayIndex]] ??
+                  const <OptimizedRoutePlace>[],
+              tripDay: tripDays
+                  .where((d) => d.dayNumber == displayDays[dayIndex])
+                  .firstOrNull,
             ),
           ],
           const SizedBox(height: 14),
           Row(
             children: [
-              const Icon(Icons.access_time_rounded, size: 13, color: AppColors.textTertiary),
+              const Icon(
+                Icons.access_time_rounded,
+                size: 13,
+                color: AppColors.textTertiary,
+              ),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
@@ -2581,10 +2701,15 @@ class _OptimizedRouteCard extends StatelessWidget {
     );
   }
 
-  Widget _buildDaySchedule(int day, List<OptimizedRoutePlace> dayPlaces, {TripDay? tripDay}) {
+  Widget _buildDaySchedule(
+    int day,
+    List<OptimizedRoutePlace> dayPlaces, {
+    TripDay? tripDay,
+  }) {
     final isRest = tripDay?.dayType == DayType.rest;
     final dayTypeLabel = tripDay?.dayType.label;
-    final timeWindow = (tripDay?.startTime != null && tripDay?.endTime != null && !isRest)
+    final timeWindow =
+        (tripDay?.startTime != null && tripDay?.endTime != null && !isRest)
         ? '${PlanDaysScreen.formatTimeDisplay(tripDay!.startTime)} – ${PlanDaysScreen.formatTimeDisplay(tripDay.endTime)}'
         : null;
 
@@ -2611,10 +2736,14 @@ class _OptimizedRouteCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isRest ? AppColors.terracotta.withValues(alpha: 0.12) : AppColors.surface,
+                  color: isRest
+                      ? AppColors.terracotta.withValues(alpha: 0.12)
+                      : AppColors.surface,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isRest ? AppColors.terracotta.withValues(alpha: 0.3) : AppColors.border,
+                    color: isRest
+                        ? AppColors.terracotta.withValues(alpha: 0.3)
+                        : AppColors.border,
                   ),
                 ),
                 child: Text(
@@ -2652,7 +2781,11 @@ class _OptimizedRouteCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.hotel_rounded, size: 18, color: AppColors.terracotta),
+                const Icon(
+                  Icons.hotel_rounded,
+                  size: 18,
+                  color: AppColors.terracotta,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -2677,12 +2810,18 @@ class _OptimizedRouteCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textTertiary),
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: AppColors.textTertiary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'No places scheduled yet. Add a place or optimize your itinerary.',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -2697,9 +2836,13 @@ class _OptimizedRouteCard extends StatelessWidget {
             const SizedBox(height: 7),
             _RouteStop(
               place: dayPlaces[placeIdx],
-              isBusy: updatingStopIds.contains(dayPlaces[placeIdx].id ?? dayPlaces[placeIdx].placeId),
+              isBusy: updatingStopIds.contains(
+                dayPlaces[placeIdx].id ?? dayPlaces[placeIdx].placeId,
+              ),
               onUpdateStatus: onUpdateStopStatus,
-              onMove: onMovePlace != null ? () => onMovePlace!(dayPlaces[placeIdx]) : null,
+              onMove: onMovePlace != null
+                  ? () => onMovePlace!(dayPlaces[placeIdx])
+                  : null,
             ),
             for (final b in route.breaks.where(
               (brk) =>
@@ -2707,8 +2850,14 @@ class _OptimizedRouteCard extends StatelessWidget {
                   (placeIdx < dayPlaces.length - 1 &&
                       dayPlaces[placeIdx].plannedDepartureTime != null &&
                       dayPlaces[placeIdx + 1].plannedArrivalTime != null &&
-                      brk.startTime.compareTo(dayPlaces[placeIdx].plannedDepartureTime!) >= 0 &&
-                      brk.endTime.compareTo(dayPlaces[placeIdx + 1].plannedArrivalTime!) <= 0),
+                      brk.startTime.compareTo(
+                            dayPlaces[placeIdx].plannedDepartureTime!,
+                          ) >=
+                          0 &&
+                      brk.endTime.compareTo(
+                            dayPlaces[placeIdx + 1].plannedArrivalTime!,
+                          ) <=
+                          0),
             ))
               _MiddayBreakCard(breakItem: b),
           ],
@@ -2730,13 +2879,19 @@ class _MiddayBreakCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.textTertiary.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: AppColors.textTertiary.withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         children: [
           const SizedBox(
             width: 34,
-            child: Icon(Icons.coffee_rounded, color: AppColors.textSecondary, size: 18),
+            child: Icon(
+              Icons.coffee_rounded,
+              color: AppColors.textSecondary,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -2807,7 +2962,8 @@ class _RouteStop extends StatelessWidget {
 
   final OptimizedRoutePlace place;
   final bool isBusy;
-  final void Function(OptimizedRoutePlace place, ItineraryStopStatus status)? onUpdateStatus;
+  final void Function(OptimizedRoutePlace place, ItineraryStopStatus status)?
+  onUpdateStatus;
   final VoidCallback? onMove;
 
   @override
@@ -2892,18 +3048,30 @@ class _RouteStop extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: isCompleted
-                    ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      )
                     : isMissed
-                        ? const Icon(Icons.close_rounded, color: Colors.white, size: 18)
-                        : isSkipped
-                            ? const Icon(Icons.skip_next_rounded, color: Colors.white, size: 18)
-                            : Text(
-                                '${place.visitOrder}',
-                                style: AppTextStyles.caption.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
+                    ? const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      )
+                    : isSkipped
+                    ? const Icon(
+                        Icons.skip_next_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      )
+                    : Text(
+                        '${place.visitOrder}',
+                        style: AppTextStyles.caption.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -2916,9 +3084,13 @@ class _RouteStop extends StatelessWidget {
                           child: Text(
                             place.name,
                             style: AppTextStyles.label.copyWith(
-                              color: isCompleted ? AppColors.textSecondary : AppColors.charcoal,
+                              color: isCompleted
+                                  ? AppColors.textSecondary
+                                  : AppColors.charcoal,
                               fontWeight: FontWeight.w700,
-                              decoration: isCompleted ? TextDecoration.lineThrough : null,
+                              decoration: isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
                             ),
                           ),
                         ),
@@ -2933,7 +3105,9 @@ class _RouteStop extends StatelessWidget {
                       Text(
                         '${place.formattedTimeWindow} · ~${place.visitDurationMinutes} min visit',
                         style: AppTextStyles.caption.copyWith(
-                          color: isCompleted ? AppColors.success : AppColors.tealDark,
+                          color: isCompleted
+                              ? AppColors.success
+                              : AppColors.tealDark,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -2951,15 +3125,25 @@ class _RouteStop extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 )
-              else if (!isCompleted)
+              else if (!isCompleted && !isSkipped)
                 PopupMenuButton<String>(
                   key: ValueKey('stop-actions-${place.placeId}'),
-                  constraints: const BoxConstraints(minWidth: 180, maxWidth: 340),
-                  icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.textSecondary),
+                  constraints: const BoxConstraints(
+                    minWidth: 180,
+                    maxWidth: 340,
+                  ),
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
                   tooltip: 'Stop actions',
                   onSelected: (action) {
                     if (action == 'complete') {
-                      onUpdateStatus?.call(place, ItineraryStopStatus.completed);
+                      onUpdateStatus?.call(
+                        place,
+                        ItineraryStopStatus.completed,
+                      );
                     } else if (action == 'missed') {
                       onUpdateStatus?.call(place, ItineraryStopStatus.missed);
                     } else if (action == 'skip') {
@@ -2969,50 +3153,69 @@ class _RouteStop extends StatelessWidget {
                     }
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'complete',
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check_circle_outline_rounded, size: 18, color: AppColors.success),
-                          SizedBox(width: 8),
-                          Text('Mark completed'),
-                        ],
+                    if (!isMissed) ...[
+                      const PopupMenuItem(
+                        value: 'complete',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline_rounded,
+                              size: 18,
+                              color: AppColors.success,
+                            ),
+                            SizedBox(width: 8),
+                            Text('Mark completed'),
+                          ],
+                        ),
                       ),
-                    ),
-                    PopupMenuItem(
-                      value: 'missed',
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.cancel_outlined, size: 18, color: AppColors.terracotta),
-                          const SizedBox(width: 8),
-                          const Text("Couldn't visit"),
-                        ],
+                      PopupMenuItem(
+                        value: 'missed',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.cancel_outlined,
+                              size: 18,
+                              color: AppColors.terracotta,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text("Couldn't visit"),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                     const PopupMenuItem(
                       value: 'skip',
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.skip_next_rounded, size: 18, color: AppColors.textSecondary),
+                          Icon(
+                            Icons.skip_next_rounded,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
                           SizedBox(width: 8),
                           Text('Skip this place'),
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
-                      value: 'move',
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.drive_file_move_outlined, size: 18, color: AppColors.teal),
-                          SizedBox(width: 8),
-                          Text('Move to another day'),
-                        ],
+                    if (!isMissed)
+                      const PopupMenuItem(
+                        value: 'move',
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.drive_file_move_outlined,
+                              size: 18,
+                              color: AppColors.teal,
+                            ),
+                            SizedBox(width: 8),
+                            Text('Move to another day'),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
             ],
@@ -3028,7 +3231,10 @@ class _RouteStop extends StatelessWidget {
                 label: const Text('Move to another day'),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                 ),
               ),
             ),
@@ -3043,7 +3249,11 @@ class _RouteStop extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.help_outline_rounded, size: 11, color: AppColors.textTertiary),
+          const Icon(
+            Icons.help_outline_rounded,
+            size: 11,
+            color: AppColors.textTertiary,
+          ),
           const SizedBox(width: 3),
           Flexible(
             child: Text(
@@ -3062,7 +3272,11 @@ class _RouteStop extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.check_circle_outline_rounded, size: 11, color: AppColors.success),
+        const Icon(
+          Icons.check_circle_outline_rounded,
+          size: 11,
+          color: AppColors.success,
+        ),
         const SizedBox(width: 3),
         Flexible(
           child: Text(
@@ -3312,7 +3526,11 @@ class _ReplanAdvisoryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_fix_high_rounded, color: Colors.amber.shade900, size: 20),
+              Icon(
+                Icons.auto_fix_high_rounded,
+                color: Colors.amber.shade900,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -3344,7 +3562,10 @@ class _ReplanAdvisoryCard extends StatelessWidget {
                     ? const SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('Review proposed plan'),
               ),

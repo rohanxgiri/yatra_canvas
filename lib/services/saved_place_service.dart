@@ -47,7 +47,7 @@ class SavedPlaceService {
             'is_locked': isLocked,
             'must_visit': mustVisit,
             'assignment_mode': assignmentMode.value,
-            if (assignedDayId != null) 'assigned_day_id': assignedDayId,
+            'assigned_day_id': ?assignedDayId,
             'notes': notes,
           }),
         )
@@ -92,8 +92,7 @@ class SavedPlaceService {
       'assignment_mode': assignmentMode.value,
       if (assignmentMode == AssignmentMode.locked)
         'assigned_day_id': assignedDayId,
-      if (assignmentMode == AssignmentMode.auto)
-        'assigned_day_id': null,
+      if (assignmentMode == AssignmentMode.auto) 'assigned_day_id': null,
     };
 
     final response = await _client

@@ -22,30 +22,29 @@ SavedPlace _savedPlace({
   double lng = 77.2295,
   OpeningHoursStatus ohStatus = OpeningHoursStatus.unknown,
   Map<String, List<OpeningHoursInterval>> openingHours = const {},
-}) =>
-    SavedPlace(
-      id: 's1',
-      tripId: 't1',
-      placeId: placeId,
-      customOrder: 1,
-      priority: 1,
-      isLocked: false,
-      mustVisit: false,
-      place: Place(
-        id: placeId,
-        cityId: 'c1',
-        name: name,
-        category: category,
-        latitude: lat,
-        longitude: lng,
-        reviewCount: 100,
-        isPopular: true,
-        isHeritage: false,
-        isLocalSpeciality: false,
-        openingHoursStatus: ohStatus,
-        openingHours: openingHours,
-      ),
-    );
+}) => SavedPlace(
+  id: 's1',
+  tripId: 't1',
+  placeId: placeId,
+  customOrder: 1,
+  priority: 1,
+  isLocked: false,
+  mustVisit: false,
+  place: Place(
+    id: placeId,
+    cityId: 'c1',
+    name: name,
+    category: category,
+    latitude: lat,
+    longitude: lng,
+    reviewCount: 100,
+    isPopular: true,
+    isHeritage: false,
+    isLocalSpeciality: false,
+    openingHoursStatus: ohStatus,
+    openingHours: openingHours,
+  ),
+);
 
 OptimizedRoutePlace _routeStop({
   String placeId = 'p1',
@@ -58,20 +57,19 @@ OptimizedRoutePlace _routeStop({
   int travelTime = 0,
   double distanceFromPrevious = 0.0,
   String status = 'PLANNED',
-}) =>
-    OptimizedRoutePlace(
-      id: 'stop-1',
-      placeId: placeId,
-      name: name,
-      dayNumber: dayNumber,
-      visitOrder: visitOrder,
-      distanceFromPrevious: distanceFromPrevious,
-      travelTimeMinutes: travelTime,
-      plannedArrivalTime: arrivalTime,
-      plannedDepartureTime: departureTime,
-      visitDurationMinutes: visitDuration,
-      status: status,
-    );
+}) => OptimizedRoutePlace(
+  id: 'stop-1',
+  placeId: placeId,
+  name: name,
+  dayNumber: dayNumber,
+  visitOrder: visitOrder,
+  distanceFromPrevious: distanceFromPrevious,
+  travelTimeMinutes: travelTime,
+  plannedArrivalTime: arrivalTime,
+  plannedDepartureTime: departureTime,
+  visitDurationMinutes: visitDuration,
+  status: status,
+);
 
 Widget _buildSheet({
   SavedPlace? savedPlace,
@@ -81,20 +79,19 @@ Widget _buildSheet({
   DateTime? visitDate,
   Future<void> Function(ItineraryStopStatus)? onStatusChange,
   Future<void> Function(int)? onMoveToDay,
-}) =>
-    MaterialApp(
-      home: Scaffold(
-        body: PoiBottomSheet(
-          savedPlace: savedPlace ?? _savedPlace(),
-          routeStop: routeStop,
-          availableDays: availableDays,
-          isStartLocation: isStartLocation,
-          visitDate: visitDate,
-          onStatusChange: onStatusChange,
-          onMoveToDay: onMoveToDay,
-        ),
-      ),
-    );
+}) => MaterialApp(
+  home: Scaffold(
+    body: PoiBottomSheet(
+      savedPlace: savedPlace ?? _savedPlace(),
+      routeStop: routeStop,
+      availableDays: availableDays,
+      isStartLocation: isStartLocation,
+      visitDate: visitDate,
+      onStatusChange: onStatusChange,
+      onMoveToDay: onMoveToDay,
+    ),
+  ),
+);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -109,19 +106,26 @@ void main() {
   });
 
   testWidgets('2. Place name is displayed', (tester) async {
-    await tester.pumpWidget(_buildSheet(savedPlace: _savedPlace(name: 'Red Fort')));
+    await tester.pumpWidget(
+      _buildSheet(savedPlace: _savedPlace(name: 'Red Fort')),
+    );
     expect(find.text('Red Fort'), findsOneWidget);
   });
 
   testWidgets('3. Category chip is displayed', (tester) async {
-    await tester.pumpWidget(_buildSheet(savedPlace: _savedPlace(category: 'Heritage')));
+    await tester.pumpWidget(
+      _buildSheet(savedPlace: _savedPlace(category: 'Heritage')),
+    );
     expect(find.text('Heritage'), findsOneWidget);
   });
 
   testWidgets('4. Schedule row shown for scheduled stop', (tester) async {
     await tester.pumpWidget(
       _buildSheet(
-        routeStop: _routeStop(arrivalTime: '09:00:00', departureTime: '10:00:00'),
+        routeStop: _routeStop(
+          arrivalTime: '09:00:00',
+          departureTime: '10:00:00',
+        ),
       ),
     );
     expect(find.byKey(const Key('poi_schedule_row')), findsOneWidget);
@@ -162,7 +166,9 @@ void main() {
     expect(find.byKey(const Key('poi_skip_button')), findsOneWidget);
   });
 
-  testWidgets('10. MISSED stop shows Move to Another Day button', (tester) async {
+  testWidgets('10. MISSED stop shows Move to Another Day button', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildSheet(
         routeStop: _routeStop(status: 'MISSED'),
@@ -172,7 +178,9 @@ void main() {
     expect(find.byKey(const Key('poi_move_day_button')), findsOneWidget);
   });
 
-  testWidgets('11. COMPLETED stop shows no status action buttons', (tester) async {
+  testWidgets('11. COMPLETED stop shows no status action buttons', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildSheet(routeStop: _routeStop(status: 'COMPLETED')),
     );
@@ -183,38 +191,60 @@ void main() {
   });
 
   testWidgets('12. Status badge shows Planned', (tester) async {
-    await tester.pumpWidget(_buildSheet(routeStop: _routeStop(status: 'PLANNED')));
+    await tester.pumpWidget(
+      _buildSheet(routeStop: _routeStop(status: 'PLANNED')),
+    );
     final text = tester.widget<Text>(
-      find.descendant(of: find.byKey(const Key('poi_status_badge')), matching: find.byType(Text)),
+      find.descendant(
+        of: find.byKey(const Key('poi_status_badge')),
+        matching: find.byType(Text),
+      ),
     );
     expect(text.data, 'Planned');
   });
 
   testWidgets('13. Status badge shows Visited for COMPLETED', (tester) async {
-    await tester.pumpWidget(_buildSheet(routeStop: _routeStop(status: 'COMPLETED')));
+    await tester.pumpWidget(
+      _buildSheet(routeStop: _routeStop(status: 'COMPLETED')),
+    );
     final text = tester.widget<Text>(
-      find.descendant(of: find.byKey(const Key('poi_status_badge')), matching: find.byType(Text)),
+      find.descendant(
+        of: find.byKey(const Key('poi_status_badge')),
+        matching: find.byType(Text),
+      ),
     );
     expect(text.data, 'Visited');
   });
 
   testWidgets('14. Status badge shows Missed', (tester) async {
-    await tester.pumpWidget(_buildSheet(routeStop: _routeStop(status: 'MISSED')));
+    await tester.pumpWidget(
+      _buildSheet(routeStop: _routeStop(status: 'MISSED')),
+    );
     final text = tester.widget<Text>(
-      find.descendant(of: find.byKey(const Key('poi_status_badge')), matching: find.byType(Text)),
+      find.descendant(
+        of: find.byKey(const Key('poi_status_badge')),
+        matching: find.byType(Text),
+      ),
     );
     expect(text.data, 'Missed');
   });
 
   testWidgets('15. Status badge shows Skipped', (tester) async {
-    await tester.pumpWidget(_buildSheet(routeStop: _routeStop(status: 'SKIPPED')));
+    await tester.pumpWidget(
+      _buildSheet(routeStop: _routeStop(status: 'SKIPPED')),
+    );
     final text = tester.widget<Text>(
-      find.descendant(of: find.byKey(const Key('poi_status_badge')), matching: find.byType(Text)),
+      find.descendant(
+        of: find.byKey(const Key('poi_status_badge')),
+        matching: find.byType(Text),
+      ),
     );
     expect(text.data, 'Skipped');
   });
 
-  testWidgets('16. Mark Visited triggers onStatusChange(completed)', (tester) async {
+  testWidgets('16. Mark Visited triggers onStatusChange(completed)', (
+    tester,
+  ) async {
     ItineraryStopStatus? captured;
     await tester.pumpWidget(
       _buildSheet(
@@ -227,7 +257,9 @@ void main() {
     expect(captured, ItineraryStopStatus.completed);
   });
 
-  testWidgets("17. Couldn't Visit triggers onStatusChange(missed)", (tester) async {
+  testWidgets("17. Couldn't Visit triggers onStatusChange(missed)", (
+    tester,
+  ) async {
     ItineraryStopStatus? captured;
     await tester.pumpWidget(
       _buildSheet(
@@ -282,7 +314,9 @@ void main() {
     expect(find.byKey(const Key('poi_move_day_picker')), findsOneWidget);
   });
 
-  testWidgets('20. Day picker selecting a day triggers onMoveToDay', (tester) async {
+  testWidgets('20. Day picker selecting a day triggers onMoveToDay', (
+    tester,
+  ) async {
     int? pickedDay;
     await tester.pumpWidget(
       MaterialApp(
@@ -313,7 +347,9 @@ void main() {
     expect(pickedDay, 2);
   });
 
-  testWidgets('21. isStartLocation = true hides itinerary actions', (tester) async {
+  testWidgets('21. isStartLocation = true hides itinerary actions', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildSheet(
         routeStop: _routeStop(status: 'PLANNED'),
@@ -329,23 +365,28 @@ void main() {
   // ── Hardening tests ────────────────────────────────────────────────────────
 
   // H1. Travel info uses the arriving leg (current stop's own fields), not next stop's.
-  testWidgets('H1. Travel row shows current stop arriving-leg travel time (not next stop)', (tester) async {
-    // visitOrder > 1 so the arriving-leg row is shown.
-    final stop = _routeStop(
-      visitOrder: 2,
-      travelTime: 12,
-      distanceFromPrevious: 3.4,
-    );
-    await tester.pumpWidget(_buildSheet(routeStop: stop));
-    // Should show "From previous stop · 12 min · 3.4 km"
-    expect(find.byKey(const Key('poi_travel_row')), findsOneWidget);
-    expect(find.textContaining('From previous stop'), findsOneWidget);
-    expect(find.textContaining('12 min'), findsOneWidget);
-    expect(find.textContaining('3.4 km'), findsOneWidget);
-  });
+  testWidgets(
+    'H1. Travel row shows current stop arriving-leg travel time (not next stop)',
+    (tester) async {
+      // visitOrder > 1 so the arriving-leg row is shown.
+      final stop = _routeStop(
+        visitOrder: 2,
+        travelTime: 12,
+        distanceFromPrevious: 3.4,
+      );
+      await tester.pumpWidget(_buildSheet(routeStop: stop));
+      // Should show "From previous stop · 12 min · 3.4 km"
+      expect(find.byKey(const Key('poi_travel_row')), findsOneWidget);
+      expect(find.textContaining('From previous stop'), findsOneWidget);
+      expect(find.textContaining('12 min'), findsOneWidget);
+      expect(find.textContaining('3.4 km'), findsOneWidget);
+    },
+  );
 
   // H2. Travel row is absent for the first stop of the day (no previous stop).
-  testWidgets('H2. Travel row absent for first stop of day (visitOrder == 1)', (tester) async {
+  testWidgets('H2. Travel row absent for first stop of day (visitOrder == 1)', (
+    tester,
+  ) async {
     final stop = _routeStop(
       visitOrder: 1,
       travelTime: 20,
@@ -356,14 +397,23 @@ void main() {
   });
 
   // H3. Travel row is absent when both travel values are zero.
-  testWidgets('H3. Travel row absent when travelTime and distance are both zero', (tester) async {
-    final stop = _routeStop(visitOrder: 2, travelTime: 0, distanceFromPrevious: 0.0);
-    await tester.pumpWidget(_buildSheet(routeStop: stop));
-    expect(find.byKey(const Key('poi_travel_row')), findsNothing);
-  });
+  testWidgets(
+    'H3. Travel row absent when travelTime and distance are both zero',
+    (tester) async {
+      final stop = _routeStop(
+        visitOrder: 2,
+        travelTime: 0,
+        distanceFromPrevious: 0.0,
+      );
+      await tester.pumpWidget(_buildSheet(routeStop: stop));
+      expect(find.byKey(const Key('poi_travel_row')), findsNothing);
+    },
+  );
 
   // H4. CLOSED opening hours shows "Closed", NOT "Permanently closed".
-  testWidgets('H4. CLOSED opening hours shows Closed, not Permanently closed', (tester) async {
+  testWidgets('H4. CLOSED opening hours shows Closed, not Permanently closed', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildSheet(
         savedPlace: _savedPlace(ohStatus: OpeningHoursStatus.closed),
@@ -382,7 +432,9 @@ void main() {
         savedPlace: _savedPlace(
           ohStatus: OpeningHoursStatus.known,
           openingHours: {
-            'monday': [const OpeningHoursInterval(open: '08:00', close: '18:00')],
+            'monday': [
+              const OpeningHoursInterval(open: '08:00', close: '18:00'),
+            ],
           },
         ),
         routeStop: _routeStop(arrivalTime: '10:00:00'),
@@ -395,14 +447,18 @@ void main() {
   });
 
   // H6. KNOWN closed at arrival shows "Closed at scheduled time".
-  testWidgets('H6. KNOWN closed at arrival shows Closed at scheduled time', (tester) async {
+  testWidgets('H6. KNOWN closed at arrival shows Closed at scheduled time', (
+    tester,
+  ) async {
     // Interval 08:00-12:00; arrival 14:00 → outside → closed.
     await tester.pumpWidget(
       _buildSheet(
         savedPlace: _savedPlace(
           ohStatus: OpeningHoursStatus.known,
           openingHours: {
-            'monday': [const OpeningHoursInterval(open: '08:00', close: '12:00')],
+            'monday': [
+              const OpeningHoursInterval(open: '08:00', close: '12:00'),
+            ],
           },
         ),
         routeStop: _routeStop(arrivalTime: '14:00:00'),
@@ -413,7 +469,9 @@ void main() {
   });
 
   // H7. Split opening-hours gap shows "Closed at scheduled time" when visit falls in gap.
-  testWidgets('H7. Split opening-hours gap shows Closed at scheduled time', (tester) async {
+  testWidgets('H7. Split opening-hours gap shows Closed at scheduled time', (
+    tester,
+  ) async {
     // Two intervals: 09:00-11:00, 14:00-22:00. Visit at 12:00 falls in the gap.
     await tester.pumpWidget(
       _buildSheet(
@@ -434,7 +492,9 @@ void main() {
   });
 
   // H8. UNKNOWN never displays "Open" as a status claim.
-  testWidgets('H8. UNKNOWN opening hours never claims place is open', (tester) async {
+  testWidgets('H8. UNKNOWN opening hours never claims place is open', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildSheet(
         savedPlace: _savedPlace(ohStatus: OpeningHoursStatus.unknown),
@@ -450,33 +510,42 @@ void main() {
   });
 
   // H9. KNOWN status without visitDate shows "Opening hours unavailable" (no guess).
-  testWidgets('H9. KNOWN without visitDate shows unavailable, not open/closed', (tester) async {
-    await tester.pumpWidget(
-      _buildSheet(
-        savedPlace: _savedPlace(
-          ohStatus: OpeningHoursStatus.known,
-          openingHours: {
-            'monday': [const OpeningHoursInterval(open: '08:00', close: '20:00')],
-          },
+  testWidgets(
+    'H9. KNOWN without visitDate shows unavailable, not open/closed',
+    (tester) async {
+      await tester.pumpWidget(
+        _buildSheet(
+          savedPlace: _savedPlace(
+            ohStatus: OpeningHoursStatus.known,
+            openingHours: {
+              'monday': [
+                const OpeningHoursInterval(open: '08:00', close: '20:00'),
+              ],
+            },
+          ),
+          routeStop: _routeStop(arrivalTime: '10:00:00'),
+          // visitDate intentionally omitted
         ),
-        routeStop: _routeStop(arrivalTime: '10:00:00'),
-        // visitDate intentionally omitted
-      ),
-    );
-    expect(find.text('Opening hours unavailable'), findsOneWidget);
-    expect(find.textContaining('Open until'), findsNothing);
-    expect(find.text('Closed at scheduled time'), findsNothing);
-  });
+      );
+      expect(find.text('Opening hours unavailable'), findsOneWidget);
+      expect(find.textContaining('Open until'), findsNothing);
+      expect(find.text('Closed at scheduled time'), findsNothing);
+    },
+  );
 
   // H10. Opening hours use correct weekday — Tuesday intervals, Monday date → no match.
-  testWidgets('H10. Opening hours use the correct weekday from visitDate', (tester) async {
+  testWidgets('H10. Opening hours use the correct weekday from visitDate', (
+    tester,
+  ) async {
     // Only tuesday has hours. visitDate is _monday → no intervals for monday → Closed.
     await tester.pumpWidget(
       _buildSheet(
         savedPlace: _savedPlace(
           ohStatus: OpeningHoursStatus.known,
           openingHours: {
-            'tuesday': [const OpeningHoursInterval(open: '09:00', close: '20:00')],
+            'tuesday': [
+              const OpeningHoursInterval(open: '09:00', close: '20:00'),
+            ],
           },
         ),
         routeStop: _routeStop(arrivalTime: '10:00:00'),
@@ -487,7 +556,9 @@ void main() {
   });
 
   // H11. Directions URL uses lat/lng destination (verified by checking text content).
-  testWidgets('H11. Directions button is visible for scheduled POI', (tester) async {
+  testWidgets('H11. Directions button is visible for scheduled POI', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildSheet(
         savedPlace: _savedPlace(lat: 28.6129, lng: 77.2295),
@@ -498,7 +569,9 @@ void main() {
   });
 
   // H12. More details button is visible for scheduled POI.
-  testWidgets('H12. More details button is visible for scheduled POI', (tester) async {
+  testWidgets('H12. More details button is visible for scheduled POI', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildSheet(
         savedPlace: _savedPlace(name: 'Qutub Minar & Gardens'),
@@ -509,7 +582,9 @@ void main() {
   });
 
   // H13. Special characters in place name do not crash the sheet.
-  testWidgets('H13. Place name with special characters renders without crash', (tester) async {
+  testWidgets('H13. Place name with special characters renders without crash', (
+    tester,
+  ) async {
     // Apostrophe, ampersand, spaces, and a non-ASCII character.
     await tester.pumpWidget(
       _buildSheet(
@@ -522,7 +597,9 @@ void main() {
   });
 
   // H14. Non-POI / start-location marker does not expose attraction actions.
-  testWidgets('H14. isStartLocation=true hides all itinerary actions', (tester) async {
+  testWidgets('H14. isStartLocation=true hides all itinerary actions', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildSheet(isStartLocation: true, routeStop: _routeStop()),
     );
@@ -557,19 +634,42 @@ void main() {
     expect(find.byKey(const Key('poi_move_day_button')), findsOneWidget);
   });
 
-  // H17. SKIPPED stop can also be moved (new hardening requirement).
-  testWidgets('H17. SKIPPED stop shows Move to Another Day', (tester) async {
+  // H17. SKIPPED is terminal and exposes no itinerary action.
+  testWidgets('H17. SKIPPED stop shows status only', (tester) async {
     await tester.pumpWidget(
       _buildSheet(
         routeStop: _routeStop(status: 'SKIPPED'),
         availableDays: [2],
       ),
     );
+    expect(find.byKey(const Key('poi_move_day_button')), findsNothing);
+    expect(find.byKey(const Key('poi_skip_button')), findsNothing);
+  });
+
+  testWidgets('H17b. PLANNED stop can be moved to another day', (tester) async {
+    await tester.pumpWidget(
+      _buildSheet(
+        routeStop: _routeStop(status: 'PLANNED'),
+        availableDays: [2],
+      ),
+    );
     expect(find.byKey(const Key('poi_move_day_button')), findsOneWidget);
   });
 
+  testWidgets('H17c. MISSED stop can be skipped', (tester) async {
+    await tester.pumpWidget(
+      _buildSheet(
+        routeStop: _routeStop(status: 'MISSED'),
+        availableDays: [2],
+      ),
+    );
+    expect(find.byKey(const Key('poi_skip_button')), findsOneWidget);
+  });
+
   // H18. Successful status update callback triggers (simulated state refresh).
-  testWidgets('H18. Status update callback fires and sheet pops on success', (tester) async {
+  testWidgets('H18. Status update callback fires and sheet pops on success', (
+    tester,
+  ) async {
     ItineraryStopStatus? received;
     bool callbackCalled = false;
 
@@ -604,10 +704,12 @@ void main() {
   });
 
   // H19. Missing optional values do not crash (no routeStop, no visitDate, UNKNOWN hours).
-  testWidgets('H19. Sheet renders safely when all optional fields are null', (tester) async {
+  testWidgets('H19. Sheet renders safely when all optional fields are null', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _buildSheet(
-        routeStop: null,   // unscheduled
+        routeStop: null, // unscheduled
         visitDate: null,
         savedPlace: _savedPlace(ohStatus: OpeningHoursStatus.unknown),
       ),
@@ -622,20 +724,34 @@ void main() {
 
   // H20. Distance formatted correctly: sub-km as metres, ≥1 km as X.X km.
   testWidgets('H20. Distance < 1 km formatted as metres', (tester) async {
-    final stop = _routeStop(visitOrder: 2, travelTime: 5, distanceFromPrevious: 0.35);
+    final stop = _routeStop(
+      visitOrder: 2,
+      travelTime: 5,
+      distanceFromPrevious: 0.35,
+    );
     await tester.pumpWidget(_buildSheet(routeStop: stop));
     expect(find.textContaining('350 m'), findsOneWidget);
   });
 
   testWidgets('H20b. Distance >= 1 km formatted as X.X km', (tester) async {
-    final stop = _routeStop(visitOrder: 2, travelTime: 8, distanceFromPrevious: 3.4);
+    final stop = _routeStop(
+      visitOrder: 2,
+      travelTime: 8,
+      distanceFromPrevious: 3.4,
+    );
     await tester.pumpWidget(_buildSheet(routeStop: stop));
     expect(find.textContaining('3.4 km'), findsOneWidget);
   });
 
   // H21. Travel row shows only time when distance is zero but time > 0.
-  testWidgets('H21. Travel row shows only time when distance is zero', (tester) async {
-    final stop = _routeStop(visitOrder: 2, travelTime: 15, distanceFromPrevious: 0.0);
+  testWidgets('H21. Travel row shows only time when distance is zero', (
+    tester,
+  ) async {
+    final stop = _routeStop(
+      visitOrder: 2,
+      travelTime: 15,
+      distanceFromPrevious: 0.0,
+    );
     await tester.pumpWidget(_buildSheet(routeStop: stop));
     expect(find.byKey(const Key('poi_travel_row')), findsOneWidget);
     expect(find.textContaining('15 min'), findsOneWidget);

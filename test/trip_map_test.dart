@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:yatra_canvas/models/city.dart';
 import 'package:yatra_canvas/models/created_trip.dart';
+import 'package:yatra_canvas/models/itinerary_stop_status.dart';
 import 'package:yatra_canvas/models/optimized_route.dart';
 import 'package:yatra_canvas/models/place.dart';
 import 'package:yatra_canvas/models/route_geometry.dart';
@@ -15,6 +16,7 @@ import 'package:yatra_canvas/screens/trip_map/trip_map_screen.dart';
 import 'package:yatra_canvas/services/route_geometry_service.dart';
 import 'package:yatra_canvas/services/route_optimization_service.dart';
 import 'package:yatra_canvas/services/saved_place_service.dart';
+import 'package:yatra_canvas/services/smart_replanning_service.dart';
 import 'package:yatra_canvas/services/trip_service.dart';
 
 class MockTripService implements TripService {
@@ -45,7 +47,6 @@ class MockTripService implements TripService {
     );
   }
 
-
   @override
   Future<TripStartLocation> updateStartLocation(
     String tripId, {
@@ -65,7 +66,33 @@ class MockTripService implements TripService {
   }
 
   @override
-  Future<List<TripDay>> getTripDays(String tripId) async => [];
+  Future<List<TripDay>> getTripDays(String tripId) async => [
+    TripDay(
+      id: 'd1',
+      tripId: tripId,
+      dayNumber: 1,
+      date: DateTime(2026, 9, 10),
+      dayType: DayType.fullDay,
+      startTime: '09:00:00',
+      endTime: '19:00:00',
+    ),
+    TripDay(
+      id: 'd2',
+      tripId: tripId,
+      dayNumber: 2,
+      date: DateTime(2026, 9, 11),
+      dayType: DayType.rest,
+    ),
+    TripDay(
+      id: 'd3',
+      tripId: tripId,
+      dayNumber: 3,
+      date: DateTime(2026, 9, 12),
+      dayType: DayType.halfDay,
+      startTime: '09:00:00',
+      endTime: '13:00:00',
+    ),
+  ];
 
   @override
   Future<TripDay> updateTripDay(
@@ -74,8 +101,7 @@ class MockTripService implements TripService {
     DayType? dayType,
     String? startTime,
     String? endTime,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 }
 
 class MockSavedPlaceService implements SavedPlaceService {
@@ -88,8 +114,7 @@ class MockSavedPlaceService implements SavedPlaceService {
     String placeId, {
     required AssignmentMode assignmentMode,
     String? assignedDayId,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   @override
   Future<List<SavedPlace>> getSavedPlaces(String tripId) async {
@@ -200,11 +225,14 @@ class MockSavedPlaceService implements SavedPlaceService {
 }
 
 class MockRouteOptimizationService implements RouteOptimizationService {
+  int calls = 0;
+
   @override
   void close() {}
 
   @override
   Future<OptimizedRoute> optimizeRoute(String tripId) async {
+    calls += 1;
     return const OptimizedRoute(
       tripId: 't1',
       totalDistance: 15.0,
@@ -229,6 +257,72 @@ class MockRouteOptimizationService implements RouteOptimizationService {
       ],
     );
   }
+}
+
+class MockSmartReplanningService extends SmartReplanningService {
+  MockSmartReplanningService() : super(baseUrl: 'http://unused.test');
+
+  int itineraryCalls = 0;
+
+  @override
+  Future<OptimizedRoute> getItinerary(String tripId) async {
+    itineraryCalls += 1;
+    return const OptimizedRoute(
+      tripId: 't1',
+      totalDays: 3,
+      totalDistance: 15,
+      totalTravelTimeMinutes: 45,
+      places: [
+        OptimizedRoutePlace(
+          id: 'stop-1',
+          placeId: 'p1',
+          name: 'India Gate',
+          dayNumber: 1,
+          visitOrder: 1,
+          distanceFromPrevious: 10,
+          travelTimeMinutes: 30,
+          plannedArrivalTime: '10:00:00',
+          plannedDepartureTime: '11:00:00',
+        ),
+        OptimizedRoutePlace(
+          id: 'stop-2',
+          placeId: 'p2',
+          name: 'Red Fort',
+          dayNumber: 3,
+          visitOrder: 1,
+          distanceFromPrevious: 5,
+          travelTimeMinutes: 15,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<OptimizedRoutePlace> updateStopStatus({
+    required String tripId,
+    required String stopOrPlaceId,
+    required ItineraryStopStatus status,
+    bool isPlaceId = false,
+  }) async {
+    final stop = (await getItinerary(tripId)).places.first;
+    return OptimizedRoutePlace(
+      id: stop.id,
+      placeId: stop.placeId,
+      name: stop.name,
+      dayNumber: stop.dayNumber,
+      visitOrder: stop.visitOrder,
+      distanceFromPrevious: stop.distanceFromPrevious,
+      travelTimeMinutes: stop.travelTimeMinutes,
+      plannedArrivalTime: stop.plannedArrivalTime,
+      plannedDepartureTime: stop.plannedDepartureTime,
+      visitDurationMinutes: stop.visitDurationMinutes,
+      isOpeningHoursKnown: stop.isOpeningHoursKnown,
+      status: status.toApiString(),
+    );
+  }
+
+  @override
+  void dispose() {}
 }
 
 class MockRouteGeometryService implements RouteGeometryService {
@@ -285,6 +379,7 @@ void main() {
       final savedPlaceService = MockSavedPlaceService();
       final routeOptimizationService = MockRouteOptimizationService();
       final routeGeometryService = MockRouteGeometryService();
+      final replanningService = MockSmartReplanningService();
 
       await tester.pumpWidget(
         MaterialApp(
@@ -294,6 +389,7 @@ void main() {
             savedPlaceService: savedPlaceService,
             routeOptimizationService: routeOptimizationService,
             routeGeometryService: routeGeometryService,
+            smartReplanningService: replanningService,
           ),
         ),
       );
@@ -302,7 +398,9 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
       await tester.pump();
-      await tester.pump(const Duration(seconds: 1)); // allow futures to complete
+      await tester.pump(
+        const Duration(seconds: 1),
+      ); // allow futures to complete
 
       // Check if error occurred
       if (find.byIcon(Icons.error_outline_rounded).evaluate().isNotEmpty) {
@@ -332,84 +430,154 @@ void main() {
       expect(polylineLayer.polylines.length, 2);
       expect(polylineLayer.polylines[0].points.length, 3);
       expect(polylineLayer.polylines[1].points.length, 3);
+      expect(routeOptimizationService.calls, 0);
+      expect(replanningService.itineraryCalls, 1);
     },
   );
 
+  testWidgets('TripMapScreen day filter updates visible polylines', (
+    WidgetTester tester,
+  ) async {
+    final tripService = MockTripService();
+    final savedPlaceService = MockSavedPlaceService();
+    final routeOptimizationService = MockRouteOptimizationService();
+    final routeGeometryService = MockRouteGeometryService();
+    final replanningService = MockSmartReplanningService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripMapScreen(
+          tripId: 't1',
+          tripService: tripService,
+          savedPlaceService: savedPlaceService,
+          routeOptimizationService: routeOptimizationService,
+          routeGeometryService: routeGeometryService,
+          smartReplanningService: replanningService,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Open day filter menu
+    await tester.tap(find.byIcon(Icons.filter_list_rounded));
+    await tester.pumpAndSettle();
+
+    // Select Day 1
+    await tester.tap(find.text('Day 1'));
+    await tester.pumpAndSettle();
+
+    // Only Day 1 polyline should be visible now
+    final polylineLayer = tester.widget<PolylineLayer>(
+      find.byType(PolylineLayer),
+    );
+    expect(polylineLayer.polylines.length, 1);
+    expect(
+      polylineLayer.polylines[0].points.last,
+      const LatLng(28.6129, 77.2295),
+    );
+  });
+
+  testWidgets('TripMapScreen degrades gracefully when route geometry fails', (
+    WidgetTester tester,
+  ) async {
+    final tripService = MockTripService();
+    final savedPlaceService = MockSavedPlaceService();
+    final routeOptimizationService = MockRouteOptimizationService();
+    final routeGeometryService = MockRouteGeometryService(shouldFail: true);
+    final replanningService = MockSmartReplanningService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripMapScreen(
+          tripId: 't1',
+          tripService: tripService,
+          savedPlaceService: savedPlaceService,
+          routeOptimizationService: routeOptimizationService,
+          routeGeometryService: routeGeometryService,
+          smartReplanningService: replanningService,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Map renders without crash
+    expect(find.byType(FlutterMap), findsOneWidget);
+
+    // Markers still present
+    expect(find.byType(MarkerLayer), findsOneWidget);
+
+    // PolylineLayer has 0 polylines
+    final polylineLayer = tester.widget<PolylineLayer>(
+      find.byType(PolylineLayer),
+    );
+    expect(polylineLayer.polylines, isEmpty);
+  });
+
   testWidgets(
-    'TripMapScreen day filter updates visible polylines',
+    'POI move picker excludes REST days and uses persisted map state',
     (WidgetTester tester) async {
-      final tripService = MockTripService();
-      final savedPlaceService = MockSavedPlaceService();
-      final routeOptimizationService = MockRouteOptimizationService();
-      final routeGeometryService = MockRouteGeometryService();
+      tester.view.physicalSize = const Size(430, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
         MaterialApp(
           home: TripMapScreen(
             tripId: 't1',
-            tripService: tripService,
-            savedPlaceService: savedPlaceService,
-            routeOptimizationService: routeOptimizationService,
-            routeGeometryService: routeGeometryService,
+            tripService: MockTripService(),
+            savedPlaceService: MockSavedPlaceService(),
+            routeOptimizationService: MockRouteOptimizationService(),
+            routeGeometryService: MockRouteGeometryService(),
+            smartReplanningService: MockSmartReplanningService(),
           ),
         ),
       );
-
       await tester.pumpAndSettle();
 
-      // Open day filter menu
-      await tester.tap(find.byIcon(Icons.filter_list_rounded));
+      await tester.tap(find.text('1').first);
+      await tester.pumpAndSettle();
+      expect(find.text('India Gate'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('poi_move_day_button')));
       await tester.pumpAndSettle();
 
-      // Select Day 1
-      await tester.tap(find.text('Day 1'));
-      await tester.pumpAndSettle();
-
-      // Only Day 1 polyline should be visible now
-      final polylineLayer = tester.widget<PolylineLayer>(
-        find.byType(PolylineLayer),
-      );
-      expect(polylineLayer.polylines.length, 1);
-      expect(
-        polylineLayer.polylines[0].points.last,
-        const LatLng(28.6129, 77.2295),
-      );
+      expect(find.byKey(const Key('poi_move_day_option_2')), findsNothing);
+      expect(find.byKey(const Key('poi_move_day_option_3')), findsOneWidget);
     },
   );
 
-  testWidgets(
-    'TripMapScreen degrades gracefully when route geometry fails',
-    (WidgetTester tester) async {
-      final tripService = MockTripService();
-      final savedPlaceService = MockSavedPlaceService();
-      final routeOptimizationService = MockRouteOptimizationService();
-      final routeGeometryService = MockRouteGeometryService(shouldFail: true);
+  testWidgets('map status mutation publishes authoritative route to parent', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    OptimizedRoute? published;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: TripMapScreen(
-            tripId: 't1',
-            tripService: tripService,
-            savedPlaceService: savedPlaceService,
-            routeOptimizationService: routeOptimizationService,
-            routeGeometryService: routeGeometryService,
-          ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TripMapScreen(
+          tripId: 't1',
+          tripService: MockTripService(),
+          savedPlaceService: MockSavedPlaceService(),
+          routeOptimizationService: MockRouteOptimizationService(),
+          routeGeometryService: MockRouteGeometryService(),
+          smartReplanningService: MockSmartReplanningService(),
+          onItineraryChanged: (route) => published = route,
         ),
-      );
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('poi_mark_visited_button')));
+    await tester.pumpAndSettle();
 
-      await tester.pumpAndSettle();
-
-      // Map renders without crash
-      expect(find.byType(FlutterMap), findsOneWidget);
-
-      // Markers still present
-      expect(find.byType(MarkerLayer), findsOneWidget);
-
-      // PolylineLayer has 0 polylines
-      final polylineLayer = tester.widget<PolylineLayer>(
-        find.byType(PolylineLayer),
-      );
-      expect(polylineLayer.polylines, isEmpty);
-    },
-  );
+    expect(published, isNotNull);
+    expect(published!.places.first.status, 'COMPLETED');
+  });
 }

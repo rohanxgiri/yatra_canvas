@@ -30,10 +30,9 @@ from app.schemas.route_optimization import (
 )
 from app.schemas.smart_replanning import (
     ItineraryStopStatus,
-    ItineraryStopStatusUpdate,
+    MovedPlaceRead,
     MoveItineraryPlaceRequest,
     MoveItineraryPlaceResponse,
-    MovedPlaceRead,
     TripReplanImpactRead,
     TripReplanPreviewRead,
 )
@@ -89,7 +88,6 @@ def evaluate_change_impact(change_type: TripChangeType) -> TripChangeImpact:
     """Return deterministic invalidation impact for a specific trip change."""
     if change_type == TripChangeType.UPDATE_NOTES:
         return TripChangeImpact(
-
             change_type=change_type,
             itinerary_stale=False,
             route_matrix_stale=False,
@@ -140,7 +138,10 @@ def evaluate_change_impact(change_type: TripChangeType) -> TripChangeImpact:
             summary="Custom place order changed. Itinerary recalculation required.",
         )
 
-    if change_type in (TripChangeType.UPDATE_PRIORITY, TripChangeType.UPDATE_MUST_VISIT):
+    if change_type in (
+        TripChangeType.UPDATE_PRIORITY,
+        TripChangeType.UPDATE_MUST_VISIT,
+    ):
         return TripChangeImpact(
             change_type=change_type,
             itinerary_stale=True,
@@ -316,9 +317,15 @@ class SmartReplanningService:
             )
 
         # 4. Locked places out of position
-        itin_order_map = {i.place_id: i.visit_order for i in itinerary_rows if i.day_number == 1}
+        itin_order_map = {
+            i.place_id: i.visit_order for i in itinerary_rows if i.day_number == 1
+        }
         for s in saved_rows:
-            if s.is_locked and s.custom_order is not None and s.place_id in itin_order_map:
+            if (
+                s.is_locked
+                and s.custom_order is not None
+                and s.place_id in itin_order_map
+            ):
                 if itin_order_map[s.place_id] != s.custom_order:
                     reasons.append(
                         "Locked place order is out of sync with scheduled visit order."
@@ -373,9 +380,13 @@ class SmartReplanningService:
             session.exec(select(Place).where(Place.id.in_(all_place_ids))).all()  # type: ignore[union-attr]
         )
         places_by_id = {p.id: p for p in places_list}
-        places = [places_by_id[s.place_id] for s in saved_rows if s.place_id in places_by_id]
+        places = [
+            places_by_id[s.place_id] for s in saved_rows if s.place_id in places_by_id
+        ]
         if len(places) != len(saved_rows):
-            raise RouteValidationError("A selected place no longer exists. Remove it and try again.")
+            raise RouteValidationError(
+                "A selected place no longer exists. Remove it and try again."
+            )
         if len(saved_rows) > MAX_SELECTED_PLACES:
             raise RouteValidationError(
                 f"Route optimization currently supports up to {MAX_SELECTED_PLACES} selected places."
@@ -479,7 +490,6 @@ class SmartReplanningService:
         )
 
     async def apply_replan(
-
         self,
         session: Session,
         trip_id: UUID,
@@ -518,10 +528,23 @@ class SmartReplanningService:
         if stop is None:
             raise ItineraryStopNotFoundError("Itinerary stop not found.")
 
-        status_str = new_status.value if hasattr(new_status, "value") else str(new_status)
+        status_str = (
+            new_status.value if hasattr(new_status, "value") else str(new_status)
+        )
         status_str = status_str.upper().strip()
         if status_str not in ("PLANNED", "COMPLETED", "MISSED", "SKIPPED"):
             raise RouteValidationError(f"Invalid itinerary stop status: {status_str}")
+
+        allowed_transitions = {
+            "PLANNED": {"PLANNED", "COMPLETED", "MISSED", "SKIPPED"},
+            "MISSED": {"MISSED", "SKIPPED"},
+            "COMPLETED": {"COMPLETED"},
+            "SKIPPED": {"SKIPPED"},
+        }
+        if status_str not in allowed_transitions.get(stop.status, set()):
+            raise RouteValidationError(
+                f"Cannot change itinerary stop status from {stop.status} to {status_str}."
+            )
 
         stop.status = status_str
         session.add(stop)
@@ -541,8 +564,12 @@ class SmartReplanningService:
             travel_time_minutes=stop.travel_time_minutes or 0,
             planned_arrival_time=stop.planned_arrival_time,
             planned_departure_time=stop.planned_departure_time,
-            visit_duration_minutes=estimate_visit_duration(place.category) if place else 60,
-            is_opening_hours_known=place.opening_hours_status == "KNOWN" if place else False,
+            visit_duration_minutes=estimate_visit_duration(place.category)
+            if place
+            else 60,
+            is_opening_hours_known=place.opening_hours_status == "KNOWN"
+            if place
+            else False,
             status=stop.status,
         )
 
@@ -566,7 +593,9 @@ class SmartReplanningService:
         places = (
             {
                 p.id: p
-                for p in session.exec(select(Place).where(Place.id.in_(place_ids))).all()
+                for p in session.exec(
+                    select(Place).where(Place.id.in_(place_ids))
+                ).all()
             }
             if place_ids
             else {}
@@ -596,7 +625,9 @@ class SmartReplanningService:
                     planned_arrival_time=s.planned_arrival_time,
                     planned_departure_time=s.planned_departure_time,
                     visit_duration_minutes=estimate_visit_duration(p_cat),
-                    is_opening_hours_known=p.opening_hours_status == "KNOWN" if p else False,
+                    is_opening_hours_known=p.opening_hours_status == "KNOWN"
+                    if p
+                    else False,
                     status=s.status,
                 )
             )
@@ -636,10 +667,14 @@ class SmartReplanningService:
                 )
             ).first()
         else:
-            raise RouteValidationError("Either target_day_number or target_day_id is required.")
+            raise RouteValidationError(
+                "Either target_day_number or target_day_id is required."
+            )
 
         if target_day is None or target_day.trip_id != trip_id:
-            raise RouteValidationError("Target trip day does not exist or does not belong to this trip.")
+            raise RouteValidationError(
+                "Target trip day does not exist or does not belong to this trip."
+            )
 
         if target_day.day_type == "REST":
             return MoveItineraryPlaceResponse(
@@ -650,7 +685,11 @@ class SmartReplanningService:
                 target_day_number=target_day.day_number,
             )
 
-        if not target_day.start_time or not target_day.end_time or target_day.end_time <= target_day.start_time:
+        if (
+            not target_day.start_time
+            or not target_day.end_time
+            or target_day.end_time <= target_day.start_time
+        ):
             return MoveItineraryPlaceResponse(
                 success=False,
                 reason="TARGET_DAY_NO_SIGHTSEEING_WINDOW",
@@ -721,18 +760,28 @@ class SmartReplanningService:
         completed_target = [s for s in target_stops if s.status == "COMPLETED"]
         planned_target = [s for s in target_stops if s.status == "PLANNED"]
 
-        candidate_place_ids = [s.place_id for s in planned_target if s.place_id != request.place_id]
+        candidate_place_ids = [
+            s.place_id for s in planned_target if s.place_id != request.place_id
+        ]
         if request.place_id not in candidate_place_ids:
             candidate_place_ids.append(request.place_id)
 
-        all_target_place_ids = candidate_place_ids + [s.place_id for s in completed_target]
+        all_target_place_ids = candidate_place_ids + [
+            s.place_id for s in completed_target
+        ]
         places_by_id = {
             p.id: p
-            for p in session.exec(select(Place).where(Place.id.in_(all_target_place_ids))).all()
+            for p in session.exec(
+                select(Place).where(Place.id.in_(all_target_place_ids))
+            ).all()
         }
-        candidate_places = [places_by_id[pid] for pid in candidate_place_ids if pid in places_by_id]
+        candidate_places = [
+            places_by_id[pid] for pid in candidate_place_ids if pid in places_by_id
+        ]
         if len(candidate_places) != len(candidate_place_ids):
-            raise RouteValidationError("A place selected for the route no longer exists.")
+            raise RouteValidationError(
+                "A place selected for the route no longer exists."
+            )
 
         # Determine start node and effective start time for remaining route on target day
         if completed_target:
@@ -758,7 +807,11 @@ class SmartReplanningService:
             )
 
         try:
-            target_start_node, place_nodes, matrix = await route_matrix.get_complete_matrix(
+            (
+                target_start_node,
+                place_nodes,
+                matrix,
+            ) = await route_matrix.get_complete_matrix(
                 session,
                 trip,
                 candidate_places,
@@ -924,14 +977,19 @@ class SmartReplanningService:
                         src_start_node = RouteNode.for_place(last_src_place)
                         src_eff_start = max(
                             source_day.start_time,
-                            last_src_comp.planned_departure_time or source_day.start_time,
+                            last_src_comp.planned_departure_time
+                            or source_day.start_time,
                         )
                     else:
                         src_start_node = RouteNode.for_start(trip)
                         src_eff_start = source_day.start_time
 
                     if src_eff_start < source_day.end_time and src_places:
-                        src_start_node, src_place_nodes, src_matrix = await route_matrix.get_complete_matrix(
+                        (
+                            src_start_node,
+                            src_place_nodes,
+                            src_matrix,
+                        ) = await route_matrix.get_complete_matrix(
                             session,
                             trip,
                             src_places,
@@ -1000,11 +1058,19 @@ class SmartReplanningService:
 
         # Build response with updated day itineraries
         full_itinerary = self.get_trip_itinerary(session, trip_id)
-        source_itin = [
-            p for p in full_itinerary.optimized_places if p.day_number == source_day_number
-        ] if source_day_number is not None else []
+        source_itin = (
+            [
+                p
+                for p in full_itinerary.optimized_places
+                if p.day_number == source_day_number
+            ]
+            if source_day_number is not None
+            else []
+        )
         target_itin = [
-            p for p in full_itinerary.optimized_places if p.day_number == target_day.day_number
+            p
+            for p in full_itinerary.optimized_places
+            if p.day_number == target_day.day_number
         ]
 
         return MoveItineraryPlaceResponse(

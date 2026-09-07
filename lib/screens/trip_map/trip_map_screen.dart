@@ -8,6 +8,7 @@ import '../../models/itinerary_stop_status.dart';
 import '../../models/optimized_route.dart';
 import '../../models/route_geometry.dart';
 import '../../models/saved_place.dart';
+import '../../models/trip_day.dart';
 import '../../models/trip_draft.dart';
 import '../../models/trip_start_location.dart';
 import '../../services/route_geometry_service.dart';
@@ -27,11 +28,13 @@ class TripMapScreen extends StatefulWidget {
     this.initialOptimizedRoute,
     this.initialRouteGeometry,
     this.initialDurationDays,
+    this.initialTripDays,
     this.tripService,
     this.savedPlaceService,
     this.routeOptimizationService,
     this.routeGeometryService,
     this.smartReplanningService,
+    this.onItineraryChanged,
     super.key,
   });
 
@@ -41,11 +44,13 @@ class TripMapScreen extends StatefulWidget {
   final OptimizedRoute? initialOptimizedRoute;
   final TripRouteGeometry? initialRouteGeometry;
   final int? initialDurationDays;
+  final List<TripDay>? initialTripDays;
   final TripService? tripService;
   final SavedPlaceService? savedPlaceService;
   final RouteOptimizationService? routeOptimizationService;
   final RouteGeometryService? routeGeometryService;
   final SmartReplanningService? smartReplanningService;
+  final ValueChanged<OptimizedRoute>? onItineraryChanged;
 
   @override
   State<TripMapScreen> createState() => _TripMapScreenState();
@@ -75,6 +80,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
   TripStartLocation? _startLocation;
   List<SavedPlace> _savedPlaces = [];
+  List<TripDay> _tripDays = [];
   OptimizedRoute? _optimizedRoute;
   TripRouteGeometry? _routeGeometry;
   int? _selectedDay;
@@ -107,14 +113,19 @@ class _TripMapScreenState extends State<TripMapScreen> {
     _replanningService =
         widget.smartReplanningService ?? SmartReplanningService();
 
-    _durationDays = widget.initialDurationDays ?? widget.initialOptimizedRoute?.totalDays;
+    _durationDays =
+        widget.initialDurationDays ?? widget.initialOptimizedRoute?.totalDays;
 
     if (widget.initialStartLocation != null ||
-        (widget.initialSavedPlaces != null && widget.initialSavedPlaces!.isNotEmpty)) {
+        (widget.initialSavedPlaces != null &&
+            widget.initialSavedPlaces!.isNotEmpty)) {
       _startLocation = widget.initialStartLocation;
       _savedPlaces = widget.initialSavedPlaces ?? [];
+      _tripDays = widget.initialTripDays ?? [];
       _optimizedRoute = widget.initialOptimizedRoute;
-      _routeGeometry = widget.initialRouteGeometry ?? widget.initialOptimizedRoute?.routeGeometry;
+      _routeGeometry =
+          widget.initialRouteGeometry ??
+          widget.initialOptimizedRoute?.routeGeometry;
       _isLoading = false;
 
       developer.log(
@@ -171,6 +182,9 @@ class _TripMapScreenState extends State<TripMapScreen> {
     });
 
     try {
+      final tripDaysFuture = _tripService
+          .getTripDays(widget.tripId)
+          .catchError((_) => const <TripDay>[]);
       final results = await Future.wait([
         _tripService.getTrip(widget.tripId),
         _savedPlaceService.getSavedPlaces(widget.tripId),
@@ -184,8 +198,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
       final stType = tripDraft.startLocationType;
       final name = tripDraft.startLocationName ?? tripDraft.arrivalPoint;
       final lat = tripDraft.startLatitude ?? tripDraft.arrivalLatitude ?? 0.0;
-      final lng =
-          tripDraft.startLongitude ?? tripDraft.arrivalLongitude ?? 0.0;
+      final lng = tripDraft.startLongitude ?? tripDraft.arrivalLongitude ?? 0.0;
 
       TripStartLocation? start;
       if (lat != 0.0 && lng != 0.0) {
@@ -212,6 +225,11 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
       _fitMapBounds();
 
+      final tripDays = await tripDaysFuture;
+      if (mounted && tripDays.isNotEmpty) {
+        setState(() => _tripDays = tripDays);
+      }
+
       _fetchRouteAsync();
     } catch (_) {
       if (!mounted) return;
@@ -228,7 +246,10 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
     OptimizedRoute? routeResult;
     try {
-      routeResult = await _routeOptimizationService.optimizeRoute(widget.tripId);
+      // Reading the map must not regenerate or mutate the itinerary. The
+      // persisted itinerary is authoritative; optimization remains an explicit
+      // user action on the planning screen.
+      routeResult = await _replanningService.getItinerary(widget.tripId);
     } catch (_) {
       // Route optimization optional
     }
@@ -236,8 +257,9 @@ class _TripMapScreenState extends State<TripMapScreen> {
     TripRouteGeometry? geometryResult = routeResult?.routeGeometry;
     if (geometryResult == null) {
       try {
-        geometryResult =
-            await _routeGeometryService.getRouteGeometry(widget.tripId);
+        geometryResult = await _routeGeometryService.getRouteGeometry(
+          widget.tripId,
+        );
       } catch (_) {
         // Safe degradation: if geometry cannot be fetched, map still shows markers.
       }
@@ -325,11 +347,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
     for (final day in filteredDays) {
       if (day.points.isNotEmpty) {
         polylines.add(
-          Polyline(
-            points: day.points,
-            color: AppColors.teal,
-            strokeWidth: 4.5,
-          ),
+          Polyline(points: day.points, color: AppColors.teal, strokeWidth: 4.5),
         );
       }
     }
@@ -432,12 +450,27 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
   /// Opens the rich POI detail bottom sheet for a saved place marker.
   void _showPoiBottomSheet(SavedPlace saved, OptimizedRoutePlace? stop) {
-    // Available days for the "Move" picker: all logical days except the
-    // current stop's day. REST filtering is handled server-side.
-    final availableDays = _optimizedRoute?.logicalDays
-            .where((d) => d != stop?.dayNumber)
-            .toList() ??
-        [];
+    final configuredDays = _tripDays.isEmpty
+        ? _logicalDays
+        : _tripDays
+              .where(
+                (day) =>
+                    day.dayType != DayType.rest &&
+                    day.startTime != null &&
+                    day.endTime != null &&
+                    day.endTime!.compareTo(day.startTime!) > 0,
+              )
+              .map((day) => day.dayNumber)
+              .toList();
+    final availableDays = configuredDays
+        .where((day) => day != stop?.dayNumber)
+        .toList();
+    final visitDate = stop == null
+        ? null
+        : _tripDays
+              .where((day) => day.dayNumber == stop.dayNumber)
+              .map((day) => day.date)
+              .firstOrNull;
 
     showModalBottomSheet(
       context: context,
@@ -452,6 +485,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
           savedPlace: saved,
           routeStop: stop,
           availableDays: availableDays,
+          visitDate: visitDate,
           onStatusChange: stop == null
               ? null
               : (status) => _handleStopStatusChange(stop, status),
@@ -462,7 +496,6 @@ class _TripMapScreenState extends State<TripMapScreen> {
       ),
     );
   }
-
 
   /// Shows a minimal bottom sheet for the trip start-location marker.
   void _showStartLocationSheet() {
@@ -497,7 +530,9 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.tealLight,
                       borderRadius: BorderRadius.circular(20),
@@ -583,6 +618,9 @@ class _TripMapScreenState extends State<TripMapScreen> {
           );
         }
       });
+      if (_optimizedRoute case final route?) {
+        widget.onItineraryChanged?.call(route);
+      }
     } finally {
       _updatingStopIds.remove(stopId);
     }
@@ -590,10 +628,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
   /// Calls the replanning service to move a missed stop to another day, then
   /// merges the server response back into [_optimizedRoute].
-  Future<void> _handleMoveToDay(
-    OptimizedRoutePlace stop,
-    int targetDay,
-  ) async {
+  Future<void> _handleMoveToDay(OptimizedRoutePlace stop, int targetDay) async {
     final stopId = stop.id ?? stop.placeId;
     if (_updatingStopIds.contains(stopId)) return;
     _updatingStopIds.add(stopId);
@@ -621,9 +656,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
           // Patch source and target day stops from response.
           final newPlaces = <OptimizedRoutePlace>[
             ..._optimizedRoute!.places.where(
-              (p) =>
-                  p.dayNumber != stop.dayNumber &&
-                  p.dayNumber != targetDay,
+              (p) => p.dayNumber != stop.dayNumber && p.dayNumber != targetDay,
             ),
             ...response.sourceItinerary,
             ...response.targetItinerary,
@@ -645,6 +678,9 @@ class _TripMapScreenState extends State<TripMapScreen> {
           );
         }
       });
+      if (_optimizedRoute case final route?) {
+        widget.onItineraryChanged?.call(route);
+      }
     } finally {
       _updatingStopIds.remove(stopId);
     }
@@ -704,10 +740,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 style: AppTextStyles.body,
               ),
               const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _loadMapData,
-                child: const Text('Retry'),
-              ),
+              FilledButton(onPressed: _loadMapData, child: const Text('Retry')),
             ],
           ),
         ),
@@ -755,12 +788,17 @@ class _TripMapScreenState extends State<TripMapScreen> {
               borderRadius: BorderRadius.circular(12),
               color: AppColors.surface,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded,
-                        size: 18, color: AppColors.teal),
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: AppColors.teal,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -785,8 +823,10 @@ class _TripMapScreenState extends State<TripMapScreen> {
               borderRadius: BorderRadius.circular(20),
               color: AppColors.surface,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

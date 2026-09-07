@@ -227,3 +227,9 @@ This slice extends Phase 7/8 infrastructure only. No completed/missed/skipped st
 movement, partial/live replanning, map bottom sheet, deep links, automatic hours enrichment,
 recommendation changes or final day-planning UI are included. See
 [implementation report](PLANNER_IMPLEMENTATION.md).
+# Reliability milestone (2026-09-07)
+
+- `[IMPLEMENTED]` Core trip-flow end-to-end hardening, provider-call audit, cache verification, map/itinerary
+  state synchronization, terminal status enforcement, and realistic planner benchmarks.
+- `[PARTIAL]` Apply the reviewed opening-hours and itinerary-status migrations through an environment-aware
+  deployment process, then repeat PostgreSQL/RLS integration checks in staging.

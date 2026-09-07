@@ -436,3 +436,10 @@ only with the deployment architecture; both are currently `[UNKNOWN]`.
 | Admin | mock UI plus review table | authorized, audited review/dedupe/correction workflow |
 | Migrations | `create_all` plus SQL scripts | ordered, reversible, tested migration history |
 | Operations | `[UNKNOWN]` | documented deployment, health, metrics, backup, and incident behavior |
+# Core-flow reliability note (2026-09-07)
+
+`[IMPLEMENTED]` The integrated trip execution path is verified in
+[`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md). Map entry reads the persisted itinerary
+and never invokes full optimization as a side effect. TripDay data supplies POI weekday context and valid
+move targets. Status and partial-move responses are published from the map to the parent itinerary so both
+screens share the backend response as their source of truth.

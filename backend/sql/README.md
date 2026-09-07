@@ -17,8 +17,12 @@ Already present:
 
 - route matrix, priority, start-location, FSQ/Geoapify, city/provider uniqueness,
   schema-parity repair, Wikidata, importance score, TripDay, and saved-place assignment changes;
-- all expected TripDay rows for the 21 trips in the audit;
+- all 80 expected TripDay rows for the 22 trips in the audit;
 - valid assignment state for all 100 saved-place rows.
+
+The same audit found the historical `place_categories.created_at` column created by
+`add_fsq_geoapify_foundation.sql`. The SQLModel definition now includes that preserved column;
+no database change is required for it.
 
 Pending against the current models:
 

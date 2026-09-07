@@ -83,7 +83,10 @@ void main() {
         );
       });
 
-      final service = SavedPlaceService(client: client, baseUrl: 'http://api.test');
+      final service = SavedPlaceService(
+        client: client,
+        baseUrl: 'http://api.test',
+      );
       final result = await service.updateAssignment(
         'trip-1',
         'place-1',
@@ -103,22 +106,19 @@ void main() {
         expect(request.method, 'PATCH');
         expect(request.url.path, '/trips/trip-1/saved-places/place-1');
         final body = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(body, {
-          'assignment_mode': 'AUTO',
-          'assigned_day_id': null,
-        });
+        expect(body, {'assignment_mode': 'AUTO', 'assigned_day_id': null});
         return http.Response(
           jsonEncode(
-            _mockSavedPlaceJson(
-              assignmentMode: 'AUTO',
-              assignedDayId: null,
-            ),
+            _mockSavedPlaceJson(assignmentMode: 'AUTO', assignedDayId: null),
           ),
           200,
         );
       });
 
-      final service = SavedPlaceService(client: client, baseUrl: 'http://api.test');
+      final service = SavedPlaceService(
+        client: client,
+        baseUrl: 'http://api.test',
+      );
       final result = await service.updateAssignment(
         'trip-1',
         'place-1',
@@ -150,7 +150,10 @@ void main() {
         );
       });
 
-      final service = SavedPlaceService(client: client, baseUrl: 'http://api.test');
+      final service = SavedPlaceService(
+        client: client,
+        baseUrl: 'http://api.test',
+      );
       final result = await service.addSavedPlace(
         'trip-1',
         'place-1',
@@ -185,8 +188,8 @@ Map<String, Object?> _mockSavedPlaceJson({
     'priority': priority,
     'is_locked': isLocked,
     'must_visit': mustVisit,
-    if (assignmentMode != null) 'assignment_mode': assignmentMode,
-    if (assignedDayId != null) 'assigned_day_id': assignedDayId,
+    'assignment_mode': ?assignmentMode,
+    'assigned_day_id': ?assignedDayId,
     'notes': notes,
     'place': {
       'id': placeId,

@@ -29,7 +29,7 @@ erDiagram
 ```
 
 SQLModel relationship properties are not declared; the diagram reflects explicit foreign keys.
-Deletion/cascade behavior is not specified by these models and must not be assumed.
+Deletion behavior must not be assumed except where an `ondelete` action is explicitly declared.
 
 ## Canonical and supporting entities
 
@@ -37,11 +37,11 @@ Deletion/cascade behavior is not specified by these models and must not be assum
 | --- | --- | --- |
 | `cities` / `City` | `[IMPLEMENTED]` | Canonical destination name/state/country and coordinates. Nullable indexed `google_place_id` has unique constraint `uq_cities_google_place_id`; coordinate checks apply. |
 | `places` / `Place` | `[IMPLEMENTED]` | Canonical curated POI tied to a city, with category, coordinates, optional rating, review count, feature flags, `wikidata_id`, `importance_score`, `opening_hours_status` (`KNOWN`, `CLOSED`, `UNKNOWN` with check constraint `ck_places_opening_hours_status`), preserved `raw_opening_hours`, `last_fetched_at`, and `created_at`. Rating/review and coordinate checks apply. |
-| `place_opening_hours` / `PlaceOpeningHours` | `[IMPLEMENTED]` | Normalized daily opening hours tied to `places.id` with `ondelete="CASCADE"`. Stores `day_of_week` (0=Monday .. 6=Sunday), `status` (`KNOWN`, `CLOSED`, `UNKNOWN`), and `intervals` JSONB array (`[{"open": "HH:MM", "close": "HH:MM"}]`). Check constraints enforce `0 <= day_of_week <= 6` (`ck_place_opening_hours_day_of_week`) and valid status (`ck_place_opening_hours_status`). Unique constraint `uq_place_opening_hours_place_day` guarantees one schedule row per day per canonical place. Feeds exact weekday interval domains in the day-aware optimizer. |
+| `place_opening_hours` / `PlaceOpeningHours` | `[IMPLEMENTED]` | Normalized daily opening hours tied to `places.id` with `ondelete="CASCADE"`. Stores `day_of_week` (0=Monday .. 6=Sunday), `status` (`KNOWN`, `CLOSED`, `UNKNOWN`), and `intervals` JSON array (`[{"open": "HH:MM", "close": "HH:MM"}]`). Check constraints enforce `0 <= day_of_week <= 6` (`ck_place_opening_hours_day`) and valid status (`ck_place_opening_hours_status`). Unique constraint `uq_place_opening_hours_place_day` guarantees one schedule row per day per canonical place. Feeds exact weekday interval domains in the day-aware optimizer. |
 | `city_category_cache` / `CityCategoryCache` | `[IMPLEMENTED]` | One row per city/category with `last_fetched_at` and required `expires_at`; prevents unnecessary nearby refresh. |
 | `place_tags` / `PlaceTag` | `[IMPLEMENTED]` | Application tags unique per place/tag pair. |
 | `place_sources` / `PlaceSource` | `[IMPLEMENTED]` | Provider provenance and external identity. Unique per place/source and globally per source/external ID. Stores `wikidata_id`, source URL, licence identifier, address/contact/social fields, preserved `raw_opening_hours`, provider lifecycle dates, unresolved flags, fetch/import timestamps. |
-| `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label, unique for place/source/external category. |
+| `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label and creation timestamp, unique for place/source/external category. |
 | `place_import_reviews` / `PlaceImportReview` | `[IMPLEMENTED]` schema, `[PARTIAL]` workflow | One review per provider/external place ID. Status is `pending`, `resolved`, or `ignored`; stores candidates, match evidence, and a source snapshot. No connected admin endpoint/UI action exists. |
 | `trips` / `Trip` | `[IMPLEMENTED]` schema, create, get, and patch APIs, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. `GET /trips/{trip_id}` returns the complete application trip representation, and `PATCH /trips/{trip_id}` supports partial updates with date/coordinate/preference validation and downstream cache invalidation. List/delete and authentication remain absent. |
 | `trip_days` / `TripDay` | `[IMPLEMENTED]` schema, create, get, and patch APIs | Individual configurable trip days tied to `trips.id` with `ondelete="CASCADE"`. Stores `day_number`, `date`, `day_type` (`FULL_DAY`, `HALF_DAY`, `REST`, `TRAVEL`), optional touring window (`start_time`, `end_time`), and `created_at`. Unique constraint `uq_trip_days_trip_day_number` enforces unique `day_number` per trip. Check constraints enforce `day_number > 0` and valid `day_type`. Automatically generated on trip creation and date updates. Protected against changing to `REST` or removing the sightseeing window when places are locked to the day. Protected against destructive duration reduction when scheduled `TripItinerary` visits exist or when places are locked to eliminated days. Active records supply optimizer route windows and original output day numbers. |
@@ -155,8 +155,8 @@ See `docs/CURRENT_SYSTEM_VERIFICATION.md` for the before/after mismatch inventor
 ### Configured database re-audit — 2026-09-07
 
 `[PARTIAL]` A read-only transaction confirmed that the historical route, provider, canonical-place,
-importance, TripDay, and saved-place assignment changes are present. All 21 trips have their expected
-TripDay count, and all 100 saved-place rows satisfy assignment consistency. Two current-model changes
+importance, TripDay, and saved-place assignment changes are present. All 22 trips have their expected
+80 TripDay rows, and all 100 saved-place rows satisfy assignment consistency. Two current-model changes
 remain unapplied: the three opening-hours source/canonical columns, their `places` check, the
 opening-hours foreign-key cascade alignment, and the
 `trip_itinerary.status` column/check. The normalized opening-hours table exists but contains zero rows;
@@ -165,8 +165,9 @@ the itinerary table contains 92 rows that the status migration would backfill to
 The target is a remote Supabase database containing application data. Its development/staging/production
 classification and recovery point remain `[UNKNOWN]`, so no DDL was applied during this audit. RLS is
 enabled on every public application table, no public policies exist, and the configured `postgres` role
-bypasses that boundary. The repository model was restored to the established `PlaceCategory.label`
-contract, matching the live catalog, original migration, and importer.
+bypasses that boundary. The repository model maps both the established `PlaceCategory.label` contract
+and the historical `place_categories.created_at` timestamp, matching the live catalog, original
+migration, and importer.
 
 ## Migration and rollback expectations
 
@@ -184,3 +185,11 @@ contract, matching the live catalog, original migration, and importer.
 `[PLANNED]` Likely future entities include an application profile linked to Supabase Auth,
 field/source verification or correction history, ingestion runs, and provider-aware weather/rate
 caches. Their exact schemas are deliberately not invented here.
+# Core-flow integrity verification (2026-09-07)
+
+`[IMPLEMENTED]` End-to-end tests verify Trip, TripDay, UserSavedPlace, TripItinerary, Place,
+PlaceOpeningHours, and RouteMatrixCache together. COMPLETED and SKIPPED are terminal itinerary states;
+MISSED may become SKIPPED or be moved. A successful move atomically updates the affected source and target
+days, preserves completed prefixes and unrelated days, and updates the saved-place day lock. A rejected
+move leaves all persisted rows unchanged. Full evidence and remote-schema caveats are recorded in
+[`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md).
