@@ -22,6 +22,7 @@ void main() {
             'priority': 0,
             'is_locked': false,
             'must_visit': false,
+            'assignment_mode': 'AUTO',
             'notes': null,
           });
           return http.Response(jsonEncode(_savedPlaceJson()), 201);

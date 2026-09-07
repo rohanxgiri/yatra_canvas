@@ -32,6 +32,8 @@ class SavedPlaceService {
     int priority = 0,
     bool isLocked = false,
     bool mustVisit = false,
+    AssignmentMode assignmentMode = AssignmentMode.auto,
+    String? assignedDayId,
     String? notes,
   }) async {
     final response = await _client
@@ -44,6 +46,8 @@ class SavedPlaceService {
             'priority': priority,
             'is_locked': isLocked,
             'must_visit': mustVisit,
+            'assignment_mode': assignmentMode.value,
+            if (assignedDayId != null) 'assigned_day_id': assignedDayId,
             'notes': notes,
           }),
         )
@@ -78,6 +82,30 @@ class SavedPlaceService {
     return _decodeOne(response);
   }
 
+  Future<SavedPlace> updateAssignment(
+    String tripId,
+    String placeId, {
+    required AssignmentMode assignmentMode,
+    String? assignedDayId,
+  }) async {
+    final payload = <String, dynamic>{
+      'assignment_mode': assignmentMode.value,
+      if (assignmentMode == AssignmentMode.locked)
+        'assigned_day_id': assignedDayId,
+      if (assignmentMode == AssignmentMode.auto)
+        'assigned_day_id': null,
+    };
+
+    final response = await _client
+        .patch(
+          _itemUri(tripId, placeId),
+          headers: const {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        )
+        .timeout(_requestTimeout);
+    return _decodeOne(response);
+  }
+
   Future<SavedPlace> updateSettings(
     String tripId,
     String placeId, {
@@ -85,19 +113,30 @@ class SavedPlaceService {
     required bool isLocked,
     required bool mustVisit,
     required int customOrder,
+    AssignmentMode? assignmentMode,
+    String? assignedDayId,
     String? notes,
   }) async {
+    final payload = <String, dynamic>{
+      'notes': notes,
+      'priority': priority,
+      'is_locked': isLocked,
+      'must_visit': mustVisit,
+      'custom_order': customOrder,
+    };
+    if (assignmentMode != null) {
+      payload['assignment_mode'] = assignmentMode.value;
+      if (assignmentMode == AssignmentMode.locked) {
+        payload['assigned_day_id'] = assignedDayId;
+      } else if (assignmentMode == AssignmentMode.auto) {
+        payload['assigned_day_id'] = null;
+      }
+    }
     final response = await _client
         .patch(
           _itemUri(tripId, placeId),
           headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'notes': notes,
-            'priority': priority,
-            'is_locked': isLocked,
-            'must_visit': mustVisit,
-            'custom_order': customOrder,
-          }),
+          body: jsonEncode(payload),
         )
         .timeout(_requestTimeout);
     return _decodeOne(response);

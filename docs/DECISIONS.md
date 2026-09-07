@@ -1,6 +1,6 @@
 # Architectural decisions
 
-Last reviewed: 2026-09-06
+Last reviewed: 2026-09-07
 
 These records describe accepted direction without claiming all consequences are implemented.
 Changing an accepted decision requires a new or amended record plus updates to architecture,
@@ -190,7 +190,7 @@ provider, environment, and data-model documentation.
 
 ## ADR-010 — Google OR-Tools VRPTW Solver for Multi-Day Itinerary Optimization
 
-- **Status:** Accepted and `[IMPLEMENTED]`.
+- **Status:** Original OR-Tools integration `[IMPLEMENTED]`; day/window/lock/objective details superseded by ADR-015.
 - **Date:** 2026-09-03.
 - **Context:** Previous itinerary ordering used a greedy nearest-neighbor heuristic that lacked formal
   constraint handling. Multi-day trips with restricted venue opening hours, varying visit durations,
@@ -304,3 +304,27 @@ provider, environment, and data-model documentation.
 - **Evidence:** `backend/app/services/route_optimization_service.py`, `backend/app/routers/places.py`, `lib/models/optimized_route.dart`,
   `lib/screens/place_discovery/place_discovery_screen.dart`, `lib/screens/trip_map/trip_map_screen.dart`,
   `backend/tests/test_core_trip_flow_hardening.py`, `test/core_trip_flow_hardening_test.dart`, `docs/core_trip_flow_hardening.md`.
+
+## ADR-015 — TripDay-aware, time-feasible partial itinerary generation
+
+- **Status:** `[IMPLEMENTED]` (planner regressions pass; unrelated repository failures documented in the implementation report).
+- **Date:** 2026-09-07.
+- **Decision:** Extend the existing VRPTW solver and matrix/depot architecture. Each usable
+  non-REST TripDay maps to a route with its own time window and original output day number.
+  Native vehicle-variable domains enforce day locks. Disjoint route time bands preserve exact
+  weekday interval unions and visit completion before closing without duplicating selections.
+  UNKNOWN hours remain schedulable and explicitly unverified. Preserve existing duration and
+  priority models, strengthen lock retention, remove hard priority ordering and return structured
+  unscheduled results rather than failing overpacked trips. Balance softly against individual
+  time capacities, with no place-count quotas or automatic recommendations.
+- **Consequences:** Optimization and full-trip preview load the same persisted constraints.
+  Additive response/Flutter models carry unscheduled reasons; scheduled rows alone persist.
+  Existing return-depot assumption (zero return leg), five-second search budget, and matrix
+  caching are retained. Selection cap rises from 24 to 50. No schema migration or provider call
+  is introduced for opening hours. Exact global optimality and durable result snapshots remain
+  outside this phase.
+- **Evidence:** `backend/tests/test_day_aware_planner.py`, route optimization integration tests,
+  `test/day_aware_planner_test.dart`, [implementation report](PLANNER_IMPLEMENTATION.md), and
+  [official OR-Tools routing API reference](https://or-tools.github.io/docs/python/classortools_1_1constraint__solver_1_1pywrapcp_1_1RoutingModel.html),
+  verified 2026-09-07 against local OR-Tools 9.15.6755. Vehicle-domain removal avoids the
+  installed Windows SetAllowedVehiclesForIndex Python span-binding error.

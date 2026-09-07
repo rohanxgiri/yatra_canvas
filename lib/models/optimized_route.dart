@@ -4,6 +4,7 @@ import 'route_geometry.dart';
 
 class OptimizedRoutePlace {
   const OptimizedRoutePlace({
+    this.id,
     required this.placeId,
     required this.name,
     required this.dayNumber,
@@ -14,8 +15,10 @@ class OptimizedRoutePlace {
     this.plannedDepartureTime,
     this.visitDurationMinutes = 60,
     this.isOpeningHoursKnown = false,
+    this.status = 'PLANNED',
   });
 
+  final String? id;
   final String placeId;
   final String name;
   final int dayNumber;
@@ -26,6 +29,12 @@ class OptimizedRoutePlace {
   final String? plannedDepartureTime;
   final int visitDurationMinutes;
   final bool isOpeningHoursKnown;
+  final String status;
+
+  bool get isPlanned => status == 'PLANNED';
+  bool get isCompleted => status == 'COMPLETED';
+  bool get isMissed => status == 'MISSED';
+  bool get isSkipped => status == 'SKIPPED';
 
   String? get formattedTimeWindow {
     if (plannedArrivalTime == null || plannedDepartureTime == null) {
@@ -46,22 +55,23 @@ class OptimizedRoutePlace {
 
   factory OptimizedRoutePlace.fromJson(Map<String, dynamic> json) {
     return OptimizedRoutePlace(
+      id: json['id'] as String?,
       placeId: json['place_id'] as String,
       name: json['name'] as String,
       dayNumber: json['day_number'] as int,
       visitOrder: json['visit_order'] as int,
-      distanceFromPrevious:
-          (json['distance_from_previous'] as num).toDouble(),
+      distanceFromPrevious: (json['distance_from_previous'] as num).toDouble(),
       travelTimeMinutes: json['travel_time_minutes'] as int,
       plannedArrivalTime: json['planned_arrival_time'] as String?,
       plannedDepartureTime: json['planned_departure_time'] as String?,
       visitDurationMinutes:
           (json['visit_duration_minutes'] as num?)?.toInt() ?? 60,
-      isOpeningHoursKnown:
-          json['is_opening_hours_known'] as bool? ?? false,
+      isOpeningHoursKnown: json['is_opening_hours_known'] as bool? ?? false,
+      status: json['status'] as String? ?? 'PLANNED',
     );
   }
 }
+
 
 class ItineraryBreak {
   const ItineraryBreak({
@@ -95,6 +105,28 @@ class ItineraryBreak {
   }
 }
 
+class UnscheduledRoutePlace {
+  const UnscheduledRoutePlace({
+    required this.placeId,
+    required this.name,
+    required this.reason,
+    this.assignedDayId,
+  });
+
+  final String placeId;
+  final String name;
+  final String reason;
+  final String? assignedDayId;
+
+  factory UnscheduledRoutePlace.fromJson(Map<String, dynamic> json) =>
+      UnscheduledRoutePlace(
+        placeId: json['place_id'] as String,
+        name: json['name'] as String,
+        reason: json['reason'] as String,
+        assignedDayId: json['assigned_day_id'] as String?,
+      );
+}
+
 class OptimizedRoute {
   const OptimizedRoute({
     required this.tripId,
@@ -104,6 +136,7 @@ class OptimizedRoute {
     this.totalDays = 1,
     this.breaks = const [],
     this.conflicts = const [],
+    this.unscheduledPlaces = const [],
     this.routeGeometry,
   });
 
@@ -114,6 +147,7 @@ class OptimizedRoute {
   final int totalDays;
   final List<ItineraryBreak> breaks;
   final List<String> conflicts;
+  final List<UnscheduledRoutePlace> unscheduledPlaces;
   final TripRouteGeometry? routeGeometry;
 
   List<int> get logicalDays =>
@@ -124,7 +158,9 @@ class OptimizedRoute {
       for (final d in logicalDays) d: <OptimizedRoutePlace>[],
     };
     for (final place in places) {
-      map.putIfAbsent(place.dayNumber, () => <OptimizedRoutePlace>[]).add(place);
+      map
+          .putIfAbsent(place.dayNumber, () => <OptimizedRoutePlace>[])
+          .add(place);
     }
     return map;
   }
@@ -137,8 +173,7 @@ class OptimizedRoute {
 
     final parsedPlaces = placesJson
         .map(
-          (item) =>
-              OptimizedRoutePlace.fromJson(item as Map<String, dynamic>),
+          (item) => OptimizedRoutePlace.fromJson(item as Map<String, dynamic>),
         )
         .toList(growable: false);
 
@@ -149,6 +184,12 @@ class OptimizedRoute {
     final calculatedDays = rawTotalDays?.toInt() ?? maxDayInPlaces;
 
     return OptimizedRoute(
+      unscheduledPlaces: (json['unscheduled_places'] as List<dynamic>? ?? [])
+          .map(
+            (item) =>
+                UnscheduledRoutePlace.fromJson(item as Map<String, dynamic>),
+          )
+          .toList(growable: false),
       tripId: json['trip_id'] as String,
       places: parsedPlaces,
       totalDistance: (json['total_distance'] as num).toDouble(),
@@ -158,8 +199,9 @@ class OptimizedRoute {
           .map((item) => ItineraryBreak.fromJson(item as Map<String, dynamic>))
           .toList(growable: false),
       conflicts: conflictsJson.map((e) => e.toString()).toList(growable: false),
-      routeGeometry:
-          geomJson != null ? TripRouteGeometry.fromJson(geomJson) : null,
+      routeGeometry: geomJson != null
+          ? TripRouteGeometry.fromJson(geomJson)
+          : null,
     );
   }
 }

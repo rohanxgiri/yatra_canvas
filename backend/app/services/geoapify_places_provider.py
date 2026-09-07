@@ -169,13 +169,19 @@ class GeoapifyPlacesProvider:
             elif category == DiscoveryCategory.NATURE:
                 tags["leisure"] = "park"
 
-            # Propagate contact / website if present
+            # Propagate contact / website / opening_hours if present
             if props.get("website"):
                 tags["website"] = str(props["website"])
             if props.get("phone"):
                 tags["phone"] = str(props["phone"])
             if props.get("wiki_and_media", {}).get("wikidata"):
                 tags["wikidata"] = str(props["wiki_and_media"]["wikidata"])
+            opening_hours = (
+                props.get("opening_hours")
+                or props.get("datasource", {}).get("raw", {}).get("opening_hours")
+            )
+            if opening_hours and isinstance(opening_hours, str) and opening_hours.strip():
+                tags["opening_hours"] = opening_hours.strip()
 
             results.append(
                 OpenStreetMapNearbyPlace(

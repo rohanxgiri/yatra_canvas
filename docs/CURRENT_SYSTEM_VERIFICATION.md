@@ -596,6 +596,16 @@ the same constraint names and semantics and are classified `MATCH`, not schema d
 
 ## Recommended Fixes
 
+### 2026-09-07 database follow-up
+
+A new read-only audit found that the configured Supabase database now contains 21 trips,
+76 complete TripDay rows, 100 assignment-consistent saved places, and 92 itinerary rows.
+Historical route/provider/parity/Wikidata/importance/TripDay/assignment changes are present.
+The pending current-model changes are `add_places_opening_hours.sql` and
+`add_trip_itinerary_status.sql`; exact details and dependency order are in
+[`backend/sql/README.md`](../backend/sql/README.md). No DDL was applied because the remote target's
+environment classification and recoverable backup remain `[UNKNOWN]`.
+
 1. **CRITICAL:** Explicitly classify the configured database environment and record a verified
    backup/restore path before any future write probe or migration. Do not rely on `create_all` to
    upgrade existing tables.

@@ -7,7 +7,7 @@ from sqlalchemy import delete
 from sqlmodel import Session, select
 
 from app.core.itinerary_constants import DEFAULT_DAY_END_TIME, DEFAULT_DAY_START_TIME
-from app.models.entities import Trip, TripDay, TripItinerary
+from app.models.entities import Trip, TripDay, TripItinerary, UserSavedPlace
 from app.schemas.trip_day import DayType, TripDayRead, TripDayUpdate
 from app.services.trip_service import (
     TripServiceError,
@@ -98,6 +98,52 @@ class TripDayService:
                 f"Day {day_number} not found for trip."
             )
 
+        # Check for locked places if day is becoming REST or losing usable sightseeing window
+        will_be_rest = (request.day_type == DayType.REST)
+        prospective_start = (
+            request.start_time
+            if "start_time" in request.model_fields_set
+            else day.start_time
+        )
+        prospective_end = (
+            request.end_time
+            if "end_time" in request.model_fields_set
+            else day.end_time
+        )
+        if (
+            request.day_type == DayType.REST
+            and "start_time" not in request.model_fields_set
+            and "end_time" not in request.model_fields_set
+        ):
+            prospective_start = None
+            prospective_end = None
+
+        has_usable_window = (
+            prospective_start is not None
+            and prospective_end is not None
+            and prospective_end > prospective_start
+        )
+
+        if will_be_rest or not has_usable_window:
+            locked_places = session.exec(
+                select(UserSavedPlace).where(
+                    UserSavedPlace.trip_id == trip_id,
+                    UserSavedPlace.assigned_day_id == day.id,
+                    UserSavedPlace.assignment_mode == "LOCKED",
+                )
+            ).all()
+            if locked_places:
+                count = len(locked_places)
+                plural = f"{count} places are" if count > 1 else "1 place is"
+                if will_be_rest:
+                    raise TripDayValidationError(
+                        f"Day {day_number} cannot be changed to REST because {plural} locked to this day. Move or unlock those places first."
+                    )
+                else:
+                    raise TripDayValidationError(
+                        f"Day {day_number} cannot have its sightseeing window removed because {plural} locked to this day. Move or unlock those places first."
+                    )
+
         if request.day_type is not None:
             day.day_type = request.day_type.value
             # REST days default to having no sightseeing window if times are not explicitly set
@@ -161,6 +207,32 @@ class TripDayService:
                 raise TripServiceError(
                     f"Cannot reduce trip duration to {new_days} days because {days_str} "
                     "contains scheduled place visits. Re-plan or remove scheduled visits first."
+                )
+
+            # Check if any places are locked to days that would be removed
+            removed_day_ids = [d.id for d in existing_days if d.day_number > new_days]
+            conflicting_saved_places = session.exec(
+                select(UserSavedPlace).where(
+                    UserSavedPlace.trip_id == trip.id,
+                    UserSavedPlace.assignment_mode == "LOCKED",
+                    UserSavedPlace.assigned_day_id.in_(removed_day_ids),
+                )
+            ).all()
+            if conflicting_saved_places:
+                day_id_to_num = {d.id: d.day_number for d in existing_days}
+                conflicting_day_nums = sorted(
+                    {
+                        day_id_to_num[sp.assigned_day_id]
+                        for sp in conflicting_saved_places
+                        if sp.assigned_day_id in day_id_to_num
+                    }
+                )
+                days_str = ", ".join(f"Day {d}" for d in conflicting_day_nums)
+                count = len(conflicting_saved_places)
+                plural = f"{count} places" if count > 1 else "1 place"
+                raise TripServiceError(
+                    f"Cannot reduce trip duration to {new_days} days because {days_str} "
+                    f"has {plural} locked to it. Move or unlock those places first."
                 )
 
             # Safe to remove obsolete day records

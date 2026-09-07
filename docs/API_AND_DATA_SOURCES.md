@@ -1,6 +1,6 @@
 # APIs and data sources
 
-Last reviewed: 2026-09-06
+Last reviewed: 2026-09-07
 
 Last verified: 2026-09-06 for Geoapify autocomplete/places, Audiala, and OpenStreetMap/Overpass;
 2026-08-31 for other provider rows
@@ -70,3 +70,18 @@ A provider is not adopted by adding a key. The same change must include an appli
 adapter contract, tests, error/fallback behavior, data provenance, cache/expiry policy,
 license/attribution treatment, environment documentation, and an architectural decision. If an
 official fact cannot be verified, record `[UNKNOWN]` rather than copying an old example.
+
+## Day-aware planner response (2026-09-07)
+
+`[IMPLEMENTED]` Verified by planner and API regressions. `POST /trips/{trip_id}/optimize-route`
+and the existing full-trip replan-preview response add optional `unscheduled_places`:
+`[{place_id, name, reason, assigned_day_id}]`. Reasons are `NO_TIME_AVAILABLE`,
+`CLOSED_ON_AVAILABLE_DAYS`, `LOCKED_DAY_INFEASIBLE`, `DAILY_CAPACITY_EXCEEDED`, or
+`NO_FEASIBLE_DAY`. Scheduled stops continue to expose `is_opening_hours_known`; false
+means hours unavailable/unverified, not known-open. Overpacked trips return HTTP 200 with
+partial schedules, including when must-visit stops cannot fit. Empty/underfilled trips are
+accepted; more than 50 selections return validation error. No provider or environment
+contract changes. Existing normalized hours are read from the database without enrichment.
+
+Native vehicle/time-domain APIs checked against the [official OR-Tools Python reference](https://or-tools.github.io/docs/python/classortools_1_1constraint__solver_1_1pywrapcp_1_1RoutingModel.html)
+on 2026-09-07 and exercised with locally installed OR-Tools 9.15.6755.

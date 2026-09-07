@@ -71,6 +71,10 @@ class Place(SQLModel, table=True):
             "importance_score IS NULL OR (importance_score BETWEEN 0 AND 1)",
             name="ck_places_importance_score",
         ),
+        CheckConstraint(
+            "opening_hours_status IN ('KNOWN', 'CLOSED', 'UNKNOWN')",
+            name="ck_places_opening_hours_status",
+        ),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -86,6 +90,12 @@ class Place(SQLModel, table=True):
     is_local_speciality: bool = Field(default=False)
     wikidata_id: str | None = Field(default=None, max_length=50, index=True)
     importance_score: float | None = Field(default=None, index=True)
+    opening_hours_status: str = Field(
+        default="UNKNOWN",
+        max_length=20,
+        sa_column_kwargs={"server_default": text("'UNKNOWN'")},
+    )
+    raw_opening_hours: str | None = Field(default=None, max_length=1000)
     last_fetched_at: datetime | None = Field(
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
@@ -160,6 +170,7 @@ class PlaceSource(SQLModel, table=True):
     telephone: str | None = Field(default=None, max_length=80)
     website: str | None = Field(default=None, max_length=1000)
     email: str | None = Field(default=None, max_length=320)
+    raw_opening_hours: str | None = Field(default=None, max_length=1000)
     social_identifiers: dict[str, str] = Field(
         default_factory=dict,
         sa_column=Column(
@@ -217,6 +228,39 @@ class PlaceCategory(SQLModel, table=True):
     source: str = Field(max_length=50, index=True)
     external_category_id: str = Field(max_length=255, index=True)
     label: str | None = Field(default=None, max_length=255, index=True)
+
+
+class PlaceOpeningHours(SQLModel, table=True):
+    __tablename__ = "place_opening_hours"
+    __table_args__ = (
+        UniqueConstraint(
+            "place_id", "day_of_week", name="uq_place_opening_hours_place_day"
+        ),
+        CheckConstraint(
+            "day_of_week BETWEEN 0 AND 6", name="ck_place_opening_hours_day"
+        ),
+        CheckConstraint(
+            "status IN ('KNOWN', 'CLOSED', 'UNKNOWN')",
+            name="ck_place_opening_hours_status",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    place_id: UUID = Field(
+        foreign_key="places.id",
+        ondelete="CASCADE",
+        index=True,
+    )
+    day_of_week: int = Field(index=True)  # 0=Monday, 6=Sunday
+    status: str = Field(
+        default="UNKNOWN",
+        max_length=20,
+        sa_column_kwargs={"server_default": text("'UNKNOWN'")},
+    )
+    intervals: list[dict[str, str]] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False, server_default=text("'[]'")),
+    )
     created_at: datetime | None = Field(
         default=None,
         sa_column=created_at_column(),
@@ -344,6 +388,15 @@ class UserSavedPlace(SQLModel, table=True):
             name="ck_user_saved_places_custom_order",
         ),
         CheckConstraint("priority >= 0", name="ck_user_saved_places_priority"),
+        CheckConstraint(
+            "assignment_mode IN ('AUTO', 'LOCKED')",
+            name="ck_user_saved_places_assignment_mode",
+        ),
+        CheckConstraint(
+            "(assignment_mode = 'AUTO' AND assigned_day_id IS NULL) OR "
+            "(assignment_mode = 'LOCKED' AND assigned_day_id IS NOT NULL)",
+            name="ck_user_saved_places_assignment_consistency",
+        ),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -357,6 +410,17 @@ class UserSavedPlace(SQLModel, table=True):
     is_locked: bool = Field(
         default=False,
         sa_column_kwargs={"server_default": text("false")},
+    )
+    assignment_mode: str = Field(
+        default="AUTO",
+        max_length=20,
+        sa_column_kwargs={"server_default": text("'AUTO'")},
+    )
+    assigned_day_id: UUID | None = Field(
+        default=None,
+        foreign_key="trip_days.id",
+        ondelete="SET NULL",
+        index=True,
     )
     must_visit: bool = Field(
         default=False,
@@ -466,6 +530,10 @@ class TripItinerary(SQLModel, table=True):
             "travel_time_minutes IS NULL OR travel_time_minutes >= 0",
             name="ck_trip_itinerary_travel_time",
         ),
+        CheckConstraint(
+            "status IN ('PLANNED', 'COMPLETED', 'MISSED', 'SKIPPED')",
+            name="ck_trip_itinerary_status",
+        ),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -477,10 +545,16 @@ class TripItinerary(SQLModel, table=True):
     planned_departure_time: time | None = None
     distance_from_previous: float | None = None
     travel_time_minutes: int | None = None
+    status: str = Field(
+        default="PLANNED",
+        max_length=20,
+        sa_column_kwargs={"server_default": text("'PLANNED'")},
+    )
     created_at: datetime | None = Field(
         default=None,
         sa_column=created_at_column(),
     )
+
 
 
 class TripDay(SQLModel, table=True):

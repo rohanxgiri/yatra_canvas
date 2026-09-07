@@ -3,8 +3,24 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import field_validator
+from typing import Any, Final
+from pydantic import ValidationInfo, field_validator, model_validator
 from sqlmodel import Field, SQLModel
+
+WEEKDAY_NAMES: Final[list[str]] = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+]
+
+
+class OpeningHoursInterval(SQLModel):
+    open: str = Field(description="Opening time in HH:MM format")
+    close: str = Field(description="Closing time in HH:MM format")
 
 
 class PlaceBase(SQLModel):
@@ -20,6 +36,14 @@ class PlaceBase(SQLModel):
     wikidata_id: str | None = None
     importance_score: float | None = Field(default=None, ge=0, le=1)
     last_fetched_at: datetime | None = None
+    opening_hours_status: str = Field(
+        default="UNKNOWN",
+        description="Opening hours status: KNOWN, CLOSED, or UNKNOWN",
+    )
+    raw_opening_hours: str | None = Field(
+        default=None,
+        description="Raw provider opening_hours string",
+    )
 
     @field_validator("name", "category")
     @classmethod
@@ -42,6 +66,36 @@ class PlaceRead(PlaceBase):
     id: UUID
     city_id: UUID
     created_at: datetime
+    opening_hours: dict[str, list[OpeningHoursInterval]] = Field(
+        default_factory=lambda: {d: [] for d in WEEKDAY_NAMES}
+    )
+
+    @field_validator("opening_hours", mode="before")
+    @classmethod
+    def populate_opening_hours(cls, v: Any, info: ValidationInfo) -> Any:
+        if isinstance(v, dict) and v:
+            return v
+        if isinstance(v, list) and v:
+            res: dict[str, list[dict[str, str]]] = {day: [] for day in WEEKDAY_NAMES}
+            for item in v:
+                d = getattr(item, "day_of_week", None)
+                intervals = getattr(item, "intervals", [])
+                if d is not None and 0 <= d < 7:
+                    res[WEEKDAY_NAMES[d]] = intervals
+            return res
+        return {day: [] for day in WEEKDAY_NAMES}
+
+    @model_validator(mode="after")
+    def ensure_opening_hours(self) -> "PlaceRead":
+        if self.raw_opening_hours and all(not intervals for intervals in self.opening_hours.values()):
+            from app.services.opening_hours_parser import OpeningHoursParser
+
+            parsed = OpeningHoursParser.parse(self.raw_opening_hours)
+            self.opening_hours = {
+                day: [OpeningHoursInterval(**i) for i in intervals]
+                for day, intervals in parsed.to_dict().items()
+            }
+        return self
 
 
 class GoogleNearbyPlace(SQLModel):

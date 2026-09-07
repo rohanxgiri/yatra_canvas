@@ -8,6 +8,7 @@ import 'package:yatra_canvas/models/optimized_route.dart';
 import 'package:yatra_canvas/models/place.dart';
 import 'package:yatra_canvas/models/route_geometry.dart';
 import 'package:yatra_canvas/models/saved_place.dart';
+import 'package:yatra_canvas/models/trip_day.dart';
 import 'package:yatra_canvas/models/trip_draft.dart';
 import 'package:yatra_canvas/models/trip_start_location.dart';
 import 'package:yatra_canvas/screens/trip_map/trip_map_screen.dart';
@@ -44,6 +45,7 @@ class MockTripService implements TripService {
     );
   }
 
+
   @override
   Future<TripStartLocation> updateStartLocation(
     String tripId, {
@@ -61,11 +63,33 @@ class MockTripService implements TripService {
   Future<TripDraft> updateTrip(String tripId, TripDraft changes) {
     throw UnimplementedError();
   }
+
+  @override
+  Future<List<TripDay>> getTripDays(String tripId) async => [];
+
+  @override
+  Future<TripDay> updateTripDay(
+    String tripId,
+    int dayNumber, {
+    DayType? dayType,
+    String? startTime,
+    String? endTime,
+  }) =>
+      throw UnimplementedError();
 }
 
 class MockSavedPlaceService implements SavedPlaceService {
   @override
   void close() {}
+
+  @override
+  Future<SavedPlace> updateAssignment(
+    String tripId,
+    String placeId, {
+    required AssignmentMode assignmentMode,
+    String? assignedDayId,
+  }) =>
+      throw UnimplementedError();
 
   @override
   Future<List<SavedPlace>> getSavedPlaces(String tripId) async {
@@ -122,6 +146,8 @@ class MockSavedPlaceService implements SavedPlaceService {
     int? customOrder,
     bool isLocked = false,
     bool mustVisit = false,
+    AssignmentMode assignmentMode = AssignmentMode.auto,
+    String? assignedDayId,
     String? notes,
     int priority = 0,
   }) {
@@ -161,11 +187,13 @@ class MockSavedPlaceService implements SavedPlaceService {
   Future<SavedPlace> updateSettings(
     String tripId,
     String savedPlaceId, {
-    int? customOrder,
-    bool? isLocked,
-    bool? mustVisit,
+    required int customOrder,
+    required bool isLocked,
+    required bool mustVisit,
+    required int priority,
+    AssignmentMode? assignmentMode,
+    String? assignedDayId,
     String? notes,
-    int? priority,
   }) {
     throw UnimplementedError();
   }

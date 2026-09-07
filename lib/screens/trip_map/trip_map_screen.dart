@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../models/itinerary_stop_status.dart';
 import '../../models/optimized_route.dart';
 import '../../models/route_geometry.dart';
 import '../../models/saved_place.dart';
@@ -12,9 +13,11 @@ import '../../models/trip_start_location.dart';
 import '../../services/route_geometry_service.dart';
 import '../../services/route_optimization_service.dart';
 import '../../services/saved_place_service.dart';
+import '../../services/smart_replanning_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../widgets/poi_bottom_sheet.dart';
 
 class TripMapScreen extends StatefulWidget {
   const TripMapScreen({
@@ -28,6 +31,7 @@ class TripMapScreen extends StatefulWidget {
     this.savedPlaceService,
     this.routeOptimizationService,
     this.routeGeometryService,
+    this.smartReplanningService,
     super.key,
   });
 
@@ -41,6 +45,7 @@ class TripMapScreen extends StatefulWidget {
   final SavedPlaceService? savedPlaceService;
   final RouteOptimizationService? routeOptimizationService;
   final RouteGeometryService? routeGeometryService;
+  final SmartReplanningService? smartReplanningService;
 
   @override
   State<TripMapScreen> createState() => _TripMapScreenState();
@@ -55,9 +60,14 @@ class _TripMapScreenState extends State<TripMapScreen> {
   late final bool _ownsRouteOptimizationService;
   late final RouteGeometryService _routeGeometryService;
   late final bool _ownsRouteGeometryService;
+  late final SmartReplanningService _replanningService;
+  late final bool _ownsReplanningService;
 
   final MapController _mapController = MapController();
   final Stopwatch _perfWatch = Stopwatch();
+
+  /// Tracks stop IDs with in-flight status-update requests.
+  final Set<String> _updatingStopIds = {};
 
   bool _isLoading = true;
   bool _isRouteLoading = false;
@@ -93,6 +103,10 @@ class _TripMapScreenState extends State<TripMapScreen> {
     _routeGeometryService =
         widget.routeGeometryService ?? RouteGeometryService();
 
+    _ownsReplanningService = widget.smartReplanningService == null;
+    _replanningService =
+        widget.smartReplanningService ?? SmartReplanningService();
+
     _durationDays = widget.initialDurationDays ?? widget.initialOptimizedRoute?.totalDays;
 
     if (widget.initialStartLocation != null ||
@@ -125,6 +139,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
     if (_ownsSavedPlaceService) _savedPlaceService.close();
     if (_ownsRouteOptimizationService) _routeOptimizationService.close();
     if (_ownsRouteGeometryService) _routeGeometryService.close();
+    if (_ownsReplanningService) _replanningService.dispose();
     _mapController.dispose();
     super.dispose();
   }
@@ -331,8 +346,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
           width: 40,
           height: 40,
           child: GestureDetector(
-            onTap: () =>
-                _showPlaceDetails(_startLocation!.name, 'Start Location', null),
+            onTap: () => _showStartLocationSheet(),
             child: const DecoratedBox(
               decoration: BoxDecoration(
                 color: AppColors.teal,
@@ -362,11 +376,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
               width: 36,
               height: 36,
               child: GestureDetector(
-                onTap: () => _showPlaceDetails(
-                  saved.place.name,
-                  saved.place.category,
-                  place.visitOrder,
-                ),
+                onTap: () => _showPoiBottomSheet(saved, place),
                 child: DecoratedBox(
                   decoration: const BoxDecoration(
                     color: AppColors.teal,
@@ -398,11 +408,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
             width: 32,
             height: 32,
             child: GestureDetector(
-              onTap: () => _showPlaceDetails(
-                saved.place.name,
-                saved.place.category,
-                null,
-              ),
+              onTap: () => _showPoiBottomSheet(saved, null),
               child: const DecoratedBox(
                 decoration: BoxDecoration(
                   color: AppColors.teal,
@@ -424,46 +430,96 @@ class _TripMapScreenState extends State<TripMapScreen> {
     return markers;
   }
 
-  void _showPlaceDetails(String name, String category, int? visitOrder) {
+  /// Opens the rich POI detail bottom sheet for a saved place marker.
+  void _showPoiBottomSheet(SavedPlace saved, OptimizedRoutePlace? stop) {
+    // Available days for the "Move" picker: all logical days except the
+    // current stop's day. REST filtering is handled server-side.
+    final availableDays = _optimizedRoute?.logicalDays
+            .where((d) => d != stop?.dayNumber)
+            .toList() ??
+        [];
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        builder: (_, scrollController) => PoiBottomSheet(
+          savedPlace: saved,
+          routeStop: stop,
+          availableDays: availableDays,
+          onStatusChange: stop == null
+              ? null
+              : (status) => _handleStopStatusChange(stop, status),
+          onMoveToDay: stop == null
+              ? null
+              : (targetDay) => _handleMoveToDay(stop, targetDay),
+        ),
+      ),
+    );
+  }
+
+
+  /// Shows a minimal bottom sheet for the trip start-location marker.
+  void _showStartLocationSheet() {
+    final name = _startLocation?.name ?? 'Start Location';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
         decoration: const BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SafeArea(
+          top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (visitOrder != null) ...[
-                Text(
-                  'Stop $visitOrder',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.teal),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                const SizedBox(height: 4),
-              ],
-              Text(name, style: AppTextStyles.sectionTitle),
-              const SizedBox(height: 8),
+              ),
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  const Icon(
-                    Icons.category_rounded,
-                    size: 16,
-                    color: AppColors.textSecondary,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.tealLight,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Start Location',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.teal,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(category, style: AppTextStyles.bodyMuted),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 10),
+              Text(name, style: AppTextStyles.sectionTitle),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(ctx),
                   child: const Text('Close'),
                 ),
               ),
@@ -472,6 +528,126 @@ class _TripMapScreenState extends State<TripMapScreen> {
         ),
       ),
     );
+  }
+
+  /// Calls the replanning service to update a stop's status, then patches
+  /// [_optimizedRoute] in place without a full reload.
+  Future<void> _handleStopStatusChange(
+    OptimizedRoutePlace stop,
+    ItineraryStopStatus status,
+  ) async {
+    final stopId = stop.id ?? stop.placeId;
+    if (_updatingStopIds.contains(stopId)) return;
+    _updatingStopIds.add(stopId);
+
+    try {
+      final updated = await _replanningService.updateStopStatus(
+        tripId: widget.tripId,
+        stopOrPlaceId: stop.id != null ? stop.id! : stop.placeId,
+        status: status,
+        isPlaceId: stop.id == null,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        if (_optimizedRoute != null) {
+          final places = _optimizedRoute!.places.map((p) {
+            if (p.placeId == updated.placeId) {
+              return OptimizedRoutePlace(
+                id: updated.id,
+                placeId: updated.placeId,
+                name: updated.name,
+                dayNumber: updated.dayNumber,
+                visitOrder: updated.visitOrder,
+                distanceFromPrevious: updated.distanceFromPrevious,
+                travelTimeMinutes: updated.travelTimeMinutes,
+                plannedArrivalTime: updated.plannedArrivalTime,
+                plannedDepartureTime: updated.plannedDepartureTime,
+                visitDurationMinutes: updated.visitDurationMinutes,
+                isOpeningHoursKnown: updated.isOpeningHoursKnown,
+                status: updated.status,
+              );
+            }
+            return p;
+          }).toList();
+          _optimizedRoute = OptimizedRoute(
+            tripId: _optimizedRoute!.tripId,
+            places: places,
+            totalDistance: _optimizedRoute!.totalDistance,
+            totalTravelTimeMinutes: _optimizedRoute!.totalTravelTimeMinutes,
+            totalDays: _optimizedRoute!.totalDays,
+            breaks: _optimizedRoute!.breaks,
+            conflicts: _optimizedRoute!.conflicts,
+            unscheduledPlaces: _optimizedRoute!.unscheduledPlaces,
+            routeGeometry: _optimizedRoute!.routeGeometry,
+          );
+        }
+      });
+    } finally {
+      _updatingStopIds.remove(stopId);
+    }
+  }
+
+  /// Calls the replanning service to move a missed stop to another day, then
+  /// merges the server response back into [_optimizedRoute].
+  Future<void> _handleMoveToDay(
+    OptimizedRoutePlace stop,
+    int targetDay,
+  ) async {
+    final stopId = stop.id ?? stop.placeId;
+    if (_updatingStopIds.contains(stopId)) return;
+    _updatingStopIds.add(stopId);
+
+    try {
+      final response = await _replanningService.movePlaceToDay(
+        tripId: widget.tripId,
+        placeId: stop.placeId,
+        targetDayNumber: targetDay,
+      );
+
+      if (!mounted) return;
+
+      if (!response.success) {
+        throw SmartReplanningException(
+          response.reason ?? 'TARGET_DAY_INFEASIBLE',
+        );
+      }
+
+      setState(() {
+        final merged = response.updatedItinerary;
+        if (merged != null) {
+          _optimizedRoute = merged;
+        } else {
+          // Patch source and target day stops from response.
+          final newPlaces = <OptimizedRoutePlace>[
+            ..._optimizedRoute!.places.where(
+              (p) =>
+                  p.dayNumber != stop.dayNumber &&
+                  p.dayNumber != targetDay,
+            ),
+            ...response.sourceItinerary,
+            ...response.targetItinerary,
+          ];
+          newPlaces.sort((a, b) {
+            final dc = a.dayNumber.compareTo(b.dayNumber);
+            return dc != 0 ? dc : a.visitOrder.compareTo(b.visitOrder);
+          });
+          _optimizedRoute = OptimizedRoute(
+            tripId: _optimizedRoute!.tripId,
+            places: newPlaces,
+            totalDistance: _optimizedRoute!.totalDistance,
+            totalTravelTimeMinutes: _optimizedRoute!.totalTravelTimeMinutes,
+            totalDays: _optimizedRoute!.totalDays,
+            breaks: _optimizedRoute!.breaks,
+            conflicts: _optimizedRoute!.conflicts,
+            unscheduledPlaces: _optimizedRoute!.unscheduledPlaces,
+            routeGeometry: _optimizedRoute!.routeGeometry,
+          );
+        }
+      });
+    } finally {
+      _updatingStopIds.remove(stopId);
+    }
   }
 
   @override

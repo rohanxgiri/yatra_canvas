@@ -1,6 +1,6 @@
 # YatraCanvas architecture
 
-Last reviewed: 2026-09-04
+Last reviewed: 2026-09-07
 
 Status labels are defined in [Project context](PROJECT_CONTEXT.md). This document separates
 repository reality from the intended provider architecture.
@@ -83,8 +83,34 @@ provider boundary.
 - **Concept**: A trip consists of a sequence of configurable days (`Trip` -> `TripDay[]`). A 5-day trip does not necessarily mean 5 sightseeing days; each day has a specific `DayType` (`FULL_DAY`, `HALF_DAY`, `REST`, `TRAVEL`) and daily touring window (`start_time`, `end_time`).
 - **Automatic Generation**: Newly created trips automatically generate sequential `TripDay` records defaulting to `FULL_DAY` with default touring windows (`DEFAULT_DAY_START_TIME` 09:00, `DEFAULT_DAY_END_TIME` 19:00).
 - **Individual Day Configuration**: Travelers can configure days individually (`FULL_DAY` -> `REST`, `HALF_DAY`, or `TRAVEL`), adjust touring start/end times, or configure `REST` days with no sightseeing window.
-- **Safe Date & Duration Reconciliation**: Updating trip dates or duration reconciles `TripDay` records safely. Expanding duration adds newly required days; shifting dates realigns day calendar dates while preserving configured day types and touring windows. If reducing trip duration would destroy existing `TripItinerary` visits on the eliminated days, the operation is explicitly rejected with a validation error to prevent silent data destruction.
-- **Future Optimization Role**: `[PLANNED]` In subsequent phases, `TripDay` records will provide day constraints, available sightseeing time budgets, and rest/travel boundaries directly to the VRPTW optimizer. Day-aware optimizer constraints and place-to-day locking are not yet implemented.
+- **Safe Date & Duration Reconciliation**: Updating trip dates or duration reconciles `TripDay` records safely. Expanding duration adds newly required days; shifting dates realigns day calendar dates while preserving configured day types and touring windows. If reducing trip duration would destroy existing `TripItinerary` visits or remove days that have locked places assigned to them, the operation is explicitly rejected with a clear validation error to prevent silent data destruction.
+- **Optimization Role**: `[IMPLEMENTED]` TripDay windows and active-day boundaries feed VRPTW.
+
+`[IMPLEMENTED]` Selected Place Day Assignment Foundation (`UserSavedPlace`, `SavedPlaceService`):
+- **Architecture**:
+  ```text
+  Trip
+   ├── TripDay[]
+   │    ├── day_number
+   │    ├── date
+   │    ├── day_type
+   │    ├── start_time
+   │    └── end_time
+   │
+   └── SelectedPlace[] (UserSavedPlace)
+        ├── assignment_mode = AUTO | LOCKED
+        └── assigned_day_id = nullable (foreign key to TripDay)
+  ```
+- **Assignment Modes**:
+  - `AUTO`: `assigned_day_id` is null. The place will be scheduled onto an appropriate sightseeing day by YatraCanvas during optimization.
+  - `LOCKED`: `assigned_day_id` is required. The place is pinned to a specific `TripDay` belonging to the same trip that is not a `REST` day and has a usable sightseeing window.
+- **Switching**: Users can freely switch places from `LOCKED` to `AUTO` (which clears `assigned_day_id` to null without deleting the place or re-running optimization) or from `AUTO` to `LOCKED`.
+- **Integrity Protections**:
+  - A `TripDay` update to `REST` or removal of its touring window is rejected with a 422 error if places are locked to it ("Day X cannot be changed to REST because N places are locked to this day. Move or unlock those places first.").
+  - A trip duration reduction is rejected with a 422 error if places are locked to any day being eliminated.
+  - Deleting a saved place never corrupts or cascades into `TripDay` records.
+  - Database check constraints enforce valid modes (`ck_user_saved_places_assignment_mode`) and consistency (`ck_user_saved_places_assignment_consistency`).
+- **Optimizer Integration**: `[IMPLEMENTED]` Native vehicle domains enforce assigned-day locks.
 
 `[IMPLEMENTED]` Place Discovery & Canonical Identity Architecture:
 - Canonical Multi-Source Place Identity Resolver (`CanonicalPlaceService`): Central resolution layer resolving place identity across multiple providers (OpenStreetMap, Audiala) into a single canonical `Place` database entity while maintaining complete provider-specific provenance, licensing, and metadata in `PlaceSource` records:
@@ -107,16 +133,134 @@ provider boundary.
     3. *Discover Places Navigation*: When user arrives at Place Discovery, POIs are already cached, eliminating cold provider wait.
   - **Partial Provider Success**: Individual category failures (e.g. Overpass food timeout) do not fail the request; available categories are merged, scored, and returned. Full blocking error screens appear only when genuinely 0 usable places exist across all sources.
 
-`[IMPLEMENTED]` OR-Tools VRPTW Itinerary Optimization Pipeline (`RouteOptimizationService`, `VrptwSolverService`):
-- **Problem Formulation**: Multi-vehicle Vehicle Routing Problem with Time Windows where vehicles represent trip days ($1 \dots \text{days}$). The depot (index 0) is the trip start location (hotel/station).
-- **Opening Hours**: Modeled as node time windows on the Time dimension $[\max(\text{start}, open), \min(\text{end}, close - visit\_duration)]$ with day-of-week closure constraints removing invalid vehicles.
-- **Visit Durations**: Service times per node based on category heuristics (`estimate_visit_duration`).
-- **Multiple Days**: Partitioned across daily touring hours (`09:00–19:00`) respecting daily time budgets.
-- **Lunch Breaks**: Midday break intervals (`12:30–14:00`, 60 min) scheduled via vehicle break intervals.
-- **Locked Places**: Pinned positions (e.g. first stop) and relative order constraints enforced across days and slots.
-- **Priorities & Must-Visit Rules**: Disjunctions with scaled drop penalties (must-visit places have $100,000,000$ penalty and cannot be dropped; low-priority places dropped first under budget constraints) and active-conditional Big-M priority precedence.
-- **Route Geometry**: Automatically triggers `RouteGeometryService` to prefetch and attach road-following geometry to the optimization response.
-- **Multi-Day Logical Day Invariant**: Optimization outputs include `total_days=trip.days` (`RouteOptimizationRead`), establishing the invariant that logical trip days are $\{1 \dots N\}$ derived from trip dates rather than only days containing scheduled stops. Frontend models (`OptimizedRoute.logicalDays`, `placesByDay`) normalize sparse schedules to empty lists (`[]`), rendering empty day cards in the itinerary and non-empty day tabs in the map.
+`[IMPLEMENTED]` Place Opening Hours Ingestion & Normalization (`OpeningHoursParser`, `CanonicalPlaceService`, `PlaceOpeningHours`):
+- **Architecture**:
+  ```text
+  Provider (OSM Overpass / Geoapify)
+     ↓
+  raw opening_hours string preserved
+     ↓
+  OpeningHoursParser
+     ↓
+  NormalizedOpeningHours
+     ├── status (KNOWN | CLOSED | UNKNOWN)
+     └── days[0..6] (day_of_week, status, intervals[])
+     ↓
+  Canonical Place
+   └── PlaceOpeningHours (7 normalized rows per place)
+        ├── day_of_week (0=Monday..6=Sunday)
+        ├── status (KNOWN, CLOSED, UNKNOWN)
+        └── intervals: [{"open": "09:00", "close": "11:00"}, {"open": "14:00", "close": "22:00"}]
+  ```
+- **Provider Extraction**:
+  - OpenStreetMap: raw `opening_hours` tag is extracted and preserved in `PlaceSource.raw_opening_hours` and `Place.raw_opening_hours`.
+  - Geoapify: raw `properties.opening_hours` is mapped into `tags["opening_hours"]` and preserved.
+  - Providers without opening hours: no additional network calls are made automatically; status is set to `UNKNOWN` and intervals remain empty.
+- **Normalization Capabilities**:
+  - Single interval: `Mo-Fr 09:00-17:00`
+  - Split schedules: `Mo 09:00-11:00,14:00-22:00` (supports multiple opening windows in a single day)
+  - Weekday ranges: `Mo-Sa 10:00-19:00`
+  - Closed / off days: `Sa-Su off` or global `closed`
+  - Overnight hours: `18:00-02:00` is partitioned into `18:00-24:00` on Day $D$ and `00:00-02:00` on Day $(D+1)\%7$.
+  - 24/7 hours: `24/7`, `open 24/7` normalized to `00:00-24:00` across all 7 days.
+  - Malformed or invalid input: safely handled without crashing; status is marked `UNKNOWN` while preserving raw string.
+- **Critical Semantic: UNKNOWN is NOT Open**:
+  - `UNKNOWN` status indicates missing or unverified schedule information. It is strictly distinguished from `CLOSED` and `KNOWN`.
+  - Helper functions (`isOpenAt`, `canVisitBetween`) return an indeterminate `null`/`None` result for `UNKNOWN`, never assuming open all day.
+- **Public API Contract**:
+  - Endpoints returning `PlaceRead` expose `opening_hours_status`, `raw_opening_hours`, and a normalized `opening_hours` dictionary mapping weekday names (`monday`..`sunday`) to lists of intervals `[{"open": "HH:MM", "close": "HH:MM"}]`.
+- **Optimizer Integration**:
+  - `[IMPLEMENTED]` Normalized weekday rows feed the tested day-aware solver.
+
+`[IMPLEMENTED]` Day-aware OR-Tools VRPTW pipeline (verified 2026-09-07):
+
+```text
+TripDays
+  -> Active OR-Tools routes
+       |-- configured day time window and original day_number/date
+       |-- AUTO / LOCKED native vehicle-domain restrictions
+       |-- existing category visit duration
+       |-- normalized weekday opening intervals (closed gaps retained)
+       `-- existing travel-time matrix
+              -> OR-Tools -> Scheduled + Unscheduled
+```
+
+- `planner_inputs.load_planner_inputs` reads TripDays and normalized `PlaceOpeningHours`
+  once for optimization and full-trip replan previews. No opening-hour enrichment calls.
+  Legacy trips with no TripDays use in-memory default days; partially configured trips do
+  not have missing/null windows silently filled. Previews do not write TripDays.
+- REST always has no route. FULL_DAY, HALF_DAY and TRAVEL require both times and end > start.
+  Vehicle indices enumerate active days, while output retains original day numbers.
+- Each vehicle has a separate 1,440-minute coordinate band in the Time dimension, enabling
+  exact weekday-specific unions of valid start intervals on one node per selected place.
+  Start/end cumuls stay inside the configured window. Travel plus origin service duration
+  is the transit; closing minus visit duration bounds the last valid start.
+- CLOSED removes a day; UNKNOWN applies only the sightseeing window and returns
+  `is_opening_hours_known=false`. A missing normalized weekday is unverified, even when
+  other weekdays are known. `24:00` interval boundaries are represented as 1,440 minutes.
+- `assignment_mode=LOCKED` permits only the route matching `assigned_day_id` using native
+  `VehicleVar.RemoveValue` restrictions (the OR-Tools 9.15 Windows SetAllowedVehiclesForIndex
+  Python binding rejects ordinary lists). Dropping remains allowed; locks never migrate.
+  Legacy `is_locked` first-position and relative ordering are conditional on activity;
+  explicit day assignment takes precedence over the legacy ordering flag.
+- Existing priority penalties remain 50,000 + priority * 10,000; must-visit remains
+  100,000,000; locks add 1,000,000,000. These are retention preferences, not hard priority
+  visit precedence. All visits remain optional to support feasible partial itineraries.
+- Travel/service cost plus a soft span penalty above 75% of each individual day's capacity
+  discourages heavily utilized days. The coefficient scales inversely with capacity.
+  A small 100-unit route activation cost allows underfilled trips to use fewer days.
+  No POI-count quotas or equal-duration constraints are imposed.
+- Lunch uses the existing 60-minute duration and 12:30–14:00 start range only when a full
+  break fits inside the day's window. Break transit metadata includes service times so
+  lunch cannot overlap a visit. Empty routes do not emit breaks.
+- Existing start node and matrix cache are reused. As in the previous solver, the synthetic
+  end-depot arc is zero cost/time: return-to-hotel travel is not charged.
+- PATH_CHEAPEST_ARC and GUIDED_LOCAL_SEARCH retain the five-second default solve budget;
+  fractional test limits are honored in milliseconds. No optimality proof is promised.
+- Responses and replan previews add `unscheduled_places` with place ID/name, structured
+  reason and optional assigned day ID. Scheduled rows retain times, leg metrics and known-hours
+  state. `total_days=trip.days` preserves empty logical days. The selection cap is now 50;
+  there is no minimum-place-per-day requirement. No recommendations fill empty days.
+- Scheduled rows alone are persisted in `TripItinerary`; saved selections are never deleted.
+  Unscheduled reasons and known-hours state are generation-response metadata, not durable
+  snapshots. No schema migration is introduced. Full-trip preview and apply share inputs;
+  existing staleness detection still flags intentionally unscheduled places (technical debt).
+- Geometry attachment remains best-effort after persistence. Flutter consumes optional
+  unscheduled lists and existing known-hours booleans; no final itinerary UI redesign.
+
+See [planner implementation report](PLANNER_IMPLEMENTATION.md) and
+[actual synthetic five-day example](PLANNER_EXAMPLE.md).
+
+`[IMPLEMENTED]` Live Itinerary Status Handling & Partial Day Replanning (verified 2026-09-07):
+
+```text
+Existing itinerary
+Day 1
+  ├── completed prefix (immutable)
+  └── remaining route
+Missed place
+      ↓
+User selects target day
+      ↓
+Validate target (REST check, window check)
+      ↓
+Replan affected day(s) only (OR-Tools single-day suffix)
+      ↓
+Save updated itinerary
+```
+
+- **Stop Status Lifecycle**:
+  - `TripItinerary.status` persisted in PostgreSQL with check constraint `ck_trip_itinerary_status IN ('PLANNED', 'COMPLETED', 'MISSED', 'SKIPPED')` and default `'PLANNED'`.
+  - Immediate atomic status transition endpoints: `PATCH /trips/{trip_id}/itinerary/stops/{stop_id}` and `PATCH /trips/{trip_id}/itinerary/places/{place_id}`.
+  - Marking a stop as `MISSED` records traveller execution history in place without auto-mutating future stops or days. Marking `SKIPPED` excludes the stop from subsequent route optimization while preserving its historical record.
+- **Single-Day Partial Replanning**:
+  - Endpoint: `POST /trips/{trip_id}/itinerary/move-place` moving a place to a user-selected target `TripDay` (by `target_day_number` or `target_day_id`).
+  - **Pre-Validation**: Ensures target day exists in the same trip, is not a `REST` day, and possesses a usable sightseeing window (`end_time > start_time`). Completed and skipped places cannot be moved; moving to the same day is rejected.
+  - **Target Day Feasibility Guard**: Evaluates target day insertion using an OR-Tools single-day suffix solver. If the target day's sightseeing window, opening hours, or capacity cannot accommodate all existing places plus the moved place, the request returns a structured non-destructive failure (`{"success": false, "reason": "TARGET_DAY_INFEASIBLE"}`) leaving database records completely untouched.
+  - **Immutable Completed Prefix**: On both target and source days, stops with `status == 'COMPLETED'` ($1 \dots K$) are strictly preserved. Suffix re-optimization starts from `RouteNode.for_place(last_completed_place)` with `effective_start_time = max(day.start_time, last_completed_departure)`.
+  - **Source Day Cleanup**: Removes the moved place from the source day and re-optimizes any remaining planned suffix stops on the source day.
+  - **Locking**: Sets `assignment_mode = LOCKED` and `assigned_day_id = target_day.id` in `UserSavedPlace`.
+  - **Zero Provider Spillage**: Reuses cached legs in `RouteMatrixCache` and respects unaffected days (Day 3+) byte-for-byte without triggering unnecessary route recalculations or external network calls.
 
 `[IMPLEMENTED]` Destination-Scoped Manual Place Search & Progressive Map Performance:
 - **Debounced Destination-Scoped Search**: Replaces discovery placeholders with 350ms debounced search (`GET /cities/{city_id}/places/search`). Queries local repository matches and concurrent Geoapify Autocomplete bounded to 50km destination radius, deduplicating against stored places.

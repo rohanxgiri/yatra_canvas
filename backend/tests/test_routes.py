@@ -438,6 +438,11 @@ def test_discover_places_persists_and_uses_fresh_cache(
         "importance_score": None,
         "last_fetched_at": first.json()[0]["last_fetched_at"],
         "created_at": first.json()[0]["created_at"],
+        "opening_hours_status": "UNKNOWN",
+        "raw_opening_hours": None,
+        "opening_hours": {day: [] for day in (
+            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+        )},
     }
 
     second = client.get(path, params={"category": "religious"})
