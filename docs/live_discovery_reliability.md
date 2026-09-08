@@ -35,8 +35,8 @@ flowchart TD
     subgraph Backend ["FastAPI Discovery & Prefetch Engine"]
         F --> G[POST /cities/city_id/recommendations]
         G --> H{Check Stored Places in DB}
-        H -->|Fresh & Sufficient| I[Serve Immediately ~10ms]
-        H -->|Stale but Usable| J[Serve Stale Immediately ~10ms]
+        H -->|Fresh & Sufficient| I[Serve From Batched DB Cache]
+        H -->|Stale but Usable| J[Serve Stale From DB Cache]
         J -->|Background Revalidation| K[Async Refresh missing/stale]
         H -->|Cold Cache / Missing| L[Interactive Budget Discovery max 12s]
 
@@ -50,9 +50,9 @@ flowchart TD
         O -->|Category Under-Covered| P[Resilient Provider Cascading]
 
         subgraph Providers ["Provider Priority Hierarchy"]
-            P --> Q[1. Geoapify Places Provider if configured: ~300-600ms]
-            P --> R[2. Audiala Local Dataset offline: ~5-15ms]
-            P --> T[3. OpenStreetMap Overpass parallel + circuit breaker]
+            P --> Q[1. Audiala Local Dataset offline]
+            P --> R[2. Geoapify Places Provider if configured]
+            P --> T[3. OpenStreetMap Overpass bounded waves + circuit breaker]
         end
 
         Q --> U[Persist Canonical Places & Update Cache]
@@ -70,34 +70,36 @@ flowchart TD
 
 ## 3. Core Architectural Mechanisms
 
-### 3.1 Destination-Triggered Shallow Prefetch
-- **Trigger**: When the traveller confirms a destination (e.g. `Kochi, Kerala, India`) and taps **Continue** on `DestinationSelectionScreen`.
-- **Action**: Flutter sends a non-blocking `POST /places/prefetch` (`stage="destination_confirmed"`) without awaiting the response. Navigation proceeds instantly to `SelectDatesScreen`.
-- **Scope**: Pre-warms core starter categories (`tourism`, `heritage`, `food`, `religious`, `cafes`) with a shallow quota ($\approx 15$ candidates/category).
+### 3.1 Destination Background Prefetch
+- **Trigger**: Flutter calls `POST /places/prefetch` with `stage="destination_confirmed"` before navigating from destination selection.
+- **Action**: HTTP 202 returns after enqueue. A worker-thread event loop and independent database session pre-warm all supported categories (`tourism`, `heritage`, `food`, `religious`, `cafes`, `markets`, and `nature`) through the local Audiala and configured Geoapify layers while the traveller completes later screens. Speculative work does not query Overpass.
+- **State**: `GET /places/prefetch/{city_id}` exposes coarse progress. Active city/category work is reused.
 
-### 3.2 Interest-Triggered Targeted Prefetch
-- **Trigger**: When the traveller selects trip purposes on `TripPurposeScreen` and taps **Continue**.
-- **Action**: Flutter maps selected purposes to YatraCanvas `PlaceCategory` and fires `POST /places/prefetch` (`stage="interests_confirmed"`).
-- **Scope**: Evaluates existing category coverage and enriches only categories with $< 35$ candidates, avoiding redundant network queries for categories that are already well-represented.
+### 3.2 Dates, Interests, and Start Location
+- Dates and start-location stages record readiness without route matrices, images, or weather provider calls.
+- Interests map to supported categories, reuse fresh coverage, and enqueue targeted enrichment only for insufficient or stale categories.
+- All state is keyed by canonical `city_id`; obsolete city work may finish into that city's reusable cache but cannot attach to another destination.
 
 ### 3.3 Cache-First & Stale-While-Revalidate Semantics
-1. **Fresh (`cache.expires_at > now`)**: Zero provider network calls; serves cached places from the database in $\approx 10$ms.
-2. **Stale-but-Usable (`now >= cache.expires_at`, but places exist in DB)**: Returns existing stored places immediately in $\approx 10$ms. A background task revalidates and refreshes the cache without blocking the UI.
-3. **Cold / Missing**: Evaluates providers within an interactive time budget (`discovery_interactive_timeout_seconds = 12.0s`).
+1. **Fresh (`cache.expires_at > now`)**: Zero provider network calls. Cache metadata and category places are fetched in two batched database queries rather than two queries per category.
+2. **Stale-but-Usable (`now >= cache.expires_at`, but places exist in DB)**: Returns existing stored places without a foreground provider call. Speculative prefetch may refresh it separately.
+3. **Cold / Missing**: Evaluates providers within an interactive time budget (`discovery_interactive_timeout_seconds = 12.0s`). A first full-city load canonicalizes the complete provider result in memory and persists places, provenance, tags, opening hours, and cache rows as a batch; later partial refreshes reuse preloaded identity hints.
 
 ### 3.4 In-Memory Concurrency Deduplication
-- Multiple concurrent requests for the same `(city_id, category)` key register on `_in_flight: dict[tuple[UUID, str], asyncio.Future]`.
-- Secondary callers observe the existing task instead of issuing duplicate external API requests.
+- Overlapping endpoint requests for the same `(city_id, category)` key reuse the active task held by the process-wide `ProgressivePrefetchCoordinator`.
+- Secondary prefetch calls report the reused categories and do not start another provider pipeline.
+- Foreground recommendation requests join matching active prefetch work, then read the normalized cache instead of launching a duplicate provider pipeline.
 
 ### 3.5 Provider Priority & Overpass Demotion
 - **Tier 1 (Stored DB / Cache)**: Always consulted first.
-- **Tier 2 (Geoapify Places API)**: Hosted commercial POI discovery provider (`/v2/places`) using `GEOAPIFY_API_KEY`.
-- **Tier 3 (Audiala Local Dataset)**: Offline JSON dataset (`backend/app/data/audiala_places.json`), 0ms network latency.
-- **Tier 4 (OpenStreetMap / Overpass)**: Parallel enrichment provider with concurrent `asyncio.gather()` queries and bounded timeouts. Overpass is never allowed to be a single point of failure.
+- **Tier 2 (Audiala Local Dataset)**: Offline JSON dataset (`backend/app/data/audiala_places.json`).
+- **Tier 3 (Geoapify Places API)**: Hosted POI discovery provider (`/v2/places`) using `GEOAPIFY_API_KEY` when configured.
+- **Tier 4 (OpenStreetMap / Overpass)**: Foreground fallback only for categories still below usable fast-provider coverage. Category-specific queries run in waves of at most three under one 12-second default phase budget. Later waves are skipped after the shared circuit opens.
 
 ### 3.6 Provider Health & Circuit Breaker
 - `ProviderCircuitBreaker` tracks consecutive failures and timeouts.
 - If 3 consecutive failures occur, the circuit trips to `OPEN` for a 60s cooldown, skipping synchronous calls and falling back immediately to cache or alternate providers.
+- Bounded waves prevent categories queued behind the first three failures from reaching the provider after the circuit opens.
 
 ### 3.7 Partial Provider Success
 - If 1 or 2 categories fail (e.g. food query times out), available categories are returned and ranked. The UI never receives a fatal 504/503 if any usable candidates exist.
@@ -111,16 +113,22 @@ flowchart TD
 
 ## 4. Benchmark & Efficiency Comparison
 
-Measured using `scripts/experiments/live_discovery_reliability/run_experiment.py`:
+Measured on 2026-09-08 against the configured remote PostgreSQL database and the existing
+Jaisalmer city row (71 canonical places), using five recommendation categories:
 
-| Scenario | Previous Baseline | New Pipeline | Speedup / Impact |
-| :--- | :---: | :---: | :---: |
-| **Warm Kochi Cache** | 1200–2500 ms (repeated Overpass calls) | **11.3 ms** (0 external calls) | **>100× faster** |
-| **Stale Kochi Cache** | 25000–50000 ms (blocked on Overpass) | **9.8 ms** (0 external calls) | **Instant UX via stale-while-revalidate** |
-| **Cold Kochi + Prefetch** | 45000 ms (frequent timeout error) | **491.3 ms** (ready before user reaches screen) | **Zero perceived latency for traveller** |
-| **Overpass Unavailable** | HTTP 504 Gateway Timeout | **260.3 ms** (Geoapify fallback) | **100% resilient** |
-| **Partial Category Timeout** | HTTP 504 Gateway Timeout | **398.2 ms** (partial success rendered) | **No UI failure** |
-| **5-Interest Trip** | 60000+ ms (sequential timeout) | **13.9 ms** (cache hit) | **No category starvation or timeouts** |
+| Scenario | Measured result |
+| :--- | :---: |
+| Failing foreground request before event-loop isolation and batched reads | 55,473 ms |
+| Fresh cache recommendation after batched cache reads | 2,811 ms |
+| Foreground opened immediately after fresh prefetch and joined it | 5,548 ms |
+| Five health requests issued while prefetch city lookup was active | 17.1–20.7 ms each, all HTTP 200 |
+| Background prefetch acceptance | 1,360 ms; Flutter does not await it |
+
+Deterministic provider-count tests verify one provider pipeline for simultaneous same-city work,
+zero provider calls for a valid cache hit, and zero Overpass calls when Audiala/Geoapify already
+meet usable category coverage. Canonicalization tests also verify that the cold-city batch merges
+cross-provider identities while retaining both sources, category tags, and opening hours. Exact
+timings vary with remote-database and provider latency.
 
 ---
 

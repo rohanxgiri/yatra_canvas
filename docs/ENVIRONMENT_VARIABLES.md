@@ -42,6 +42,7 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 | `FSQ_IMPORT_BATCH_SIZE` | FSQ importer | Optional | Backend CLI | Commit batch size, default 250 | Non-secret | `[IMPLEMENTED]` |
 | `ROUTE_MATRIX_TRAFFIC_TTL_MINUTES` | Route matrix | Optional | Backend | Traffic-duration freshness, default 30 minutes | Non-secret | `[IMPLEMENTED]`; retain semantics across provider migration |
 | `PLACE_DISCOVERY_CACHE_TTL_HOURS` | Place discovery | Optional | Backend | City/category refresh TTL, default 24 hours | Non-secret | `[IMPLEMENTED]`; target ingestion may revise the mechanism |
+| `PLACE_DISCOVERY_CACHE_VERSION` | Place discovery | Optional | Backend | Version namespace for city/category cache keys, default 1; increment after incompatible provider/query strategy changes | Non-secret | `[IMPLEMENTED]`; version 1 preserves existing keys |
 | `DISCOVERY_INTERACTIVE_TIMEOUT_SECONDS` | Place discovery | Optional | Backend | Maximum interactive wait budget for foreground recommendation queries, default 12 seconds | Non-secret | `[IMPLEMENTED]` |
 | `DISCOVERY_SHALLOW_LIMIT` | Place discovery | Optional | Backend | Candidate limit per category during broad shallow prefetch, default 15 | Non-secret | `[IMPLEMENTED]` |
 | `DISCOVERY_STALE_USABLE_HOURS` | Place discovery | Optional | Backend | Grace period for stale-while-revalidate POI serving, default 168 hours (7 days) | Non-secret | `[IMPLEMENTED]` |

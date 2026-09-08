@@ -1,8 +1,11 @@
+import asyncio
 import logging
+from functools import lru_cache
 from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
@@ -20,6 +23,15 @@ from app.schemas import (
     RecommendationRead,
     RecommendationRequest,
 )
+from app.services.audiala_places_provider import AudialaPlacesProvider
+from app.services.canonical_place_service import CanonicalPlaceService
+from app.services.city_place_prefetch_service import (
+    SHALLOW_PREFETCH_CATEGORIES,
+    CityPlacePrefetchService,
+    PrefetchStage,
+)
+from app.services.geoapify_places_provider import GeoapifyPlacesProvider
+from app.services.geoapify_service import GeoapifyService
 from app.services.openstreetmap_discovery_service import (
     OpenStreetMapDiscoveryService,
 )
@@ -29,17 +41,13 @@ from app.services.openstreetmap_places_service import (
     OpenStreetMapPlacesTimeoutError,
     OpenStreetMapPlacesUnavailableError,
 )
-from app.services.audiala_places_provider import AudialaPlacesProvider
-from app.services.canonical_place_service import CanonicalPlaceService
-from app.services.city_place_prefetch_service import (
-    CityPlacePrefetchService,
-    PrefetchStage,
-)
-from app.services.geoapify_places_provider import GeoapifyPlacesProvider
-from app.services.geoapify_service import GeoapifyService
 from app.services.place_deduplication_service import (
     haversine_distance_meters,
     normalize_name_for_dedupe,
+)
+from app.services.progressive_prefetch_coordinator import (
+    PrefetchState,
+    ProgressivePrefetchCoordinator,
 )
 from app.services.provider_circuit_breaker import ProviderCircuitBreaker
 from app.services.recommendation_service import RecommendationService
@@ -49,6 +57,37 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["places"])
 SessionDependency = Annotated[Session, Depends(get_session)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
+
+
+class _CityNotFoundError(Exception):
+    pass
+
+
+def _load_city_identity(engine: Engine, city_id: UUID) -> tuple[UUID, str]:
+    with Session(engine) as worker_session:
+        city = worker_session.get(City, city_id)
+        if city is None:
+            raise _CityNotFoundError
+        return city.id, city.name
+
+
+def _recommend_in_worker(
+    engine: Engine,
+    city_id: UUID,
+    request: RecommendationRequest,
+    recommendation: RecommendationService,
+) -> list[RecommendationRead]:
+    with Session(engine) as worker_session:
+        city = worker_session.get(City, city_id)
+        if city is None:
+            raise _CityNotFoundError
+        return asyncio.run(
+            recommendation.recommend(
+                session=worker_session,
+                city=city,
+                request=request,
+            )
+        )
 
 
 def get_geoapify_service(settings: SettingsDependency) -> GeoapifyService:
@@ -62,11 +101,19 @@ def get_geoapify_service(settings: SettingsDependency) -> GeoapifyService:
 
 GeoapifyDependency = Annotated[GeoapifyService, Depends(get_geoapify_service)]
 
-_overpass_circuit_breaker = ProviderCircuitBreaker(
-    name="overpass",
-    failure_threshold=3,
-    cooldown_seconds=60.0,
-)
+
+@lru_cache(maxsize=8)
+def _get_overpass_circuit_breaker(
+    failure_threshold: int,
+    cooldown_seconds: float,
+) -> ProviderCircuitBreaker:
+    """Share provider health across requests with the active settings."""
+
+    return ProviderCircuitBreaker(
+        name="overpass",
+        failure_threshold=failure_threshold,
+        cooldown_seconds=cooldown_seconds,
+    )
 
 
 def get_openstreetmap_places_service(
@@ -92,7 +139,10 @@ def get_openstreetmap_places_service(
         radius_meters=settings.overpass_radius_meters,
         category_radii=category_radii,
         category_limits=category_limits,
-        circuit_breaker=_overpass_circuit_breaker,
+        circuit_breaker=_get_overpass_circuit_breaker(
+            settings.overpass_circuit_breaker_threshold,
+            settings.overpass_circuit_breaker_cooldown_seconds,
+        ),
     )
 
 
@@ -158,14 +208,13 @@ OpenStreetMapDiscoveryDependency = Annotated[
 ]
 
 
-def get_city_place_prefetch_service(
-    discovery: OpenStreetMapDiscoveryDependency,
-) -> CityPlacePrefetchService:
-    return CityPlacePrefetchService(discovery)
+@lru_cache(maxsize=1)
+def get_progressive_prefetch_coordinator() -> ProgressivePrefetchCoordinator:
+    return ProgressivePrefetchCoordinator()
 
 
-PrefetchDependency = Annotated[
-    CityPlacePrefetchService, Depends(get_city_place_prefetch_service)
+PrefetchCoordinatorDependency = Annotated[
+    ProgressivePrefetchCoordinator, Depends(get_progressive_prefetch_coordinator)
 ]
 
 
@@ -292,22 +341,30 @@ async def recommend_city_places(
     recommendation_request: RecommendationRequest,
     session: SessionDependency,
     recommendation: RecommendationDependency,
+    coordinator: PrefetchCoordinatorDependency,
 ) -> list[RecommendationRead]:
     """Return deduplicated, ranked places for selected categories."""
 
-    city = session.get(City, city_id)
-    if city is None:
+    try:
+        categories_to_join = list(recommendation_request.categories)
+        if (
+            recommendation_request.category_filter is not None
+            and recommendation_request.category_filter not in categories_to_join
+        ):
+            categories_to_join.append(recommendation_request.category_filter)
+        await coordinator.join_active(city_id, categories_to_join)
+        return await asyncio.to_thread(
+            _recommend_in_worker,
+            session.get_bind(),
+            city_id,
+            recommendation_request,
+            recommendation,
+        )
+    except _CityNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="City not found.",
-        )
-
-    try:
-        return await recommendation.recommend(
-            session=session,
-            city=city,
-            request=recommendation_request,
-        )
+        ) from exc
     except OpenStreetMapPlacesRateLimitError as exc:
         session.rollback()
         headers = {"Retry-After": exc.retry_after} if exc.retry_after else None
@@ -339,27 +396,30 @@ async def recommend_city_places(
 @router.post(
     "/places/prefetch",
     response_model=PlacePrefetchResponse,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def prefetch_city_places(
     prefetch_request: PlacePrefetchRequest,
     session: SessionDependency,
-    prefetch_service: PrefetchDependency,
+    discovery: OpenStreetMapDiscoveryDependency,
+    coordinator: PrefetchCoordinatorDependency,
 ) -> PlacePrefetchResponse:
-    """Pre-warm candidate POIs in background when destination or interests are confirmed."""
+    """Enqueue staged prefetch and return before provider work completes."""
 
-    city = session.get(City, prefetch_request.city_id)
-    if city is None:
+    background_engine = session.get_bind()
+    try:
+        city_id, city_name = await asyncio.to_thread(
+            _load_city_identity,
+            background_engine,
+            prefetch_request.city_id,
+        )
+    except _CityNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="City not found.",
-        )
+        ) from exc
 
-    stage = (
-        PrefetchStage.DESTINATION_CONFIRMED
-        if prefetch_request.stage == "destination_confirmed"
-        else PrefetchStage.INTERESTS_CONFIRMED
-    )
+    stage = PrefetchStage(prefetch_request.stage)
 
     cat_enums: list[DiscoveryCategory] | None = None
     if prefetch_request.categories:
@@ -370,21 +430,89 @@ async def prefetch_city_places(
             except ValueError:
                 pass
 
-    summary = await prefetch_service.prefetch(
-        session=session,
-        city=city,
+    if (
+        stage == PrefetchStage.DESTINATION_CONFIRMED
+        or stage == PrefetchStage.INTERESTS_CONFIRMED
+    ):
+        requested_categories = cat_enums or list(SHALLOW_PREFETCH_CATEGORIES)
+    else:
+        requested_categories = []
+
+    async def run_prefetch(categories: list[DiscoveryCategory]):
+        with Session(background_engine) as background_session:
+            background_city = background_session.get(City, city_id)
+            if background_city is None:
+                raise RuntimeError("City was removed before prefetch started.")
+            return await CityPlacePrefetchService(discovery).prefetch(
+                session=background_session,
+                city=background_city,
+                stage=stage,
+                categories=categories,
+            )
+
+    prefetch_state, enqueued, reused = coordinator.enqueue(
+        city_id=city_id,
+        city_name=city_name,
         stage=stage,
-        categories=cat_enums,
+        categories=requested_categories,
+        runner=run_prefetch if requested_categories else None,
+        offload=bool(requested_categories),
+    )
+    return _prefetch_response(
+        prefetch_state,
+        stage=stage,
+        requested=[category.value for category in requested_categories],
+        enqueued=enqueued,
+        reused=reused,
     )
 
+
+@router.get(
+    "/places/prefetch/{city_id}",
+    response_model=PlacePrefetchResponse,
+)
+def get_prefetch_state(
+    city_id: UUID,
+    session: SessionDependency,
+    coordinator: PrefetchCoordinatorDependency,
+) -> PlacePrefetchResponse:
+    city = session.get(City, city_id)
+    if city is None:
+        raise HTTPException(status_code=404, detail="City not found.")
+    prefetch_state = coordinator.get_state(city_id) or PrefetchState(
+        city_id=city.id, city_name=city.name
+    )
+    return _prefetch_response(
+        prefetch_state,
+        stage=PrefetchStage.DESTINATION_CONFIRMED,
+        requested=[],
+        enqueued=[],
+        reused=[],
+    )
+
+
+def _prefetch_response(
+    prefetch_state: PrefetchState,
+    *,
+    stage: PrefetchStage,
+    requested: list[str],
+    enqueued: list[str],
+    reused: list[str],
+) -> PlacePrefetchResponse:
     return PlacePrefetchResponse(
-        city_id=summary.city_id,
-        city_name=summary.city_name,
-        stage=summary.stage.value,
-        categories_requested=summary.categories_requested,
-        categories_skipped_sufficient=summary.categories_skipped_sufficient,
-        categories_enriched=summary.categories_enriched,
-        duplicate_refreshes_prevented=summary.duplicate_refreshes_prevented,
+        city_id=prefetch_state.city_id,
+        city_name=prefetch_state.city_name,
+        stage=stage.value,
+        categories_requested=requested,
+        status=prefetch_state.status.value,
+        categories_enqueued=enqueued,
+        categories_reused=reused,
+        categories_loaded=sorted(prefetch_state.categories_loaded),
+        completed_stages=sorted(prefetch_state.completed_stages),
+        failed_stages=sorted(prefetch_state.failed_stages),
+        poi_count=prefetch_state.poi_count,
+        started_at=prefetch_state.started_at,
+        last_updated=prefetch_state.last_updated,
     )
 
 
@@ -425,7 +553,9 @@ async def search_city_places(
     for p in db_places:
         norm = normalize_name_for_dedupe(p.name)
         seen_names.add(norm)
-        dist = haversine_distance_meters(city.latitude, city.longitude, p.latitude, p.longitude)
+        dist = haversine_distance_meters(
+            city.latitude, city.longitude, p.latitude, p.longitude
+        )
         results.append(
             PlaceSearchResult(
                 name=p.name,
@@ -455,7 +585,9 @@ async def search_city_places(
                 norm = normalize_name_for_dedupe(g.name)
                 if norm in seen_names:
                     continue
-                dist = haversine_distance_meters(city.latitude, city.longitude, g.latitude, g.longitude)
+                dist = haversine_distance_meters(
+                    city.latitude, city.longitude, g.latitude, g.longitude
+                )
                 # Keep within destination radius (~50km)
                 if dist > 50000.0:
                     continue
@@ -524,4 +656,3 @@ def resolve_manual_place(
     session.commit()
     session.refresh(place)
     return place
-

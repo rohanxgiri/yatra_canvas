@@ -8,12 +8,12 @@ import pytest
 
 from app.schemas import DiscoveryCategory
 from app.services.openstreetmap_places_service import (
-    OpenStreetMapNearbyPlace,
     OpenStreetMapPlacesRateLimitError,
     OpenStreetMapPlacesService,
     OpenStreetMapPlacesTimeoutError,
     OpenStreetMapPlacesUnavailableError,
 )
+from app.services.provider_circuit_breaker import CircuitState, ProviderCircuitBreaker
 
 
 def test_search_builds_bounded_query_and_normalizes_nodes_ways_and_relations() -> None:
@@ -340,6 +340,74 @@ def test_partial_provider_failure_isolation() -> None:
         assert results[DiscoveryCategory.TOURISM][0].name == "National Museum"
 
     asyncio.run(run())
+
+
+def test_multi_category_requests_are_limited_to_three_in_flight() -> None:
+    active_requests = 0
+    peak_requests = 0
+    request_count = 0
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal active_requests, peak_requests, request_count
+        request_count += 1
+        active_requests += 1
+        peak_requests = max(peak_requests, active_requests)
+        await asyncio.sleep(0.01)
+        active_requests -= 1
+        return httpx.Response(200, json={"elements": []})
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            service = OpenStreetMapPlacesService(
+                "https://overpass.test/api/interpreter",
+                client=client,
+            )
+            results = await service.search_nearby_places_for_categories(
+                latitude=22.5726,
+                longitude=88.3639,
+                categories=list(DiscoveryCategory),
+            )
+
+        assert set(results) == set(DiscoveryCategory)
+
+    asyncio.run(run())
+
+    assert request_count == len(DiscoveryCategory)
+    assert peak_requests == 3
+
+
+def test_open_circuit_skips_category_waves_that_have_not_started() -> None:
+    request_count = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal request_count
+        request_count += 1
+        raise httpx.ReadTimeout("slow provider", request=request)
+
+    async def run() -> None:
+        breaker = ProviderCircuitBreaker(
+            "overpass",
+            failure_threshold=3,
+            cooldown_seconds=60,
+        )
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            service = OpenStreetMapPlacesService(
+                "https://overpass.test/api/interpreter",
+                client=client,
+                circuit_breaker=breaker,
+            )
+            with pytest.raises(OpenStreetMapPlacesTimeoutError):
+                await service.search_nearby_places_for_categories(
+                    latitude=22.5726,
+                    longitude=88.3639,
+                    categories=list(DiscoveryCategory),
+                )
+
+        assert breaker.state == CircuitState.OPEN
+
+    asyncio.run(run())
+
+    assert request_count == 3
 
 
 def test_rate_limit_timeout_and_invalid_payload_are_normalized() -> None:

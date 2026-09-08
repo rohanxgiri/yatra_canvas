@@ -1,9 +1,9 @@
 """Validation schemas for place endpoints."""
 
-from datetime import datetime
+from datetime import date, datetime
+from typing import Any, Final
 from uuid import UUID
 
-from typing import Any, Final
 from pydantic import ValidationInfo, field_validator, model_validator
 from sqlmodel import Field, SQLModel
 
@@ -87,7 +87,9 @@ class PlaceRead(PlaceBase):
 
     @model_validator(mode="after")
     def ensure_opening_hours(self) -> "PlaceRead":
-        if self.raw_opening_hours and all(not intervals for intervals in self.opening_hours.values()):
+        if self.raw_opening_hours and all(
+            not intervals for intervals in self.opening_hours.values()
+        ):
             from app.services.opening_hours_parser import OpeningHoursParser
 
             parsed = OpeningHoursParser.parse(self.raw_opening_hours)
@@ -115,6 +117,24 @@ class PlacePrefetchRequest(SQLModel):
     city_id: UUID
     stage: str = "destination_confirmed"
     categories: list[str] | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    start_latitude: float | None = Field(default=None, ge=-90, le=90)
+    start_longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode="after")
+    def validate_stage_data(self) -> "PlacePrefetchRequest":
+        allowed = {
+            "destination_confirmed",
+            "dates_confirmed",
+            "interests_confirmed",
+            "start_location_confirmed",
+        }
+        if self.stage not in allowed:
+            raise ValueError("Unsupported prefetch stage.")
+        if (self.start_latitude is None) != (self.start_longitude is None):
+            raise ValueError("Start latitude and longitude must be supplied together.")
+        return self
 
 
 class PlacePrefetchResponse(SQLModel):
@@ -122,9 +142,15 @@ class PlacePrefetchResponse(SQLModel):
     city_name: str
     stage: str
     categories_requested: list[str]
-    categories_skipped_sufficient: list[str]
-    categories_enriched: list[str]
-    duplicate_refreshes_prevented: int
+    status: str
+    categories_enqueued: list[str] = Field(default_factory=list)
+    categories_reused: list[str] = Field(default_factory=list)
+    categories_loaded: list[str] = Field(default_factory=list)
+    completed_stages: list[str] = Field(default_factory=list)
+    failed_stages: list[str] = Field(default_factory=list)
+    poi_count: int = 0
+    started_at: datetime | None = None
+    last_updated: datetime | None = None
 
 
 class PlaceSearchResult(SQLModel):

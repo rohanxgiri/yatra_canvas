@@ -116,7 +116,7 @@ No live DDL was executed in this pass.
 
 ## Validation
 
-- Backend: 351 passed, 4 dependency deprecation warnings, 0 failures (275.95 s).
+- Backend: 354 passed, 4 dependency deprecation warnings plus 1 local pytest-cache permission warning, 0 failures (277.84 s).
 - Flutter: 170 passed, 0 failures.
 - Flutter targeted map/POI/parent-state regression: 61 passed.
 - Flutter analyze: 0 issues.
@@ -129,7 +129,8 @@ No live DDL was executed in this pass.
 - `[PARTIAL]` Full optimization is intended for planning. Partial replanning is the protected execution-time
   path; a user-triggered full optimize can replace the itinerary snapshot and reset execution states.
 - `[PARTIAL]` SQLite integration tests do not reproduce PostgreSQL RLS or every production FK behavior.
-  The remote schema audit is read-only and the pending migrations remain unapplied.
+  A follow-up read-only catalog verification confirms the opening-hours and itinerary-status
+  migrations are now applied and aligned with current models; the execution actor is `[UNKNOWN]`.
 - `[PARTIAL]` OR-Tools uses the complete configured search budget on realistic sizes, so exact optimality is
   not guaranteed even though all returned schedules satisfy the tested constraints.
 - `[UNKNOWN]` Hosted provider latency and rate-limit behavior require staging telemetry; no live external

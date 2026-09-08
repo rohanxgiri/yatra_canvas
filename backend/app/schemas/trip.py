@@ -19,10 +19,11 @@ class StartLocationType(str, Enum):
 
 
 class TripCreate(SQLModel):
-    """Application-owned trip creation request; identity is server-derived."""
+    """Application-owned trip creation request with retry-safe request identity."""
 
     model_config = ConfigDict(extra="forbid")
 
+    request_id: UUID | None = None
     city_id: UUID
     trip_name: str | None = Field(default=None, max_length=160)
     start_date: date
@@ -115,7 +116,9 @@ class TripCreate(SQLModel):
         label: str,
     ) -> None:
         if (latitude is None) != (longitude is None):
-            raise ValueError(f"{label} latitude and longitude must be supplied together.")
+            raise ValueError(
+                f"{label} latitude and longitude must be supplied together."
+            )
 
 
 class TripUpdate(SQLModel):
@@ -191,9 +194,13 @@ class TripUpdate(SQLModel):
             if self.days is not None and self.days != expected_days:
                 raise ValueError("Days must match the inclusive trip date range.")
         if (self.arrival_latitude is not None) != (self.arrival_longitude is not None):
-            raise ValueError("Arrival latitude and longitude must be supplied together.")
+            raise ValueError(
+                "Arrival latitude and longitude must be supplied together."
+            )
         if (self.start_latitude is not None) != (self.start_longitude is not None):
-            raise ValueError("Start location latitude and longitude must be supplied together.")
+            raise ValueError(
+                "Start location latitude and longitude must be supplied together."
+            )
         if (self.start_location_provider is None) != (
             self.start_location_provider_place_id is None
         ):

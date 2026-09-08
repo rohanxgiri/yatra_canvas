@@ -7,7 +7,7 @@ import '../../models/city_suggestion.dart';
 import '../../models/trip_draft.dart';
 import '../../models/trip_start_location.dart';
 import '../../services/city_service.dart';
-import '../../services/recommendation_service.dart';
+import '../../services/place_prefetch_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
@@ -21,14 +21,14 @@ class DestinationSelectionScreen extends StatefulWidget {
     this.draft,
     this.cityService,
     this.tripService,
-    this.recommendationService,
+    this.prefetchService,
     super.key,
   });
 
   final TripDraft? draft;
   final CityService? cityService;
   final TripService? tripService;
-  final RecommendationService? recommendationService;
+  final PlacePrefetchService? prefetchService;
 
   @override
   State<DestinationSelectionScreen> createState() =>
@@ -42,8 +42,6 @@ class _DestinationSelectionScreenState
   late final TripDraft _draft;
   late final CityService _cityService;
   late final bool _ownsCityService;
-  late final RecommendationService _recommendationService;
-  late final bool _ownsRecommendationService;
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
 
@@ -64,9 +62,6 @@ class _DestinationSelectionScreenState
     _draft = widget.draft ?? TripDraft();
     _ownsCityService = widget.cityService == null;
     _cityService = widget.cityService ?? CityService();
-    _ownsRecommendationService = widget.recommendationService == null;
-    _recommendationService =
-        widget.recommendationService ?? RecommendationService();
 
     final selectedCity = _draft.destination;
     if (selectedCity != null) {
@@ -81,7 +76,6 @@ class _DestinationSelectionScreenState
     _searchController.dispose();
     _searchFocusNode.dispose();
     if (_ownsCityService) _cityService.close();
-    if (_ownsRecommendationService) _recommendationService.close();
     super.dispose();
   }
 
@@ -272,19 +266,22 @@ class _DestinationSelectionScreenState
   }
 
   void _continue() {
-    final destinationCityId = _draft.destination?.id;
-    if (destinationCityId != null && destinationCityId.isNotEmpty) {
+    final cityId = _draft.destination?.id;
+    if (cityId != null && cityId.isNotEmpty) {
       unawaited(
-        _recommendationService.prefetchCityPlaces(
-          destinationCityId,
-          stage: 'destination_confirmed',
+        (widget.prefetchService ?? PlacePrefetchService.shared).prefetchCity(
+          cityId,
+          stage: PrefetchStage.destinationConfirmed,
         ),
       );
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            SelectDatesScreen(draft: _draft, tripService: widget.tripService),
+        builder: (_) => SelectDatesScreen(
+          draft: _draft,
+          tripService: widget.tripService,
+          prefetchService: widget.prefetchService,
+        ),
       ),
     );
   }
@@ -323,7 +320,8 @@ class _DestinationSelectionScreenState
                     : () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) {
-                            final hasStart = _draft.startLatitude != null &&
+                            final hasStart =
+                                _draft.startLatitude != null &&
                                 _draft.startLongitude != null;
                             return PlaceDiscoveryScreen(
                               city: city,
@@ -335,7 +333,9 @@ class _DestinationSelectionScreenState
                                   ? TripStartLocation(
                                       tripId: _draft.tripId ?? '',
                                       type: _draft.startLocationType,
-                                      name: _draft.startLocationName ?? 'Trip Start',
+                                      name:
+                                          _draft.startLocationName ??
+                                          'Trip Start',
                                       latitude: _draft.startLatitude!,
                                       longitude: _draft.startLongitude!,
                                     )

@@ -24,19 +24,16 @@ The same audit found the historical `place_categories.created_at` column created
 `add_fsq_geoapify_foundation.sql`. The SQLModel definition now includes that preserved column;
 no database change is required for it.
 
-Pending against the current models:
+Current-model migrations verified as applied on 2026-09-07:
 
-1. `add_places_opening_hours.sql` — the normalized table exists and is empty, but
-   `places.opening_hours_status`, `places.raw_opening_hours`,
-   `place_sources.raw_opening_hours`, and `ck_places_opening_hours_status` are absent. Its
-   existing place foreign key also needs alignment from `NO ACTION` to `ON DELETE CASCADE`.
-2. `add_trip_itinerary_status.sql` — `trip_itinerary.status` and
-   `ck_trip_itinerary_status` are absent; 92 existing rows will receive `PLANNED`.
+1. `add_places_opening_hours.sql` — all three source/canonical columns, both opening-hours
+   checks, indexes, unique day constraint, and `ON DELETE CASCADE` place foreign key are present.
+   All 1,265 existing places were preserved and defaulted to `opening_hours_status='UNKNOWN'`.
+2. `add_trip_itinerary_status.sql` — the status column, default, and lifecycle check are present.
+   All 92 existing itinerary rows were preserved and backfilled to `PLANNED`.
 
-Do not rerun the older scripts on this database. Do not run a rollback script as an
-installation step. Applying the two pending scripts still requires explicit confirmation that
-the target is a development/test database and that a recoverable backup or Supabase restore
-point exists.
+The exact execution actor and restore point cannot be attributed from repository evidence. Do
+not rerun older scripts on this database, and do not run a rollback script as an installation step.
 
 ## Historical upgrade order
 

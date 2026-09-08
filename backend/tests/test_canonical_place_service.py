@@ -3,14 +3,16 @@
 import asyncio
 from collections.abc import Generator
 from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.core.config import Settings
-from app.models import City, Place, PlaceSource, PlaceTag
+from app.models import City, Place, PlaceOpeningHours, PlaceSource, PlaceTag
 from app.schemas import DiscoveryCategory
 from app.services.canonical_place_service import (
+    CanonicalNearbyCandidate,
     CanonicalPlaceService,
     extract_wikidata_id,
     is_category_compatible,
@@ -79,12 +81,72 @@ def test_conservative_name_match():
     assert is_conservative_name_match("The Hadimba Temple", "Hadimba Temple") is True
     assert is_conservative_name_match("Hadimba Devi Temple", "Hadimba Temple") is True
     # Disqualifying specifier prevents merge
-    assert is_conservative_name_match("Hadimba Temple North", "Hadimba Temple South") is False
+    assert (
+        is_conservative_name_match("Hadimba Temple North", "Hadimba Temple South")
+        is False
+    )
     assert is_conservative_name_match("Terminal 1", "Terminal 2") is False
     assert is_conservative_name_match("Gate 1", "Gate 2") is False
     # Different places altogether
     assert is_conservative_name_match("Taj Mahal Palace", "Taj Mahal Cafe") is False
     assert is_conservative_name_match("Manu Temple", "Vashisht Temple") is False
+
+
+def test_cold_city_batch_preserves_identity_provenance_tags_and_hours(
+    session: Session,
+    sample_city: City,
+) -> None:
+    now = datetime.now(timezone.utc)
+    service = CanonicalPlaceService()
+    audiala = OpenStreetMapNearbyPlace(
+        external_place_id="Q12345",
+        source_url="https://example.test/audiala/Q12345",
+        name="River Temple",
+        latitude=sample_city.latitude,
+        longitude=sample_city.longitude,
+        tags={"wikidata": "Q12345", "opening_hours": "Mo-Su 09:00-17:00"},
+    )
+    geoapify = OpenStreetMapNearbyPlace(
+        external_place_id="geo-place-1",
+        source_url="https://example.test/geo-place-1",
+        name="River Temple",
+        latitude=sample_city.latitude,
+        longitude=sample_city.longitude,
+        tags={"wikidata": "Q12345"},
+    )
+
+    service.create_cold_city_batch(
+        session,
+        sample_city,
+        [
+            CanonicalNearbyCandidate(
+                category=DiscoveryCategory.RELIGIOUS,
+                nearby=audiala,
+                source_name="audiala",
+                licence_identifier="CC BY 4.0",
+            ),
+            CanonicalNearbyCandidate(
+                category=DiscoveryCategory.HERITAGE,
+                nearby=geoapify,
+                source_name="geoapify",
+                licence_identifier="Geoapify-Proprietary",
+            ),
+        ],
+        fetched_at=now,
+    )
+    session.commit()
+
+    places = session.exec(select(Place)).all()
+    assert len(places) == 1
+    assert places[0].wikidata_id == "Q12345"
+    assert places[0].raw_opening_hours == "Mo-Su 09:00-17:00"
+    assert places[0].is_heritage is True
+    assert len(session.exec(select(PlaceSource)).all()) == 2
+    assert {tag.tag for tag in session.exec(select(PlaceTag)).all()} == {
+        "religious",
+        "heritage",
+    }
+    assert len(session.exec(select(PlaceOpeningHours)).all()) == 7
 
 
 def test_repeated_same_source_ingestion_is_idempotent_osm(
@@ -363,9 +425,7 @@ def test_conservative_fallback_merges_matching_names_within_threshold(
     assert len(session.exec(select(PlaceSource)).all()) == 2
 
 
-def test_incompatible_categories_do_not_merge(
-    session: Session, sample_city: City
-):
+def test_incompatible_categories_do_not_merge(session: Session, sample_city: City):
     """Venues within 30m with identical names but incompatible categories do NOT merge."""
     service = CanonicalPlaceService()
     now = datetime.now(timezone.utc)
@@ -402,9 +462,7 @@ def test_incompatible_categories_do_not_merge(
     assert len(session.exec(select(Place)).all()) == 2
 
 
-def test_disqualifying_specifiers_prevent_merge(
-    session: Session, sample_city: City
-):
+def test_disqualifying_specifiers_prevent_merge(session: Session, sample_city: City):
     """Numbered gates or terminals within 50m must NOT merge."""
     service = CanonicalPlaceService()
     now = datetime.now(timezone.utc)

@@ -90,9 +90,7 @@ def test_create_trip_returns_id_and_persists_trip_and_preferences(
     assert body["days"] == 3
     assert body["start_date"] == "2026-09-10"
     assert body["start_location_type"] == "hotel"
-    assert body["start_location_provider_place_id"] == (
-        "geoapify-hotel-imperial"
-    )
+    assert body["start_location_provider_place_id"] == ("geoapify-hotel-imperial")
     assert body["preferences"] == [
         "Religious / Spiritual",
         "Culture & Heritage",
@@ -117,6 +115,43 @@ def test_create_trip_returns_id_and_persists_trip_and_preferences(
             row.weight == 2.0 if row.preference in purpose_prefs else row.weight == 1.0
             for row in preferences
         )
+
+
+def test_create_trip_reuses_request_id_without_duplicate_rows(
+    client_and_engine: tuple[TestClient, Engine],
+) -> None:
+    client, engine = client_and_engine
+    city = _create_city(client)
+    request_id = str(uuid4())
+    payload = {**_payload(str(city["id"])), "request_id": request_id}
+
+    first = client.post("/trips", json=payload)
+    retry = client.post("/trips", json=payload)
+
+    assert first.status_code == 201
+    assert retry.status_code == 201
+    assert first.json()["trip_id"] == request_id
+    assert retry.json()["trip_id"] == request_id
+    with Session(engine) as session:
+        assert len(session.exec(select(Trip)).all()) == 1
+
+
+def test_create_trip_rejects_reused_request_id_with_different_data(
+    client_and_engine: tuple[TestClient, Engine],
+) -> None:
+    client, _ = client_and_engine
+    city = _create_city(client)
+    request_id = str(uuid4())
+    payload = {**_payload(str(city["id"])), "request_id": request_id}
+    assert client.post("/trips", json=payload).status_code == 201
+
+    conflict = client.post(
+        "/trips",
+        json={**payload, "arrival_place": "Different station"},
+    )
+
+    assert conflict.status_code == 422
+    assert "already used" in conflict.json()["detail"]
 
 
 def test_create_trip_accepts_arrival_label_without_coordinates(

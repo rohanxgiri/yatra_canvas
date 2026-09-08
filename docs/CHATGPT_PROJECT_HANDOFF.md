@@ -185,7 +185,7 @@ Source of truth: `backend/app/models/entities.py`.
 2. **Audiala Candidate Discovery:** Fully operational production seed provider using `backend/app/data/audiala_places.json`.
 3. **Canonical Place Identity & Multi-Source Provenance:** Implemented via `CanonicalPlaceService` (Rule 1: Provider ID, Rule 2: Shared Wikidata QID, Rule 3: Conservative Fallback, Rule 4: Canonical Place creation) with complete provenance and licensing retention (`ODbL-1.0` and `CC BY 4.0`).
 4. **Wikidata Prominence Scoring & Recommendation Quality:** Implemented via `PlaceImportanceScorer` blending log-normalized sitelinks and PageRank centrality for relevant candidates with institutional venue filtering and mixed-interest category balancing.
-5. **Progressive POI Prefetch & Cache-First Live Discovery Reliability:** Implemented via `CityPlacePrefetchService`, `GeoapifyPlacesProvider`, and `ProviderCircuitBreaker` (non-blocking shallow prefetch on destination continue, targeted prefetch on trip purposes continue, 3-tier cache semantics, in-memory concurrency deduplication, resilient provider fallback, and partial provider success tolerance).
+5. **Progressive POI Prefetch & Cache-First Live Discovery Reliability:** `[IMPLEMENTED]` via `ProgressivePrefetchCoordinator`, `CityPlacePrefetchService`, `GeoapifyPlacesProvider`, and `ProviderCircuitBreaker`. Flutter submits destination/dates/interests/start stages without awaiting navigation; HTTP 202 dispatch, independent worker sessions, cache freshness, process-wide request deduplication, status reads, resilient fallback, and partial provider success are implemented. Persisted POIs are durable; queued task state is process-local.
 
 ---
 

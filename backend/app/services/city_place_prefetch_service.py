@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.models.entities import City, CityCategoryCache, Place, PlaceTag
@@ -19,7 +21,9 @@ logger = logging.getLogger(__name__)
 
 class PrefetchStage(str, Enum):
     DESTINATION_CONFIRMED = "destination_confirmed"
+    DATES_CONFIRMED = "dates_confirmed"
     INTERESTS_CONFIRMED = "interests_confirmed"
+    START_LOCATION_CONFIRMED = "start_location_confirmed"
 
 
 # Default core categories for broad shallow prefetch
@@ -29,6 +33,8 @@ SHALLOW_PREFETCH_CATEGORIES: list[DiscoveryCategory] = [
     DiscoveryCategory.FOOD,
     DiscoveryCategory.RELIGIOUS,
     DiscoveryCategory.CAFES,
+    DiscoveryCategory.MARKETS,
+    DiscoveryCategory.NATURE,
 ]
 
 SHALLOW_TARGET_CANDIDATES = 15
@@ -44,6 +50,8 @@ class PrefetchSummary:
     categories_skipped_sufficient: list[str]
     categories_enriched: list[str]
     duplicate_refreshes_prevented: int
+    poi_count: int = 0
+    error: str | None = None
 
 
 class CityPlacePrefetchService:
@@ -83,7 +91,7 @@ class CityPlacePrefetchService:
     ) -> PrefetchSummary:
         """Execute non-blocking progressive prefetch based on current trip creation stage."""
         if stage == PrefetchStage.DESTINATION_CONFIRMED:
-            target_categories = SHALLOW_PREFETCH_CATEGORIES
+            target_categories = categories or SHALLOW_PREFETCH_CATEGORIES
             min_candidates = SHALLOW_TARGET_CANDIDATES
         else:
             target_categories = categories or SHALLOW_PREFETCH_CATEGORIES
@@ -93,6 +101,29 @@ class CityPlacePrefetchService:
         skipped_sufficient: list[str] = []
         needed_categories: list[DiscoveryCategory] = []
         duplicate_prevented = 0
+
+        category_values = [category.value for category in unique_categories]
+        coverage_rows = session.exec(
+            select(PlaceTag.tag, func.count(func.distinct(Place.id)))
+            .join(Place, Place.id == PlaceTag.place_id)
+            .where(
+                Place.city_id == city.id,
+                PlaceTag.tag.in_(category_values),
+            )
+            .group_by(PlaceTag.tag)
+        ).all()
+        coverage_by_category = {tag: int(count) for tag, count in coverage_rows}
+        cache_keys = {
+            category: self._discovery.cache_key(category)
+            for category in unique_categories
+        }
+        cache_rows = session.exec(
+            select(CityCategoryCache).where(
+                CityCategoryCache.city_id == city.id,
+                CityCategoryCache.category.in_(list(cache_keys.values())),
+            )
+        ).all()
+        cache_by_key = {cache.category: cache for cache in cache_rows}
 
         # Step 1: Coverage & In-flight check
         for category in unique_categories:
@@ -109,20 +140,43 @@ class CityPlacePrefetchService:
                     continue
 
             # Check coverage
-            coverage = self.get_category_coverage(session, city.id, category)
-            if coverage >= min_candidates:
+            coverage = coverage_by_category.get(category.value, 0)
+            cache = cache_by_key.get(cache_keys[category])
+            expires_at = cache.expires_at if cache is not None else None
+            if expires_at is not None and expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            is_fresh = expires_at is not None and expires_at > datetime.now(
+                timezone.utc
+            )
+            has_sufficient_coverage = (
+                coverage > 0
+                if stage == PrefetchStage.DESTINATION_CONFIRMED
+                else coverage >= min_candidates
+            )
+            if has_sufficient_coverage and is_fresh:
                 skipped_sufficient.append(category.value)
                 logger.info(
-                    "Prefetch: coverage sufficient for city=%s category=%s (count=%d >= %d)",
-                    city.name,
+                    "PREFETCH_CACHE_HIT city_id=%s category=%s count=%d stage=%s",
+                    city.id,
                     category.value,
                     coverage,
-                    min_candidates,
+                    stage.value,
                 )
             else:
                 needed_categories.append(category)
+                logger.info(
+                    "PREFETCH_CACHE_MISS city_id=%s category=%s count=%d fresh=%s stage=%s",
+                    city.id,
+                    category.value,
+                    coverage,
+                    is_fresh,
+                    stage.value,
+                )
 
         if not needed_categories:
+            poi_count = len(
+                session.exec(select(Place.id).where(Place.city_id == city.id)).all()
+            )
             return PrefetchSummary(
                 city_id=city.id,
                 city_name=city.name,
@@ -131,6 +185,7 @@ class CityPlacePrefetchService:
                 categories_skipped_sufficient=skipped_sufficient,
                 categories_enriched=[],
                 duplicate_refreshes_prevented=duplicate_prevented,
+                poi_count=poi_count,
             )
 
         # Step 2: Register in-flight tasks and trigger discovery
@@ -143,10 +198,12 @@ class CityPlacePrefetchService:
                 future_map[(city.id, cat.value)] = fut
 
         enriched: list[str] = []
+        error: str | None = None
         try:
             logger.info(
-                "Executing %s prefetch for city=%s categories=%s",
+                "PREFETCH_STARTED stage=%s city_id=%s city=%s categories=%s",
                 stage.value,
+                city.id,
                 city.name,
                 [c.value for c in needed_categories],
             )
@@ -162,10 +219,21 @@ class CityPlacePrefetchService:
                 city=city,
                 categories=needed_categories,
                 custom_category_limits=custom_limits,
+                prefer_stale=False,
+                include_overpass=(
+                    stage != PrefetchStage.DESTINATION_CONFIRMED
+                    or not self._discovery.has_fast_prefetch_provider
+                ),
             )
             enriched = [c.value for c in needed_categories]
         except Exception as exc:
-            logger.warning("Prefetch encountered an error for city=%s: %s", city.name, exc)
+            error = str(exc)
+            logger.warning(
+                "PREFETCH_FAILED city_id=%s city=%s error=%s",
+                city.id,
+                city.name,
+                exc,
+            )
         finally:
             async with self._lock:
                 for key, fut in future_map.items():
@@ -173,6 +241,9 @@ class CityPlacePrefetchService:
                         fut.set_result(None)
                     self._in_flight.pop(key, None)
 
+        poi_count = len(
+            session.exec(select(Place.id).where(Place.city_id == city.id)).all()
+        )
         return PrefetchSummary(
             city_id=city.id,
             city_name=city.name,
@@ -181,4 +252,6 @@ class CityPlacePrefetchService:
             categories_skipped_sufficient=skipped_sufficient,
             categories_enriched=enriched,
             duplicate_refreshes_prevented=duplicate_prevented,
+            poi_count=poi_count,
+            error=error,
         )

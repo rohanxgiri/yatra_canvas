@@ -141,10 +141,10 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
   - Deterministic Rule 2: Shared strong global identifier (Wikidata QID) cross-provider matching.
   - Conservative Rule 3: Geographic ($\le 100$m), category-compatible, and strict name variant matching fallback.
   - Rule 4: Canonical Place creation with full `PlaceSource` provenance and licensing (CC BY 4.0 and ODbL-1.0).
-- **Progressive POI Prefetch & Cache-First Live Discovery Reliability** is `[IMPLEMENTED]`:
+- **Progressive POI Prefetch & Cache-First Live Discovery Reliability** is `[IMPLEMENTED]` with `[PARTIAL]` task durability:
   - 3-tier cache semantics (`FRESH` $\le 24$h, `STALE_USABLE` $\le 168$h, `MISSING`) with `DISCOVERY_MIN_USABLE_CANDIDATES_PER_CATEGORY=6`.
-  - Non-blocking destination-triggered broad shallow prefetch (`POST /places/prefetch` with stage `shallow`, `DISCOVERY_SHALLOW_LIMIT=15`).
-  - Non-blocking purpose/interest-triggered targeted prefetch (`POST /places/prefetch` with stage `targeted`).
+  - Destination, dates, interests, and start-location stages enqueue or record work without blocking Flutter navigation. HTTP 202 is returned before provider work; `GET /places/prefetch/{city_id}` exposes coarse state.
+  - Background workers use independent database sessions and process-wide `(city_id, category)` request deduplication. Persisted POIs remain reusable across trips; in-flight state is not durable across restarts.
   - In-memory concurrency deduplication for `(city_id, category)` background refreshes.
   - Multi-provider fallback hierarchy: Cached DB places $\to$ `GeoapifyPlacesProvider` $\to$ `AudialaPlacesProvider` $\to$ `OpenStreetMapPlacesService`.
   - Circuit breaker for Overpass OSM with consecutive failure threshold (3) and cooldown (60s).

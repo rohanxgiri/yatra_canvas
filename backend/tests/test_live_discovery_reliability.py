@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
-from typing import Generator
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,25 +15,23 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from app.core.config import get_settings
 from app.database import get_session
 from app.main import app
-from app.models.entities import City, CityCategoryCache, Place, PlaceSource, PlaceTag
+from app.models.entities import City, CityCategoryCache, Place, PlaceTag
 from app.routers.places import (
-    get_audiala_places_provider,
     get_geoapify_places_provider,
     get_openstreetmap_places_service,
+    get_progressive_prefetch_coordinator,
+    get_recommendation_service,
 )
-from app.schemas import DiscoveryCategory, RecommendationRead, RecommendationRequest
-from app.services.audiala_places_provider import AudialaPlacesProvider
+from app.schemas import DiscoveryCategory, RecommendationRequest
 from app.services.canonical_place_service import CanonicalPlaceService
 from app.services.city_place_prefetch_service import (
+    SHALLOW_TARGET_CANDIDATES,
     CityPlacePrefetchService,
     PrefetchStage,
-    SHALLOW_TARGET_CANDIDATES,
 )
-from app.services.geoapify_places_provider import GeoapifyPlacesProvider
 from app.services.openstreetmap_discovery_service import OpenStreetMapDiscoveryService
 from app.services.openstreetmap_places_service import (
     OpenStreetMapNearbyPlace,
-    OpenStreetMapPlacesService,
     OpenStreetMapPlacesTimeoutError,
     OpenStreetMapPlacesUnavailableError,
 )
@@ -70,7 +68,11 @@ def sample_city(test_db: Session) -> City:
 
 
 class FakeOverpassPlacesService:
-    def __init__(self, should_timeout: bool = False, fail_categories: set[DiscoveryCategory] | None = None) -> None:
+    def __init__(
+        self,
+        should_timeout: bool = False,
+        fail_categories: set[DiscoveryCategory] | None = None,
+    ) -> None:
         self.should_timeout = should_timeout
         self.fail_categories = fail_categories or set()
         self.calls: list[DiscoveryCategory] = []
@@ -86,7 +88,9 @@ class FakeOverpassPlacesService:
     ) -> list[OpenStreetMapNearbyPlace]:
         self.calls.append(category)
         if self.should_timeout or category in self.fail_categories:
-            raise OpenStreetMapPlacesTimeoutError(f"Overpass query timed out for {category.value}")
+            raise OpenStreetMapPlacesTimeoutError(
+                f"Overpass query timed out for {category.value}"
+            )
 
         return [
             OpenStreetMapNearbyPlace(
@@ -95,7 +99,10 @@ class FakeOverpassPlacesService:
                 name=f"{category.value.title()} Landmark",
                 latitude=latitude + 0.001,
                 longitude=longitude + 0.001,
-                tags={"name": f"{category.value.title()} Landmark", "tourism": "attraction"},
+                tags={
+                    "name": f"{category.value.title()} Landmark",
+                    "tourism": "attraction",
+                },
             )
         ]
 
@@ -124,7 +131,11 @@ class FakeOverpassPlacesService:
 
 
 class FakeGeoapifyPlacesProvider:
-    def __init__(self, places_by_cat: dict[DiscoveryCategory, list[OpenStreetMapNearbyPlace]] | None = None) -> None:
+    def __init__(
+        self,
+        places_by_cat: dict[DiscoveryCategory, list[OpenStreetMapNearbyPlace]]
+        | None = None,
+    ) -> None:
         self.is_configured = True
         self.places_by_cat = places_by_cat or {}
         self.calls: list[DiscoveryCategory] = []
@@ -152,7 +163,10 @@ class FakeGeoapifyPlacesProvider:
                         name=f"Geoapify {cat.value.title()} Spot",
                         latitude=latitude + 0.002,
                         longitude=longitude + 0.002,
-                        tags={"name": f"Geoapify {cat.value.title()} Spot", "source": "geoapify"},
+                        tags={
+                            "name": f"Geoapify {cat.value.title()} Spot",
+                            "source": "geoapify",
+                        },
                     )
                 ]
         return results
@@ -161,6 +175,7 @@ class FakeGeoapifyPlacesProvider:
 # --------------------------------------------------------------------------
 # Phase 15: Circuit Breaker Tests
 # --------------------------------------------------------------------------
+
 
 def test_circuit_breaker_trips_and_recovers():
     breaker = ProviderCircuitBreaker(
@@ -184,6 +199,7 @@ def test_circuit_breaker_trips_and_recovers():
 
     # Wait for cooldown
     import time
+
     time.sleep(0.12)
     assert breaker.state == CircuitState.HALF_OPEN
     assert breaker.allow_request() is True
@@ -197,6 +213,7 @@ def test_circuit_breaker_trips_and_recovers():
 # --------------------------------------------------------------------------
 # Phase 3 & 16: Cache-First & Stale-While-Revalidate
 # --------------------------------------------------------------------------
+
 
 @pytest.mark.anyio
 async def test_warm_cache_avoids_provider_calls(test_db: Session, sample_city: City):
@@ -250,7 +267,59 @@ async def test_warm_cache_avoids_provider_calls(test_db: Session, sample_city: C
 
 
 @pytest.mark.anyio
-async def test_stale_cache_returns_immediately_and_revalidates(test_db: Session, sample_city: City):
+async def test_cache_version_change_invalidates_old_query_namespace(
+    test_db: Session,
+    sample_city: City,
+):
+    now = datetime.now(timezone.utc)
+    test_db.add(
+        CityCategoryCache(
+            city_id=sample_city.id,
+            category=DiscoveryCategory.TOURISM.value,
+            last_fetched_at=now,
+            expires_at=now + timedelta(hours=24),
+        )
+    )
+    old_place = Place(
+        city_id=sample_city.id,
+        name="Old Query Result",
+        category=DiscoveryCategory.TOURISM.value,
+        latitude=sample_city.latitude,
+        longitude=sample_city.longitude,
+    )
+    test_db.add(old_place)
+    test_db.commit()
+    test_db.add(PlaceTag(place_id=old_place.id, tag=DiscoveryCategory.TOURISM.value))
+    test_db.commit()
+
+    fake_overpass = FakeOverpassPlacesService()
+    settings = get_settings().model_copy(update={"place_discovery_cache_version": 2})
+    discovery = OpenStreetMapDiscoveryService(
+        settings=settings,
+        provider=fake_overpass,  # type: ignore[arg-type]
+    )
+
+    await discovery.discover_many(
+        session=test_db,
+        city=sample_city,
+        categories=[DiscoveryCategory.TOURISM],
+        prefer_stale=False,
+    )
+
+    assert fake_overpass.calls == [DiscoveryCategory.TOURISM]
+    versioned_cache = test_db.exec(
+        select(CityCategoryCache).where(
+            CityCategoryCache.city_id == sample_city.id,
+            CityCategoryCache.category == "v2:tourism",
+        )
+    ).first()
+    assert versioned_cache is not None
+
+
+@pytest.mark.anyio
+async def test_stale_cache_returns_immediately_and_revalidates(
+    test_db: Session, sample_city: City
+):
     settings = get_settings()
     now = datetime.now(timezone.utc)
 
@@ -305,8 +374,48 @@ async def test_stale_cache_returns_immediately_and_revalidates(test_db: Session,
 # Phase 11 & 12: Partial Provider Success & Overpass Timeout Tolerance
 # --------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
-async def test_partial_category_failure_still_returns_usable_recommendations(test_db: Session, sample_city: City):
+async def test_sufficient_geoapify_coverage_skips_overpass(
+    test_db: Session,
+    sample_city: City,
+) -> None:
+    category = DiscoveryCategory.FOOD
+    geo_places = [
+        OpenStreetMapNearbyPlace(
+            external_place_id=f"geo-food-{index}",
+            source_url=None,
+            name=f"Geo Food {index}",
+            latitude=sample_city.latitude + index * 0.001,
+            longitude=sample_city.longitude + index * 0.001,
+            tags={"amenity": "restaurant"},
+        )
+        for index in range(get_settings().discovery_min_usable_candidates_per_category)
+    ]
+    geoapify = FakeGeoapifyPlacesProvider({category: geo_places})
+    overpass = FakeOverpassPlacesService()
+    discovery = OpenStreetMapDiscoveryService(
+        settings=get_settings(),
+        provider=overpass,  # type: ignore[arg-type]
+        geoapify_provider=geoapify,  # type: ignore[arg-type]
+    )
+
+    results = await discovery.discover_many(
+        session=test_db,
+        city=sample_city,
+        categories=[category],
+        prefer_stale=False,
+    )
+
+    assert len(results[category]) == len(geo_places)
+    assert geoapify.calls == [category]
+    assert overpass.calls == []
+
+
+@pytest.mark.anyio
+async def test_partial_category_failure_still_returns_usable_recommendations(
+    test_db: Session, sample_city: City
+):
     settings = get_settings()
     # Food fails, but Heritage succeeds
     fake_overpass = FakeOverpassPlacesService(fail_categories={DiscoveryCategory.FOOD})
@@ -333,7 +442,9 @@ async def test_partial_category_failure_still_returns_usable_recommendations(tes
 
 
 @pytest.mark.anyio
-async def test_overpass_timeout_uses_geoapify_fallback(test_db: Session, sample_city: City):
+async def test_overpass_timeout_uses_geoapify_fallback(
+    test_db: Session, sample_city: City
+):
     settings = get_settings()
     # Overpass completely times out
     fake_overpass = FakeOverpassPlacesService(should_timeout=True)
@@ -363,7 +474,9 @@ async def test_overpass_timeout_uses_geoapify_fallback(test_db: Session, sample_
 
 
 @pytest.mark.anyio
-async def test_provider_failure_with_zero_cached_data_raises_unavailable(test_db: Session, sample_city: City):
+async def test_provider_failure_with_zero_cached_data_raises_unavailable(
+    test_db: Session, sample_city: City
+):
     settings = get_settings()
     fake_overpass = FakeOverpassPlacesService(should_timeout=True)
 
@@ -386,8 +499,11 @@ async def test_provider_failure_with_zero_cached_data_raises_unavailable(test_db
 # Phase 8 & 9: Coverage-Aware Fetching & Concurrency Deduplication
 # --------------------------------------------------------------------------
 
+
 @pytest.mark.anyio
-async def test_concurrent_same_city_category_prefetch_is_deduplicated(test_db: Session, sample_city: City):
+async def test_concurrent_same_city_category_prefetch_is_deduplicated(
+    test_db: Session, sample_city: City
+):
     settings = get_settings()
     fake_overpass = FakeOverpassPlacesService()
     discovery = OpenStreetMapDiscoveryService(settings=settings, provider=fake_overpass)  # type: ignore[arg-type]
@@ -411,13 +527,26 @@ async def test_concurrent_same_city_category_prefetch_is_deduplicated(test_db: S
 
     res1, res2 = await asyncio.gather(task1, task2)
     # One of them observes and prevents duplicate refreshes
-    total_prevented = res1.duplicate_refreshes_prevented + res2.duplicate_refreshes_prevented
+    total_prevented = (
+        res1.duplicate_refreshes_prevented + res2.duplicate_refreshes_prevented
+    )
     assert total_prevented >= 0
 
 
 @pytest.mark.anyio
-async def test_already_sufficient_categories_are_skipped(test_db: Session, sample_city: City):
+async def test_already_sufficient_categories_are_skipped(
+    test_db: Session, sample_city: City
+):
     settings = get_settings()
+    now = datetime.now(timezone.utc)
+    test_db.add(
+        CityCategoryCache(
+            city_id=sample_city.id,
+            category=DiscoveryCategory.TOURISM.value,
+            last_fetched_at=now,
+            expires_at=now + timedelta(hours=24),
+        )
+    )
     # Populate >= 15 places for tourism
     for i in range(SHALLOW_TARGET_CANDIDATES + 2):
         p = Place(
@@ -452,7 +581,96 @@ async def test_already_sufficient_categories_are_skipped(test_db: Session, sampl
 
 
 @pytest.mark.anyio
-async def test_canonical_identity_remains_idempotent(test_db: Session, sample_city: City):
+async def test_stale_sufficient_category_is_refreshed(
+    test_db: Session, sample_city: City
+) -> None:
+    now = datetime.now(timezone.utc)
+    test_db.add(
+        CityCategoryCache(
+            city_id=sample_city.id,
+            category=DiscoveryCategory.FOOD.value,
+            last_fetched_at=now - timedelta(days=3),
+            expires_at=now - timedelta(days=2),
+        )
+    )
+    for index in range(SHALLOW_TARGET_CANDIDATES):
+        place = Place(
+            city_id=sample_city.id,
+            name=f"Stored food {index}",
+            category=DiscoveryCategory.FOOD.value,
+            latitude=9.93 + index * 0.001,
+            longitude=76.26 + index * 0.001,
+            review_count=0,
+            is_popular=False,
+            is_heritage=False,
+            is_local_speciality=False,
+        )
+        test_db.add(place)
+        test_db.commit()
+        test_db.add(PlaceTag(place_id=place.id, tag=DiscoveryCategory.FOOD.value))
+    test_db.commit()
+    provider = FakeOverpassPlacesService()
+    discovery = OpenStreetMapDiscoveryService(
+        settings=get_settings(),
+        provider=provider,  # type: ignore[arg-type]
+    )
+
+    await CityPlacePrefetchService(discovery).prefetch(
+        session=test_db,
+        city=sample_city,
+        stage=PrefetchStage.DESTINATION_CONFIRMED,
+        categories=[DiscoveryCategory.FOOD],
+    )
+
+    assert DiscoveryCategory.FOOD in provider.calls
+
+
+@pytest.mark.anyio
+async def test_fresh_low_coverage_destination_cache_does_not_refetch_forever(
+    test_db: Session,
+    sample_city: City,
+) -> None:
+    now = datetime.now(timezone.utc)
+    test_db.add(
+        CityCategoryCache(
+            city_id=sample_city.id,
+            category=DiscoveryCategory.HERITAGE.value,
+            last_fetched_at=now,
+            expires_at=now + timedelta(hours=24),
+        )
+    )
+    place = Place(
+        city_id=sample_city.id,
+        name="Only Available Heritage Site",
+        category=DiscoveryCategory.HERITAGE.value,
+        latitude=sample_city.latitude,
+        longitude=sample_city.longitude,
+    )
+    test_db.add(place)
+    test_db.commit()
+    test_db.add(PlaceTag(place_id=place.id, tag=DiscoveryCategory.HERITAGE.value))
+    test_db.commit()
+
+    provider = FakeOverpassPlacesService()
+    discovery = OpenStreetMapDiscoveryService(
+        settings=get_settings(),
+        provider=provider,  # type: ignore[arg-type]
+    )
+    summary = await CityPlacePrefetchService(discovery).prefetch(
+        session=test_db,
+        city=sample_city,
+        stage=PrefetchStage.DESTINATION_CONFIRMED,
+        categories=[DiscoveryCategory.HERITAGE],
+    )
+
+    assert summary.categories_skipped_sufficient == ["heritage"]
+    assert provider.calls == []
+
+
+@pytest.mark.anyio
+async def test_canonical_identity_remains_idempotent(
+    test_db: Session, sample_city: City
+):
     canonical_service = CanonicalPlaceService()
     now = datetime.now(timezone.utc)
 
@@ -491,13 +709,16 @@ async def test_canonical_identity_remains_idempotent(test_db: Session, sample_ci
 
     assert place1.id == place2.id
     # Total Place rows for this city should remain exactly 1
-    places_count = len(test_db.exec(select(Place).where(Place.city_id == sample_city.id)).all())
+    places_count = len(
+        test_db.exec(select(Place).where(Place.city_id == sample_city.id)).all()
+    )
     assert places_count == 1
 
 
 # --------------------------------------------------------------------------
 # Phase 4 & 5: FastAPI Prefetch Endpoints Test
 # --------------------------------------------------------------------------
+
 
 def test_prefetch_api_endpoint(sample_city: City):
     engine = create_engine(
@@ -509,7 +730,16 @@ def test_prefetch_api_endpoint(sample_city: City):
 
     # Insert city into isolated db
     with Session(engine) as s:
-        s.add(City(id=sample_city.id, name=sample_city.name, state=sample_city.state, country=sample_city.country, latitude=sample_city.latitude, longitude=sample_city.longitude))
+        s.add(
+            City(
+                id=sample_city.id,
+                name=sample_city.name,
+                state=sample_city.state,
+                country=sample_city.country,
+                latitude=sample_city.latitude,
+                longitude=sample_city.longitude,
+            )
+        )
         s.commit()
 
     def override_session() -> Generator[Session, None, None]:
@@ -519,7 +749,9 @@ def test_prefetch_api_endpoint(sample_city: City):
     app.dependency_overrides[get_session] = override_session
     fake_overpass = FakeOverpassPlacesService()
     app.dependency_overrides[get_openstreetmap_places_service] = lambda: fake_overpass
-    app.dependency_overrides[get_geoapify_places_provider] = lambda: FakeGeoapifyPlacesProvider()
+    app.dependency_overrides[get_geoapify_places_provider] = lambda: (
+        FakeGeoapifyPlacesProvider()
+    )
 
     try:
         client = TestClient(app)
@@ -531,10 +763,11 @@ def test_prefetch_api_endpoint(sample_city: City):
                 "stage": "destination_confirmed",
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 202
         data = response.json()
         assert data["stage"] == "destination_confirmed"
-        assert len(data["categories_requested"]) == 5
+        assert len(data["categories_requested"]) == 7
+        assert data["status"] == "fetching"
 
         # 2. Targeted prefetch
         response2 = client.post(
@@ -545,9 +778,66 @@ def test_prefetch_api_endpoint(sample_city: City):
                 "categories": ["food", "cafes"],
             },
         )
-        assert response2.status_code == 200
+        assert response2.status_code == 202
         data2 = response2.json()
         assert data2["stage"] == "interests_confirmed"
         assert data2["categories_requested"] == ["food", "cafes"]
     finally:
         app.dependency_overrides.clear()
+
+
+def test_recommendation_endpoint_joins_active_prefetch(sample_city: City) -> None:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        session.add(
+            City(
+                id=sample_city.id,
+                name=sample_city.name,
+                state=sample_city.state,
+                country=sample_city.country,
+                latitude=sample_city.latitude,
+                longitude=sample_city.longitude,
+            )
+        )
+        session.commit()
+
+    def override_session() -> Generator[Session, None, None]:
+        with Session(engine) as session:
+            yield session
+
+    class RecordingCoordinator:
+        def __init__(self) -> None:
+            self.joined: tuple[object, list[DiscoveryCategory]] | None = None
+
+        async def join_active(self, city_id, categories):
+            self.joined = (city_id, categories)
+            return [category.value for category in categories]
+
+    class EmptyRecommendationService:
+        async def recommend(self, **_kwargs):
+            return []
+
+    coordinator = RecordingCoordinator()
+    app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_progressive_prefetch_coordinator] = lambda: coordinator
+    app.dependency_overrides[get_recommendation_service] = EmptyRecommendationService
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/cities/{sample_city.id}/recommendations",
+                json={"categories": ["food"]},
+            )
+        assert response.status_code == 200
+        assert response.json() == []
+        assert coordinator.joined == (
+            sample_city.id,
+            [DiscoveryCategory.FOOD],
+        )
+    finally:
+        app.dependency_overrides.clear()
+        SQLModel.metadata.drop_all(engine)

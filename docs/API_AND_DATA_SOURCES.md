@@ -1,6 +1,6 @@
 # APIs and data sources
 
-Last reviewed: 2026-09-07
+Last reviewed: 2026-09-08
 
 Last verified: 2026-09-06 for Geoapify autocomplete/places, Audiala, and OpenStreetMap/Overpass;
 2026-08-31 for other provider rows
@@ -37,7 +37,7 @@ provider change. `[PLANNED]` entries are not configured or callable in this repo
 | PostgreSQL / Supabase | Canonical entities and caches | Application-defined; no general retention job | Application data policy is `[UNKNOWN]`; RLS must be tracked before direct client access | [Supabase docs](https://supabase.com/docs), [database](https://supabase.com/docs/guides/database/overview), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security) | 2026-08-31 | Backend cannot start without a valid PostgreSQL URL | Supabase Auth, SDK, migrations, RLS, and production topology are absent |
 | FSQ OS Places | Selected fields in `PlaceSource`/`PlaceCategory`; ambiguity in `PlaceImportReview` | `date_refreshed` retained; no automated delta/deletion process | Dataset docs state Apache 2.0; preserve source/license metadata | [Access](https://docs.foursquare.com/data-products/docs/access-fsq-os-places), [schema](https://docs.foursquare.com/data-products/docs/places-os-data-schema) | 2026-08-31 | Skip import; existing canonical places remain | Portal now uses an Iceberg catalog/token; importer only reads operator-exported CSV/JSONL. Open schema does not list proprietary rating/popularity fields |
 | Geoapify | Normalized suggestions in process memory; selected destination fields are persisted as a canonical city and selected trip start locations may be persisted | `GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS`; cleared on restart | OSM attribution always; Geoapify attribution required on free plan per official terms | [Autocomplete](https://apidocs.geoapify.com/docs/geocoding/address-autocomplete/), [terms](https://www.geoapify.com/terms-and-conditions/) | 2026-09-01 | Stored-city search remains available; device/custom arrival entry and unrelated stored data remain | Destination rows do not yet retain the Geoapify place ID; no persistent/shared autocomplete cache; pricing and quotas are volatile |
-| OSM / Overpass | Canonical `Place` rows plus `PlaceSource` element ID/type, URL, and `ODbL-1.0` provenance | City/category TTL cache; uncached categories selected together are refreshed in one bounded provider query | OSM data is ODbL and requires attribution; the recommendation UI links the OSM copyright page | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API), [OSM copyright](https://www.openstreetmap.org/copyright) | 2026-09-01 | Serve the last successfully persisted category data when a refresh fails; return a retryable error only when no selected category has stored results | Development defaults to the documented public FOSSGIS `lz4` endpoint. Public instances are best-effort; raw OSM records can contain internal institutional facilities and node/way duplicates, resolved by YatraCanvas's canonical deduplication and traveller-suitability pipeline |
+| OSM / Overpass | Canonical `Place` rows plus `PlaceSource` element ID/type, URL, and `ODbL-1.0` provenance | City/category TTL cache; uncached categories retain independent radius/quota queries, limited to three concurrent calls and one 12-second default discovery budget | OSM data is ODbL and requires attribution; the recommendation UI links the OSM copyright page | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API), [OSM copyright](https://www.openstreetmap.org/copyright) | 2026-09-01 | Serve the last successfully persisted category data when a refresh fails; return a retryable error only when no selected category has stored results | Development defaults to the documented public FOSSGIS `lz4` endpoint. Public instances are best-effort; raw OSM records can contain internal institutional facilities and node/way duplicates, resolved by YatraCanvas's canonical deduplication and traveller-suitability pipeline |
 | Wikimedia | None | `[PLANNED]`; cache by revision/source timestamp | Preserve author, source URL, item license, attribution, and modifications; license varies by content | [Action API](https://www.mediawiki.org/wiki/API:Main_page), [API etiquette](https://www.mediawiki.org/wiki/API:Etiquette) | 2026-08-31 | Omit enrichment and keep canonical place | Meaningful User-Agent/contact and considerate serial/batched requests are required; image reuse cannot assume one universal license |
 | openrouteservice | Real road-route geometry coordinates and leg summaries | In-memory TTL cache (`ROUTE_GEOMETRY_CACHE_TTL_MINUTES`, default 60 min) | Routing based on OSM; OSM copyright attribution required | [API docs](https://openrouteservice.org/dev/#/api-docs), [directions v2](https://giscience.github.io/openrouteservice/api-reference/endpoints/) | 2026-09-02 | Keyless OSRM provider or safe map degradation without road polyline | Hosted rate limits (2000 req/day free tier) |
 | OSRM | Real road-route geometry coordinates and leg summaries | In-memory TTL cache (`ROUTE_GEOMETRY_CACHE_TTL_MINUTES`, default 60 min) | Routing based on OSM; OSM attribution required | [OSRM project](https://project-osrm.org/) | 2026-09-02 | Safe map degradation without road polyline | Public demo router has no production SLA; self-host for production |
@@ -48,6 +48,22 @@ provider change. `[PLANNED]` entries are not configured or callable in this repo
 | Google Routes API | Legacy Google route-matrix cache rows, where present | Legacy traffic/static expiry behavior remains | Google Maps Platform terms/attribution apply to retained legacy data | [Compute Route Matrix](https://developers.google.com/maps/documentation/routes/compute_route_matrix) | 2026-08-31 | Normal optimizer uses local estimates | Adapter is retained but is not injected into the normal route-optimization endpoint |
 | Google Maps SDK | Nothing | None | Would require separate Maps SDK terms, key restrictions, and attribution if adopted | [Google Maps Platform documentation](https://developers.google.com/maps/documentation) | 2026-08-31 | No current map exists | Places/Routes keys do not prove an SDK is configured; map renderer/tiles decision remains open |
 | Proprietary Foursquare Places API | Nothing | None | Not assessed because it is not selected | [Foursquare developer docs](https://docs.foursquare.com/) | 2026-08-31 | Use reviewed open-dataset ingestion | Must not be introduced as a required runtime dependency without a new decision and documentation |
+
+## Progressive prefetch contract
+
+`[IMPLEMENTED]` `POST /places/prefetch` accepts canonical `city_id` plus one of
+`destination_confirmed`, `dates_confirmed`, `interests_confirmed`, or
+`start_location_confirmed`, and returns HTTP 202 after process-local enqueue. Destination and
+destination prefetch uses the adopted Audiala and Geoapify Places adapters through the existing
+discovery service; Overpass remains a bounded foreground fallback for categories that still lack
+usable coverage. Interest enrichment may use that fallback after interests are known. Dates and
+start stages make no provider call. `GET
+/places/prefetch/{city_id}` returns coarse state and never exposes credentials. POI freshness uses
+`PLACE_DISCOVERY_CACHE_TTL_HOURS` (24 hours by default); stale stored data remains usable for an
+interactive recommendation, while speculative prefetch attempts refresh. Cache keys include the
+canonical city ID, category, and `PLACE_DISCOVERY_CACHE_VERSION`. Weather retains its
+separate 60-minute default in-memory TTL, Geoapify autocomplete its 300-second default TTL, route
+geometry its 60-minute default TTL, and traffic-backed matrices their 30-minute default TTL.
 
 ## Current Google dependency assessment
 

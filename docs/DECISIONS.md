@@ -265,21 +265,20 @@ provider, environment, and data-model documentation.
 - **Evidence:** `backend/app/services/canonical_place_service.py`, `backend/tests/test_canonical_place_service.py`,
   `docs/DATA_MODEL.md`, `docs/ARCHITECTURE.md`.
 
-## ADR-013 — Progressive POI Prefetch and Cache-First Live Discovery Reliability
+## ADR-013 — POI Prefetch and Cache-First Live Discovery Reliability
 
-- **Status:** Accepted and `[IMPLEMENTED]`.
+- **Status:** Accepted and `[IMPLEMENTED]` with `[PARTIAL]` worker durability.
 - **Date:** 2026-09-04.
 - **Context:** Live Overpass/OSM queries on the critical discovery path frequently timed out or returned HTTP 504
   gateway errors, causing blocking error screens for users.
-- **Decision:** Implement 3-tier cache semantics (`FRESH` $\le 24$h, `STALE_USABLE` $\le 168$h, `MISSING`) with
-  stale-while-revalidate background refresh. Introduce non-blocking progressive prefetch: broad shallow prefetch
-  (`stage=shallow`) upon destination confirmation and targeted prefetch (`stage=targeted`) upon trip purpose confirmation.
+- **Decision:** Implement 3-tier cache semantics (`FRESH` $\le 24$h, `STALE_USABLE` $\le 168$h, `MISSING`) with versioned `(city_id, category)` keys. A process-wide `ProgressivePrefetchCoordinator` accepts destination, dates, interests, and start-location stages. `POST /places/prefetch` returns HTTP 202 before provider work, workers run outside the request event loop with independent database sessions, active `(city_id, category)` work is reused, and foreground recommendation requests join matching work. Flutter fires these requests without awaiting navigation. Dates/start stages make no speculative weather, image, route, or matrix calls; destination prefetch avoids Overpass; interest enrichment reuses fresh coverage and refreshes only missing/stale categories.
   Implement a provider hierarchy: Cached DB $\to$ `GeoapifyPlacesProvider` $\to$ `AudialaPlacesProvider` $\to$ `OpenStreetMapPlacesService`.
-  Protect Overpass with an in-memory circuit breaker (`OVERPASS_CIRCUIT_BREAKER_THRESHOLD=3`, `OVERPASS_CIRCUIT_BREAKER_COOLDOWN_SECONDS=60s`).
-- **Consequences:** Eliminates cold discovery loading delays. Discovery queries serve cached places in under 50ms.
+  Protect Overpass with an in-memory circuit breaker (`OVERPASS_CIRCUIT_BREAKER_THRESHOLD=3`, `OVERPASS_CIRCUIT_BREAKER_COOLDOWN_SECONDS=60s`). Run category-specific calls in waves no larger than the default breaker threshold and cap the complete Overpass phase with `DISCOVERY_INTERACTIVE_TIMEOUT_SECONDS` (default 12 seconds), allowing queued categories to be skipped once the circuit opens.
+- **Consequences:** Provider and remote-database latency overlaps with form completion while the API remains responsive. Cache and normalization reads are batched, fresh low-result categories do not refetch forever, and final recommendations read the normalized persisted pool rather than restarting discovery. Queue/progress state is process-local; durable multi-worker dispatch remains `[PLANNED]`.
   External provider failures degrade gracefully to fallback providers or stale usable cache without breaking user journeys.
 - **Evidence:** `backend/app/services/city_place_prefetch_service.py`, `backend/app/services/provider_circuit_breaker.py`,
   `backend/app/services/geoapify_places_provider.py`, `backend/tests/test_live_discovery_reliability.py`,
+  `backend/tests/test_openstreetmap_places_service.py`, `backend/tests/test_live_discovery_resilience.py`,
   `docs/live_discovery_reliability.md`.
 
 ## ADR-014 — Core Trip Flow Hardening (Logical Day Invariant, Destination-Scoped Manual Search, Frame-1 Progressive Map)

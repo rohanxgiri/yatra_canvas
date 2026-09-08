@@ -5,10 +5,11 @@ into a single canonical Place record while maintaining complete provider-specifi
 provenance, licensing, and metadata in PlaceSource records.
 """
 
-from datetime import datetime, timezone
 import logging
 import math
 import re
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Final
 from uuid import UUID
 
@@ -52,6 +53,14 @@ ALLOWED_HONORIFIC_OR_QUALIFIER_VARIANTS: Final[set[str]] = {
     "mandir",
     "temple",
 }
+
+
+@dataclass(frozen=True)
+class CanonicalNearbyCandidate:
+    category: DiscoveryCategory
+    nearby: Any
+    source_name: str
+    licence_identifier: str
 
 
 def extract_wikidata_id(
@@ -121,6 +130,150 @@ def is_conservative_name_match(name1: str, name2: str) -> bool:
 class CanonicalPlaceService:
     """Central service resolving place identity and managing multi-source provenance."""
 
+    def create_cold_city_batch(
+        self,
+        session: Session,
+        city: City,
+        candidates: list[CanonicalNearbyCandidate],
+        *,
+        fetched_at: datetime,
+    ) -> list[Place]:
+        """Normalize a first city dataset in memory and persist it as one batch."""
+
+        places: list[Place] = []
+        places_by_wikidata: dict[str, Place] = {}
+        source_identities: set[tuple[str, str]] = set()
+        place_provider_sources: set[tuple[UUID, str]] = set()
+        place_tags: set[tuple[UUID, str]] = set()
+        opening_hours_places: set[UUID] = set()
+
+        for candidate in candidates:
+            nearby = candidate.nearby
+            name = str(getattr(nearby, "name", "")).strip()
+            external_id = str(getattr(nearby, "external_place_id", "")).strip()
+            if not name or not external_id:
+                continue
+            source_identity = (candidate.source_name, external_id)
+            if source_identity in source_identities:
+                continue
+
+            tags = getattr(nearby, "tags", {}) or {}
+            raw_hours = tags.get("opening_hours")
+            if isinstance(raw_hours, str):
+                raw_hours = raw_hours.strip() or None
+            else:
+                raw_hours = None
+            wikidata_id = extract_wikidata_id(external_id, tags)
+            prominence = PlaceImportanceScorer.extract_prominence_from_tags(tags)
+            raw_metrics = PlaceImportanceScorer.extract_metrics_from_tags(tags)
+
+            place = places_by_wikidata.get(wikidata_id) if wikidata_id else None
+            if place is None:
+                for existing in places:
+                    if not is_category_compatible(
+                        candidate.category.value,
+                        existing.category,
+                    ):
+                        continue
+                    if not is_conservative_name_match(name, existing.name):
+                        continue
+                    if (
+                        haversine_distance_meters(
+                            nearby.latitude,
+                            nearby.longitude,
+                            existing.latitude,
+                            existing.longitude,
+                        )
+                        <= MAX_FALLBACK_DISTANCE_METERS
+                    ):
+                        place = existing
+                        break
+
+            if place is None:
+                parsed_hours = OpeningHoursParser.parse(raw_hours)
+                place = Place(
+                    city_id=city.id,
+                    name=name[:200],
+                    category=candidate.category.value,
+                    latitude=float(nearby.latitude),
+                    longitude=float(nearby.longitude),
+                    rating=None,
+                    review_count=0,
+                    is_popular=False,
+                    is_heritage=(candidate.category == DiscoveryCategory.HERITAGE),
+                    is_local_speciality=False,
+                    wikidata_id=wikidata_id,
+                    importance_score=prominence if prominence > 0.0 else None,
+                    last_fetched_at=fetched_at,
+                    opening_hours_status=parsed_hours.status.value,
+                    raw_opening_hours=raw_hours,
+                )
+                session.add(place)
+                places.append(place)
+            else:
+                if candidate.category == DiscoveryCategory.HERITAGE:
+                    place.is_heritage = True
+                if wikidata_id and not place.wikidata_id:
+                    place.wikidata_id = wikidata_id
+                if prominence > 0.0 and (
+                    place.importance_score is None
+                    or prominence > place.importance_score
+                ):
+                    place.importance_score = prominence
+                if raw_hours and not place.raw_opening_hours:
+                    parsed_hours = OpeningHoursParser.parse(raw_hours)
+                    place.raw_opening_hours = raw_hours
+                    place.opening_hours_status = parsed_hours.status.value
+
+            if wikidata_id:
+                places_by_wikidata[wikidata_id] = place
+
+            provider_key = (place.id, candidate.source_name)
+            if provider_key not in place_provider_sources:
+                session.add(
+                    PlaceSource(
+                        place_id=place.id,
+                        source=candidate.source_name,
+                        external_place_id=external_id,
+                        wikidata_id=wikidata_id,
+                        licence_identifier=candidate.licence_identifier,
+                        source_url=self._bounded(
+                            getattr(nearby, "source_url", None), 1000
+                        ),
+                        telephone=self._bounded(tags.get("phone"), 80),
+                        website=self._bounded(tags.get("website"), 1000),
+                        social_identifiers=raw_metrics or {},
+                        raw_opening_hours=raw_hours,
+                        last_fetched_at=fetched_at,
+                    )
+                )
+                place_provider_sources.add(provider_key)
+                source_identities.add(source_identity)
+
+            tag_key = (place.id, candidate.category.value)
+            if tag_key not in place_tags:
+                session.add(PlaceTag(place_id=place.id, tag=candidate.category.value))
+                place_tags.add(tag_key)
+
+            if raw_hours and place.id not in opening_hours_places:
+                parsed_hours = OpeningHoursParser.parse(raw_hours)
+                now = datetime.now(timezone.utc)
+                for day_idx, schedule in parsed_hours.days.items():
+                    session.add(
+                        PlaceOpeningHours(
+                            place_id=place.id,
+                            day_of_week=day_idx,
+                            status=schedule.status.value,
+                            intervals=schedule.intervals_dicts(),
+                            created_at=now,
+                            updated_at=now,
+                        )
+                    )
+                opening_hours_places.add(place.id)
+
+        session.flush()
+        return places
+
     def resolve_or_create_place(
         self,
         session: Session,
@@ -140,6 +293,7 @@ class CanonicalPlaceService:
         wikidata_id: str | None = None,
         raw_opening_hours: str | None = None,
         fetched_at: datetime | None = None,
+        identity_hint: tuple[Place, PlaceSource] | None = None,
     ) -> tuple[Place, PlaceSource]:
         """Resolve candidate place to a canonical Place row and upsert PlaceSource.
 
@@ -151,13 +305,14 @@ class CanonicalPlaceService:
         4. New canonical Place creation
         """
         now = fetched_at or datetime.now(timezone.utc)
-        cat_str = category.value if isinstance(category, DiscoveryCategory) else str(category)
+        cat_str = (
+            category.value if isinstance(category, DiscoveryCategory) else str(category)
+        )
         is_heritage_cat = cat_str == DiscoveryCategory.HERITAGE.value
 
         # Extract effective raw opening hours
-        effective_raw_opening_hours = (
-            raw_opening_hours
-            or (tags.get("opening_hours") if tags else None)
+        effective_raw_opening_hours = raw_opening_hours or (
+            tags.get("opening_hours") if tags else None
         )
         if effective_raw_opening_hours and isinstance(effective_raw_opening_hours, str):
             effective_raw_opening_hours = effective_raw_opening_hours.strip() or None
@@ -172,23 +327,33 @@ class CanonicalPlaceService:
         prominence = PlaceImportanceScorer.extract_prominence_from_tags(tags)
         raw_metrics = PlaceImportanceScorer.extract_metrics_from_tags(tags)
         if prominence == 0.0 and effective_wikidata_id:
-            audiala_prom = PlaceImportanceScorer.lookup_audiala_prominence(effective_wikidata_id)
+            audiala_prom = PlaceImportanceScorer.lookup_audiala_prominence(
+                effective_wikidata_id
+            )
             if audiala_prom is not None:
                 prominence = audiala_prom
-                raw_metrics = PlaceImportanceScorer.lookup_audiala_metrics(effective_wikidata_id)
+                raw_metrics = PlaceImportanceScorer.lookup_audiala_metrics(
+                    effective_wikidata_id
+                )
 
         # ---------------------------------------------------------------------
         # Rule 1: Existing Provider Identity (source, external_place_id)
         # ---------------------------------------------------------------------
-        existing_source = session.exec(
-            select(PlaceSource).where(
-                PlaceSource.source == source_name,
-                PlaceSource.external_place_id == external_place_id,
-            )
-        ).first()
+        existing_source = identity_hint[1] if identity_hint is not None else None
+        if existing_source is None:
+            existing_source = session.exec(
+                select(PlaceSource).where(
+                    PlaceSource.source == source_name,
+                    PlaceSource.external_place_id == external_place_id,
+                )
+            ).first()
 
         if existing_source is not None:
-            place = session.get(Place, existing_source.place_id)
+            place = (
+                identity_hint[0]
+                if identity_hint is not None
+                else session.get(Place, existing_source.place_id)
+            )
             if place is not None:
                 # Update source metadata
                 existing_source.last_fetched_at = now
@@ -214,7 +379,10 @@ class CanonicalPlaceService:
                 if is_heritage_cat:
                     place.is_heritage = True
                 if prominence > 0.0:
-                    if place.importance_score is None or prominence > place.importance_score:
+                    if (
+                        place.importance_score is None
+                        or prominence > place.importance_score
+                    ):
                         place.importance_score = prominence
                 place.last_fetched_at = now
 
@@ -228,7 +396,8 @@ class CanonicalPlaceService:
                     place.opening_hours_status = "UNKNOWN"
 
                 session.flush()
-                self._ensure_place_tag(session, place.id, cat_str)
+                if identity_hint is None:
+                    self._ensure_place_tag(session, place.id, cat_str)
                 return place, existing_source
 
         # ---------------------------------------------------------------------
@@ -282,7 +451,10 @@ class CanonicalPlaceService:
                 if is_heritage_cat:
                     matched_place.is_heritage = True
                 if prominence > 0.0:
-                    if matched_place.importance_score is None or prominence > matched_place.importance_score:
+                    if (
+                        matched_place.importance_score is None
+                        or prominence > matched_place.importance_score
+                    ):
                         matched_place.importance_score = prominence
                 matched_place.last_fetched_at = now
 
@@ -306,8 +478,10 @@ class CanonicalPlaceService:
                     or matched_place.opening_hours_status == "UNKNOWN"
                 ):
                     matched_place.raw_opening_hours = effective_raw_opening_hours
-                    matched_place.opening_hours_status = self._upsert_place_opening_hours(
-                        session, matched_place.id, effective_raw_opening_hours
+                    matched_place.opening_hours_status = (
+                        self._upsert_place_opening_hours(
+                            session, matched_place.id, effective_raw_opening_hours
+                        )
                     )
                 elif not matched_place.opening_hours_status:
                     matched_place.opening_hours_status = "UNKNOWN"
@@ -362,7 +536,10 @@ class CanonicalPlaceService:
             if is_heritage_cat:
                 matched_fallback_place.is_heritage = True
             if prominence > 0.0:
-                if matched_fallback_place.importance_score is None or prominence > matched_fallback_place.importance_score:
+                if (
+                    matched_fallback_place.importance_score is None
+                    or prominence > matched_fallback_place.importance_score
+                ):
                     matched_fallback_place.importance_score = prominence
             matched_fallback_place.last_fetched_at = now
 
@@ -386,8 +563,10 @@ class CanonicalPlaceService:
                 or matched_fallback_place.opening_hours_status == "UNKNOWN"
             ):
                 matched_fallback_place.raw_opening_hours = effective_raw_opening_hours
-                matched_fallback_place.opening_hours_status = self._upsert_place_opening_hours(
-                    session, matched_fallback_place.id, effective_raw_opening_hours
+                matched_fallback_place.opening_hours_status = (
+                    self._upsert_place_opening_hours(
+                        session, matched_fallback_place.id, effective_raw_opening_hours
+                    )
                 )
             elif not matched_fallback_place.opening_hours_status:
                 matched_fallback_place.opening_hours_status = "UNKNOWN"
@@ -456,6 +635,7 @@ class CanonicalPlaceService:
         source_name: str,
         licence_identifier: str,
         fetched_at: datetime | None = None,
+        identity_hint: tuple[Place, PlaceSource] | None = None,
     ) -> tuple[Place, PlaceSource]:
         """Convenience wrapper accepting an OpenStreetMapNearbyPlace instance."""
         tags = getattr(nearby, "tags", {}) or {}
@@ -477,6 +657,7 @@ class CanonicalPlaceService:
             wikidata_id=extract_wikidata_id(nearby.external_place_id, tags),
             raw_opening_hours=raw_hours,
             fetched_at=fetched_at,
+            identity_hint=identity_hint,
         )
 
     def _upsert_place_source(

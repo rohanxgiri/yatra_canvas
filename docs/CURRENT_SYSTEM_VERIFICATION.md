@@ -164,14 +164,21 @@ Implemented on branch `feature/trip-creation` without authentication or a new pr
   start location.
 - `[IMPLEMENTED]` One transaction inserts the `Trip` and unique `TripPreference` rows. A forced
   related-row insertion failure rolled back the complete transaction in tests.
-- `[IMPLEMENTED]` The response is `201` and includes the generated UUID `trip_id`, persisted trip
+- `[IMPLEMENTED]` The response is `201` and includes the UUID `trip_id`, persisted trip
   values, preference values, and server timestamp. The current `Trip` model stores `start_date`
   and `days`, not a separate `end_date` column.
+- `[IMPLEMENTED]` Flutter generates one UUID `request_id` per draft. Replaying the same create
+  payload returns the existing trip; reuse with different data is rejected. This prevents a lost
+  HTTP response and a user retry from creating duplicate trip rows.
 - `[PARTIAL]` Because authentication is intentionally absent while `Trip.user_id` is required,
   the service assigns a fixed server-owned development-only UUID. The request cannot override it.
 - `[IMPLEMENTED]` Flutter sends the draft through `TripService`, not widget-owned raw HTTP. The
   Preferences screen disables duplicate submission, presents loading/errors, stores the returned
   ID in `TripDraft.tripId`, and navigates to Place Discovery only after success.
+- `[IMPLEMENTED]` Destination and purpose screens enqueue staged prefetch without awaiting it;
+  dates and start-location screens record their stages. The endpoint responds before provider work,
+  workers use independent sessions, and duplicate city/category work is reused. Persisted cache is
+  durable; in-flight progress is process-local and a durable queue remains `[PLANNED]`.
 - `[IMPLEMENTED]` Mocked Flutter integration proves the ID reaches
   `PlaceDiscoveryScreen.tripId`; backend API tests prove corresponding Trip/preference rows.
 - `[UNKNOWN]` No manual write was issued to the configured remote PostgreSQL target. Its
@@ -600,11 +607,13 @@ the same constraint names and semantics and are classified `MATCH`, not schema d
 
 A new read-only audit found that the configured Supabase database now contains 22 trips,
 80 complete TripDay rows, 100 assignment-consistent saved places, and 92 itinerary rows.
-Historical route/provider/parity/Wikidata/importance/TripDay/assignment changes are present.
-The pending current-model changes are `add_places_opening_hours.sql` and
-`add_trip_itinerary_status.sql`; exact details and dependency order are in
-[`backend/sql/README.md`](../backend/sql/README.md). No DDL was applied because the remote target's
-environment classification and recoverable backup remain `[UNKNOWN]`.
+Historical route/provider/parity/Wikidata/importance/TripDay/assignment changes are present. A
+follow-up catalog verification found `add_places_opening_hours.sql` and
+`add_trip_itinerary_status.sql` applied: all columns, defaults, checks, indexes, uniqueness, and the
+opening-hours cascade match current models. All 1,265 places have `opening_hours_status='UNKNOWN'`,
+and all 92 itinerary rows have `status='PLANNED'`. Exact migration details and dependency order are
+in [`backend/sql/README.md`](../backend/sql/README.md). The execution actor, environment
+classification, and recoverable backup remain `[UNKNOWN]` from repository evidence.
 
 The catalog comparison also found `place_categories.created_at`, which was created by the
 repository's FSQ/Geoapify foundation migration but omitted from the SQLModel class. The model now
@@ -804,7 +813,7 @@ Status: `[IMPLEMENTED]` in repository tests; configured remote schema readiness 
 - Aligned PLANNED, MISSED, COMPLETED, and SKIPPED UI actions with backend transition rules and made
   COMPLETED/SKIPPED terminal at the API boundary.
 - Published map mutation responses back to the parent itinerary screen to prevent stale cross-screen state.
-- Backend full suite: **351 passed**, 0 failed, 4 dependency deprecation warnings in 275.95 seconds.
+- Backend full suite: **354 passed**, 0 failed, 4 dependency deprecation warnings plus 1 local pytest-cache permission warning in 277.84 seconds.
 - Flutter full suite: **170 passed**, 0 failed.
 - Flutter analyze: **0 issues**.
 - Performance and provider-call measurements are recorded in

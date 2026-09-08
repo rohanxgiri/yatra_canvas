@@ -1,9 +1,10 @@
 """Trip creation, retrieval, and editing persistence rules."""
 
 from datetime import timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import delete, or_
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models import City, RouteMatrixCache, Trip, TripItinerary, TripPreference
@@ -61,6 +62,13 @@ class TripService:
             raise TripCityNotFoundError("City not found.")
 
         preference_values = self._preference_values(request)
+        if request.request_id is not None:
+            existing = session.get(Trip, request.request_id)
+            if existing is not None:
+                return self._existing_create_result(
+                    session, existing, request, preference_values, city
+                )
+
         start_type = request.start_location_type
         if start_type == StartLocationType.arrival:
             start_name = request.arrival_place
@@ -76,6 +84,7 @@ class TripService:
             start_provider_place_id = request.start_location_provider_place_id
 
         trip = Trip(
+            id=request.request_id or uuid4(),
             user_id=self._development_user_id,
             city_id=city.id,
             trip_name=request.trip_name or f"{city.name} trip",
@@ -108,10 +117,74 @@ class TripService:
             )
             session.commit()
             session.refresh(trip)
+        except IntegrityError:
+            session.rollback()
+            if request.request_id is not None:
+                existing = session.get(Trip, request.request_id)
+                if existing is not None:
+                    return self._existing_create_result(
+                        session, existing, request, preference_values, city
+                    )
+            raise
         except Exception:
             session.rollback()
             raise
         return self._to_trip_read(trip, preference_values, city=city)
+
+    def _existing_create_result(
+        self,
+        session: Session,
+        trip: Trip,
+        request: TripCreate,
+        preference_values: list[str],
+        city: City,
+    ) -> TripRead:
+        existing_preferences = session.exec(
+            select(TripPreference).where(TripPreference.trip_id == trip.id)
+        ).all()
+        existing_values = [row.preference for row in existing_preferences]
+        expected_name = request.trip_name or f"{city.name} trip"
+        if request.start_location_type == StartLocationType.arrival:
+            expected_start_name = request.arrival_place
+            expected_start_latitude = request.arrival_latitude
+            expected_start_longitude = request.arrival_longitude
+            expected_start_provider = None
+            expected_start_provider_place_id = None
+        else:
+            expected_start_name = request.start_location_name
+            expected_start_latitude = request.start_latitude
+            expected_start_longitude = request.start_longitude
+            expected_start_provider = request.start_location_provider
+            expected_start_provider_place_id = request.start_location_provider_place_id
+        same_request = (
+            trip.user_id == self._development_user_id
+            and trip.city_id == request.city_id
+            and trip.trip_name == expected_name
+            and trip.start_date == request.start_date
+            and trip.days == request.days
+            and trip.arrival_place == request.arrival_place
+            and trip.arrival_latitude == request.arrival_latitude
+            and trip.arrival_longitude == request.arrival_longitude
+            and trip.start_location_type
+            == (
+                request.start_location_type.value
+                if request.start_location_type is not None
+                else None
+            )
+            and trip.start_location_name == expected_start_name
+            and trip.start_latitude == expected_start_latitude
+            and trip.start_longitude == expected_start_longitude
+            and trip.start_location_provider == expected_start_provider
+            and trip.start_location_provider_place_id
+            == expected_start_provider_place_id
+            and {value.casefold() for value in existing_values}
+            == {value.casefold() for value in preference_values}
+        )
+        if not same_request:
+            raise TripServiceError(
+                "The trip request ID was already used for different trip data."
+            )
+        return self._to_trip_read(trip, existing_values, city=city)
 
     def get(self, session: Session, trip_id: UUID) -> TripRead:
         trip = self._require_trip(session, trip_id)
@@ -143,9 +216,7 @@ class TripService:
         original_days = trip.days
 
         effective_start = (
-            request.start_date
-            if request.start_date is not None
-            else trip.start_date
+            request.start_date if request.start_date is not None else trip.start_date
         )
         if (
             request.start_date is not None
@@ -164,9 +235,7 @@ class TripService:
                 trip.days = expected_days
             elif request.end_date is not None:
                 if effective_start is None:
-                    raise TripServiceError(
-                        "Cannot compute days without a start date."
-                    )
+                    raise TripServiceError("Cannot compute days without a start date.")
                 if request.end_date < effective_start:
                     raise TripServiceError("End date cannot be before start date.")
                 expected_days = (request.end_date - effective_start).days + 1
@@ -209,9 +278,7 @@ class TripService:
                 start_prov = None
                 start_prov_id = None
             else:
-                start_name = (
-                    request.start_location_name or trip.start_location_name
-                )
+                start_name = request.start_location_name or trip.start_location_name
                 start_lat = (
                     request.start_latitude
                     if request.start_latitude is not None
@@ -287,14 +354,10 @@ class TripService:
             # UserSavedPlace rows are strictly preserved.
             if city_changed:
                 session.exec(
-                    delete(RouteMatrixCache).where(
-                        RouteMatrixCache.trip_id == trip.id
-                    )
+                    delete(RouteMatrixCache).where(RouteMatrixCache.trip_id == trip.id)
                 )
                 session.exec(
-                    delete(TripItinerary).where(
-                        TripItinerary.trip_id == trip.id
-                    )
+                    delete(TripItinerary).where(TripItinerary.trip_id == trip.id)
                 )
             elif start_coords_changed:
                 session.exec(
@@ -307,9 +370,7 @@ class TripService:
                     )
                 )
                 session.exec(
-                    delete(TripItinerary).where(
-                        TripItinerary.trip_id == trip.id
-                    )
+                    delete(TripItinerary).where(TripItinerary.trip_id == trip.id)
                 )
 
             # Reconcile preferences transactionally if provided
@@ -323,17 +384,15 @@ class TripService:
                             TripPreference.weight > 1.0,
                         )
                     ).all()
-                    existing_purposes = {r.preference.casefold() for r in existing_pref_rows}
+                    existing_purposes = {
+                        r.preference.casefold() for r in existing_pref_rows
+                    }
                 else:
                     existing_purposes = {p.casefold() for p in request.purposes}
 
                 combined_sources = [
                     *(request.purposes if request.purposes is not None else []),
-                    *(
-                        request.preferences
-                        if request.preferences is not None
-                        else []
-                    ),
+                    *(request.preferences if request.preferences is not None else []),
                 ]
                 new_pref_values: list[str] = []
                 seen: set[str] = set()
@@ -344,9 +403,7 @@ class TripService:
                         new_pref_values.append(p)
 
                 session.exec(
-                    delete(TripPreference).where(
-                        TripPreference.trip_id == trip.id
-                    )
+                    delete(TripPreference).where(TripPreference.trip_id == trip.id)
                 )
                 session.add_all(
                     TripPreference(
@@ -426,14 +483,10 @@ class TripService:
         try:
             if start_coords_changed:
                 session.exec(
-                    delete(RouteMatrixCache).where(
-                        RouteMatrixCache.trip_id == trip.id
-                    )
+                    delete(RouteMatrixCache).where(RouteMatrixCache.trip_id == trip.id)
                 )
                 session.exec(
-                    delete(TripItinerary).where(
-                        TripItinerary.trip_id == trip.id
-                    )
+                    delete(TripItinerary).where(TripItinerary.trip_id == trip.id)
                 )
             session.add(trip)
             session.commit()
@@ -504,9 +557,7 @@ class TripService:
             start_latitude=trip.start_latitude,
             start_longitude=trip.start_longitude,
             start_location_provider=trip.start_location_provider,
-            start_location_provider_place_id=(
-                trip.start_location_provider_place_id
-            ),
+            start_location_provider_place_id=(trip.start_location_provider_place_id),
             preferences=preferences,
             created_at=trip.created_at,
         )
@@ -528,7 +579,5 @@ class TripService:
             start_latitude=latitude,
             start_longitude=longitude,
             start_location_provider=trip.start_location_provider,
-            start_location_provider_place_id=(
-                trip.start_location_provider_place_id
-            ),
+            start_location_provider_place_id=(trip.start_location_provider_place_id),
         )

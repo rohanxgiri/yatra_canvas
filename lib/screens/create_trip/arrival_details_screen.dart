@@ -6,6 +6,7 @@ import '../../models/trip_draft.dart';
 import '../../models/trip_start_location.dart';
 import '../../services/device_location_service.dart';
 import '../../services/location_service.dart';
+import '../../services/place_prefetch_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
@@ -18,6 +19,7 @@ class ArrivalDetailsScreen extends StatefulWidget {
     this.locationService,
     this.tripService,
     this.deviceLocationService,
+    this.prefetchService,
     super.key,
   });
 
@@ -25,6 +27,7 @@ class ArrivalDetailsScreen extends StatefulWidget {
   final LocationService? locationService;
   final TripService? tripService;
   final DeviceLocationService? deviceLocationService;
+  final PlacePrefetchService? prefetchService;
 
   @override
   State<ArrivalDetailsScreen> createState() => _ArrivalDetailsScreenState();
@@ -400,6 +403,17 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     widget.draft
       ..startLocationProvider = _startProvider
       ..startLocationProviderPlaceId = _startProviderPlaceId;
+    final cityId = widget.draft.destination?.id;
+    if (cityId != null && cityId.isNotEmpty) {
+      unawaited(
+        (widget.prefetchService ?? PlacePrefetchService.shared).prefetchCity(
+          cityId,
+          stage: PrefetchStage.startLocationConfirmed,
+          startLatitude: _startLatitude,
+          startLongitude: _startLongitude,
+        ),
+      );
+    }
     final tripId = widget.draft.tripId?.trim();
     if (tripId != null && tripId.isNotEmpty) {
       setState(() {
@@ -440,6 +454,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
         builder: (_) => TripPurposeScreen(
           draft: widget.draft,
           tripService: widget.tripService,
+          prefetchService: widget.prefetchService,
         ),
       ),
     );

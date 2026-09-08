@@ -5,27 +5,26 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
-from sqlmodel import Session, SQLModel, create_engine, select
 from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
 
 from app.core.config import Settings
-from app.models import City, CityCategoryCache, Place, PlaceSource, PlaceTag
+from app.models import City, CityCategoryCache, Place, PlaceTag
 from app.schemas import DiscoveryCategory
 from app.services.city_place_prefetch_service import (
     CityPlacePrefetchService,
     PrefetchStage,
-    SHALLOW_TARGET_CANDIDATES,
 )
-from app.services.canonical_place_service import CanonicalPlaceService
-from app.services.geoapify_places_provider import GeoapifyPlacesProvider
 from app.services.openstreetmap_discovery_service import OpenStreetMapDiscoveryService
 from app.services.openstreetmap_places_service import (
     OpenStreetMapNearbyPlace,
     OpenStreetMapPlacesTimeoutError,
     OpenStreetMapPlacesUnavailableError,
 )
-from app.services.provider_circuit_breaker import ProviderCircuitBreaker
-from app.services.recommendation_service import RecommendationRequest, RecommendationService
+from app.services.recommendation_service import (
+    RecommendationRequest,
+    RecommendationService,
+)
 
 
 class MockPlacesProvider:
@@ -103,7 +102,9 @@ def test_city(session: Session) -> City:
 
 
 @pytest.mark.anyio
-async def test_cold_cache_triggers_provider_discovery(session: Session, test_city: City):
+async def test_cold_cache_triggers_provider_discovery(
+    session: Session, test_city: City
+):
     settings = Settings(DATABASE_URL="postgresql://user:pass@localhost:5432/test_db")
     provider = MockPlacesProvider()
     discovery = OpenStreetMapDiscoveryService(settings, provider)
@@ -115,7 +116,10 @@ async def test_cold_cache_triggers_provider_discovery(session: Session, test_cit
     )
 
     assert provider.call_count == 1
-    assert set(provider.categories_requested) == {DiscoveryCategory.TOURISM, DiscoveryCategory.FOOD}
+    assert set(provider.categories_requested) == {
+        DiscoveryCategory.TOURISM,
+        DiscoveryCategory.FOOD,
+    }
     assert len(results[DiscoveryCategory.TOURISM]) == 11
     assert len(results[DiscoveryCategory.FOOD]) == 11
 
@@ -188,7 +192,9 @@ async def test_stale_cache_returns_immediately(session: Session, test_city: City
 
 
 @pytest.mark.anyio
-async def test_partial_provider_failure_returns_usable_recommendations(session: Session, test_city: City):
+async def test_partial_provider_failure_returns_usable_recommendations(
+    session: Session, test_city: City
+):
     class PartialFailureProvider:
         async def search_nearby_places_for_categories(self, **kwargs):
             # food succeeds, heritage fails
@@ -257,7 +263,45 @@ async def test_overpass_timeout_uses_fallback(session: Session, test_city: City)
 
 
 @pytest.mark.anyio
-async def test_destination_prefetch_shallow_and_targeted_enrichment(session: Session, test_city: City):
+async def test_total_overpass_budget_returns_stored_results(
+    session: Session, test_city: City
+):
+    settings = Settings(DATABASE_URL="postgresql://user:pass@localhost:5432/test_db")
+    settings.discovery_interactive_timeout_seconds = 0.01
+    provider = MockPlacesProvider()
+    provider.delay_seconds = 0.1
+
+    place = Place(
+        city_id=test_city.id,
+        name="Stored Kolkata-style Heritage",
+        category="heritage",
+        latitude=9.93,
+        longitude=76.26,
+    )
+    session.add(place)
+    session.flush()
+    session.add(PlaceTag(place_id=place.id, tag="heritage"))
+    session.commit()
+
+    discovery = OpenStreetMapDiscoveryService(settings, provider)  # type: ignore[arg-type]
+    results = await discovery.discover_many(
+        session=session,
+        city=test_city,
+        categories=[DiscoveryCategory.HERITAGE, DiscoveryCategory.CAFES],
+        prefer_stale=False,
+    )
+
+    assert provider.call_count == 1
+    assert [item.name for item in results[DiscoveryCategory.HERITAGE]] == [
+        "Stored Kolkata-style Heritage"
+    ]
+    assert results[DiscoveryCategory.CAFES] == []
+
+
+@pytest.mark.anyio
+async def test_destination_prefetch_shallow_and_targeted_enrichment(
+    session: Session, test_city: City
+):
     settings = Settings(DATABASE_URL="postgresql://user:pass@localhost:5432/test_db")
     provider = MockPlacesProvider()
     discovery = OpenStreetMapDiscoveryService(settings, provider)
@@ -271,7 +315,7 @@ async def test_destination_prefetch_shallow_and_targeted_enrichment(session: Ses
     )
     assert summary1.stage == PrefetchStage.DESTINATION_CONFIRMED
     assert provider.call_count == 1
-    assert len(summary1.categories_enriched) == 5
+    assert len(summary1.categories_enriched) == 7
 
     # Stage 2: User selects Food and Cafes
     # Food is already sufficiently covered from stage 1 (if >= 11 candidates)
@@ -287,7 +331,9 @@ async def test_destination_prefetch_shallow_and_targeted_enrichment(session: Ses
 
 
 @pytest.mark.anyio
-async def test_concurrent_same_city_prefetch_deduplication(session: Session, test_city: City):
+async def test_concurrent_same_city_prefetch_deduplication(
+    session: Session, test_city: City
+):
     settings = Settings(DATABASE_URL="postgresql://user:pass@localhost:5432/test_db")
     provider = MockPlacesProvider()
     provider.delay_seconds = 0.05

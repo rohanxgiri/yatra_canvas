@@ -185,6 +185,12 @@ class Settings(BaseSettings):
         le=720,
         validation_alias="PLACE_DISCOVERY_CACHE_TTL_HOURS",
     )
+    place_discovery_cache_version: int = Field(
+        default=1,
+        ge=1,
+        le=999,
+        validation_alias="PLACE_DISCOVERY_CACHE_VERSION",
+    )
     discovery_interactive_timeout_seconds: float = Field(
         default=12.0,
         ge=3.0,
@@ -423,7 +429,6 @@ class Settings(BaseSettings):
             "nature": self.overpass_nature_limit,
         }
         return mapping.get(key, 40)
-
 
 
 @lru_cache

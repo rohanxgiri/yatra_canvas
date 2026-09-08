@@ -43,7 +43,7 @@ Deletion behavior must not be assumed except where an `ondelete` action is expli
 | `place_sources` / `PlaceSource` | `[IMPLEMENTED]` | Provider provenance and external identity. Unique per place/source and globally per source/external ID. Stores `wikidata_id`, source URL, licence identifier, address/contact/social fields, preserved `raw_opening_hours`, provider lifecycle dates, unresolved flags, fetch/import timestamps. |
 | `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label and creation timestamp, unique for place/source/external category. |
 | `place_import_reviews` / `PlaceImportReview` | `[IMPLEMENTED]` schema, `[PARTIAL]` workflow | One review per provider/external place ID. Status is `pending`, `resolved`, or `ignored`; stores candidates, match evidence, and a source snapshot. No connected admin endpoint/UI action exists. |
-| `trips` / `Trip` | `[IMPLEMENTED]` schema, create, get, and patch APIs, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. `GET /trips/{trip_id}` returns the complete application trip representation, and `PATCH /trips/{trip_id}` supports partial updates with date/coordinate/preference validation and downstream cache invalidation. List/delete and authentication remain absent. |
+| `trips` / `Trip` | `[IMPLEMENTED]` schema, create, get, and patch APIs, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. An optional client-generated `request_id` becomes `trips.id`; replaying the same ID and payload returns the existing trip, while reuse with different data is rejected. `GET /trips/{trip_id}` returns the complete application trip representation, and `PATCH /trips/{trip_id}` supports partial updates with date/coordinate/preference validation and downstream cache invalidation. List/delete and authentication remain absent. |
 | `trip_days` / `TripDay` | `[IMPLEMENTED]` schema, create, get, and patch APIs | Individual configurable trip days tied to `trips.id` with `ondelete="CASCADE"`. Stores `day_number`, `date`, `day_type` (`FULL_DAY`, `HALF_DAY`, `REST`, `TRAVEL`), optional touring window (`start_time`, `end_time`), and `created_at`. Unique constraint `uq_trip_days_trip_day_number` enforces unique `day_number` per trip. Check constraints enforce `day_number > 0` and valid `day_type`. Automatically generated on trip creation and date updates. Protected against changing to `REST` or removing the sightseeing window when places are locked to the day. Protected against destructive duration reduction when scheduled `TripItinerary` visits exist or when places are locked to eliminated days. Active records supply optimizer route windows and original output day numbers. |
 | `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema/create/edit path | The trip-create and trip-edit transactions store unique purposes with weight 2.0 and secondary preferences (pace, budget, transport, extra interests) with weight 1.0 as generic weighted preference rows, unique per trip/preference. These weights inform recommendation relevance scoring and ranking. Also stores `ignore_weather_advisories` to suppress future weather advisories for the trip. |
 | `user_saved_places` / `UserSavedPlace` | `[IMPLEMENTED]` API | Unique trip/place selection with `custom_order`, `priority`, `is_locked` (ordering/solver lock), `must_visit`, `notes`, `assignment_mode` (`AUTO` \| `LOCKED`), and nullable `assigned_day_id` (foreign key to `trip_days.id`). Database check constraints enforce `assignment_mode IN ('AUTO', 'LOCKED')` (`ck_user_saved_places_assignment_mode`) and consistency (`ck_user_saved_places_assignment_consistency`): `AUTO` requires null `assigned_day_id`, while `LOCKED` requires non-null `assigned_day_id`. In `AUTO` mode, itinerary optimization chooses an active sightseeing day. In `LOCKED` mode, the place is pinned to a specific active non-`REST` day with a usable sightseeing window belonging to the same trip. Native vehicle-domain constraints enforce assignments; infeasible locks become explicit unscheduled results. |
@@ -155,15 +155,16 @@ See `docs/CURRENT_SYSTEM_VERIFICATION.md` for the before/after mismatch inventor
 ### Configured database re-audit — 2026-09-07
 
 `[PARTIAL]` A read-only transaction confirmed that the historical route, provider, canonical-place,
-importance, TripDay, and saved-place assignment changes are present. All 22 trips have their expected
-80 TripDay rows, and all 100 saved-place rows satisfy assignment consistency. Two current-model changes
-remain unapplied: the three opening-hours source/canonical columns, their `places` check, the
-opening-hours foreign-key cascade alignment, and the
-`trip_itinerary.status` column/check. The normalized opening-hours table exists but contains zero rows;
-the itinerary table contains 92 rows that the status migration would backfill to `PLANNED`.
+importance, TripDay, saved-place assignment, opening-hours, and itinerary-status changes are present.
+All 22 trips have their expected 80 TripDay rows, and all 100 saved-place rows satisfy assignment
+consistency. The three opening-hours source/canonical columns, their checks, the opening-hours foreign-key
+cascade, and the `trip_itinerary.status` column/check match the current models. All 1,265 existing places
+have the safe `UNKNOWN` opening-hours default, and all 92 existing itinerary rows have the `PLANNED`
+status backfill.
 
 The target is a remote Supabase database containing application data. Its development/staging/production
-classification and recovery point remain `[UNKNOWN]`, so no DDL was applied during this audit. RLS is
+classification and recovery point remain `[UNKNOWN]`; the execution actor for the now-applied final two
+migrations cannot be attributed from repository evidence. RLS is
 enabled on every public application table, no public policies exist, and the configured `postgres` role
 bypasses that boundary. The repository model maps both the established `PlaceCategory.label` contract
 and the historical `place_categories.created_at` timestamp, matching the live catalog, original

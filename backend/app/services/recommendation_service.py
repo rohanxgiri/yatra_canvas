@@ -17,7 +17,7 @@ import logging
 import time
 from dataclasses import dataclass
 from math import log10
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol
 from uuid import UUID
 
 from sqlmodel import Session, select
@@ -29,6 +29,7 @@ from app.models.entities import (
     Place,
     PlaceSource,
     PlaceTag,
+    Trip,
     TripPreference,
     UserSavedPlace,
 )
@@ -42,12 +43,11 @@ from app.services.place_deduplication_service import (
     deduplicate_places,
     haversine_distance_meters,
 )
+from app.services.place_importance_scorer import PlaceImportanceScorer
 from app.services.place_suitability_service import (
     AccessConfidence,
-    evaluate_access_confidence,
     is_traveller_suitable,
 )
-from app.services.place_importance_scorer import PlaceImportanceScorer
 from app.services.preference_model import (
     DEFAULT_PREFERENCE_CONFIG,
     PreferenceWeightingConfig,
@@ -80,6 +80,8 @@ class RecommendationWeights:
     unknown_access_penalty: float = 15.0
     review_reference_count: int = 20000
     review_confidence_floor: float = 0.35
+    start_proximity_bonus: float = 8.0
+    start_proximity_radius_km: float = 20.0
 
 
 DEFAULT_RECOMMENDATION_WEIGHTS = RecommendationWeights()
@@ -131,7 +133,9 @@ def calculate_recommendation_score(
         if eff_prominence is None:
             eff_prominence = getattr(place, "importance_score", None)
         if eff_prominence is None and getattr(place, "wikidata_id", None):
-            eff_prominence = PlaceImportanceScorer.lookup_audiala_prominence(place.wikidata_id)
+            eff_prominence = PlaceImportanceScorer.lookup_audiala_prominence(
+                place.wikidata_id
+            )
 
         if eff_prominence is not None and eff_prominence > 0.0:
             bounded_prominence = min(max(float(eff_prominence), 0.0), 1.0)
@@ -144,11 +148,20 @@ def calculate_recommendation_score(
         total += weights.heritage_bonus
     if place.is_local_speciality:
         total += weights.local_speciality_bonus
+    if distance_from_city_km is not None:
+        proximity_ratio = max(
+            0.0,
+            1.0 - (distance_from_city_km / weights.start_proximity_radius_km),
+        )
+        total += weights.start_proximity_bonus * proximity_ratio
 
     # 4. Access confidence adjustment
     if access_confidence == AccessConfidence.UNKNOWN:
         total = max(0.0, total - weights.unknown_access_penalty)
-    elif access_confidence in (AccessConfidence.RESTRICTED, AccessConfidence.RESTRICTED_LIKELY):
+    elif access_confidence in (
+        AccessConfidence.RESTRICTED,
+        AccessConfidence.RESTRICTED_LIKELY,
+    ):
         total = 0.0
 
     return round(min(max(total, 0.0), 100.0), 1)
@@ -195,23 +208,52 @@ def explain_recommendation_score(
     if eff_prominence is None:
         eff_prominence = getattr(place, "importance_score", None)
     if eff_prominence is None and getattr(place, "wikidata_id", None):
-        eff_prominence = PlaceImportanceScorer.lookup_audiala_prominence(place.wikidata_id)
+        eff_prominence = PlaceImportanceScorer.lookup_audiala_prominence(
+            place.wikidata_id
+        )
 
-    if category_score > 0.0 and weights.importance_weight > 0.0 and eff_prominence is not None and eff_prominence > 0.0:
+    if (
+        category_score > 0.0
+        and weights.importance_weight > 0.0
+        and eff_prominence is not None
+        and eff_prominence > 0.0
+    ):
         bounded_prominence = min(max(float(eff_prominence), 0.0), 1.0)
         prominence_addition = weights.importance_weight * bounded_prominence
 
     bonuses = {
         "popular": weights.popular_bonus if place.is_popular else 0.0,
         "heritage": weights.heritage_bonus if place.is_heritage else 0.0,
-        "local_speciality": weights.local_speciality_bonus if place.is_local_speciality else 0.0,
+        "local_speciality": weights.local_speciality_bonus
+        if place.is_local_speciality
+        else 0.0,
+        "start_proximity": (
+            weights.start_proximity_bonus
+            * max(
+                0.0,
+                1.0 - (distance_from_city_km / weights.start_proximity_radius_km),
+            )
+            if distance_from_city_km is not None
+            else 0.0
+        ),
     }
     penalties = {
-        "access": weights.unknown_access_penalty if access_confidence == AccessConfidence.UNKNOWN else 0.0
+        "access": weights.unknown_access_penalty
+        if access_confidence == AccessConfidence.UNKNOWN
+        else 0.0
     }
 
-    raw_total = category_score + rating_score + prominence_addition + sum(bonuses.values()) - sum(penalties.values())
-    if access_confidence in (AccessConfidence.RESTRICTED, AccessConfidence.RESTRICTED_LIKELY):
+    raw_total = (
+        category_score
+        + rating_score
+        + prominence_addition
+        + sum(bonuses.values())
+        - sum(penalties.values())
+    )
+    if access_confidence in (
+        AccessConfidence.RESTRICTED,
+        AccessConfidence.RESTRICTED_LIKELY,
+    ):
         final_score = 0.0
     else:
         final_score = round(min(max(raw_total, 0.0), 100.0), 1)
@@ -365,7 +407,15 @@ class RecommendationService:
         saved_place_ids: set[UUID] = set()
         stored_purposes: list[str] = []
         stored_interests: list[str] = []
+        ranking_origin: tuple[float, float] | None = None
         if request.trip_id is not None:
+            trip = session.get(Trip, request.trip_id)
+            if (
+                trip is not None
+                and trip.start_latitude is not None
+                and trip.start_longitude is not None
+            ):
+                ranking_origin = (trip.start_latitude, trip.start_longitude)
             saved_rows = session.exec(
                 select(UserSavedPlace.place_id).where(
                     UserSavedPlace.trip_id == request.trip_id
@@ -374,9 +424,7 @@ class RecommendationService:
             saved_place_ids = set(saved_rows)
 
             pref_rows = session.exec(
-                select(TripPreference).where(
-                    TripPreference.trip_id == request.trip_id
-                )
+                select(TripPreference).where(TripPreference.trip_id == request.trip_id)
             ).all()
             for pref in pref_rows:
                 # Weight > 1.0 indicates primary purpose, <= 1.0 indicates secondary interest
@@ -387,14 +435,10 @@ class RecommendationService:
 
         # Determine effective purposes and interests
         effective_purposes: list[str] = (
-            request.purposes
-            if request.purposes is not None
-            else stored_purposes
+            request.purposes if request.purposes is not None else stored_purposes
         )
         effective_interests: list[str] = (
-            request.interests
-            if request.interests is not None
-            else stored_interests
+            request.interests if request.interests is not None else stored_interests
         )
 
         has_explicit_preferences = bool(effective_purposes or effective_interests)
@@ -415,10 +459,16 @@ class RecommendationService:
                 continue
 
             # 3b. Category filter interaction: if filter is applied, narrow candidate set
-            match_signals = {place.category.casefold(), *(t.casefold() for t in place_tags)}
+            match_signals = {
+                place.category.casefold(),
+                *(t.casefold() for t in place_tags),
+            }
             if request.category_filter is not None:
                 filter_val = request.category_filter.value.casefold()
-                if filter_val not in match_signals and place.category.casefold() != filter_val:
+                if (
+                    filter_val not in match_signals
+                    and place.category.casefold() != filter_val
+                ):
                     continue
 
             # 3c. Matched categories
@@ -429,28 +479,35 @@ class RecommendationService:
             ]
             if not matched_categories:
                 matched_categories = [
-                    cat for cat in request.categories if cat.value.casefold() == place.category.casefold()
+                    cat
+                    for cat in request.categories
+                    if cat.value.casefold() == place.category.casefold()
                 ]
 
             # 3d. Preference fit and relevance score
-            relevance_score, matched_purposes, matched_interests = evaluate_preference_fit(
-                place,
-                place_tags,
-                purposes=effective_purposes,
-                interests=effective_interests,
-                config=self._preference_config,
+            relevance_score, matched_purposes, matched_interests = (
+                evaluate_preference_fit(
+                    place,
+                    place_tags,
+                    purposes=effective_purposes,
+                    interests=effective_interests,
+                    config=self._preference_config,
+                )
             )
 
             # Low relevance cutoff: omit places with near-zero fit when preferences exist
-            if has_explicit_preferences and relevance_score < self._preference_config.min_relevance_score:
+            if (
+                has_explicit_preferences
+                and relevance_score < self._preference_config.min_relevance_score
+            ):
                 continue
 
             # 3e. Score calculation
             dist_km: float | None = None
-            if city.latitude is not None and city.longitude is not None:
+            if ranking_origin is not None:
                 dist_m = haversine_distance_meters(
-                    city.latitude,
-                    city.longitude,
+                    ranking_origin[0],
+                    ranking_origin[1],
                     place.latitude,
                     place.longitude,
                 )
@@ -459,9 +516,13 @@ class RecommendationService:
             # Prominence resolution: check Place.importance_score, then place_tags, then Audiala lookup
             prominence = getattr(place, "importance_score", None)
             if prominence is None:
-                prominence = PlaceImportanceScorer.extract_prominence_from_tags(place_tags)
+                prominence = PlaceImportanceScorer.extract_prominence_from_tags(
+                    place_tags
+                )
                 if (prominence is None or prominence == 0.0) and place.wikidata_id:
-                    prominence = PlaceImportanceScorer.lookup_audiala_prominence(place.wikidata_id)
+                    prominence = PlaceImportanceScorer.lookup_audiala_prominence(
+                        place.wikidata_id
+                    )
 
             score = calculate_recommendation_score(
                 place,
@@ -531,12 +592,9 @@ class RecommendationService:
         # Stage 4b: Soft diversity interleaving
         # In mixed-interest trips, ensure secondary requested interests are represented
         # without allowing an abundant primary category to completely monopolize recommendations.
-        has_mixed_prefs = (
-            len(effective_purposes) + len(effective_interests) > 1
-            or any(
-                normalize_preference_key(p) in ("mixed", "family")
-                for p in effective_purposes
-            )
+        has_mixed_prefs = len(effective_purposes) + len(effective_interests) > 1 or any(
+            normalize_preference_key(p) in ("mixed", "family")
+            for p in effective_purposes
         )
 
         ranked: list[RecommendationRead] = []
@@ -545,7 +603,11 @@ class RecommendationService:
         current_cat: str | None = None
 
         while pool:
-            if not has_mixed_prefs or consecutive_cat_count < self._preference_config.max_consecutive_same_category:
+            if (
+                not has_mixed_prefs
+                or consecutive_cat_count
+                < self._preference_config.max_consecutive_same_category
+            ):
                 chosen = pool.pop(0)
             else:
                 # Seek best available candidate from an alternative category

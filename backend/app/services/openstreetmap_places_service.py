@@ -87,6 +87,10 @@ _DEFAULT_CATEGORY_LIMITS: dict[DiscoveryCategory, int] = {
     DiscoveryCategory.NATURE: 40,
 }
 
+# Keep one failing multi-category request from sending every category to the
+# public Overpass instance before the three-failure circuit breaker can open.
+_MAX_CONCURRENT_CATEGORY_REQUESTS = 3
+
 _KNOWN_RELIGIONS = {
     "bahai",
     "buddhist",
@@ -260,7 +264,7 @@ class OpenStreetMapPlacesService:
         category_limits: dict[DiscoveryCategory, int] | None = None,
         category_radii: dict[DiscoveryCategory, int] | None = None,
     ) -> dict[DiscoveryCategory, list[OpenStreetMapNearbyPlace]]:
-        """Fetch several discovery categories concurrently using independent queries and quotas with failure isolation."""
+        """Fetch independent category queries in bounded waves with failure isolation."""
 
         unique_categories = list(dict.fromkeys(categories))
         if not unique_categories:
@@ -296,19 +300,35 @@ class OpenStreetMapPlacesService:
             except OpenStreetMapPlacesError as exc:
                 return category, [], exc
 
-        tasks = [_fetch_category(c) for c in unique_categories]
-        completed = await asyncio.gather(*tasks)
+        wave_size = _MAX_CONCURRENT_CATEGORY_REQUESTS
+        if self._circuit_breaker is not None:
+            wave_size = min(wave_size, self._circuit_breaker.failure_threshold)
 
-        for cat, places, exc in completed:
-            if exc is None:
-                results[cat] = places
-            else:
-                logger.warning(
-                    "Isolated failure for category %s: %s",
-                    cat.value,
-                    exc,
-                )
-                errors.append((cat, exc))
+        for start in range(0, len(unique_categories), wave_size):
+            wave = unique_categories[start : start + wave_size]
+            completed = await asyncio.gather(*(_fetch_category(c) for c in wave))
+
+            for cat, places, exc in completed:
+                if exc is None:
+                    results[cat] = places
+                else:
+                    logger.warning(
+                        "Isolated failure for category %s: %s",
+                        cat.value,
+                        exc,
+                    )
+                    errors.append((cat, exc))
+
+            if self._circuit_breaker and not self._circuit_breaker.allow_request():
+                skipped = unique_categories[start + len(wave) :]
+                if skipped:
+                    logger.info(
+                        "Skipping remaining OpenStreetMap categories because circuit "
+                        "breaker %s is OPEN: %s",
+                        self._circuit_breaker.name,
+                        [category.value for category in skipped],
+                    )
+                break
 
         if not results and errors:
             raise errors[0][1]

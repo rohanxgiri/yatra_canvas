@@ -57,8 +57,21 @@ def test_score_uses_all_boolean_bonuses_and_is_capped_at_100() -> None:
         is_local_speciality=True,
     )
 
-    assert calculate_recommendation_score(
-        place,
-        matched_category_count=3,
-        selected_category_count=3,
-    ) == 100.0
+    assert (
+        calculate_recommendation_score(
+            place,
+            matched_category_count=3,
+            selected_category_count=3,
+        )
+        == 100.0
+    )
+
+
+def test_known_trip_start_adds_bounded_proximity_signal() -> None:
+    place = make_place(rating=4.0, review_count=100)
+
+    nearby = calculate_recommendation_score(place, distance_from_city_km=1.0)
+    distant = calculate_recommendation_score(place, distance_from_city_km=30.0)
+
+    assert nearby > distant
+    assert nearby - distant <= 8.0

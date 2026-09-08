@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/trip_draft.dart';
+import '../../services/place_prefetch_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
@@ -9,10 +12,16 @@ import '../../widgets/selection_chip.dart';
 import 'arrival_details_screen.dart';
 
 class SelectDatesScreen extends StatefulWidget {
-  const SelectDatesScreen({required this.draft, this.tripService, super.key});
+  const SelectDatesScreen({
+    required this.draft,
+    this.tripService,
+    this.prefetchService,
+    super.key,
+  });
 
   final TripDraft draft;
   final TripService? tripService;
+  final PlacePrefetchService? prefetchService;
 
   @override
   State<SelectDatesScreen> createState() => _SelectDatesScreenState();
@@ -39,7 +48,13 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
     }
     _startDate = start;
     if (widget.draft.endDate.isBefore(_startDate)) {
-      _endDate = _startDate.add(Duration(days: widget.draft.durationDays > 0 ? widget.draft.durationDays - 1 : 1));
+      _endDate = _startDate.add(
+        Duration(
+          days: widget.draft.durationDays > 0
+              ? widget.draft.durationDays - 1
+              : 1,
+        ),
+      );
     } else {
       _endDate = _dateOnly(widget.draft.endDate);
     }
@@ -71,13 +86,21 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
 
   void _previousMonth() {
     setState(() {
-      _displayedMonth = DateTime(_displayedMonth.year, _displayedMonth.month - 1, 1);
+      _displayedMonth = DateTime(
+        _displayedMonth.year,
+        _displayedMonth.month - 1,
+        1,
+      );
     });
   }
 
   void _nextMonth() {
     setState(() {
-      _displayedMonth = DateTime(_displayedMonth.year, _displayedMonth.month + 1, 1);
+      _displayedMonth = DateTime(
+        _displayedMonth.year,
+        _displayedMonth.month + 1,
+        1,
+      );
     });
   }
 
@@ -96,11 +119,23 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
           _startDate.add(
             Duration(days: _datesFlexible ? _durationDays - 1 : 0),
           );
+    final cityId = widget.draft.destination?.id;
+    if (cityId != null && cityId.isNotEmpty) {
+      unawaited(
+        (widget.prefetchService ?? PlacePrefetchService.shared).prefetchCity(
+          cityId,
+          stage: PrefetchStage.datesConfirmed,
+          startDate: widget.draft.startDate,
+          endDate: widget.draft.endDate,
+        ),
+      );
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ArrivalDetailsScreen(
           draft: widget.draft,
           tripService: widget.tripService,
+          prefetchService: widget.prefetchService,
         ),
       ),
     );
@@ -259,8 +294,18 @@ class _CalendarCard extends StatelessWidget {
 
   static const _weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   static const _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   bool _isSelected(DateTime date) {
@@ -291,7 +336,11 @@ class _CalendarCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.calendar_month_rounded, color: AppColors.teal, size: 20),
+              const Icon(
+                Icons.calendar_month_rounded,
+                color: AppColors.teal,
+                size: 20,
+              ),
               const SizedBox(width: 4),
               IconButton(
                 icon: const Icon(Icons.chevron_left_rounded, size: 20),
@@ -367,7 +416,8 @@ class _CalendarCard extends StatelessWidget {
               final date = DateTime(year, month, day);
               final isPast = date.isBefore(today);
               final selected = _isSelected(date);
-              final isEdge = _isSameDay(date, startDate) ||
+              final isEdge =
+                  _isSameDay(date, startDate) ||
                   (endDate != null && _isSameDay(date, endDate!));
 
               return Semantics(
@@ -385,10 +435,10 @@ class _CalendarCard extends StatelessWidget {
                       color: isPast
                           ? Colors.transparent
                           : isEdge
-                              ? AppColors.teal
-                              : selected
-                                  ? AppColors.tealLight
-                                  : Colors.transparent,
+                          ? AppColors.teal
+                          : selected
+                          ? AppColors.tealLight
+                          : Colors.transparent,
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
@@ -398,8 +448,8 @@ class _CalendarCard extends StatelessWidget {
                         color: isPast
                             ? AppColors.textTertiary
                             : isEdge
-                                ? Colors.white
-                                : AppColors.charcoal,
+                            ? Colors.white
+                            : AppColors.charcoal,
                       ),
                     ),
                   ),
@@ -427,8 +477,18 @@ class _DateSummary extends StatelessWidget {
   final int durationDays;
 
   static const _monthAbbr = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   String _formatDateRange() {

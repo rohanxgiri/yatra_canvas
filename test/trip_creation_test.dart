@@ -37,6 +37,7 @@ void main() {
 
       expect(created.tripId, '22222222-2222-4222-8222-222222222222');
       expect(requestBody, {
+        'request_id': draft.creationRequestId,
         'city_id': '11111111-1111-4111-8111-111111111111',
         'start_date': '2026-09-10',
         'end_date': '2026-09-12',
@@ -56,6 +57,38 @@ void main() {
       expect(requestBody.containsKey('user_id'), isFalse);
       expect(requestBody.containsKey('trip_id'), isFalse);
       expect(requestBody.containsKey('created_at'), isFalse);
+      expect(
+        draft.creationRequestId,
+        matches(
+          RegExp(
+            r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'TripService keeps one request id when the same draft is retried',
+    () async {
+      final requestIds = <String>[];
+      final service = TripService(
+        baseUrl: 'http://api.test',
+        client: MockClient((request) async {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          requestIds.add(body['request_id'] as String);
+          return http.Response(
+            '{"trip_id":"22222222-2222-4222-8222-222222222222"}',
+            201,
+          );
+        }),
+      );
+      final draft = _draft();
+
+      await service.createTrip(draft);
+      await service.createTrip(draft);
+
+      expect(requestIds, [draft.creationRequestId, draft.creationRequestId]);
     },
   );
 

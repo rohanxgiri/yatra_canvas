@@ -35,6 +35,7 @@ class TripService {
             Uri.parse('$_baseUrl/trips'),
             headers: const {'Content-Type': 'application/json'},
             body: jsonEncode({
+              'request_id': draft.creationRequestId,
               'city_id': cityId,
               'start_date': _dateValue(draft.startDate),
               'end_date': _dateValue(draft.endDate),

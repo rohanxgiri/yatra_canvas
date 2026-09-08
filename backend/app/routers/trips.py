@@ -65,7 +65,7 @@ def create_trip(
 ) -> TripRead:
     try:
         return trips.create(session, request)
-    except TripCityNotFoundError as exc:
+    except (TripCityNotFoundError, TripServiceError) as exc:
         session.rollback()
         raise _trip_error(exc) from exc
 
@@ -157,4 +157,3 @@ def update_trip_day(
     ) as exc:
         session.rollback()
         raise _trip_error(exc) from exc
-
