@@ -9,6 +9,8 @@ import 'package:yatra_canvas/models/city.dart';
 import 'package:yatra_canvas/models/trip_draft.dart';
 import 'package:yatra_canvas/screens/create_trip/destination_selection_screen.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
+import 'package:yatra_canvas/screens/home/widgets/home_bottom_navigation.dart';
+import 'package:yatra_canvas/screens/home/widgets/home_style.dart';
 import 'package:yatra_canvas/screens/onboarding/login_screen.dart';
 import 'package:yatra_canvas/screens/place_discovery/place_discovery_screen.dart';
 import 'package:yatra_canvas/services/city_service.dart';
@@ -320,7 +322,14 @@ void main() {
       MaterialApp(theme: AppTheme.light, home: const HomeScreen()),
     );
 
-    await tester.tap(find.text('Create'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(HomeBottomNavigation),
+        matching: find.byWidgetPredicate(
+          (w) => w is HomeAction && w.label == 'Create Trip',
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Where are you\ngoing?'), findsOneWidget);
 
@@ -329,6 +338,13 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    // The home navigation now floats over the scroll view. Position the card
+    // action above it before testing the second create entry point.
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Create Trip')),
+      alignment: .35,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create Trip'));
     await tester.pumpAndSettle();

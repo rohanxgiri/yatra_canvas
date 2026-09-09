@@ -9,6 +9,33 @@ repository reality from the intended provider architecture.
 
 ### Flutter
 
+`[IMPLEMENTED]` The home presentation follows the approved Figma frame
+`xgUd2FZFUscBxVEvMOT97N / 18:16` (700 x 1463), inspected read-only on 2026-09-09.
+`lib/screens/home/widgets/` contains the width-scaled header, search entry, continuation
+card, creation card, destination cards, backdrop, and custom floating navigation.
+Inter and the original image/vector assets are bundled locally, using the existing
+`flutter_svg` dependency. A sliver list scrolls beneath safe-area-aware navigation;
+card text can expand with the system text scale. The global theme and other screens
+are unchanged. See [home implementation and visual verification](HOME_FIGMA_IMPLEMENTATION.md).
+
+`[IMPLEMENTED]` The home-only material refinement uses `YatraRefractiveGlass`:
+one cached fragment program with independent per-surface shader instances, an
+Impeller-capability-gated backdrop shader, and a tightly clipped blur fallback
+for web/Skia or load failure. `HomeAction` uses gesture/focus/semantics handling
+and 130 ms press-scale feedback without Material ink or visual tooltips.
+Favorite hearts toggle in Home's widget-local memory only, not account storage.
+Phone constraints drive page padding, full-width cards, an Expanded destination
+row, and the custom navigation's minimum touch sizes. No global theme change.
+See [material refinement and platform validation](HOME_MATERIAL_REFINEMENT.md).
+
+`[PARTIAL]` The approved home content remains illustrative: Mekur, the Ujjain trip,
+and destination favorite states are not loaded from an account. Local heart toggles
+reset when the Home state is disposed. Continue retains the
+existing placeholder notification. Search, Discover, destination cards, and both Create
+entry points open the existing `DestinationSelectionScreen`; no fake city/trip ID is
+created. Home scrolls to the top. Profile and Favorites show availability notifications.
+No backend, provider, cache, persistence, or route contract is changed by this UI slice.
+
 `[IMPLEMENTED]` `lib/main.dart` starts the traveller application and `lib/main_admin.dart`
 starts a separate admin shell. Screens call small `http` service classes using the base URL in
 `lib/config/api_config.dart`. Models are local Dart value objects. Navigation and state are

@@ -24,5 +24,13 @@ dev_dependencies:
 flutter:
   default-flavor: regular
   uses-material-design: true
+  shaders:
+    - shaders/yatra_refractive_glass.frag
   assets:
     - lib/Logo/logo.svg
+    - lib/assets/home/
+    - lib/assets/fonts/OFL.txt
+  fonts:
+    - family: HomeInter
+      fonts:
+        - asset: lib/assets/fonts/Inter.ttf
