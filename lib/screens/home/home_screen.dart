@@ -2,10 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../widgets/yatra_bottom_navigation.dart';
 import '../create_trip/destination_selection_screen.dart';
+import '../explore/explore_page.dart';
 import 'widgets/continue_planning_card.dart';
 import 'widgets/home_background.dart';
-import 'widgets/home_bottom_navigation.dart';
 import 'widgets/home_destination_card.dart';
 import 'widgets/home_header.dart';
 import 'widgets/home_search_bar.dart';
@@ -23,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _scrollController = ScrollController();
   // Presentation-only toggles, retained while this Home is mounted.
   final Set<String> _favorites = {'Jaipur'};
+  int _selectedDestination = 0;
 
   void _toggleFavorite(String name) => setState(() {
     if (!_favorites.add(name)) _favorites.remove(name);
@@ -49,6 +51,31 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
+  void _selectDestination(int index) {
+    switch (index) {
+      case 0:
+        if (_selectedDestination != 0) {
+          setState(() => _selectedDestination = 0);
+        } else {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+        }
+      case 1:
+        if (_selectedDestination != 1) {
+          setState(() => _selectedDestination = 1);
+        }
+      case 2:
+        _openCreateTrip();
+      case 3:
+        _showPlaceholder('Favorites');
+      case 4:
+        _showPlaceholder('Profile');
+    }
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -70,115 +97,35 @@ class _HomeScreenState extends State<HomeScreen> {
             width: width,
             child: Stack(
               children: [
-                const Positioned.fill(
-                  child: RepaintBoundary(
-                    child: FittedBox(
-                      fit: BoxFit.fill,
-                      child: SizedBox(
-                        width: HomeStyle.designWidth,
-                        height: HomeStyle.designHeight,
-                        child: HomeBackground(scale: 1),
-                      ),
-                    ),
-                  ),
+                Positioned.fill(
+                  child: _selectedDestination == 0
+                      ? KeyedSubtree(
+                          key: const ValueKey('home-page'),
+                          child: _buildHomePage(padding, s),
+                        )
+                      : ExplorePage(
+                          key: const ValueKey('explore-page'),
+                          favorites: _favorites,
+                          onFavorite: _toggleFavorite,
+                          onOpenTripCreation: _openCreateTrip,
+                        ),
                 ),
-                SafeArea(
-                  child: Stack(
-                    children: [
-                      CustomScrollView(
-                        controller: _scrollController,
-                        slivers: [
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(
-                              padding,
-                              22 * s,
-                              padding,
-                              math.max(120, 173 * s),
-                            ),
-                            sliver: SliverList.list(
-                              children: [
-                                HomeHeader(
-                                  scale: s,
-                                  onProfile: () => _showPlaceholder('Profile'),
-                                ),
-                                SizedBox(height: 41 * s),
-                                HomeSearchBar(
-                                  scale: s,
-                                  onSearch: _openCreateTrip,
-                                ),
-                                SizedBox(height: 41 * s),
-                                Text(
-                                  'Continue planning',
-                                  style: HomeStyle.text(24 * s),
-                                ),
-                                SizedBox(height: 14 * s),
-                                ContinuePlanningCard(
-                                  onContinue: () =>
-                                      _showPlaceholder('Trip planning'),
-                                ),
-                                SizedBox(height: 30 * s),
-                                WhereNextCard(onCreateTrip: _openCreateTrip),
-                                SizedBox(height: 27 * s),
-                                Text(
-                                  'Popular Destinations',
-                                  style: HomeStyle.text(24 * s),
-                                ),
-                                SizedBox(height: 14 * s),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: HomeDestinationCard(
-                                        name: 'Jaipur',
-                                        region: 'Rajisthan',
-                                        image: 'jaipur',
-                                        favorite: _favorites.contains('Jaipur'),
-                                        onTap: _openCreateTrip,
-                                        onFavorite: () =>
-                                            _toggleFavorite('Jaipur'),
-                                      ),
-                                    ),
-                                    SizedBox(width: 20 * s),
-                                    Expanded(
-                                      child: HomeDestinationCard(
-                                        name: 'Varanasi',
-                                        region: 'Uttar Pradesh',
-                                        image: 'varanasi',
-                                        favorite: _favorites.contains(
-                                          'Varanasi',
-                                        ),
-                                        onTap: _openCreateTrip,
-                                        onFavorite: () =>
-                                            _toggleFavorite('Varanasi'),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 36 * s,
-                        child: Center(
-                          child: HomeBottomNavigation(
-                            scale: s,
-                            onHome: () => _scrollController.animateTo(
-                              0,
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeOut,
-                            ),
-                            onDiscover: _openCreateTrip,
-                            onCreate: _openCreateTrip,
-                            onFavorites: () => _showPlaceholder('Favorites'),
-                            onProfile: () => _showPlaceholder('Profile'),
-                          ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 36 * s),
+                      child: Center(
+                        child: YatraBottomNavigation(
+                          scale: s,
+                          currentIndex: _selectedDestination,
+                          onDestinationSelected: _selectDestination,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ],
@@ -187,5 +134,88 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     ),
+  );
+
+  Widget _buildHomePage(double padding, double scale) => Stack(
+    children: [
+      const Positioned.fill(
+        child: RepaintBoundary(
+          child: FittedBox(
+            fit: BoxFit.fill,
+            child: SizedBox(
+              width: HomeStyle.designWidth,
+              height: HomeStyle.designHeight,
+              child: HomeBackground(scale: 1),
+            ),
+          ),
+        ),
+      ),
+      SafeArea(
+        child: CustomScrollView(
+          key: const ValueKey('home-scroll'),
+          controller: _scrollController,
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                padding,
+                22 * scale,
+                padding,
+                math.max(120, 173 * scale),
+              ),
+              sliver: SliverList.list(
+                children: [
+                  HomeHeader(
+                    scale: scale,
+                    onProfile: () => _showPlaceholder('Profile'),
+                  ),
+                  SizedBox(height: 41 * scale),
+                  HomeSearchBar(scale: scale, onSearch: _openCreateTrip),
+                  SizedBox(height: 41 * scale),
+                  Text('Continue planning', style: HomeStyle.text(24 * scale)),
+                  SizedBox(height: 14 * scale),
+                  ContinuePlanningCard(
+                    onContinue: () => _showPlaceholder('Trip planning'),
+                  ),
+                  SizedBox(height: 30 * scale),
+                  WhereNextCard(onCreateTrip: _openCreateTrip),
+                  SizedBox(height: 27 * scale),
+                  Text(
+                    'Popular Destinations',
+                    style: HomeStyle.text(24 * scale),
+                  ),
+                  SizedBox(height: 14 * scale),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: HomeDestinationCard(
+                          name: 'Jaipur',
+                          region: 'Rajisthan',
+                          image: 'jaipur',
+                          favorite: _favorites.contains('Jaipur'),
+                          onTap: _openCreateTrip,
+                          onFavorite: () => _toggleFavorite('Jaipur'),
+                        ),
+                      ),
+                      SizedBox(width: 20 * scale),
+                      Expanded(
+                        child: HomeDestinationCard(
+                          name: 'Varanasi',
+                          region: 'Uttar Pradesh',
+                          image: 'varanasi',
+                          favorite: _favorites.contains('Varanasi'),
+                          onTap: _openCreateTrip,
+                          onFavorite: () => _toggleFavorite('Varanasi'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
   );
 }

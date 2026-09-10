@@ -1,6 +1,6 @@
 # YatraCanvas architecture
 
-Last reviewed: 2026-09-07
+Last reviewed: 2026-09-10
 
 Status labels are defined in [Project context](PROJECT_CONTEXT.md). This document separates
 repository reality from the intended provider architecture.
@@ -18,23 +18,35 @@ Inter and the original image/vector assets are bundled locally, using the existi
 card text can expand with the system text scale. The global theme and other screens
 are unchanged. See [home implementation and visual verification](HOME_FIGMA_IMPLEMENTATION.md).
 
-`[IMPLEMENTED]` The home-only material refinement uses `YatraRefractiveGlass`:
+`[IMPLEMENTED]` The Home and Explore material refinement uses `YatraRefractiveGlass`:
 one cached fragment program with independent per-surface shader instances, an
 Impeller-capability-gated backdrop shader, and a tightly clipped blur fallback
 for web/Skia or load failure. `HomeAction` uses gesture/focus/semantics handling
 and 130 ms press-scale feedback without Material ink or visual tooltips.
-Favorite hearts toggle in Home's widget-local memory only, not account storage.
-Phone constraints drive page padding, full-width cards, an Expanded destination
-row, and the custom navigation's minimum touch sizes. No global theme change.
-See [material refinement and platform validation](HOME_MATERIAL_REFINEMENT.md).
+`YatraBottomNavigation` is shared by both pages and moves one selected glass
+indicator between five fixed destinations. Favorite hearts are session-local and
+shared between Home and Explore, not stored to an account. Phone constraints drive
+page padding, full-width cards, destination rows, carousel sizing, and navigation
+touch targets. No global theme change. See [material refinement](HOME_MATERIAL_REFINEMENT.md)
+and [Home/Explore refinement validation](HOME_EXPLORE_REFINEMENT.md).
 
-`[PARTIAL]` The approved home content remains illustrative: Mekur, the Ujjain trip,
-and destination favorite states are not loaded from an account. Local heart toggles
-reset when the Home state is disposed. Continue retains the
-existing placeholder notification. Search, Discover, destination cards, and both Create
-entry points open the existing `DestinationSelectionScreen`; no fake city/trip ID is
-created. Home scrolls to the top. Profile and Favorites show availability notifications.
-No backend, provider, cache, persistence, or route contract is changed by this UI slice.
+`[IMPLEMENTED]` Explore follows the approved Figma frame
+`xgUd2FZFUscBxVEvMOT97N / 30:54` and its carousel children, inspected read-only on
+2026-09-10. It provides the inspiration pill, editorial heading, swipeable seven-item
+inspiration carousel, pagination, and Popular Destinations on the open cream-to-blue
+background. It reuses bundled YatraCanvas imagery, `HomeDestinationCard`, and
+`YatraFavoriteButton`; it introduces no provider claims, generated popularity data,
+or backend state.
+
+`[PARTIAL]` The approved Home and Explore content remains illustrative: Mekur, the
+Ujjain trip, inspiration categories, and destination favorite states are not loaded
+from an account. Local heart toggles reset when the shared Home state is disposed.
+Continue retains the existing placeholder notification. Search, inspiration cards,
+destination cards, and both Create entry points open the existing
+`DestinationSelectionScreen`; no fake city/trip ID is created. Home and Explore switch
+inside the existing shell, Home scrolls to the top when reselected, and Profile and
+Saved retain availability notifications. No backend, provider, cache, persistence,
+or route contract is changed by this UI slice.
 
 `[IMPLEMENTED]` `lib/main.dart` starts the traveller application and `lib/main_admin.dart`
 starts a separate admin shell. Screens call small `http` service classes using the base URL in

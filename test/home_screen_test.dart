@@ -5,13 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
 import 'package:yatra_canvas/screens/home/widgets/continue_planning_card.dart';
-import 'package:yatra_canvas/screens/home/widgets/home_bottom_navigation.dart';
 import 'package:yatra_canvas/screens/home/widgets/home_destination_card.dart';
 import 'package:yatra_canvas/screens/home/widgets/where_next_card.dart';
 import 'package:yatra_canvas/screens/home/widgets/home_style.dart';
 import 'package:yatra_canvas/screens/home/widgets/yatra_favorite_button.dart';
 import 'package:yatra_canvas/screens/home/widgets/yatra_refractive_glass.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
+import 'package:yatra_canvas/widgets/yatra_bottom_navigation.dart';
 
 Future<void> _pumpHome(
   WidgetTester tester,
@@ -78,7 +78,7 @@ void main() {
       const Size(300, 234),
     );
     expect(
-      tester.getSize(find.byType(HomeBottomNavigation)),
+      tester.getSize(find.byType(YatraBottomNavigation)),
       const Size(500, 99),
     );
     await expectLater(
@@ -96,7 +96,7 @@ void main() {
       safeArea: const EdgeInsets.only(top: 24, bottom: 24),
     );
     expect(tester.takeException(), isNull);
-    final navigation = tester.getRect(find.byType(HomeBottomNavigation));
+    final navigation = tester.getRect(find.byType(YatraBottomNavigation));
     expect(navigation.bottom, lessThanOrEqualTo(820));
     await expectLater(
       find.byKey(const ValueKey('home-render')),
@@ -104,7 +104,7 @@ void main() {
     );
     await tester.tap(
       find.descendant(
-        of: find.byType(HomeBottomNavigation),
+        of: find.byType(YatraBottomNavigation),
         matching: _action('Create Trip'),
       ),
     );
@@ -217,7 +217,7 @@ void main() {
         expect(find.byType(HomeScreen), findsOneWidget);
         expect(tester.takeException(), isNull);
         expect(
-          tester.getRect(find.byType(HomeBottomNavigation)).bottom,
+          tester.getRect(find.byType(YatraBottomNavigation)).bottom,
           lessThan(876),
         );
         await expectLater(
@@ -245,13 +245,12 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: Center(
-              child: HomeBottomNavigation(
+              child: YatraBottomNavigation(
                 scale: .56,
-                onHome: () => calls.add('Home'),
-                onDiscover: () => calls.add('Discover'),
-                onCreate: () => calls.add('Create Trip'),
-                onFavorites: () => calls.add('Saved'),
-                onProfile: () => calls.add('Profile'),
+                currentIndex: 0,
+                onDestinationSelected: (index) => calls.add(
+                  ['Home', 'Explore', 'Create Trip', 'Saved', 'Profile'][index],
+                ),
               ),
             ),
           ),
@@ -259,7 +258,7 @@ void main() {
       );
       for (final label in [
         'Home',
-        'Discover',
+        'Explore',
         'Create Trip',
         'Saved',
         'Profile',
@@ -273,7 +272,7 @@ void main() {
         await tester.tap(_action(label));
         await tester.pumpAndSettle();
       }
-      expect(calls, ['Home', 'Discover', 'Create Trip', 'Saved', 'Profile']);
+      expect(calls, ['Home', 'Explore', 'Create Trip', 'Saved', 'Profile']);
       expect(find.byType(InkWell), findsNothing);
       expect(find.byType(InkResponse), findsNothing);
       expect(find.byType(Tooltip), findsNothing);

@@ -9,13 +9,13 @@ import 'package:yatra_canvas/models/city.dart';
 import 'package:yatra_canvas/models/trip_draft.dart';
 import 'package:yatra_canvas/screens/create_trip/destination_selection_screen.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
-import 'package:yatra_canvas/screens/home/widgets/home_bottom_navigation.dart';
 import 'package:yatra_canvas/screens/home/widgets/home_style.dart';
 import 'package:yatra_canvas/screens/onboarding/login_screen.dart';
 import 'package:yatra_canvas/screens/place_discovery/place_discovery_screen.dart';
 import 'package:yatra_canvas/services/city_service.dart';
 import 'package:yatra_canvas/services/trip_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
+import 'package:yatra_canvas/widgets/yatra_bottom_navigation.dart';
 
 void main() {
   testWidgets('opens the onboarding flow from splash', (tester) async {
@@ -324,7 +324,7 @@ void main() {
 
     await tester.tap(
       find.descendant(
-        of: find.byType(HomeBottomNavigation),
+        of: find.byType(YatraBottomNavigation),
         matching: find.byWidgetPredicate(
           (w) => w is HomeAction && w.label == 'Create Trip',
         ),

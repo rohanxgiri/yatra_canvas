@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yatra_canvas/screens/explore/explore_page.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
-import 'package:yatra_canvas/screens/home/widgets/home_bottom_navigation.dart';
 import 'package:yatra_canvas/screens/home/widgets/home_style.dart';
 import 'package:yatra_canvas/screens/home/widgets/yatra_favorite_button.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
+import 'package:yatra_canvas/widgets/yatra_bottom_navigation.dart';
 
 // Cross-platform smoke test, also run explicitly with --platform chrome.
 void main() {
@@ -31,6 +32,24 @@ void main() {
         expect(find.byType(Tooltip), findsNothing);
         expect(find.byType(InkWell), findsNothing);
         expect(tester.takeException(), isNull);
+        await tester.tap(
+          find.byWidgetPredicate(
+            (widget) => widget is HomeAction && widget.label == 'Explore',
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(ExplorePage), findsOneWidget);
+        expect(find.byType(PageView), findsOneWidget);
+        expect(find.byType(YatraBottomNavigation), findsOneWidget);
+        expect(find.byType(BackdropFilter), findsWidgets);
+        expect(find.byType(Tooltip), findsNothing);
+        await tester.tap(
+          find.byWidgetPredicate(
+            (widget) => widget is HomeAction && widget.label == 'Home',
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(ExplorePage), findsNothing);
         await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
         await tester.pumpAndSettle();
         final favorite = find.byWidgetPredicate(
@@ -43,7 +62,7 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tap(
           find.descendant(
-            of: find.byType(HomeBottomNavigation),
+            of: find.byType(YatraBottomNavigation),
             matching: find.byWidgetPredicate(
               (w) => w is HomeAction && w.label == 'Create Trip',
             ),
