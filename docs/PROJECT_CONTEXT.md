@@ -1,7 +1,7 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-09-07
-Last verified against repository: 2026-09-04
+Last reviewed: 2026-09-11
+Last verified against repository: 2026-09-11
 
 This document is the concise, authoritative primary overview for humans and agents. Status labels mean:
 
@@ -158,6 +158,10 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
   - Multi-day day-sequence invariant: optimization outputs include `total_days=trip.days` (`RouteOptimizationRead`), normalizing all logical days $\{1 \dots N\}$ so days with 0 stops never disappear.
   - Manual place search: 350ms debounced destination-scoped search (`GET /cities/{city_id}/places/search`) using Geoapify autocomplete + local DB, canonical resolution (`POST /cities/{city_id}/places/resolve`) via `CanonicalPlaceService`, duplicate prevention, and route eligibility.
   - Interactive map progressive rendering: pre-passes trip state from `PlaceDiscoveryScreen`, rendering base map and markers on Frame 1 ($12-25\text{ ms}$) without blocking on route recalculation; non-blocking asynchronous route polyline loading with status indicator.
+- **Home UI Refinement & Explore Screen** is `[IMPLEMENTED]`:
+  - Figma-aligned home screen with custom glassmorphism navigation bar (`YatraBottomNavigation`) and refractive glass shader (`yatra_refractive_glass.frag`).
+  - Featured destination cards, continuing trip planning card, and interactive discovery triggers.
+  - Dedicated Explore page (`ExplorePage`) with curated destination browsing, category filtering, and direct trip creation entry points.
 **Next recommended engineering task:**
 `supabase-auth-jwt` (Implement Supabase Auth JWT verification in FastAPI and connect Flutter session tokens to trips).
 

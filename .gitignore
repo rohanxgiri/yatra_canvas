@@ -8,6 +8,7 @@ Thumbs.db
 *.ipr
 *.iws
 .vscode/
+.codex/
 
 # Dart and Flutter tooling
 .dart_tool/
@@ -31,10 +32,13 @@ local.properties
 
 # Python backend tooling
 .venv/
+venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .pytest_tmp/
+.ruff_cache/
+.uv-cache/
 
 # Project-local temporary SDKs and tool caches
 tmp/
