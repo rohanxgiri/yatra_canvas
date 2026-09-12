@@ -1,0 +1,64 @@
+00:00 +0: loading C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart
+00:00 +0: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: day settings itinerary and place sheet mobile visual review
+00:00 +1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: day settings itinerary and place sheet mobile visual review
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following StateError was thrown running a test:
+Bad state: No element
+
+When the exception was thrown, this was the stack:
+#0      Iterable.first (dart:core/iterable.dart:663:7)
+#1      _FirstFinderMixin.filter (package:flutter_test/src/finders.dart:1383:28)
+#3      Iterable.single (dart:core/iterable.dart:694:13)
+#4      WidgetController.element (package:flutter_test/src/controller.dart:888:30)
+#5      WidgetController.ensureVisible (package:flutter_test/src/controller.dart:2389:32)
+#6      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart:299:24)
+<asynchronous suspension>
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#8      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 2 frames from dart:async-patch and package:stack_trace)
+
+The test description was:
+  day settings itinerary and place sheet mobile visual review
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +1 -1: C:/Users/girir/Documents/YatraCanvas/test/account_screens_test.dart: account screens fit narrow phones and enlarged text
+00:01 +1 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: day settings itinerary and place sheet mobile visual review [E]
+  Test failed. See exception logs above.
+  The test description was: day settings itinerary and place sheet mobile visual review
+  
+Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
+TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
+will actually be made. Any test expecting a real network connection and status code will fail.
+To test code that needs an HttpClient, provide your own HttpClient implementation to the code under
+test, so that your test can consistently provide a testable response to the code under test.
+00:02 +2 -1: C:/Users/girir/Documents/YatraCanvas/test/account_screens_test.dart: account screens fit narrow phones and enlarged text
+00:02 +3 -1: C:/Users/girir/Documents/YatraCanvas/test/account_screens_test.dart: account screens fit narrow phones and enlarged text
+00:02 +4 -1: C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart: planning screens visual and accessible layout review
+00:03 +5 -1: C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart: planning screens visual and accessible layout review
+00:03 +6 -1: C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart: planning screens visual and accessible layout review
+00:03 +7 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Plan Your Days UI (Items 1-6) 5. Travel Day supports custom time window
+00:03 +8 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Plan Your Days UI (Items 1-6) 6. invalid time update shows proper error (start >= end)
+00:03 +9 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Place Day Assignment UI (Items 7-10) 7. selected place defaults to Auto Schedule
+00:03 +10 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Place Day Assignment UI (Items 7-10) 8. place can be locked to a valid day
+00:04 +11 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Place Day Assignment UI (Items 7-10) 9. place can switch back to Auto
+00:04 +12 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Place Day Assignment UI (Items 7-10) 10. REST days are not shown in place assignment picker
+00:04 +13 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Generated Itinerary Day Presentation (Items 11-14) 11. generated itinerary displays actual day numbers
+00:04 +14 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Generated Itinerary Day Presentation (Items 11-14) 12. REST days remain visible
+00:05 +15 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Generated Itinerary Day Presentation (Items 11-14) 13. scheduled times are displayed
+00:05 +16 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Generated Itinerary Day Presentation (Items 11-14) 14. unscheduled places are visible
+00:05 +17 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 15. Completed action updates stop
+00:05 +18 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 16. Missed action updates stop
+00:06 +19 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 17. Skipped action updates stop
+00:06 +20 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 18. missed stop offers Move to another day
+00:06 +21 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 19. REST days are not shown as move targets
+00:06 +22 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 20. successful move refreshes affected itinerary
+00:07 +23 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 21. TARGET_DAY_INFEASIBLE displays clear error
+00:07 +24 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 22. completed stops remain visually completed
+00:07 +25 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 23. UNKNOWN opening hours never display "Open"
+00:07 +26 -1: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 24. loading state prevents duplicate requests
+00:08 +27 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: day settings itinerary and place sheet mobile visual review

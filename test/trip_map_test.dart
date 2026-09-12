@@ -395,7 +395,7 @@ void main() {
       );
 
       // Initially loading
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Opening your map'), findsOneWidget);
 
       await tester.pump();
       await tester.pump(

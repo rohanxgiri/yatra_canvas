@@ -1,3 +1,5 @@
+import '../../widgets/yc_scaffold.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -100,6 +102,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   bool _isLoadingSavedPlaces = false;
   bool _isReordering = false;
   bool _isOptimizingRoute = false;
+  final _selectionKey = GlobalKey();
   bool _hasRequested = false;
   bool _showRefinements = false;
   bool _refinementsDirty = false;
@@ -1436,126 +1439,152 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return YCScaffold(
       appBar: AppBar(title: const Text('Discover places')),
+      bottomNavigationBar: _tripId == null
+          ? null
+          : SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+                child: FilledButton(
+                  onPressed: () {
+                    final target = _selectionKey.currentContext;
+                    if (target != null) {
+                      Scrollable.ensureVisible(
+                        target,
+                        duration: const Duration(milliseconds: 280),
+                      );
+                    }
+                  },
+                  child: Text('Review ${_savedPlaces.length} selected places'),
+                ),
+              ),
+            ),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(
           onRefresh: _hasRequested ? _loadRecommendations : () async {},
-          child: ListView(
+          child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            children: [
-              _CityContext(city: widget.city),
-              const SizedBox(height: 22),
-              _buildSavedPlacesSection(),
-              const SizedBox(height: 24),
-              if (_purposeCategories.isNotEmpty) ...[
-                Text(
-                  'Recommended for your trip',
-                  style: AppTextStyles.sectionTitle,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Based on why you chose to visit ${widget.city.name}.',
-                  style: AppTextStyles.bodyMuted,
-                ),
-                const SizedBox(height: 12),
-                _TripPreferenceContext(purposes: widget.tripPurposes),
-              ] else ...[
-                Text(
-                  'Choose what you’d like to see',
-                  style: AppTextStyles.sectionTitle,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Select one or more interests for ${widget.city.name}.',
-                  style: AppTextStyles.bodyMuted,
-                ),
-              ],
-              if (_purposeCategories.length < PlaceCategory.values.length) ...[
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _isLoading
-                        ? null
-                        : () => setState(
-                            () => _showRefinements = !_showRefinements,
-                          ),
-                    icon: Icon(
-                      _showRefinements
-                          ? Icons.expand_less_rounded
-                          : Icons.tune_rounded,
-                    ),
-                    label: Text(
-                      _showRefinements
-                          ? 'Hide extra interests'
-                          : _refinementCategories.isEmpty
-                          ? 'Add another interest'
-                          : '${_refinementCategories.length} extra ${_refinementCategories.length == 1 ? 'interest' : 'interests'}',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _CityContext(city: widget.city),
+                const SizedBox(height: 22),
+
+                const SizedBox(height: 24),
+                if (_purposeCategories.isNotEmpty) ...[
+                  Text(
+                    'Recommended for your trip',
+                    style: AppTextStyles.sectionTitle,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Based on why you chose to visit ${widget.city.name}.',
+                    style: AppTextStyles.bodyMuted,
+                  ),
+                  const SizedBox(height: 12),
+                  _TripPreferenceContext(purposes: widget.tripPurposes),
+                ] else ...[
+                  Text(
+                    'Choose what you’d like to see',
+                    style: AppTextStyles.sectionTitle,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Select one or more interests for ${widget.city.name}.',
+                    style: AppTextStyles.bodyMuted,
+                  ),
+                ],
+                if (_purposeCategories.length <
+                    PlaceCategory.values.length) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _isLoading
+                          ? null
+                          : () => setState(
+                              () => _showRefinements = !_showRefinements,
+                            ),
+                      icon: Icon(
+                        _showRefinements
+                            ? Icons.expand_less_rounded
+                            : Icons.tune_rounded,
+                      ),
+                      label: Text(
+                        _showRefinements
+                            ? 'Hide extra interests'
+                            : _refinementCategories.isEmpty
+                            ? 'Add another interest'
+                            : '${_refinementCategories.length} extra ${_refinementCategories.length == 1 ? 'interest' : 'interests'}',
+                      ),
                     ),
                   ),
-                ),
-              ],
-              if (_showRefinements) ...[
-                const SizedBox(height: 4),
-                _RefinementPanel(
-                  categories: PlaceCategory.values
-                      .where(
-                        (category) => !_purposeCategories.contains(category),
-                      )
-                      .toList(growable: false),
-                  selectedCategories: _refinementCategories,
-                  enabled: !_isLoading,
-                  onToggle: _toggleCategory,
-                  onApply:
-                      _effectiveCategories.isEmpty ||
-                          _isLoading ||
-                          (_hasRequested && !_refinementsDirty)
-                      ? null
-                      : _loadRecommendations,
-                  applyLabel: _hasRequested
-                      ? 'Update recommendations'
-                      : 'Show matching places',
-                ),
-              ],
-              if (_hasRequested && _effectiveCategories.length > 1) ...[
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _CategoryFilterChip(
-                      label: 'All',
-                      selected: _activeCategoryFilter == null,
-                      enabled: !_isLoading,
-                      onSelected: () => _setCategoryFilter(null),
-                    ),
-                    for (final cat in _effectiveCategories)
+                ],
+                if (_showRefinements) ...[
+                  const SizedBox(height: 4),
+                  _RefinementPanel(
+                    categories: PlaceCategory.values
+                        .where(
+                          (category) => !_purposeCategories.contains(category),
+                        )
+                        .toList(growable: false),
+                    selectedCategories: _refinementCategories,
+                    enabled: !_isLoading,
+                    onToggle: _toggleCategory,
+                    onApply:
+                        _effectiveCategories.isEmpty ||
+                            _isLoading ||
+                            (_hasRequested && !_refinementsDirty)
+                        ? null
+                        : _loadRecommendations,
+                    applyLabel: _hasRequested
+                        ? 'Update recommendations'
+                        : 'Show matching places',
+                  ),
+                ],
+                if (_hasRequested && _effectiveCategories.length > 1) ...[
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
                       _CategoryFilterChip(
-                        key: ValueKey('filter_${cat.apiValue}'),
-                        label: cat.label,
-                        selected: _activeCategoryFilter == cat,
+                        label: 'All',
+                        selected: _activeCategoryFilter == null,
                         enabled: !_isLoading,
-                        onSelected: () => _setCategoryFilter(cat),
+                        onSelected: () => _setCategoryFilter(null),
                       ),
-                  ],
+                      for (final cat in _effectiveCategories)
+                        _CategoryFilterChip(
+                          key: ValueKey('filter_${cat.apiValue}'),
+                          label: cat.label,
+                          selected: _activeCategoryFilter == cat,
+                          enabled: !_isLoading,
+                          onSelected: () => _setCategoryFilter(cat),
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 22),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: _buildResults(),
+                ),
+                const SizedBox(height: 24),
+                _buildSavedPlacesSection(),
+                const SizedBox(height: 12),
+                Text(
+                  'Place data © OpenStreetMap contributors • ODbL\n'
+                  'https://www.openstreetmap.org/copyright',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.caption,
                 ),
               ],
-              const SizedBox(height: 22),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: _buildResults(),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Place data © OpenStreetMap contributors • ODbL\n'
-                'https://www.openstreetmap.org/copyright',
-                textAlign: TextAlign.center,
-                style: AppTextStyles.caption,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1564,8 +1593,9 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   Widget _buildSavedPlacesSection() {
     return Container(
+      key: _selectionKey,
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
@@ -1662,7 +1692,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
           const SizedBox(height: 4),
           Text(
             _tripId == null
-                ? 'Recommendations are available now; saving unlocks after the trip has a UUID.'
+                ? 'Create a trip to keep these places in your plan.'
                 : 'Changes save automatically. Drag the handle to reorder.',
             style: AppTextStyles.bodyMuted,
           ),
@@ -1843,9 +1873,18 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                 ),
               ),
             ),
+            if (_isOptimizingRoute)
+              const Padding(
+                padding: EdgeInsets.only(top: 16),
+                child: YCStateCard(
+                  title: 'Putting your days together',
+                  message: 'Finding an order for your places within your available time. This may take a moment.',
+                  loading: true,
+                ),
+              ),
             const SizedBox(height: 7),
             Text(
-              'Route order uses offline distance estimates; times are approximate.',
+              'Travel times and distances are approximate.',
               style: AppTextStyles.caption,
             ),
             if (_savedPlaces.isEmpty) ...[
@@ -2035,6 +2074,47 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   _savedPlaceFor(recommendation.id) != null;
               final busy = _mutatingPlaceIds.contains(recommendation.id);
               return PlaceCard(
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: true,
+                  builder: (sheetContext) => SafeArea(
+                    top: false,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            recommendation.name,
+                            style: AppTextStyles.pageTitle,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _categoryLabel(recommendation.category),
+                            style: AppTextStyles.label,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _matchDescription(recommendation),
+                            style: AppTextStyles.bodyLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _recommendationMeta(recommendation),
+                            style: AppTextStyles.bodyMuted,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Opening hours have not been provided for this recommendation.',
+                            style: AppTextStyles.bodyMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 name: recommendation.name,
                 category: _categoryLabel(recommendation.category),
                 description: _matchDescription(recommendation),
@@ -2073,12 +2153,14 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   }
 
   String _recommendationMeta(Recommendation recommendation) {
-    final reviews =
-        '${recommendation.reviewCount} ${recommendation.reviewCount == 1 ? 'review' : 'reviews'}';
-    final score =
-        'Score ${recommendation.recommendationScore.toStringAsFixed(1)}';
-    if (recommendation.rating == null) return '$reviews  ·  $score';
-    return '★ ${recommendation.rating!.toStringAsFixed(1)}  ·  $reviews  ·  $score';
+    final details = <String>[widget.city.name];
+    if (recommendation.rating != null) {
+      details.add('${recommendation.rating!.toStringAsFixed(1)} / 5');
+    }
+    if (recommendation.reviewCount > 0) {
+      details.add('${recommendation.reviewCount} reviews');
+    }
+    return details.join(' · ');
   }
 
   String _categoryLabel(String category) {
@@ -2666,14 +2748,38 @@ class _OptimizedRouteCard extends StatelessWidget {
             ),
           ],
           for (var dayIndex = 0; dayIndex < displayDays.length; dayIndex++) ...[
-            if (dayIndex > 0) const SizedBox(height: 16),
-            _buildDaySchedule(
-              displayDays[dayIndex],
-              route.placesByDay[displayDays[dayIndex]] ??
-                  const <OptimizedRoutePlace>[],
-              tripDay: tripDays
-                  .where((d) => d.dayNumber == displayDays[dayIndex])
-                  .firstOrNull,
+            if (dayIndex > 0) const SizedBox(height: 12),
+            Material(
+              color: Colors.transparent,
+              child: ExpansionTile(
+                key: PageStorageKey('itinerary-day-${displayDays[dayIndex]}'),
+                initiallyExpanded: dayIndex == 0,
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  'Day ${displayDays[dayIndex]}',
+                  style: AppTextStyles.sectionTitle,
+                ),
+                subtitle: Text(
+                  tripDays.any(
+                        (d) =>
+                            d.dayNumber == displayDays[dayIndex] &&
+                            d.dayType == DayType.rest,
+                      )
+                      ? 'Rest day · Take it slow'
+                      : '${route.placesByDay[displayDays[dayIndex]]?.length ?? 0} places',
+                  style: AppTextStyles.bodyMuted,
+                ),
+                children: [
+                  _buildDaySchedule(
+                    displayDays[dayIndex],
+                    route.placesByDay[displayDays[dayIndex]] ??
+                        const <OptimizedRoutePlace>[],
+                    tripDay: tripDays
+                        .where((d) => d.dayNumber == displayDays[dayIndex])
+                        .firstOrNull,
+                  ),
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 14),
@@ -2687,7 +2793,7 @@ class _OptimizedRouteCard extends StatelessWidget {
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'Timings are planning estimates based on category heuristics and route durations.',
+                  'Visit times and travel durations are estimates. Leave a little room in your day.',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textTertiary,
                     fontSize: 11,
@@ -2719,13 +2825,13 @@ class _OptimizedRouteCard extends StatelessWidget {
         Row(
           children: [
             Icon(
-              isRest ? Icons.nightlife_rounded : Icons.wb_sunny_rounded,
+              isRest ? Icons.wb_sunny_outlined : Icons.wb_sunny_rounded,
               color: isRest ? AppColors.terracotta : AppColors.teal,
               size: 16,
             ),
             const SizedBox(width: 8),
             Text(
-              'Day $day',
+              '${dayPlaces.length} planned stops',
               style: AppTextStyles.label.copyWith(
                 color: isRest ? AppColors.terracotta : AppColors.tealDark,
                 fontWeight: FontWeight.w800,
@@ -2789,7 +2895,7 @@ class _OptimizedRouteCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Rest Day · Recharge and explore at your own pace.',
+                    'Rest Day · Take it slow today. Your time is intentionally unplanned.',
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.charcoal,
                       fontWeight: FontWeight.w600,

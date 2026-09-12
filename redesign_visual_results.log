@@ -1,0 +1,9 @@
+00:00 +0: loading C:/Users/girir/Documents/YatraCanvas/test/account_screens_test.dart
+00:00 +0: C:/Users/girir/Documents/YatraCanvas/test/account_screens_test.dart: session remembers only saved snapshots and updates without duplicates
+00:00 +1: C:/Users/girir/Documents/YatraCanvas/test/account_screens_test.dart: account screens fit narrow phones and enlarged text
+00:01 +2: C:/Users/girir/Documents/YatraCanvas/test/account_screens_test.dart: account screens fit narrow phones and enlarged text
+00:01 +3: C:/Users/girir/Documents/YatraCanvas/test/account_screens_test.dart: account screens fit narrow phones and enlarged text
+00:02 +4: C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart: planning screens visual and accessible layout review
+00:02 +5: C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart: planning screens visual and accessible layout review
+00:02 +6: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text
+00:03 +7: All tests passed!

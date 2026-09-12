@@ -152,7 +152,7 @@ void main() {
       expect(draft.startLocationProviderPlaceId, 'geoapify-hotel-imperial');
       expect(tripService.savedType, TripStartLocationType.hotel);
       expect(tripService.savedTripId, 'trip-123');
-      expect(find.text('What brings you\nto Ujjain?'), findsOneWidget);
+      expect(find.text('What brings you to Ujjain?'), findsOneWidget);
     },
   );
 

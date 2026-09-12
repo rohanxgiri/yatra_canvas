@@ -1,0 +1,706 @@
+
+00:00 +0: loading C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart                                                                                                                      
+00:01 +0: loading C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart                                                                                                                      
+00:02 +0: loading C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart                                                                                                                      
+00:02 +0: C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart: admin overview renders and navigation opens trips                                                                           
+00:02 +1: C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart: admin overview renders and navigation opens trips                                                                           
+00:02 +2: C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart: admin overview renders and navigation opens trips                                                                           
+00:02 +3: C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart: admin overview renders and navigation opens trips                                                                           
+00:03 +3: C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart: admin overview renders and navigation opens trips                                                                           
+00:03 +4: C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart: admin overview renders and navigation opens trips                                                                           
+00:03 +5: C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart: admin overview renders and navigation opens trips                                                                           
+00:04 +5: C:/Users/girir/Documents/YatraCanvas/test/admin_panel_test.dart: admin overview renders and navigation opens trips                                                                           
+00:04 +6: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 1: Multi-Day Day-Sequence Integrity Empty day renders with friendly notice and does not disappear         
+00:04 +7: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 1: Multi-Day Day-Sequence Integrity Empty day renders with friendly notice and does not disappear         
+00:04 +8: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 1: Multi-Day Day-Sequence Integrity Empty day renders with friendly notice and does not disappear         
+00:04 +9: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 1: Multi-Day Day-Sequence Integrity Empty day renders with friendly notice and does not disappear         
+00:04 +10: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 1: Multi-Day Day-Sequence Integrity Empty day renders with friendly notice and does not disappear        
+00:04 +11: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 1: Multi-Day Day-Sequence Integrity Empty day renders with friendly notice and does not disappear        
+00:04 +12: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 1: Multi-Day Day-Sequence Integrity Empty day renders with friendly notice and does not disappear        
+00:04 +13: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 1: Multi-Day Day-Sequence Integrity Empty day renders with friendly notice and does not disappear        
+00:04 +14: C:/Users/girir/Documents/YatraCanvas/test/explore_page_test.dart: Explore 393 px visual baseline                                                                                            
+00:05 +14: C:/Users/girir/Documents/YatraCanvas/test/explore_page_test.dart: Explore 393 px visual baseline                                                                                            
+00:05 +15: C:/Users/girir/Documents/YatraCanvas/test/flow_updates_test.dart: onboarding skips the removed quick check-in screen                                                                        
+00:05 +16: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +17: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +18: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +19: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +20: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +21: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +22: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +23: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +24: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +25: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +26: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +27: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +28: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +29: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +30: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +31: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +32: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +33: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance                                                                         
+00:05 +34: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:05 +35: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:06 +35: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:06 +36: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:06 +37: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:06 +38: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:06 +39: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:06 +40: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:06 +40: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: onboarding story visual baselines                                                                                    
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown while running async test code:
+Golden "goldens/onboarding_screen_1.png": Pixel test failed, 0.32%, 1082px diff detected.
+Failure feedback can be found at /C:/Users/girir/Documents/YatraCanvas/test/failures
+
+When the exception was thrown, this was the stack:
+#0      LocalFileComparator.compare (package:flutter_test/src/_goldens_io.dart:108:5)
+<asynchronous suspension>
+#1      MatchesGoldenFile.matchAsync.<anonymous closure> (package:flutter_test/src/_matchers_io.dart:124:32)
+<asynchronous suspension>
+<asynchronous suspension>
+#3      _expect.<anonymous closure> (package:matcher/src/expect/expect.dart:153:17)
+<asynchronous suspension>
+<asynchronous suspension>
+#5      expectLater.<anonymous closure> (package:flutter_test/src/widget_tester.dart:508:19)
+<asynchronous suspension>
+#6      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart:62:7)
+<asynchronous suspension>
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#8      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 3 frames from dart:async and package:stack_trace)
+
+The exception was caught asynchronously.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:06 +40: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:06 +41: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                    
+00:06 +41: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: onboarding story visual baselines                                                                                    
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown while running async test code:
+Golden "goldens/onboarding_screen_2.png": Pixel test failed, 0.32%, 1082px diff detected.
+Failure feedback can be found at /C:/Users/girir/Documents/YatraCanvas/test/failures
+
+When the exception was thrown, this was the stack:
+#0      LocalFileComparator.compare (package:flutter_test/src/_goldens_io.dart:108:5)
+<asynchronous suspension>
+#1      MatchesGoldenFile.matchAsync.<anonymous closure> (package:flutter_test/src/_matchers_io.dart:124:32)
+<asynchronous suspension>
+<asynchronous suspension>
+#3      _expect.<anonymous closure> (package:matcher/src/expect/expect.dart:153:17)
+<asynchronous suspension>
+<asynchronous suspension>
+#5      expectLater.<anonymous closure> (package:flutter_test/src/widget_tester.dart:508:19)
+<asynchronous suspension>
+#6      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart:62:7)
+<asynchronous suspension>
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#8      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 3 frames from dart:async and package:stack_trace)
+
+The exception was caught asynchronously.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown while running async test code:
+Golden "goldens/onboarding_screen_3.png": Pixel test failed, 0.32%, 1082px diff detected.
+Failure feedback can be found at /C:/Users/girir/Documents/YatraCanvas/test/failures
+
+When the exception was thrown, this was the stack:
+#0      LocalFileComparator.compare (package:flutter_test/src/_goldens_io.dart:108:5)
+<asynchronous suspension>
+#1      MatchesGoldenFile.matchAsync.<anonymous closure> (package:flutter_test/src/_matchers_io.dart:124:32)
+<asynchronous suspension>
+<asynchronous suspension>
+#3      _expect.<anonymous closure> (package:matcher/src/expect/expect.dart:153:17)
+<asynchronous suspension>
+<asynchronous suspension>
+#5      expectLater.<anonymous closure> (package:flutter_test/src/widget_tester.dart:508:19)
+<asynchronous suspension>
+#6      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart:62:7)
+<asynchronous suspension>
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#8      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 3 frames from dart:async and package:stack_trace)
+
+The exception was caught asynchronously.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following message was thrown:
+Multiple exceptions (3) were detected during the running of the current test, and at least one was
+unexpected.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:07 +41 -1: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: onboarding story visual baselines [E]                                                                             
+  Test failed. See exception logs above.
+  The test description was: onboarding story visual baselines
+  
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart -p vm --plain-name "onboarding story visual baselines"
+
+00:07 +41 -1: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths                                                 
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "Where are you
+          going?": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart:72:9)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart line 72
+The test description was:
+  web-safe home paints, scrolls, toggles and navigates at phone widths
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:07 +42 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:07 +42 -2: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths [E]                                             
+  Test failed. See exception logs above.
+  The test description was: web-safe home paints, scrolls, toggles and navigates at phone widths
+  
+Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
+TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
+will actually be made. Any test expecting a real network connection and status code will fail.
+To test code that needs an HttpClient, provide your own HttpClient implementation to the code under
+test, so that your test can consistently provide a testable response to the code under test.
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart -p vm --plain-name "web-safe home paints, scrolls, toggles and navigates at phone widths"
+
+00:07 +43 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:07 +44 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:07 +45 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:07 +46 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:07 +46 -2: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 3: Interactive Map Performance & Progressive Rendering TripMapScreen renders base map and markers immediately with pre-passed state
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+
+00:07 +47 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:08 +47 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:08 +47 -2: C:/Users/girir/Documents/YatraCanvas/test/core_trip_flow_hardening_test.dart: Part 3: Interactive Map Performance & Progressive Rendering TripMapScreen degrades gracefully when route geometry fails
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+
+00:08 +48 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:08 +49 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:08 +50 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:08 +51 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:08 +52 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:09 +52 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:09 +53 -2: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:09 +53 -2: C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart: planning screens visual and accessible layout review                                                                
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: null
+  Actual: FlutterError:<Golden "goldens/planning_destination.png": Pixel test failed, 0.30%, 992px
+diff detected.
+          Failure feedback can be found at /C:/Users/girir/Documents/YatraCanvas/test/failures>
+destination scrolled at 393.0
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart:90:9)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart line 90
+The test description was:
+  planning screens visual and accessible layout review
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:09 +53 -3: C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart: planning screens visual and accessible layout review [E]                                                            
+  Test failed. See exception logs above.
+  The test description was: planning screens visual and accessible layout review
+  
+Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
+TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
+will actually be made. Any test expecting a real network connection and status code will fail.
+To test code that needs an HttpClient, provide your own HttpClient implementation to the code under
+test, so that your test can consistently provide a testable response to the code under test.
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/planning_visual_test.dart -p vm --plain-name "planning screens visual and accessible layout review"
+
+00:09 +53 -3: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:09 +54 -3: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:09 +54 -3: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: search opens existing flow and Continue retains existing behavior                                                       
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+The finder "Found 0 widgets with widget matching predicate: []" (used in a call to "tap()") could
+not find any matching widgets.
+
+When the exception was thrown, this was the stack:
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2095:7)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart:161:20)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  search opens existing flow and Continue retains existing behavior
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:09 +54 -4: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: search opens existing flow and Continue retains existing behavior [E]                                                   
+  Test failed. See exception logs above.
+  The test description was: search opens existing flow and Continue retains existing behavior
+  
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart -p vm --plain-name "search opens existing flow and Continue retains existing behavior"
+
+00:09 +55 -4: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: discovery screen selects multiple interests and requests ranking                                                    
+00:09 +56 -4: C:/Users/girir/Documents/YatraCanvas/test/poi_bottom_sheet_test.dart: 1. PoiBottomSheet renders correctly                                                                                
+00:09 +57 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +57 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +58 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +59 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +60 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +61 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +62 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +63 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +64 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +65 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +66 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +67 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +68 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +69 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +70 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +71 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:10 +72 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +72 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +73 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +74 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +75 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +76 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +77 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +78 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +79 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +80 -4: C:/Users/girir/Documents/YatraCanvas/test/onboarding_screen_test.dart: all story pages support narrow phones, landscape and large text                                                   
+00:11 +81 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:11 +82 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:11 +83 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:11 +84 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:11 +85 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:11 +86 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:11 +87 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +87 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +88 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +89 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +90 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +91 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +92 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +93 -4: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +93 -4: C:/Users/girir/Documents/YatraCanvas/test/route_coverage_test.dart: welcome route opens login and back returns to welcome                                                                
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+The finder "Found 0 widgets with text "Start Your Journey": []" (used in a call to "tap()") could
+not find any matching widgets.
+
+When the exception was thrown, this was the stack:
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2095:7)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/route_coverage_test.dart:22:18)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  welcome route opens login and back returns to welcome
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:12 +93 -5: C:/Users/girir/Documents/YatraCanvas/test/route_coverage_test.dart: welcome route opens login and back returns to welcome [E]                                                            
+  Test failed. See exception logs above.
+  The test description was: welcome route opens login and back returns to welcome
+  
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/route_coverage_test.dart -p vm --plain-name "welcome route opens login and back returns to welcome"
+
+00:12 +94 -5: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +95 -5: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +96 -5: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +97 -5: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+00:12 +97 -5: C:/Users/girir/Documents/YatraCanvas/test/route_coverage_test.dart: guest onboarding route reaches home                                                                                  
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+The finder "Found 0 widgets with text "Let’s Personalise": []" (used in a call to "tap()") could not
+find any matching widgets.
+
+When the exception was thrown, this was the stack:
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2095:7)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/route_coverage_test.dart:50:18)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  guest onboarding route reaches home
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:12 +97 -6: C:/Users/girir/Documents/YatraCanvas/test/route_coverage_test.dart: guest onboarding route reaches home [E]                                                                              
+  Test failed. See exception logs above.
+  The test description was: guest onboarding route reaches home
+  
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/route_coverage_test.dart -p vm --plain-name "guest onboarding route reaches home"
+
+00:12 +97 -6: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation                                      
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "When are you
+          travelling?": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart:123:7)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart line 123
+The test description was:
+  DestinationSelectionScreen starts prefetch without delaying navigation
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:12 +97 -7: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: DestinationSelectionScreen starts prefetch without delaying navigation [E]                                  
+  Test failed. See exception logs above.
+  The test description was: DestinationSelectionScreen starts prefetch without delaying navigation
+  
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart -p vm --plain-name "DestinationSelectionScreen starts prefetch without delaying navigation"
+
+00:12 +98 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                           
+00:13 +98 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                           
+00:13 +99 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                           
+00:13 +100 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +101 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +102 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +103 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +104 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +105 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +106 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +107 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +108 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +109 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +110 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +111 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +112 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +113 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +114 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:13 +115 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:14 +115 -7: C:/Users/girir/Documents/YatraCanvas/test/place_discovery_test.dart: selected places reorder persists the complete place order                                                          
+00:14 +116 -7: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +117 -7: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +117 -7: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: TripPurposeScreen starts targeted enrichment and navigates                                                 
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "How do you like
+          to travel?": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart:163:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart line 163
+The test description was:
+  TripPurposeScreen starts targeted enrichment and navigates
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:14 +117 -8: C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart: TripPurposeScreen starts targeted enrichment and navigates [E]                                             
+  Test failed. See exception logs above.
+  The test description was: TripPurposeScreen starts targeted enrichment and navigates
+  
+Warning: At least one test in this suite creates an HttpClient. When running a test suite that uses
+TestWidgetsFlutterBinding, all HTTP requests will return status code 400, and no network request
+will actually be made. Any test expecting a real network connection and status code will fail.
+To test code that needs an HttpClient, provide your own HttpClient implementation to the code under
+test, so that your test can consistently provide a testable response to the code under test.
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/prefetch_live_discovery_test.dart -p vm --plain-name "TripPurposeScreen starts targeted enrichment and navigates"
+
+00:14 +118 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +119 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +120 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +121 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +122 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +123 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +124 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +125 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +126 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +127 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +128 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +129 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +130 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +131 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +132 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +133 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +134 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +135 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:14 +136 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:15 +136 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:15 +137 -8: C:/Users/girir/Documents/YatraCanvas/test/select_dates_test.dart: SelectDatesScreen uses dynamic dates without hardcoding                                                               
+00:15 +138 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +139 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +140 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +141 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +142 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +143 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +144 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +145 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +146 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +147 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +148 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +149 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +150 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +151 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +152 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:15 +153 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +153 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +154 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +155 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +156 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +157 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +158 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +159 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +160 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +161 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +162 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +163 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +164 -8: C:/Users/girir/Documents/YatraCanvas/test/start_location_test.dart: hotel start is searched, resolved, and saved before continuing                                                      
+00:16 +165 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:16 +166 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:16 +167 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +167 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +168 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +169 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +170 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +171 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +172 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +173 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +173 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_map_test.dart: TripMapScreen displays markers and PolylineLayer for road route geometry                                                  
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+
+00:17 +174 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +175 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_editing_test.dart: TripPreferencesScreen calls updateTrip for existing trip and navigates without creating a new trip                    
+00:17 +176 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: opens the onboarding flow from splash                                                                                       
+00:18 +176 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: opens the onboarding flow from splash                                                                                       
+00:18 +177 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: opens the onboarding flow from splash                                                                                       
+00:18 +178 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_map_test.dart: TripMapScreen day filter updates visible polylines                                                                        
+00:18 +178 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_map_test.dart: TripMapScreen day filter updates visible polylines                                                                        
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+
+00:18 +179 -8: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 19. REST days are not shown as move targets                     
+00:18 +180 -8: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 19. REST days are not shown as move targets                     
+00:18 +180 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_map_test.dart: TripMapScreen degrades gracefully when route geometry fails                                                               
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+
+00:18 +181 -8: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 19. REST days are not shown as move targets                     
+00:18 +182 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: create trip flow advances through all five steps                                                                            
+00:18 +182 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_map_test.dart: POI move picker excludes REST days and uses persisted map state                                                           
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+
+00:18 +183 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: create trip flow advances through all five steps                                                                            
+00:18 +184 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: create trip flow advances through all five steps                                                                            
+00:18 +184 -8: C:/Users/girir/Documents/YatraCanvas/test/trip_map_test.dart: map status mutation publishes authoritative route to parent                                                               
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+
+00:18 +185 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: create trip flow advances through all five steps                                                                            
+00:19 +185 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: create trip flow advances through all five steps                                                                            
+00:19 +186 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: create trip flow advances through all five steps                                                                            
+00:19 +187 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: create trip flow advances through all five steps                                                                            
+00:19 +188 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: create trip flow advances through all five steps                                                                            
+00:19 +189 -8: C:/Users/girir/Documents/YatraCanvas/test/plan_your_days_test.dart: Stop Status & Missed Place Replanning (Items 15-24) 24. loading state prevents duplicate requests                   
+00:19 +190 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: city search is debounced and selected city is resolved                                                                      
+00:20 +190 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: city search is debounced and selected city is resolved                                                                      
+00:20 +190 -8: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: city search is debounced and selected city is resolved                                                                      
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "CITY ADDED TO YOUR TRIP": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart:214:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart line 214
+The test description was:
+  city search is debounced and selected city is resolved
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:20 +190 -9: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: city search is debounced and selected city is resolved [E]                                                                  
+  Test failed. See exception logs above.
+  The test description was: city search is debounced and selected city is resolved
+  
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart -p vm --plain-name "city search is debounced and selected city is resolved"
+
+00:20 +190 -9: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: Geoapify city resolves and stores UUID                                                                                      
+00:20 +190 -9: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: Geoapify city resolves and stores UUID                                                                                      
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: exactly one matching candidate
+  Actual: _TextWidgetFinder:<Found 0 widgets with text "CITY ADDED TO YOUR TRIP": []>
+   Which: means none were found but one was expected
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart:277:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart line 277
+The test description was:
+  Geoapify city resolves and stores UUID
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:20 +190 -10: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: Geoapify city resolves and stores UUID [E]                                                                                 
+  Test failed. See exception logs above.
+  The test description was: Geoapify city resolves and stores UUID
+  
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart -p vm --plain-name "Geoapify city resolves and stores UUID"
+
+00:20 +190 -10: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: city search shows empty and backend error states                                                                           
+00:20 +191 -10: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: city search shows empty and backend error states                                                                           
+00:20 +191 -10: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: Home create navigation opens and returns from trip setup                                                                   
+00:20 +191 -10: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: Home create navigation opens and returns from trip setup                                                                   
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+The finder "Found 0 widgets with widget matching predicate: []" (used in a call to "tap()") could
+not find any matching widgets.
+
+When the exception was thrown, this was the stack:
+#0      WidgetController._getElementPoint (package:flutter_test/src/controller.dart:2095:7)
+#1      WidgetController.getCenter (package:flutter_test/src/controller.dart:1947:12)
+#2      WidgetController.tap (package:flutter_test/src/controller.dart:1080:7)
+#3      main.<anonymous closure> (file:///C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart:334:18)
+<asynchronous suspension>
+#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  Home create navigation opens and returns from trip setup
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+00:20 +191 -11: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: Home create navigation opens and returns from trip setup [E]                                                               
+  Test failed. See exception logs above.
+  The test description was: Home create navigation opens and returns from trip setup
+  
+
+To run this test again: C:\Users\girir\develop\flutter\bin\cache\dart-sdk\bin\dart.exe test C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart -p vm --plain-name "Home create navigation opens and returns from trip setup"
+
+00:20 +191 -11: Some tests failed.                                                                                                                                                                     

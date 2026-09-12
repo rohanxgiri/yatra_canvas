@@ -1,0 +1,32 @@
+00:00 +0: loading C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart
+00:00 +0: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: opens the onboarding flow from splash
+00:00 +1: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: opens the onboarding flow from splash
+00:01 +2: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance
+00:01 +3: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: approved frame proportions and rendered appearance
+00:01 +4: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:01 +5: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:02 +6: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:02 +7: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:02 +8: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:02 +9: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:02 +10: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:02 +11: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:02 +12: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:02 +13: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:03 +14: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:03 +15: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:03 +16: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:03 +17: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:03 +18: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:03 +19: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:03 +20: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:03 +21: C:/Users/girir/Documents/YatraCanvas/test/home_web_smoke_test.dart: web-safe home paints, scrolls, toggles and navigates at phone widths
+00:03 +22: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: Home create navigation opens and returns from trip setup
+00:04 +23: C:/Users/girir/Documents/YatraCanvas/test/widget_test.dart: Home create navigation opens and returns from trip setup
+00:04 +24: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: phone 393.0: cards, favorites, safe area and responsive scrolling
+00:04 +25: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: phone 412.0: cards, favorites, safe area and responsive scrolling
+00:04 +26: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: phone 430.0: cards, favorites, safe area and responsive scrolling
+00:04 +27: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: navigation exposes all five accessible and tappable actions without ink or tooltips
+00:05 +28: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: hover has no state layer; press scales and cancel restores; keyboard activates
+00:05 +29: C:/Users/girir/Documents/YatraCanvas/test/home_screen_test.dart: unsupported renderer uses a tightly clipped blur fallback
+00:05 +30: All tests passed!

@@ -11,12 +11,12 @@ class AppColors {
 
   // Legacy token names are retained to keep widgets stable while the visual
   // language moves from teal to YatraCanvas's distinctive route blue.
-  static const Color teal = Color(0xFF315EEB);
-  static const Color tealDark = Color(0xFF173783);
-  static const Color tealLight = Color(0xFFE7EDFF);
+  static const Color teal = Color(0xFF055EC8);
+  static const Color tealDark = Color(0xFF164779);
+  static const Color tealLight = Color(0xFFE7F0FF);
   static const Color emerald = Color(0xFF16856F);
 
-  static const Color charcoal = Color(0xFF142033);
+  static const Color charcoal = Color(0xFF141B34);
   static const Color textSecondary = Color(0xFF5D687B);
   static const Color textTertiary = Color(0xFF8A94A6);
 
@@ -42,6 +42,6 @@ class AppColors {
   static const LinearGradient tealGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF315EEB), Color(0xFF152D62)],
+    colors: [Color(0xFF055EC8), Color(0xFF152D62)],
   );
 }

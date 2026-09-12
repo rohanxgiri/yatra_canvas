@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
+import '../theme/yc_style.dart';
 import 'primary_button.dart';
 import 'progress_header.dart';
 
@@ -18,7 +17,6 @@ class CreateTripScaffold extends StatelessWidget {
     this.onBack,
     super.key,
   });
-
   final int step;
   final String title;
   final String subtitle;
@@ -28,57 +26,57 @@ class CreateTripScaffold extends StatelessWidget {
   final IconData? continueIcon;
   final bool continueEnabled;
   final VoidCallback? onBack;
-
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) => Theme(
+    data: YCStyle.theme(context),
+    child: Scaffold(
       resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: Column(
-          children: [
-            ProgressHeader(
-              currentStep: step,
-              totalSteps: 5,
-              useSafeArea: false,
-              onBack: onBack ?? () => Navigator.of(context).pop(),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: AppTextStyles.display),
-                    const SizedBox(height: 14),
-                    Text(
-                      subtitle,
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        color: AppColors.textSecondary,
+      body: YCCanvas(
+        child: SafeArea(
+          child: Column(
+            children: [
+              ProgressHeader(
+                currentStep: step,
+                totalSteps: 5,
+                useSafeArea: false,
+                onBack: onBack ?? () => Navigator.of(context).maybePop(),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title.replaceAll('\n', ' '), style: YCStyle.title),
+                      const SizedBox(height: 12),
+                      Text(
+                        subtitle,
+                        style: YCStyle.body.copyWith(color: YCStyle.muted),
                       ),
-                    ),
-                    const SizedBox(height: 30),
-                    child,
-                  ],
+                      const SizedBox(height: 28),
+                      child,
+                    ],
+                  ),
                 ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-              decoration: const BoxDecoration(
-                color: AppColors.canvas,
-                border: Border(top: BorderSide(color: AppColors.border)),
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                decoration: const BoxDecoration(
+                  color: Color(0xF7F6F9FF),
+                  border: Border(top: BorderSide(color: YCStyle.border)),
+                ),
+                child: PrimaryButton(
+                  label: continueLabel,
+                  icon: continueIcon,
+                  onPressed: continueEnabled ? onContinue : null,
+                ),
               ),
-              child: PrimaryButton(
-                label: continueLabel,
-                icon: continueIcon,
-                onPressed: continueEnabled ? onContinue : null,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

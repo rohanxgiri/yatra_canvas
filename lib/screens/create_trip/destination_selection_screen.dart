@@ -1,3 +1,5 @@
+import '../../models/yatra_session.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -19,6 +21,7 @@ import 'select_dates_screen.dart';
 class DestinationSelectionScreen extends StatefulWidget {
   const DestinationSelectionScreen({
     this.draft,
+    this.initialQuery,
     this.cityService,
     this.tripService,
     this.prefetchService,
@@ -26,6 +29,7 @@ class DestinationSelectionScreen extends StatefulWidget {
   });
 
   final TripDraft? draft;
+  final String? initialQuery;
   final CityService? cityService;
   final TripService? tripService;
   final PlacePrefetchService? prefetchService;
@@ -59,7 +63,7 @@ class _DestinationSelectionScreenState
   @override
   void initState() {
     super.initState();
-    _draft = widget.draft ?? TripDraft();
+    _draft = widget.draft ?? TripDraft(travelPace: YatraSession.instance.pace);
     _ownsCityService = widget.cityService == null;
     _cityService = widget.cityService ?? CityService();
 
@@ -67,6 +71,10 @@ class _DestinationSelectionScreenState
     if (selectedCity != null) {
       _query = selectedCity.displayName;
       _searchController.text = selectedCity.displayName;
+    }
+    if (selectedCity == null && widget.initialQuery != null) {
+      _searchController.text = widget.initialQuery!;
+      _onSearchChanged(widget.initialQuery!);
     }
   }
 
@@ -259,7 +267,7 @@ class _DestinationSelectionScreenState
 
   String _friendlyError(Object error) {
     if (error is TimeoutException) {
-      return 'The server took too long to respond. Check that FastAPI is running.';
+      return 'This is taking longer than usual. Please try again.';
     }
     if (error is CityServiceException) return error.message;
     return 'Could not reach the city service. Check your connection and try again.';
@@ -291,7 +299,7 @@ class _DestinationSelectionScreenState
     return CreateTripScaffold(
       step: 1,
       title: 'Where are you\ngoing?',
-      subtitle: 'Search saved cities or discover a new destination.',
+      subtitle: 'Choose a city. Your journey starts here.',
       continueEnabled: _draft.destination != null && !_isResolving,
       onContinue: _continue,
       child: Column(
@@ -375,11 +383,34 @@ class _DestinationSelectionScreenState
       return const SizedBox.shrink(key: ValueKey('selected'));
     }
     if (_query.trim().length < 2) {
-      return const _StatusCard(
+      final recent = <String, String>{
+        for (final trip in YatraSession.instance.trips)
+          if (trip.destination != null)
+            trip.destination!.name: trip.destination!.state ?? '',
+      };
+      final suggestions = recent.isNotEmpty
+          ? recent
+          : {'Jaipur': 'Rajasthan', 'Varanasi': 'Uttar Pradesh'};
+      return Column(
         key: ValueKey('hint'),
-        icon: Icons.travel_explore_rounded,
-        title: 'Find your destination',
-        message: 'Type at least 2 characters to search cities.',
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 22),
+          Text(recent.isNotEmpty ? 'Recent destinations' : 'A little inspiration', style: AppTextStyles.sectionTitle),
+          const SizedBox(height: 12),
+          for (final city in suggestions.entries.take(4))
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.location_on_outlined),
+              title: Text(city.key),
+              subtitle: Text(city.value),
+              trailing: const Icon(Icons.north_west_rounded, size: 20),
+              onTap: () {
+                _searchController.text = city.key;
+                _onSearchChanged(city.key);
+              },
+            ),
+        ],
       );
     }
     if (_isSearching && _suggestions.isEmpty) {
@@ -552,23 +583,9 @@ class _CitySuggestion extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: suggestion.isExternal
-                      ? AppColors.canvasPeach
-                      : AppColors.surfaceSoft,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  suggestion.isExternal ? 'New' : 'Saved',
-                  style: AppTextStyles.caption.copyWith(
-                    color: suggestion.isExternal
-                        ? AppColors.tealDark
-                        : AppColors.textSecondary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondary,
               ),
             ],
           ),
@@ -664,67 +681,33 @@ class _ErrorCard extends StatelessWidget {
 
 class _SelectedCityCard extends StatelessWidget {
   const _SelectedCityCard({required this.city});
-
   final City city;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: AppColors.tealGradient,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -8,
-            bottom: -18,
-            child: Icon(
-              Icons.route_rounded,
-              size: 96,
-              color: Colors.white.withValues(alpha: .10),
-            ),
-          ),
-          Column(
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: AppColors.teal),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.check_circle_outline, color: AppColors.teal),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.check_circle_rounded,
-                    color: AppColors.marigold,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text(
-                      'CITY ADDED TO YOUR TRIP',
-                      maxLines: 2,
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.marigold,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: .7,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(
-                city.name,
-                style: AppTextStyles.pageTitle.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                city.locationLabel,
-                style: AppTextStyles.body.copyWith(color: Colors.white70),
-              ),
+              Text('Your destination', style: AppTextStyles.caption),
+              const SizedBox(height: 6),
+              Text(city.name, style: AppTextStyles.sectionTitle),
+              const SizedBox(height: 4),
+              Text(city.locationLabel, style: AppTextStyles.bodyMuted),
             ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }

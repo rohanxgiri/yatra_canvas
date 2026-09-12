@@ -1,3 +1,5 @@
+import '../../widgets/selection_chip.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -737,7 +739,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
-              final width = (constraints.maxWidth - 10) / 2;
+              final width = constraints.maxWidth;
               return Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -788,46 +790,17 @@ class _TransportCard extends StatelessWidget {
     required this.selected,
     required this.onTap,
   });
-
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
-
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(17),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: 94,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.tealLight : AppColors.surface,
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(
-              color: selected ? AppColors.teal : AppColors.border,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: selected ? AppColors.teal : AppColors.textSecondary,
-              ),
-              const SizedBox(height: 7),
-              Text(label, style: AppTextStyles.label),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SelectionChip(
+    label: label,
+    icon: icon,
+    selected: selected,
+    onSelected: (_) => onTap(),
+  );
 }
 
 class _TimeField extends StatelessWidget {
@@ -873,48 +846,45 @@ class _StartOptionCard extends StatelessWidget {
     required this.selected,
     required this.onTap,
   });
-
   final TripStartLocationType type;
   final bool selected;
   final VoidCallback onTap;
-
   @override
   Widget build(BuildContext context) {
     final icon = switch (type) {
       TripStartLocationType.arrival => Icons.flag_outlined,
-      TripStartLocationType.hotel => Icons.hotel_rounded,
+      TripStartLocationType.hotel => Icons.hotel_outlined,
       TripStartLocationType.currentLocation => Icons.my_location_rounded,
       TripStartLocationType.custom => Icons.add_location_alt_outlined,
     };
     return Semantics(
       button: true,
       selected: selected,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          constraints: const BoxConstraints(minHeight: 82),
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.tealLight : AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? AppColors.teal : AppColors.border,
-              width: selected ? 1.5 : 1,
+      child: Material(
+        color: selected ? AppColors.tealLight : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: selected ? AppColors.teal : AppColors.border),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(icon, size: 22, color: AppColors.teal),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(type.label, style: AppTextStyles.bodyLarge),
+                ),
+                Icon(
+                  selected ? Icons.check_circle : Icons.circle_outlined,
+                  color: selected ? AppColors.teal : AppColors.borderStrong,
+                  size: 22,
+                ),
+              ],
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                icon,
-                color: selected ? AppColors.teal : AppColors.textSecondary,
-                size: 22,
-              ),
-              const SizedBox(height: 8),
-              Text(type.label, style: AppTextStyles.label),
-            ],
           ),
         ),
       ),

@@ -1,3 +1,5 @@
+import '../theme/yc_style.dart';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -241,11 +243,16 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
   // ── build ────────────────────────────────────────────────────────────────────
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => Theme(
+    data: YCStyle.theme(context),
+    child: Builder(builder: _buildSheet),
+  );
+
+  Widget _buildSheet(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
         top: false,
@@ -269,7 +276,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -321,7 +328,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.teal,
                       fontWeight: FontWeight.w600,
-                      fontSize: 11,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -340,7 +347,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w600,
-                    fontSize: 11,
+                    fontSize: 12,
                   ),
                 ),
               ),
@@ -528,7 +535,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
                   side: const BorderSide(color: AppColors.border),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
               ),
@@ -545,7 +552,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
                   side: const BorderSide(color: AppColors.border),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
               ),
@@ -576,11 +583,11 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
               icon: const Icon(Icons.calendar_today_rounded, size: 18),
               label: const Text('Move to Another Day'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFF4B94F),
+                backgroundColor: YCStyle.blue,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(24),
                 ),
               ),
             ),
@@ -630,7 +637,7 @@ class _StatusActionMenu extends StatelessWidget {
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(24),
             ),
           ),
         ),
@@ -646,7 +653,7 @@ class _StatusActionMenu extends StatelessWidget {
                   side: const BorderSide(color: Color(0xFFB45309)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
                 child: const Text("Couldn't Visit"),
@@ -662,7 +669,7 @@ class _StatusActionMenu extends StatelessWidget {
                   side: const BorderSide(color: AppColors.border),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                 ),
                 child: const Text('Skip'),
@@ -698,7 +705,7 @@ class _MoveDayPicker extends StatelessWidget {
         key: const Key('poi_move_day_picker'),
         decoration: const BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: SafeArea(
           top: false,

@@ -155,7 +155,7 @@ void main() {
       await tester.scrollUntilVisible(find.text('Mahakaleshwar Temple'), 220);
       expect(find.text('Mahakaleshwar Temple'), findsOneWidget);
       expect(find.text('Matches Religious + Heritage'), findsOneWidget);
-      expect(find.textContaining('Score 78.3'), findsOneWidget);
+      expect(find.textContaining('Score 78.3'), findsNothing);
 
       await tester.scrollUntilVisible(find.text('Add'), 180);
       await tester.tap(find.text('Add'));
@@ -165,7 +165,10 @@ void main() {
       expect(find.text('1 saved'), findsOneWidget);
 
       final removeButton = find.widgetWithText(TextButton, 'Remove');
-      await tester.drag(find.byType(ListView), const Offset(0, -220));
+      await tester.drag(
+        find.byType(SingleChildScrollView).first,
+        const Offset(0, -220),
+      );
       await tester.pumpAndSettle();
       await tester.tap(removeButton);
       await tester.pumpAndSettle();
@@ -490,61 +493,62 @@ void main() {
     expect(find.text('Controlled delete failure.'), findsWidgets);
   });
 
-  testWidgets('category filter requests filtered recommendations and restores on All', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(430, 1400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'category filter requests filtered recommendations and restores on All',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    final service = _FakeRecommendationService();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: PlaceDiscoveryScreen(
-          city: _city,
-          tripId: 'trip-filter',
-          tripPurposes: const {'Food Exploration'},
-          routeStartReady: true,
-          recommendationService: service,
-          savedPlaceService: _FakeSavedPlaceService(),
+      final service = _FakeRecommendationService();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: PlaceDiscoveryScreen(
+            city: _city,
+            tripId: 'trip-filter',
+            tripPurposes: const {'Food Exploration'},
+            routeStartReady: true,
+            recommendationService: service,
+            savedPlaceService: _FakeSavedPlaceService(),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    // Initial request with Food
-    expect(service.requests, hasLength(1));
-    expect(service.purposeRequests.last, {'Food Exploration'});
-    expect(service.filterRequests.last, isNull);
+      // Initial request with Food
+      expect(service.requests, hasLength(1));
+      expect(service.purposeRequests.last, {'Food Exploration'});
+      expect(service.filterRequests.last, isNull);
 
-    // Tap "Add another interest" and add Cafes
-    await tester.tap(find.text('Add another interest'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cafes'));
-    await tester.pump();
-    await tester.tap(find.text('Update recommendations'));
-    await tester.pumpAndSettle();
+      // Tap "Add another interest" and add Cafes
+      await tester.tap(find.text('Add another interest'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cafes'));
+      await tester.pump();
+      await tester.tap(find.text('Update recommendations'));
+      await tester.pumpAndSettle();
 
-    expect(service.requests, hasLength(2));
-    expect(service.requests.last, [PlaceCategory.food, PlaceCategory.cafes]);
+      expect(service.requests, hasLength(2));
+      expect(service.requests.last, [PlaceCategory.food, PlaceCategory.cafes]);
 
-    // Now category filter chips are visible (All, Food, Cafes)
-    expect(find.byKey(const ValueKey('filter_cafes')), findsOneWidget);
+      // Now category filter chips are visible (All, Food, Cafes)
+      expect(find.byKey(const ValueKey('filter_cafes')), findsOneWidget);
 
-    // Tap Cafes filter chip
-    await tester.tap(find.byKey(const ValueKey('filter_cafes')));
-    await tester.pumpAndSettle();
+      // Tap Cafes filter chip
+      await tester.tap(find.byKey(const ValueKey('filter_cafes')));
+      await tester.pumpAndSettle();
 
-    expect(service.filterRequests.last, PlaceCategory.cafes);
+      expect(service.filterRequests.last, PlaceCategory.cafes);
 
-    // Tap All filter chip
-    await tester.tap(find.text('All'));
-    await tester.pumpAndSettle();
+      // Tap All filter chip
+      await tester.tap(find.text('All'));
+      await tester.pumpAndSettle();
 
-    expect(service.filterRequests.last, isNull);
-  });
+      expect(service.filterRequests.last, isNull);
+    },
+  );
 }
 
 const _city = City(

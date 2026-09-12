@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yatra_canvas/models/city.dart';
 import 'package:yatra_canvas/models/itinerary_stop_status.dart';
@@ -13,11 +15,12 @@ import 'package:yatra_canvas/services/saved_place_service.dart';
 import 'package:yatra_canvas/services/smart_replanning_service.dart';
 import 'package:yatra_canvas/services/trip_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
+import 'package:yatra_canvas/widgets/poi_bottom_sheet.dart';
 
 class _FakeTripService extends TripService {
   _FakeTripService({List<TripDay>? initialDays})
-      : days = initialDays ?? [],
-        super(baseUrl: 'http://test.local');
+    : days = initialDays ?? [],
+      super(baseUrl: 'http://test.local');
 
   List<TripDay> days;
   int updateCallCount = 0;
@@ -58,8 +61,8 @@ class _FakeTripService extends TripService {
 
 class _FakeSavedPlaceService extends SavedPlaceService {
   _FakeSavedPlaceService({List<SavedPlace>? initialPlaces})
-      : places = initialPlaces ?? [],
-        super(baseUrl: 'http://test.local');
+    : places = initialPlaces ?? [],
+      super(baseUrl: 'http://test.local');
 
   List<SavedPlace> places;
   int assignmentCallCount = 0;
@@ -68,7 +71,8 @@ class _FakeSavedPlaceService extends SavedPlaceService {
   Duration? delay;
 
   @override
-  Future<List<SavedPlace>> getSavedPlaces(String tripId) async => List.of(places);
+  Future<List<SavedPlace>> getSavedPlaces(String tripId) async =>
+      List.of(places);
 
   @override
   Future<SavedPlace> updateAssignment(
@@ -96,7 +100,7 @@ class _FakeSavedPlaceService extends SavedPlaceService {
 
 class _FakeRouteOptimizationService extends RouteOptimizationService {
   _FakeRouteOptimizationService({this.route})
-      : super(baseUrl: 'http://test.local');
+    : super(baseUrl: 'http://test.local');
 
   OptimizedRoute? route;
   int optimizeCallCount = 0;
@@ -241,34 +245,73 @@ void main() {
   );
 
   List<TripDay> sampleTripDays() => [
-        TripDay(
-          id: 'day-1',
-          tripId: 'trip-1',
-          dayNumber: 1,
-          date: DateTime(2026, 9, 10),
-          dayType: DayType.fullDay,
-          startTime: '09:00',
-          endTime: '19:00',
-        ),
-        TripDay(
-          id: 'day-2',
-          tripId: 'trip-1',
-          dayNumber: 2,
-          date: DateTime(2026, 9, 11),
-          dayType: DayType.rest,
-          startTime: null,
-          endTime: null,
-        ),
-        TripDay(
-          id: 'day-3',
-          tripId: 'trip-1',
-          dayNumber: 3,
-          date: DateTime(2026, 9, 12),
-          dayType: DayType.fullDay,
-          startTime: '10:00',
-          endTime: '18:00',
-        ),
-      ];
+    TripDay(
+      id: 'day-1',
+      tripId: 'trip-1',
+      dayNumber: 1,
+      date: DateTime(2026, 9, 10),
+      dayType: DayType.fullDay,
+      startTime: '09:00',
+      endTime: '19:00',
+    ),
+    TripDay(
+      id: 'day-2',
+      tripId: 'trip-1',
+      dayNumber: 2,
+      date: DateTime(2026, 9, 11),
+      dayType: DayType.rest,
+      startTime: null,
+      endTime: null,
+    ),
+    TripDay(
+      id: 'day-3',
+      tripId: 'trip-1',
+      dayNumber: 3,
+      date: DateTime(2026, 9, 12),
+      dayType: DayType.fullDay,
+      startTime: '10:00',
+      endTime: '18:00',
+    ),
+  ];
+
+  testWidgets('day settings itinerary and place sheet mobile visual review', (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await (FontLoader('HomeInter')..addFont(rootBundle.load('lib/assets/fonts/Inter.ttf'))).load();
+    final icons = File('build/unit_test_assets/fonts/MaterialIcons-Regular.otf');
+    if (icons.existsSync()) {
+      await (FontLoader('MaterialIcons')..addFont(Future.value(ByteData.view(icons.readAsBytesSync().buffer)))).load();
+    }
+    final saved = SavedPlace(id: 'saved-1', tripId: 'trip-1', placeId: 'place-1', customOrder: 1, priority: 0, isLocked: false, mustVisit: false, place: testPlace1);
+    final stop = OptimizedRoutePlace(id: 'stop-1', placeId: 'place-1', name: 'Hawa Mahal', dayNumber: 1, visitOrder: 1, distanceFromPrevious: 1.2, travelTimeMinutes: 8, plannedArrivalTime: '09:00:00', plannedDepartureTime: '10:30:00', visitDurationMinutes: 90, isOpeningHoursKnown: false, status: 'PLANNED');
+    final route = OptimizedRoute(tripId: 'trip-1', places: [stop], totalDistance: 1.2, totalTravelTimeMinutes: 8, totalDays: 3);
+    for (final width in [393.0, 320.0]) {
+      tester.view.physicalSize = Size(width, 852);
+      tester.view.devicePixelRatio = 1;
+      for (final entry in <String, Widget>{
+        'day_settings': PlanDaysScreen(tripId: 'trip-1', tripService: _FakeTripService(initialDays: sampleTripDays())),
+        'itinerary': PlaceDiscoveryScreen(city: testCity, tripId: 'trip-1', tripService: _FakeTripService(initialDays: sampleTripDays()), savedPlaceService: _FakeSavedPlaceService(initialPlaces: [saved]), smartReplanningService: _FakeSmartReplanningService(initialRoute: route)),
+        'poi': Scaffold(body: Align(alignment: Alignment.bottomCenter, child: PoiBottomSheet(savedPlace: saved, routeStop: stop, availableDays: const [3], onStatusChange: (_) async {}, onMoveToDay: (_) async {}))),
+      }.entries) {
+        await tester.pumpWidget(MaterialApp(key: UniqueKey(), theme: AppTheme.light, home: MediaQuery(data: MediaQueryData(size: Size(width, 852), textScaler: TextScaler.linear(width == 320 ? 1.6 : 1), padding: const EdgeInsets.only(top: 28, bottom: 24)), child: RepaintBoundary(key: const ValueKey('day-review'), child: entry.value))));
+        await tester.pumpAndSettle();
+        if (entry.key == 'itinerary') {
+          await tester.ensureVisible(find.text('Day 1').first);
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull, reason: '${entry.key} at $width');
+        if (width == 393) {
+          await expectLater(find.byKey(const ValueKey('day-review')), matchesGoldenFile('goldens/product_${entry.key}.png'));
+        }
+        final scroll = find.byType(SingleChildScrollView);
+        if (scroll.evaluate().isNotEmpty) {
+          await tester.drag(scroll.first, const Offset(0, -1300));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: '${entry.key} scrolled at $width');
+        }
+      }
+    }
+  });
 
   group('Plan Your Days UI (Items 1-6)', () {
     testWidgets('1. Plan Your Days loads TripDays correctly', (tester) async {
@@ -303,13 +346,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('configure-day-1')));
+      await _tapVisible(tester, find.byKey(const ValueKey('configure-day-1')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Rest Day'));
+      await _tapVisible(tester, find.widgetWithText(ChoiceChip, 'Rest Day'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('save-day-config')));
+      await _tapVisible(tester, find.byKey(const ValueKey('save-day-config')));
       await tester.pumpAndSettle();
 
       expect(tripService.lastUpdatedDayType, DayType.rest);
@@ -328,13 +371,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('configure-day-2')));
+      await _tapVisible(tester, find.byKey(const ValueKey('configure-day-2')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Full Day'));
+      await _tapVisible(tester, find.widgetWithText(ChoiceChip, 'Full Day'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('save-day-config')));
+      await _tapVisible(tester, find.byKey(const ValueKey('save-day-config')));
       await tester.pumpAndSettle();
 
       expect(tripService.lastUpdatedDayType, DayType.fullDay);
@@ -351,13 +394,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('configure-day-1')));
+      await _tapVisible(tester, find.byKey(const ValueKey('configure-day-1')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Half Day'));
+      await _tapVisible(tester, find.widgetWithText(ChoiceChip, 'Half Day'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('save-day-config')));
+      await _tapVisible(tester, find.byKey(const ValueKey('save-day-config')));
       await tester.pumpAndSettle();
 
       expect(tripService.lastUpdatedDayType, DayType.halfDay);
@@ -374,13 +417,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('configure-day-1')));
+      await _tapVisible(tester, find.byKey(const ValueKey('configure-day-1')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Travel Day'));
+      await _tapVisible(tester, find.widgetWithText(ChoiceChip, 'Travel Day'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('save-day-config')));
+      await _tapVisible(tester, find.byKey(const ValueKey('save-day-config')));
       await tester.pumpAndSettle();
 
       expect(tripService.lastUpdatedDayType, DayType.travel);
@@ -408,7 +451,9 @@ void main() {
         assignedDayId: null,
       );
 
-      final savedPlaceService = _FakeSavedPlaceService(initialPlaces: [savedPlace]);
+      final savedPlaceService = _FakeSavedPlaceService(
+        initialPlaces: [savedPlace],
+      );
       final tripService = _FakeTripService(initialDays: sampleTripDays());
 
       await tester.pumpWidget(
@@ -441,7 +486,9 @@ void main() {
         assignedDayId: null,
       );
 
-      final savedPlaceService = _FakeSavedPlaceService(initialPlaces: [savedPlace]);
+      final savedPlaceService = _FakeSavedPlaceService(
+        initialPlaces: [savedPlace],
+      );
       final tripService = _FakeTripService(initialDays: sampleTripDays());
 
       await tester.pumpWidget(
@@ -457,13 +504,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('schedule-badge-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('schedule-badge-place-1')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Schedule Hawa Mahal'), findsOneWidget);
       expect(find.text('Day 1 · Full Day'), findsOneWidget);
 
-      await tester.tap(find.text('Day 1 · Full Day'));
+      await _tapVisible(tester, find.text('Day 1 · Full Day'));
       await tester.pumpAndSettle();
 
       expect(savedPlaceService.lastAssignmentMode, AssignmentMode.locked);
@@ -484,7 +534,9 @@ void main() {
         assignedDayId: 'day-1',
       );
 
-      final savedPlaceService = _FakeSavedPlaceService(initialPlaces: [lockedPlace]);
+      final savedPlaceService = _FakeSavedPlaceService(
+        initialPlaces: [lockedPlace],
+      );
       final tripService = _FakeTripService(initialDays: sampleTripDays());
 
       await tester.pumpWidget(
@@ -502,17 +554,22 @@ void main() {
 
       expect(find.text('Day 1'), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('schedule-badge-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('schedule-badge-place-1')),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Let YatraCanvas decide'));
+      await _tapVisible(tester, find.text('Let YatraCanvas decide'));
       await tester.pumpAndSettle();
 
       expect(savedPlaceService.lastAssignmentMode, AssignmentMode.auto);
       expect(savedPlaceService.lastAssignedDayId, isNull);
     });
 
-    testWidgets('10. REST days are not shown in place assignment picker', (tester) async {
+    testWidgets('10. REST days are not shown in place assignment picker', (
+      tester,
+    ) async {
       final savedPlace = SavedPlace(
         id: 'sp-1',
         tripId: 'trip-1',
@@ -526,7 +583,9 @@ void main() {
         assignedDayId: null,
       );
 
-      final savedPlaceService = _FakeSavedPlaceService(initialPlaces: [savedPlace]);
+      final savedPlaceService = _FakeSavedPlaceService(
+        initialPlaces: [savedPlace],
+      );
       final tripService = _FakeTripService(initialDays: sampleTripDays());
 
       await tester.pumpWidget(
@@ -542,7 +601,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('schedule-badge-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('schedule-badge-place-1')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Day 1 · Full Day'), findsOneWidget);
@@ -554,7 +616,9 @@ void main() {
   });
 
   group('Generated Itinerary Day Presentation (Items 11-14)', () {
-    testWidgets('11. generated itinerary displays actual day numbers', (tester) async {
+    testWidgets('11. generated itinerary displays actual day numbers', (
+      tester,
+    ) async {
       final route = OptimizedRoute(
         tripId: 'trip-1',
         places: [
@@ -635,8 +699,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.widgetWithText(FilledButton, 'Optimize Route'));
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await tester.ensureVisible(
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Day 1'), findsOneWidget);
@@ -700,12 +769,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
       // Day 2 (REST Day) MUST remain visible even with 0 stops
       expect(find.text('Day 2'), findsOneWidget);
-      expect(find.text('Rest Day · Recharge and explore at your own pace.'), findsOneWidget);
+      expect(
+        find.text(
+          'Rest Day · Take it slow today. Your time is intentionally unplanned.',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('13. scheduled times are displayed', (tester) async {
@@ -761,7 +838,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
       expect(find.textContaining('09:00 – 10:30'), findsOneWidget);
@@ -828,7 +908,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Could not fit into your itinerary'), findsOneWidget);
@@ -894,16 +977,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('stop-actions-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('stop-actions-place-1')),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Mark completed'));
+      await _tapVisible(tester, find.text('Mark completed'));
       await tester.pumpAndSettle();
 
-      expect(smartReplanningService.lastUpdatedStatus, ItineraryStopStatus.completed);
+      expect(
+        smartReplanningService.lastUpdatedStatus,
+        ItineraryStopStatus.completed,
+      );
       expect(find.text('Visited'), findsOneWidget);
     });
 
@@ -963,16 +1055,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('stop-actions-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('stop-actions-place-1')),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text("Couldn't visit"));
+      await _tapVisible(tester, find.text("Couldn't visit"));
       await tester.pumpAndSettle();
 
-      expect(smartReplanningService.lastUpdatedStatus, ItineraryStopStatus.missed);
+      expect(
+        smartReplanningService.lastUpdatedStatus,
+        ItineraryStopStatus.missed,
+      );
       expect(find.text('Missed'), findsOneWidget);
     });
 
@@ -1032,16 +1133,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('stop-actions-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('stop-actions-place-1')),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Skip this place'));
+      await _tapVisible(tester, find.text('Skip this place'));
       await tester.pumpAndSettle();
 
-      expect(smartReplanningService.lastUpdatedStatus, ItineraryStopStatus.skipped);
+      expect(
+        smartReplanningService.lastUpdatedStatus,
+        ItineraryStopStatus.skipped,
+      );
       expect(find.text('Skipped'), findsOneWidget);
     });
 
@@ -1099,7 +1209,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('move-missed-place-1')), findsOneWidget);
@@ -1162,10 +1275,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('move-missed-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('move-missed-place-1')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Move Hawa Mahal to:'), findsOneWidget);
@@ -1175,7 +1294,9 @@ void main() {
       expect(find.text('Day 1 · Full Day'), findsNothing);
     });
 
-    testWidgets('20. successful move refreshes affected itinerary', (tester) async {
+    testWidgets('20. successful move refreshes affected itinerary', (
+      tester,
+    ) async {
       _setTestViewport(tester);
       final initialRoute = OptimizedRoute(
         tripId: 'trip-1',
@@ -1267,20 +1388,28 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('move-missed-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('move-missed-place-1')),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Day 3 · Full Day'));
+      await _tapVisible(tester, find.text('Day 3 · Full Day'));
       await tester.pumpAndSettle();
 
       expect(smartReplanningService.lastTargetDayNumber, 3);
       expect(smartReplanningService.getItineraryCallCount, 1);
     });
 
-    testWidgets('21. TARGET_DAY_INFEASIBLE displays clear error', (tester) async {
+    testWidgets('21. TARGET_DAY_INFEASIBLE displays clear error', (
+      tester,
+    ) async {
       _setTestViewport(tester);
       final initialRoute = OptimizedRoute(
         tripId: 'trip-1',
@@ -1347,13 +1476,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('move-missed-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('move-missed-place-1')),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Day 3 · Full Day'));
+      await _tapVisible(tester, find.text('Day 3 · Full Day'));
       await tester.pumpAndSettle();
 
       expect(find.text('Cannot Move Place'), findsOneWidget);
@@ -1365,7 +1500,9 @@ void main() {
       expect(find.text('Cancel'), findsOneWidget);
     });
 
-    testWidgets('22. completed stops remain visually completed', (tester) async {
+    testWidgets('22. completed stops remain visually completed', (
+      tester,
+    ) async {
       _setTestViewport(tester);
       final route = OptimizedRoute(
         tripId: 'trip-1',
@@ -1419,7 +1556,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Visited'), findsOneWidget);
@@ -1427,7 +1567,9 @@ void main() {
       expect(find.byKey(const ValueKey('move-missed-place-1')), findsNothing);
     });
 
-    testWidgets('23. UNKNOWN opening hours never display "Open"', (tester) async {
+    testWidgets('23. UNKNOWN opening hours never display "Open"', (
+      tester,
+    ) async {
       _setTestViewport(tester);
       final route = OptimizedRoute(
         tripId: 'trip-1',
@@ -1505,14 +1647,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Optimize Route'));
+      await _tapVisible(
+        tester,
+        find.widgetWithText(FilledButton, 'Optimize Route'),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Opening hours unavailable'), findsOneWidget);
       expect(find.text('Open during visit'), findsOneWidget);
     });
 
-    testWidgets('24. loading state prevents duplicate requests', (tester) async {
+    testWidgets('24. loading state prevents duplicate requests', (
+      tester,
+    ) async {
       _setTestViewport(tester);
       final savedPlace = SavedPlace(
         id: 'sp-1',
@@ -1546,13 +1693,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('schedule-badge-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('schedule-badge-place-1')),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Day 1 · Full Day'));
+      await _tapVisible(tester, find.text('Day 1 · Full Day'));
       await tester.pump();
 
-      await tester.tap(find.byKey(const ValueKey('schedule-badge-place-1')));
+      await _tapVisible(
+        tester,
+        find.byKey(const ValueKey('schedule-badge-place-1')),
+      );
       await tester.pump();
 
       await tester.pump(const Duration(milliseconds: 150));
@@ -1561,4 +1714,29 @@ void main() {
       expect(savedPlaceService.assignmentCallCount, 1);
     });
   });
+}
+
+Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+  if (finder.evaluate().any((element) => element.widget is FilledButton)) {
+    final days = find
+        .byType(ExpansionTile)
+        .evaluate()
+        .map((element) => element.widget as ExpansionTile)
+        .where((tile) => tile.key is PageStorageKey)
+        .toList();
+    for (final day in days) {
+      if (!day.initiallyExpanded) {
+        final target = find.byKey(day.key!);
+        await tester.ensureVisible(target);
+        await tester.tap(
+          find.descendant(of: target, matching: find.byType(ListTile)).first,
+        );
+        await tester.pumpAndSettle();
+      }
+    }
+  }
 }

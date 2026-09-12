@@ -120,7 +120,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(prefetchCalled, isTrue);
-      expect(find.text('When are you\ntravelling?'), findsOneWidget);
+      expect(find.text('When are you travelling?'), findsOneWidget);
       releasePrefetch.complete();
       await tester.pumpAndSettle();
     },
@@ -160,7 +160,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     // Navigated to preferences
-    expect(find.text('How do you like\nto travel?'), findsOneWidget);
+    expect(find.text('How do you like to travel?'), findsOneWidget);
 
     expect(payload?['stage'], 'interests_confirmed');
     expect(payload?['categories'], containsAll(<String>['food', 'heritage']));
@@ -311,3 +311,4 @@ void main() {
     },
   );
 }
+

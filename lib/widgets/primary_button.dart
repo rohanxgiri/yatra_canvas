@@ -28,7 +28,10 @@ class PrimaryButton extends StatelessWidget {
             ? const SizedBox.square(
                 key: ValueKey('loading'),
                 dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2.2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  semanticsLabel: 'Please wait',
+                ),
               )
             : Row(
                 key: const ValueKey('content'),
@@ -39,7 +42,7 @@ class PrimaryButton extends StatelessWidget {
                     Icon(icon, size: 20),
                     const SizedBox(width: 10),
                   ],
-                  Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+                  Flexible(child: Text(label, textAlign: TextAlign.center)),
                 ],
               ),
       ),

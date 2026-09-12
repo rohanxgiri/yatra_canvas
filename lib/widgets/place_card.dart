@@ -18,7 +18,6 @@ class PlaceCard extends StatelessWidget {
     this.actionBusy = false,
     super.key,
   });
-
   final String name;
   final String description;
   final ImageProvider? image;
@@ -30,145 +29,119 @@ class PlaceCard extends StatelessWidget {
   final IconData? actionIcon;
   final VoidCallback? onAction;
   final bool actionBusy;
-
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: onTap != null || onAction != null,
-      selected: selected,
-      label: name,
-      child: Material(
-        color: selected ? AppColors.tealLight : AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: selected ? AppColors.teal : AppColors.border,
-            width: selected ? 1.5 : 1,
-          ),
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    child: Material(
+      color: selected ? AppColors.tealLight : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: selected ? AppColors.teal : AppColors.border,
+          width: selected ? 1.5 : 1,
         ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final imageSize = constraints.maxWidth < 350 ? 88.0 : 104.0;
-              return Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: SizedBox.square(
-                        dimension: imageSize,
-                        child: image == null
-                            ? const ColoredBox(
-                                color: AppColors.surfaceSoft,
-                                child: Icon(
-                                  Icons.place_outlined,
-                                  color: AppColors.teal,
-                                ),
-                              )
-                            : Image(image: image!, fit: BoxFit.cover),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (image != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: AspectRatio(
+                    aspectRatio: 1.8,
+                    child: Image(
+                      image: image!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, error, stack) => const ColoredBox(
+                        color: AppColors.surfaceSoft,
+                        child: Center(
+                          child: Icon(Icons.image_not_supported_outlined),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (category != null) ...[
-                            Text(
-                              category!.toUpperCase(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.tealDark,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.7,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                          ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (category != null) ...[
                           Text(
-                            name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.cardTitle,
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.bodyMuted,
-                          ),
-                          if (meta != null) ...[
-                            const SizedBox(height: 7),
-                            Text(meta!, style: AppTextStyles.caption),
-                          ],
-                          if (actionLabel != null) ...[
-                            const SizedBox(height: 7),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton.icon(
-                                onPressed: actionBusy ? null : onAction,
-                                style: TextButton.styleFrom(
-                                  minimumSize: const Size(0, 36),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                  ),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                icon: actionBusy
-                                    ? const SizedBox.square(
-                                        dimension: 15,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Icon(actionIcon ?? Icons.add_rounded),
-                                label: Text(actionLabel!),
-                              ),
+                            category!,
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.tealDark,
                             ),
-                          ],
+                          ),
+                          const SizedBox(height: 6),
                         ],
-                      ),
-                    ),
-                    if (onTap != null || selected) ...[
-                      const SizedBox(width: 10),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: selected ? AppColors.teal : Colors.transparent,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: selected
-                                ? AppColors.teal
-                                : AppColors.borderStrong,
-                            width: 1.5,
+                        Text(
+                          name,
+                          style: AppTextStyles.sectionTitle.copyWith(
+                            fontSize: 19,
                           ),
                         ),
-                        child: selected
-                            ? const Icon(
-                                Icons.check_rounded,
-                                size: 16,
-                                color: Colors.white,
-                              )
-                            : null,
+                      ],
+                    ),
+                  ),
+                  if (selected)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 12),
+                      child: Icon(
+                        Icons.check_circle,
+                        color: AppColors.teal,
+                        semanticLabel: 'Selected',
                       ),
-                    ],
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(description, style: AppTextStyles.bodyMuted),
+              if (meta != null) ...[
+                const SizedBox(height: 10),
+                Text(meta!, style: AppTextStyles.caption),
+              ],
+              if (actionLabel != null || onTap != null) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (onTap != null)
+                      TextButton(
+                        onPressed: onTap,
+                        child: const Text('View details'),
+                      ),
+                    if (actionLabel != null)
+                      TextButton.icon(
+                        onPressed: actionBusy ? null : onAction,
+                        icon: actionBusy
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(actionIcon ?? Icons.add_rounded, size: 20),
+                        label: Text(actionLabel!),
+                      ),
                   ],
                 ),
-              );
-            },
+              ],
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

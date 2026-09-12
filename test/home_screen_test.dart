@@ -109,7 +109,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Where are you\ngoing?'), findsOneWidget);
+    expect(find.text('Where are you going?'), findsOneWidget);
   });
 
   for (final size in [
@@ -157,8 +157,8 @@ void main() {
       await _pumpHome(tester, const Size(700, 1463));
       await tester.tap(_action('Where do you want to go?'));
       await tester.pumpAndSettle();
-      expect(find.text('Where are you\ngoing?'), findsOneWidget);
-      await tester.tap(find.byTooltip('Back'));
+      expect(find.text('Where are you going?'), findsOneWidget);
+      await tester.tap(find.byWidgetPredicate((w) => w is HomeAction && w.label == 'Back'));
       await tester.pumpAndSettle();
       await tester.tap(_action('Continue planning'));
       await tester.pumpAndSettle();
@@ -360,3 +360,4 @@ void main() {
 
 Finder _action(String label) =>
     find.byWidgetPredicate((w) => w is HomeAction && w.label == label);
+

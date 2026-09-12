@@ -21,29 +21,27 @@ void main() {
   testWidgets('opens the onboarding flow from splash', (tester) async {
     await tester.pumpWidget(const YatraCanvasApp());
 
-    expect(find.text('Your journey, mapped.'), findsOneWidget);
+    expect(
+      find.text('A little curiosity.\nA world to discover.'),
+      findsOneWidget,
+    );
 
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Turn your travel ideas\ninto a journey.'),
-      findsOneWidget,
-    );
+    expect(find.text('Find somewhere\nworth going.'), findsOneWidget);
     expect(find.text('Continue as Guest'), findsNothing);
   });
 
-  testWidgets('login offers phone, Google, Apple, and guest access', (
-    tester,
-  ) async {
+  testWidgets('guest entry explains account availability', (tester) async {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.light, home: const LoginScreen()),
     );
 
-    expect(find.text('Mobile number'), findsOneWidget);
-    expect(find.text('Continue with Phone'), findsOneWidget);
-    expect(find.text('Continue with Google'), findsOneWidget);
-    expect(find.text('Continue with Apple'), findsOneWidget);
+    expect(find.text('Mobile number'), findsNothing);
+    expect(find.text('Continue with Phone'), findsNothing);
+    expect(find.text('Continue with Google'), findsNothing);
+    expect(find.text('Continue with Apple'), findsNothing);
     expect(find.text('Continue as Guest'), findsOneWidget);
   });
 
@@ -91,7 +89,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Where are you\ngoing?'), findsOneWidget);
+    expect(find.text('Where are you going?'), findsOneWidget);
 
     final continueButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Continue'),
@@ -114,19 +112,19 @@ void main() {
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('When are you\ntravelling?'), findsOneWidget);
+    expect(find.text('When are you travelling?'), findsOneWidget);
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('How are you\nreaching Ujjain?'), findsOneWidget);
+    expect(find.text('How are you reaching Ujjain?'), findsOneWidget);
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('What brings you\nto Ujjain?'), findsOneWidget);
+    expect(find.text('What brings you to Ujjain?'), findsOneWidget);
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('How do you like\nto travel?'), findsOneWidget);
+    expect(find.text('How do you like to travel?'), findsOneWidget);
 
     await tester.tap(find.text('Find Places For Me'));
     await tester.pump();
@@ -201,7 +199,7 @@ void main() {
     expect(requests.last.url.path, '/cities/autocomplete');
     expect(find.text('Gandhinagar'), findsOneWidget);
     expect(find.text('Gujarat, India'), findsOneWidget);
-    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text('Saved'), findsNothing);
     expect(find.text('New'), findsNothing);
 
     await tester.tap(find.text('Gandhinagar'));
@@ -213,7 +211,7 @@ void main() {
     expect(draft.arrivalLatitude, isNull);
     expect(draft.startLocationName, isNull);
     expect(draft.startLatitude, isNull);
-    expect(find.text('CITY ADDED TO YOUR TRIP'), findsOneWidget);
+    expect(find.text('Your destination'), findsOneWidget);
   });
 
   testWidgets('Geoapify city resolves and stores UUID', (tester) async {
@@ -263,7 +261,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Gandhinagar'), findsOneWidget);
-    expect(find.text('New'), findsOneWidget);
+    expect(find.text('New'), findsNothing);
     expect(find.text('Geoapify • OpenStreetMap'), findsOneWidget);
 
     await tester.tap(find.text('Gandhinagar'));
@@ -276,7 +274,7 @@ void main() {
       '/cities/resolve',
     ]);
     expect(draft.destination?.id, '11111111-1111-1111-1111-111111111111');
-    expect(find.text('CITY ADDED TO YOUR TRIP'), findsOneWidget);
+    expect(find.text('Your destination'), findsOneWidget);
   });
 
   testWidgets('city search shows empty and backend error states', (
@@ -331,9 +329,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Where are you\ngoing?'), findsOneWidget);
+    expect(find.text('Where are you going?'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Back'));
+    await tester.tap(find.byWidgetPredicate((w) => w is HomeAction && w.label == 'Back'));
     await tester.pumpAndSettle();
     expect(find.byType(HomeScreen), findsOneWidget);
 
@@ -348,7 +346,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create Trip'));
     await tester.pumpAndSettle();
-    expect(find.text('Where are you\ngoing?'), findsOneWidget);
+    expect(find.text('Where are you going?'), findsOneWidget);
   });
 }
 
@@ -388,3 +386,4 @@ const _ujjainResponse = '''
   "created_at": "2026-08-30T12:00:00Z"
 }
 ''';
+

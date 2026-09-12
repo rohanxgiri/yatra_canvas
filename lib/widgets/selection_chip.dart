@@ -32,7 +32,7 @@ class SelectionChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            constraints: const BoxConstraints(minHeight: 44),
+            constraints: const BoxConstraints(minHeight: 48),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: selected ? AppColors.tealLight : AppColors.surface,
@@ -58,7 +58,7 @@ class SelectionChip extends StatelessWidget {
                 Flexible(
                   child: Text(
                     label,
-                    overflow: TextOverflow.ellipsis,
+
                     style: AppTextStyles.label.copyWith(
                       color: enabled
                           ? selected

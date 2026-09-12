@@ -69,10 +69,11 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('Where are you\ngoing?'), findsOneWidget);
-        await tester.tap(find.byTooltip('Back'));
+        expect(find.text('Where are you going?'), findsOneWidget);
+        await tester.tap(find.byWidgetPredicate((w) => w is HomeAction && w.label == 'Back'));
         await tester.pumpAndSettle();
       }
     },
   );
 }
+

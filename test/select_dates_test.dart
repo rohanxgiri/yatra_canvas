@@ -25,7 +25,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify header and dynamic month/year display
-    expect(find.text('When are you\ntravelling?'), findsOneWidget);
+    expect(find.text('When are you travelling?'), findsOneWidget);
     expect(find.byType(SelectDatesScreen), findsOneWidget);
 
     // Verify navigation buttons exist

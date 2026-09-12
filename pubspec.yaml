@@ -34,3 +34,8 @@ flutter:
     - family: HomeInter
       fonts:
         - asset: lib/assets/fonts/Inter.ttf
+    - family: InriaSerif
+      fonts:
+        - asset: lib/assets/fonts/InriaSerif-BoldItalic.ttf
+          weight: 700
+          style: italic

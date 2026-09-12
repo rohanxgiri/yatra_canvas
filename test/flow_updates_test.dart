@@ -18,35 +18,11 @@ void main() {
       MaterialApp(theme: AppTheme.light, home: const PersonalInterestsScreen()),
     );
 
-    await tester.tap(find.text('Let’s Personalise'));
+    expect(find.text('Find somewhere\nworth going.'), findsOneWidget);
+    await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
-
-    await tester.tap(find.text('I already have a good system'));
-    await tester.pump();
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Keeping plans in one place'));
-    await tester.pump();
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Build a complete itinerary'));
-    await tester.pump();
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Turn saved ideas into a day that flows'), findsOneWidget);
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('Plans feel better when everyone has a voice'),
-      findsOneWidget,
-    );
-    expect(find.text('Does this sound familiar?'), findsNothing);
+    expect(find.text('Let’s Personalise'), findsNothing);
   });
-
   testWidgets('trip preferences use the new budget labels', (tester) async {
     final draft = TripDraft();
     expect(draft.budget, 'Chill');

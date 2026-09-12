@@ -114,11 +114,9 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
       ..datesFlexible = _datesFlexible
       ..durationDays = _datesFlexible ? _durationDays : _selectedDays
       ..startDate = _startDate
-      ..endDate =
-          _endDate ??
-          _startDate.add(
-            Duration(days: _datesFlexible ? _durationDays - 1 : 0),
-          );
+      ..endDate = _datesFlexible
+          ? _startDate.add(Duration(days: _durationDays - 1))
+          : _endDate ?? _startDate;
     final cityId = widget.draft.destination?.id;
     if (cityId != null && cityId.isNotEmpty) {
       unawaited(
@@ -157,6 +155,15 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
             onTap: () => setState(() => _datesFlexible = !_datesFlexible),
           ),
           const SizedBox(height: 22),
+          if (!_datesFlexible) ...[
+            Text(
+              _selectingEnd
+                  ? 'Now choose your last day'
+                  : 'Choose your first day',
+              style: AppTextStyles.label,
+            ),
+            const SizedBox(height: 12),
+          ],
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             child: _datesFlexible
@@ -336,17 +343,11 @@ class _CalendarCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.calendar_month_rounded,
-                color: AppColors.teal,
-                size: 20,
-              ),
-              const SizedBox(width: 4),
               IconButton(
                 icon: const Icon(Icons.chevron_left_rounded, size: 20),
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 onPressed: canGoPrevious ? onPreviousMonth : null,
                 tooltip: 'Previous month',
                 color: canGoPrevious ? AppColors.teal : AppColors.textTertiary,
@@ -355,9 +356,8 @@ class _CalendarCard extends StatelessWidget {
                 child: Center(
                   child: Text(
                     '${_monthNames[month - 1]} $year',
+                    textAlign: TextAlign.center,
                     style: AppTextStyles.sectionTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -365,25 +365,10 @@ class _CalendarCard extends StatelessWidget {
                 icon: const Icon(Icons.chevron_right_rounded, size: 20),
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                 onPressed: onNextMonth,
                 tooltip: 'Next month',
                 color: AppColors.teal,
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.tealLight,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  endDate == null ? 'Select end' : 'Selected',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.tealDark,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
               ),
             ],
           ),

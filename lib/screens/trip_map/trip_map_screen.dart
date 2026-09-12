@@ -1,3 +1,5 @@
+import '../../widgets/yc_scaffold.dart';
+
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
@@ -688,7 +690,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return YCScaffold(
       appBar: AppBar(
         title: const Text('Trip Map'),
         actions: [
@@ -718,7 +720,16 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: YCStateCard(
+            title: 'Opening your map',
+            message: 'Loading your saved places and itinerary.',
+            loading: true,
+          ),
+        ),
+      );
     }
 
     if (_error != null) {
@@ -776,6 +787,48 @@ class _TripMapScreenState extends State<TripMapScreen> {
             ),
           ],
         ),
+        Positioned(
+          right: 16,
+          bottom: 48,
+          child: SafeArea(
+            top: false,
+            left: false,
+            child: Material(
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: const BorderSide(color: AppColors.border),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Fit trip on map',
+                    onPressed: _fitMapBounds,
+                    icon: const Icon(Icons.center_focus_strong_outlined),
+                  ),
+                  IconButton(
+                    tooltip: 'Zoom in',
+                    onPressed: () => _mapController.move(
+                      _mapController.camera.center,
+                      (_mapController.camera.zoom + 1).clamp(3, 19),
+                    ),
+                    icon: const Icon(Icons.add),
+                  ),
+                  IconButton(
+                    tooltip: 'Zoom out',
+                    onPressed: () => _mapController.move(
+                      _mapController.camera.center,
+                      (_mapController.camera.zoom - 1).clamp(3, 19),
+                    ),
+                    icon: const Icon(Icons.remove),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
         if (_selectedDay != null &&
             _optimizedRoute != null &&
             !_optimizedRoute!.places.any((p) => p.dayNumber == _selectedDay))
@@ -784,7 +837,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
             left: 16,
             right: 16,
             child: Material(
-              elevation: 4,
+              elevation: 0,
               borderRadius: BorderRadius.circular(12),
               color: AppColors.surface,
               child: Padding(
@@ -819,7 +872,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
             bottom: 24,
             left: 24,
             child: Material(
-              elevation: 3,
+              elevation: 0,
               borderRadius: BorderRadius.circular(20),
               color: AppColors.surface,
               child: Padding(

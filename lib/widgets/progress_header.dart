@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
+import '../theme/yc_style.dart';
+import '../screens/home/widgets/home_style.dart';
 
 class ProgressHeader extends StatelessWidget {
   const ProgressHeader({
@@ -14,66 +14,67 @@ class ProgressHeader extends StatelessWidget {
     super.key,
   }) : assert(totalSteps > 0),
        assert(currentStep > 0);
-
   final int currentStep;
   final int totalSteps;
   final VoidCallback? onBack;
   final VoidCallback? onSkip;
   final String skipLabel;
   final bool useSafeArea;
-
   @override
   Widget build(BuildContext context) {
-    final normalizedStep = currentStep.clamp(1, totalSteps);
+    final step = currentStep.clamp(1, totalSteps);
     final content = Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 4, 24, 4),
       child: Row(
         children: [
-          SizedBox.square(
-            dimension: 48,
-            child: onBack == null
-                ? null
-                : IconButton.filledTonal(
-                    onPressed: onBack,
-                    tooltip: 'Back',
-                    icon: const Icon(Icons.arrow_back_rounded),
-                  ),
-          ),
-          const SizedBox(width: 10),
+          if (onBack != null)
+            HomeAction(
+              label: 'Back',
+              onTap: onBack!,
+              child: const Icon(Icons.arrow_back_rounded, color: YCStyle.ink),
+            ),
+          const SizedBox(width: 12),
           Expanded(
-            child: Semantics(
-              label: 'Step $normalizedStep of $totalSteps',
-              value: '${(normalizedStep / totalSteps * 100).round()} percent',
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(99),
-                child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeOutCubic,
-                  tween: Tween<double>(end: normalizedStep / totalSteps),
-                  builder: (context, value, _) => LinearProgressIndicator(
-                    value: value,
-                    minHeight: 5,
-                    color: AppColors.teal,
-                    backgroundColor: Colors.white.withValues(alpha: .72),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Your journey', style: YCStyle.caption),
+                const SizedBox(height: 8),
+                Semantics(
+                  label: 'Step $step of $totalSteps',
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < totalSteps; i++)
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: i == totalSteps - 1 ? 0 : 4,
+                            ),
+                            child: AnimatedContainer(
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 180),
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: i < step ? YCStyle.blue : YCStyle.border,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 52,
-            child: onSkip == null
-                ? null
-                : TextButton(
-                    onPressed: onSkip,
-                    child: Text(skipLabel, style: AppTextStyles.caption),
-                  ),
-          ),
+          if (onSkip != null) ...[
+            const SizedBox(width: 12),
+            TextButton(onPressed: onSkip, child: Text(skipLabel)),
+          ],
         ],
       ),
     );
-
     return useSafeArea ? SafeArea(bottom: false, child: content) : content;
   }
 }

@@ -1,3 +1,5 @@
+import '../../models/yatra_session.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../models/trip_draft.dart';
@@ -92,6 +94,7 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
         effectiveTripId = created.tripId;
         widget.draft.tripId = effectiveTripId;
       }
+      YatraSession.instance.remember(widget.draft);
       if (!mounted) return;
       final city = widget.draft.destination;
       if (city == null) {
@@ -99,7 +102,8 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
           'Choose and confirm a destination before creating the trip.',
         );
       }
-      final hasRouteStart = widget.draft.startLatitude != null &&
+      final hasRouteStart =
+          widget.draft.startLatitude != null &&
           widget.draft.startLongitude != null;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
@@ -217,7 +221,13 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
                 .toList(growable: false),
           ),
           const SizedBox(height: 30),
-          _TripSummary(draft: widget.draft, pace: _pace, budget: _budget),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text('Your trip at a glance'),
+            children: [
+              _TripSummary(draft: widget.draft, pace: _pace, budget: _budget),
+            ],
+          ),
           if (_isCreating) ...[
             const SizedBox(height: 14),
             const LinearProgressIndicator(),
@@ -377,7 +387,11 @@ class _BudgetCard extends StatelessWidget {
               color: selected ? AppColors.teal : AppColors.textSecondary,
             ),
             const SizedBox(height: 8),
-            FittedBox(child: Text(label, style: AppTextStyles.label)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.label,
+            ),
           ],
         ),
       ),
@@ -403,7 +417,7 @@ class _TripSummary extends StatelessWidget {
     final rows = <(IconData, String)>[
       (
         Icons.calendar_today_outlined,
-        '${draft.startDate.day}–${draft.endDate.day} Aug  •  ${draft.durationDays} Days',
+        '${MaterialLocalizations.of(context).formatMediumDate(draft.startDate)} – ${MaterialLocalizations.of(context).formatMediumDate(draft.endDate)} · ${draft.durationDays} days',
       ),
       (Icons.train_rounded, draft.arrivalMethod),
       (Icons.flag_outlined, 'START: ${draft.arrivalPoint}'),

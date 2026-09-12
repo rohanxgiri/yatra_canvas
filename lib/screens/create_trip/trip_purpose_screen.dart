@@ -100,7 +100,7 @@ class _TripPurposeScreenState extends State<TripPurposeScreen> {
           const SizedBox(height: 12),
           LayoutBuilder(
             builder: (context, constraints) {
-              final itemWidth = (constraints.maxWidth - 10) / 2;
+              final itemWidth = constraints.maxWidth;
               return Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -161,71 +161,40 @@ class _PurposeCard extends StatelessWidget {
     required this.selected,
     required this.onTap,
   });
-
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
-
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: Material(
-        color: selected ? AppColors.tealLight : AppColors.surface,
-        borderRadius: BorderRadius.circular(19),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(19),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            constraints: const BoxConstraints(minHeight: 118),
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(19),
-              border: Border.all(
-                color: selected ? AppColors.teal : AppColors.border,
-                width: selected ? 1.5 : 1,
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    button: true,
+    child: Material(
+      color: selected ? AppColors.tealLight : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: selected ? AppColors.teal : AppColors.border),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: AppColors.teal),
+              const SizedBox(width: 14),
+              Expanded(child: Text(label, style: AppTextStyles.bodyLarge)),
+              const SizedBox(width: 12),
+              Icon(
+                selected ? Icons.check_circle : Icons.circle_outlined,
+                size: 22,
+                color: selected ? AppColors.teal : AppColors.borderStrong,
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.teal
-                            : AppColors.surfaceSoft,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        icon,
-                        size: 20,
-                        color: selected ? Colors.white : AppColors.teal,
-                      ),
-                    ),
-                    if (selected)
-                      const Icon(
-                        Icons.check_circle_rounded,
-                        color: AppColors.teal,
-                        size: 21,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(label, style: AppTextStyles.label),
-              ],
-            ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

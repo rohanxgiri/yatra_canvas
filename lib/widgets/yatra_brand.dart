@@ -53,12 +53,14 @@ class YatraBrand extends StatelessWidget {
                     TextSpan(
                       text: 'Canvas',
                       style: TextStyle(
+                        fontFamily: 'HomeInter',
                         color: light ? Colors.white : AppColors.teal,
                       ),
                     ),
                   ],
                 ),
                 style: TextStyle(
+                  fontFamily: 'HomeInter',
                   color: color,
                   fontSize: compact ? 20 : 34,
                   fontWeight: FontWeight.w800,
