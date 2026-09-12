@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yatra_canvas/models/city.dart';
 import 'package:yatra_canvas/models/itinerary_stop_status.dart';
@@ -274,40 +276,137 @@ void main() {
     ),
   ];
 
-  testWidgets('day settings itinerary and place sheet mobile visual review', (tester) async {
+  testWidgets('day settings itinerary and place sheet mobile visual review', (
+    tester,
+  ) async {
+    final reportError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      debugPrint(details.toString());
+      reportError?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = reportError);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await (FontLoader('HomeInter')..addFont(rootBundle.load('lib/assets/fonts/Inter.ttf'))).load();
-    final icons = File('build/unit_test_assets/fonts/MaterialIcons-Regular.otf');
+    await (FontLoader(
+      'HomeInter',
+    )..addFont(rootBundle.load('lib/assets/fonts/Inter.ttf'))).load();
+    final icons = File(
+      'build/unit_test_assets/fonts/MaterialIcons-Regular.otf',
+    );
     if (icons.existsSync()) {
-      await (FontLoader('MaterialIcons')..addFont(Future.value(ByteData.view(icons.readAsBytesSync().buffer)))).load();
+      await (FontLoader('MaterialIcons')..addFont(
+            Future.value(ByteData.view(icons.readAsBytesSync().buffer)),
+          ))
+          .load();
     }
-    final saved = SavedPlace(id: 'saved-1', tripId: 'trip-1', placeId: 'place-1', customOrder: 1, priority: 0, isLocked: false, mustVisit: false, place: testPlace1);
-    final stop = OptimizedRoutePlace(id: 'stop-1', placeId: 'place-1', name: 'Hawa Mahal', dayNumber: 1, visitOrder: 1, distanceFromPrevious: 1.2, travelTimeMinutes: 8, plannedArrivalTime: '09:00:00', plannedDepartureTime: '10:30:00', visitDurationMinutes: 90, isOpeningHoursKnown: false, status: 'PLANNED');
-    final route = OptimizedRoute(tripId: 'trip-1', places: [stop], totalDistance: 1.2, totalTravelTimeMinutes: 8, totalDays: 3);
+    final saved = SavedPlace(
+      id: 'saved-1',
+      tripId: 'trip-1',
+      placeId: 'place-1',
+      customOrder: 1,
+      priority: 0,
+      isLocked: false,
+      mustVisit: false,
+      place: testPlace1,
+    );
+    final stop = OptimizedRoutePlace(
+      id: 'stop-1',
+      placeId: 'place-1',
+      name: 'Hawa Mahal',
+      dayNumber: 1,
+      visitOrder: 1,
+      distanceFromPrevious: 1.2,
+      travelTimeMinutes: 8,
+      plannedArrivalTime: '09:00:00',
+      plannedDepartureTime: '10:30:00',
+      visitDurationMinutes: 90,
+      isOpeningHoursKnown: false,
+      status: 'PLANNED',
+    );
+    final route = OptimizedRoute(
+      tripId: 'trip-1',
+      places: [stop],
+      totalDistance: 1.2,
+      totalTravelTimeMinutes: 8,
+      totalDays: 3,
+    );
     for (final width in [393.0, 320.0]) {
       tester.view.physicalSize = Size(width, 852);
       tester.view.devicePixelRatio = 1;
       for (final entry in <String, Widget>{
-        'day_settings': PlanDaysScreen(tripId: 'trip-1', tripService: _FakeTripService(initialDays: sampleTripDays())),
-        'itinerary': PlaceDiscoveryScreen(city: testCity, tripId: 'trip-1', tripService: _FakeTripService(initialDays: sampleTripDays()), savedPlaceService: _FakeSavedPlaceService(initialPlaces: [saved]), smartReplanningService: _FakeSmartReplanningService(initialRoute: route)),
-        'poi': Scaffold(body: Align(alignment: Alignment.bottomCenter, child: PoiBottomSheet(savedPlace: saved, routeStop: stop, availableDays: const [3], onStatusChange: (_) async {}, onMoveToDay: (_) async {}))),
+        'day_settings': PlanDaysScreen(
+          tripId: 'trip-1',
+          tripService: _FakeTripService(initialDays: sampleTripDays()),
+        ),
+        'itinerary': PlaceDiscoveryScreen(
+          city: testCity,
+          tripId: 'trip-1',
+          tripService: _FakeTripService(initialDays: sampleTripDays()),
+          savedPlaceService: _FakeSavedPlaceService(initialPlaces: [saved]),
+          routeOptimizationService: _FakeRouteOptimizationService(route: route),
+          smartReplanningService: _FakeSmartReplanningService(
+            initialRoute: route,
+          ),
+        ),
+        'poi': Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: PoiBottomSheet(
+              savedPlace: saved,
+              routeStop: stop,
+              availableDays: const [3],
+              onStatusChange: (_) async {},
+              onMoveToDay: (_) async {},
+            ),
+          ),
+        ),
       }.entries) {
-        await tester.pumpWidget(MaterialApp(key: UniqueKey(), theme: AppTheme.light, home: MediaQuery(data: MediaQueryData(size: Size(width, 852), textScaler: TextScaler.linear(width == 320 ? 1.6 : 1), padding: const EdgeInsets.only(top: 28, bottom: 24)), child: RepaintBoundary(key: const ValueKey('day-review'), child: entry.value))));
+        await tester.pumpWidget(
+          MaterialApp(
+            key: UniqueKey(),
+            theme: AppTheme.light,
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: Size(width, 852),
+                textScaler: TextScaler.linear(width == 320 ? 1.6 : 1),
+                padding: const EdgeInsets.only(top: 28, bottom: 24),
+              ),
+              child: RepaintBoundary(
+                key: const ValueKey('day-review'),
+                child: entry.value,
+              ),
+            ),
+          ),
+        );
         await tester.pumpAndSettle();
         if (entry.key == 'itinerary') {
+          await _tapVisible(
+            tester,
+            find.widgetWithText(FilledButton, 'Optimize Route'),
+          );
           await tester.ensureVisible(find.text('Day 1').first);
           await tester.pumpAndSettle();
         }
-        expect(tester.takeException(), isNull, reason: '${entry.key} at $width');
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '${entry.key} at $width',
+        );
         if (width == 393) {
-          await expectLater(find.byKey(const ValueKey('day-review')), matchesGoldenFile('goldens/product_${entry.key}.png'));
+          await expectLater(
+            find.byKey(const ValueKey('day-review')),
+            matchesGoldenFile('goldens/product_${entry.key}.png'),
+          );
         }
         final scroll = find.byType(SingleChildScrollView);
         if (scroll.evaluate().isNotEmpty) {
           await tester.drag(scroll.first, const Offset(0, -1300));
           await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull, reason: '${entry.key} scrolled at $width');
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: '${entry.key} scrolled at $width',
+          );
         }
       }
     }

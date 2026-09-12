@@ -855,7 +855,13 @@ class _TripMapScreenState extends State<TripMapScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Day $_selectedDay · No places scheduled yet.',
+                        _tripDays.any(
+                              (day) =>
+                                  day.dayNumber == _selectedDay &&
+                                  day.dayType == DayType.rest,
+                            )
+                            ? 'Day $_selectedDay · Rest day. Take it slow.'
+                            : 'Day $_selectedDay · No places scheduled yet.',
                         style: AppTextStyles.caption.copyWith(
                           color: AppColors.charcoal,
                           fontWeight: FontWeight.w600,

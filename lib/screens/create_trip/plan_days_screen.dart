@@ -101,283 +101,283 @@ class _PlanDaysScreenState extends State<PlanDaysScreen> {
         return Theme(
           data: YCStyle.theme(modalContext),
           child: StatefulBuilder(
-          builder: (context, setModalState) {
-            final isRest = selectedType == DayType.rest;
+            builder: (context, setModalState) {
+              final isRest = selectedType == DayType.rest;
 
-            return Container(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 28,
-              ),
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: AppColors.border,
-                          borderRadius: BorderRadius.circular(2),
+              return Container(
+                padding: EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  top: 20,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 28,
+                ),
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: AppColors.border,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
                         ),
                       ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Configure Day ${day.dayNumber}',
+                            style: AppTextStyles.sectionTitle,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: isSaving
+                                ? null
+                                : () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Text('Day Type', style: AppTextStyles.label),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: DayType.values.map((type) {
+                          final selected = selectedType == type;
+                          return ChoiceChip(
+                            label: Text(type.label),
+                            selected: selected,
+                            onSelected: isSaving
+                                ? null
+                                : (val) {
+                                    if (val) {
+                                      setModalState(() {
+                                        selectedType = type;
+                                        modalError = null;
+                                        if (type == DayType.halfDay &&
+                                            startTime.hour >= 14) {
+                                          startTime = const TimeOfDay(
+                                            hour: 9,
+                                            minute: 0,
+                                          );
+                                          endTime = const TimeOfDay(
+                                            hour: 14,
+                                            minute: 0,
+                                          );
+                                        } else if (type == DayType.travel) {
+                                          startTime = const TimeOfDay(
+                                            hour: 15,
+                                            minute: 0,
+                                          );
+                                          endTime = const TimeOfDay(
+                                            hour: 19,
+                                            minute: 0,
+                                          );
+                                        }
+                                      });
+                                    }
+                                  },
+                            selectedColor: AppColors.tealLight,
+                            labelStyle: TextStyle(
+                              color: selected
+                                  ? AppColors.tealDark
+                                  : AppColors.charcoal,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 18),
+                      if (isRest) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: YCStyle.selected,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: YCStyle.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.bedtime_outlined,
+                                color: YCStyle.blue,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Rest days do not require a sightseeing time window. Take time to relax or travel freely.',
+                                  style: AppTextStyles.body.copyWith(
+                                    color: AppColors.charcoal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
                         Text(
-                          'Configure Day ${day.dayNumber}',
-                          style: AppTextStyles.sectionTitle,
+                          'Sightseeing Time Window',
+                          style: AppTextStyles.label,
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: isSaving
-                              ? null
-                              : () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text('Day Type', style: AppTextStyles.label),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: DayType.values.map((type) {
-                        final selected = selectedType == type;
-                        return ChoiceChip(
-                          label: Text(type.label),
-                          selected: selected,
-                          onSelected: isSaving
-                              ? null
-                              : (val) {
-                                  if (val) {
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _TimePickerButton(
+                                label: 'Start Time',
+                                time: startTime,
+                                enabled: !isSaving,
+                                onTap: () async {
+                                  final picked = await showTimePicker(
+                                    context: context,
+                                    initialTime: startTime,
+                                  );
+                                  if (picked != null) {
                                     setModalState(() {
-                                      selectedType = type;
+                                      startTime = picked;
                                       modalError = null;
-                                      if (type == DayType.halfDay &&
-                                          startTime.hour >= 14) {
-                                        startTime = const TimeOfDay(
-                                          hour: 9,
-                                          minute: 0,
-                                        );
-                                        endTime = const TimeOfDay(
-                                          hour: 14,
-                                          minute: 0,
-                                        );
-                                      } else if (type == DayType.travel) {
-                                        startTime = const TimeOfDay(
-                                          hour: 15,
-                                          minute: 0,
-                                        );
-                                        endTime = const TimeOfDay(
-                                          hour: 19,
-                                          minute: 0,
-                                        );
-                                      }
                                     });
                                   }
                                 },
-                          selectedColor: AppColors.tealLight,
-                          labelStyle: TextStyle(
-                            color: selected
-                                ? AppColors.tealDark
-                                : AppColors.charcoal,
-                            fontWeight: selected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 18),
-                    if (isRest) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: YCStyle.selected,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: YCStyle.border),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.bedtime_outlined,
-                              color: YCStyle.blue,
-                              size: 20,
+                              ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 10),
                               child: Text(
-                                'Rest days do not require a sightseeing time window. Take time to relax or travel freely.',
-                                style: AppTextStyles.body.copyWith(
-                                  color: AppColors.charcoal,
+                                '–',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  color: AppColors.textSecondary,
                                 ),
+                              ),
+                            ),
+                            Expanded(
+                              child: _TimePickerButton(
+                                label: 'End Time',
+                                time: endTime,
+                                enabled: !isSaving,
+                                onTap: () async {
+                                  final picked = await showTimePicker(
+                                    context: context,
+                                    initialTime: endTime,
+                                  );
+                                  if (picked != null) {
+                                    setModalState(() {
+                                      endTime = picked;
+                                      modalError = null;
+                                    });
+                                  }
+                                },
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ] else ...[
-                      Text(
-                        'Sightseeing Time Window',
-                        style: AppTextStyles.label,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _TimePickerButton(
-                              label: 'Start Time',
-                              time: startTime,
-                              enabled: !isSaving,
-                              onTap: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: startTime,
-                                );
-                                if (picked != null) {
+                      ],
+                      if (modalError != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          modalError!,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.error,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: PrimaryButton(
+                          key: const ValueKey('save-day-config'),
+                          label: isSaving ? 'Saving…' : 'Save Day Plan',
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+                                  // Validation
+                                  if (!isRest) {
+                                    final startMin =
+                                        startTime.hour * 60 + startTime.minute;
+                                    final endMin =
+                                        endTime.hour * 60 + endTime.minute;
+                                    if (endMin <= startMin) {
+                                      setModalState(() {
+                                        modalError = 'End time must be after start time.';
+                                      });
+                                      return;
+                                    }
+                                  }
+
                                   setModalState(() {
-                                    startTime = picked;
+                                    isSaving = true;
                                     modalError = null;
                                   });
-                                }
-                              },
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              '–',
-                              style: TextStyle(
-                                fontSize: 20,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: _TimePickerButton(
-                              label: 'End Time',
-                              time: endTime,
-                              enabled: !isSaving,
-                              onTap: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: endTime,
-                                );
-                                if (picked != null) {
-                                  setModalState(() {
-                                    endTime = picked;
-                                    modalError = null;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (modalError != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        modalError!,
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.error,
+
+                                  try {
+                                    final updated = await _tripService
+                                        .updateTripDay(
+                                          widget.tripId,
+                                          day.dayNumber,
+                                          dayType: selectedType,
+                                          startTime: isRest
+                                              ? null
+                                              : _toApiTime(startTime),
+                                          endTime: isRest
+                                              ? null
+                                              : _toApiTime(endTime),
+                                        );
+
+                                    if (!mounted) return;
+                                    if (modalContext.mounted) {
+                                      Navigator.of(modalContext).pop();
+                                    }
+                                    setState(() {
+                                      _days = [
+                                        for (final d in _days)
+                                          if (d.dayNumber == day.dayNumber)
+                                            updated
+                                          else
+                                            d,
+                                      ];
+                                    });
+                                    ScaffoldMessenger.of(
+                                      this.context,
+                                    ).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Day ${day.dayNumber} updated.',
+                                        ),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  } on Object catch (e) {
+                                    setModalState(() {
+                                      isSaving = false;
+                                      modalError = e is TripServiceException
+                                          ? e.message
+                                          : 'Could not update day. Please try again.';
+                                    });
+                                  }
+                                },
                         ),
                       ),
                     ],
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: PrimaryButton(
-                        key: const ValueKey('save-day-config'),
-                        label: isSaving ? 'Saving…' : 'Save Day Plan',
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                                // Validation
-                                if (!isRest) {
-                                  final startMin =
-                                      startTime.hour * 60 + startTime.minute;
-                                  final endMin =
-                                      endTime.hour * 60 + endTime.minute;
-                                  if (endMin <= startMin) {
-                                    setModalState(() {
-                                      modalError =
-                                          'End time must be after start time.';
-                                    });
-                                    return;
-                                  }
-                                }
-
-                                setModalState(() {
-                                  isSaving = true;
-                                  modalError = null;
-                                });
-
-                                try {
-                                  final updated = await _tripService
-                                      .updateTripDay(
-                                        widget.tripId,
-                                        day.dayNumber,
-                                        dayType: selectedType,
-                                        startTime: isRest
-                                            ? null
-                                            : _toApiTime(startTime),
-                                        endTime: isRest
-                                            ? null
-                                            : _toApiTime(endTime),
-                                      );
-
-                                  if (!mounted) return;
-                                  if (modalContext.mounted) {
-                                    Navigator.of(modalContext).pop();
-                                  }
-                                  setState(() {
-                                    _days = [
-                                      for (final d in _days)
-                                        if (d.dayNumber == day.dayNumber)
-                                          updated
-                                        else
-                                          d,
-                                    ];
-                                  });
-                                  ScaffoldMessenger.of(this.context)
-                                      .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Day ${day.dayNumber} updated.',
-                                          ),
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                } on Object catch (e) {
-                                  setModalState(() {
-                                    isSaving = false;
-                                    modalError = e is TripServiceException
-                                        ? e.message
-                                        : 'Could not update day. Please try again.';
-                                  });
-                                }
-                              },
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
+              );
+            },
+          ),
         );
       },
     );
@@ -414,7 +414,11 @@ class _PlanDaysScreenState extends State<PlanDaysScreen> {
               child: _isLoading
                   ? const Padding(
                       padding: EdgeInsets.all(24),
-                      child: YCStateCard(title: 'Opening your days', message: 'Loading your sightseeing hours and time off.', loading: true),
+                      child: YCStateCard(
+                        title: 'Opening your days',
+                        message: 'Loading your sightseeing hours and time off.',
+                        loading: true,
+                      ),
                     )
                   : _error != null
                   ? Center(
@@ -451,10 +455,7 @@ class _PlanDaysScreenState extends State<PlanDaysScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Make room to explore.',
-                            style: YCStyle.title,
-                          ),
+                          Text('Make room to explore.', style: YCStyle.title),
                           const SizedBox(height: 6),
                           Text(
                             'Choose your sightseeing hours and leave time to take it slow. Tap a day to adjust it.',
@@ -533,7 +534,9 @@ class _DayCard extends StatelessWidget {
 
     final windowText = hasWindow
         ? '${PlanDaysScreen.formatTimeDisplay(day.startTime)} – ${PlanDaysScreen.formatTimeDisplay(day.endTime)}'
-        : day.dayType == DayType.rest ? 'Rest Day' : 'Choose sightseeing hours';
+        : day.dayType == DayType.rest
+        ? 'Rest Day'
+        : 'Choose sightseeing hours';
 
     return InkWell(
       onTap: isUpdating ? null : onTap,

@@ -42,8 +42,8 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
   - Smart re-planning impact analysis and atomic diff application.
 
 - **What is partial / not yet implemented:**
-  - Real authentication / session management: Phone login screen is a UI shell without backend OTP/JWT verification. The backend currently assigns a fixed server-owned development UUID `user_id`;
-  - Account-level multi-trip persistence: `TripDraft` is retained in widget memory and survives screen navigation, but does not survive an app restart;
+  - Real authentication / session management: The legacy login entry now offers guest access without pretending OTP/social authentication is available. The backend currently assigns a fixed server-owned development UUID `user_id`;
+  - Account-level multi-trip persistence: `TripDraft` and successful-save snapshots in `YatraSession` survive screen navigation during a session, but not an app restart; the new account/history screens do not add authenticated ownership or a trip-list endpoint;
   - Versioned migration runner: Database uses `SQLModel.metadata.create_all` plus manual `.sql` scripts; no Alembic runner is configured;
   - Admin review: Admin UI shell exists with mock data; no authenticated admin APIs or review actions exist.
 

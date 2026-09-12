@@ -306,7 +306,10 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Category chip
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -335,7 +338,6 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
               ),
             ),
             if (stop != null) ...[
-              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(

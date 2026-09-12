@@ -3,8 +3,16 @@
 Inspected and downloaded 2026-09-09 from the user's approved Figma frame:
 https://www.figma.com/design/xgUd2FZFUscBxVEvMOT97N/Untitled?node-id=18-16
 
-All image/icon assets are exact Figma downloads. No replacement destination artwork
+The approved Home image/icon assets below are exact Figma downloads. No replacement destination artwork
 was generated. Only this frame and its descendants were read; nothing was written to Figma.
+
+## Additional onboarding artwork
+
+`journey_editorial.png` is custom image-generated artwork for the redesigned onboarding story, added September 2026. It is not a Figma download and is not used to replace any Home or Explore image. All story pages crop the same illustration, with native UI text outside it.
+
+Generation brief: square premium editorial Indian travel illustration; sandstone palace, temple riverside ghat, cafe veranda, distant blue hills and a winding path; warm amber/terracotta, cream sky and travel blue; elegant painterly geometry, soft depth and a travel-journal feeling. Keep essential content in the central 75% for responsive cropping. No text, logos, numbers or UI cards.
+
+## Approved Home downloads
 
 | Local asset | Source within frame 18:16 |
 | --- | --- |

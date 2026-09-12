@@ -6,6 +6,15 @@ This roadmap is sequenced for reversible, testable changes. A phase is not compl
 acceptance criteria pass in a local/test environment and the source-of-truth documents are
 updated. It is not a release-date commitment.
 
+## UI cohesion update — September 2026
+
+Status: `[PARTIAL]`. Approved Home/Explore remain the visual reference. Shared
+planning foundations, unified onboarding, responsive trip creation, discovery,
+day planning, map/POI refinements, and session account screens are implemented.
+Protected Saved/Profile navigation integration and device acceptance testing remain
+open. Durable account history, authentication and notification delivery remain
+separate backend/product work. See [screen audit and evidence](UI_REDESIGN.md).
+
 ## Phase 1 — Source of truth and configuration alignment
 
 Status: `[IMPLEMENTED]` (reconciled, verified, and passing documentation consistency tests).

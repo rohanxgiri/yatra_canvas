@@ -21,7 +21,7 @@ import '../trip_map/trip_map_screen.dart';
 void _open(BuildContext context, Widget page) =>
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     required this.favorites,
     required this.onFavorite,
@@ -29,6 +29,17 @@ class ProfileScreen extends StatelessWidget {
   });
   final Set<String> favorites;
   final ValueChanged<String> onFavorite;
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Set<String> get favorites => widget.favorites;
+  void onFavorite(String name) {
+    widget.onFavorite(name);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: YatraSession.instance,
@@ -73,7 +84,8 @@ class ProfileScreen extends StatelessWidget {
                   _NavigationRow(
                     icon: Icons.favorite_border,
                     title: 'Saved destinations',
-                    subtitle: '${favorites.length} places to dream about',
+                    subtitle:
+                        '${favorites.length} ${favorites.length == 1 ? 'destination' : 'destinations'} to dream about',
                     onTap: () => _open(
                       context,
                       SavedScreen(favorites: favorites, onFavorite: onFavorite),
@@ -187,6 +199,17 @@ class TripHistoryScreen extends StatefulWidget {
 
 class _TripHistoryScreenState extends State<TripHistoryScreen> {
   String _filter = 'Upcoming';
+  @override
+  void initState() {
+    super.initState();
+    final statuses = YatraSession.instance.trips.map(_status).toSet();
+    if (statuses.contains('Ongoing')) {
+      _filter = 'Ongoing';
+    } else if (!statuses.contains('Upcoming') && statuses.contains('Past')) {
+      _filter = 'Past';
+    }
+  }
+
   String _status(TripDraft trip) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -260,7 +283,12 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
 }
 
 class TripSummaryScreen extends StatefulWidget {
-  const TripSummaryScreen({required this.draft, this.tripService, this.savedPlaceService, super.key});
+  const TripSummaryScreen({
+    required this.draft,
+    this.tripService,
+    this.savedPlaceService,
+    super.key,
+  });
   final TripDraft draft;
   final TripService? tripService;
   final SavedPlaceService? savedPlaceService;
@@ -274,6 +302,8 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
   List<TripDay> _days = [];
   List<SavedPlace> _places = [];
   bool _loading = true;
+  bool _daysLoaded = false;
+  bool _placesLoaded = false;
   String? _error;
   final Set<String> _removing = {};
   @override
@@ -295,25 +325,36 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
       _loading = true;
       _error = null;
     });
-    try {
-      final result = await Future.wait<Object>([
-        _trips.getTripDays(id),
-        _saved.getSavedPlaces(id),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _days = result[0] as List<TripDay>;
-        _places = result[1] as List<SavedPlace>;
-        _loading = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = 'Your saved plan could not be loaded. Check your connection and try again.';
-        });
-      }
-    }
+    var failed = false;
+    await Future.wait([
+      () async {
+        try {
+          final days = await _trips.getTripDays(id);
+          if (!mounted) return;
+          _days = days;
+          _daysLoaded = true;
+        } catch (_) {
+          failed = true;
+        }
+      }(),
+      () async {
+        try {
+          final places = await _saved.getSavedPlaces(id);
+          if (!mounted) return;
+          _places = places;
+          _placesLoaded = true;
+        } catch (_) {
+          failed = true;
+        }
+      }(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _error = failed
+          ? 'Some trip details could not refresh. Check your connection and try again.'
+          : null;
+    });
   }
 
   Future<void> _remove(SavedPlace place) async {
@@ -435,36 +476,41 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
                   message: 'Loading saved places and day settings.',
                   loading: true,
                 )
-              else if (_error != null)
-                YCStateCard(
-                  title: 'Your plan is still saved',
-                  message: _error!,
-                  onAction: _load,
-                )
               else ...[
-                _Surface(
-                  child: _NavigationRow(
-                    icon: Icons.calendar_month_outlined,
-                    title:
-                        '${_days.where((d) => d.dayType == DayType.rest).length} rest days',
-                    subtitle: 'Adjust sightseeing hours and days off',
-                    onTap: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => PlanDaysScreen(tripId: trip.tripId!),
-                        ),
-                      );
-                      if (mounted) _load();
-                    },
+                if (_error != null)
+                  YCStateCard(
+                    title: 'Could not refresh everything',
+                    message: _error!,
+                    actionLabel: 'Retry',
+                    onAction: _load,
                   ),
-                ),
+                if (_daysLoaded)
+                  _Surface(
+                    child: _NavigationRow(
+                      icon: Icons.calendar_month_outlined,
+                      title:
+                          '${_days.where((d) => d.dayType == DayType.rest).length} rest days',
+                      subtitle: 'Adjust sightseeing hours and days off',
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                PlanDaysScreen(tripId: trip.tripId!),
+                          ),
+                        );
+                        if (mounted) _load();
+                      },
+                    ),
+                  ),
                 const SizedBox(height: 24),
                 Text(
-                  '${_places.length} selected places',
+                  _placesLoaded
+                      ? '${_places.length} selected places'
+                      : 'Places have not loaded yet',
                   style: YCStyle.sectionTitle,
                 ),
                 const SizedBox(height: 16),
-                if (_places.isEmpty)
+                if (_placesLoaded && _places.isEmpty)
                   YCStateCard(
                     title: 'What would you like to see?',
                     message:

@@ -6,6 +6,21 @@ These records describe accepted direction without claiming all consequences are 
 Changing an accepted decision requires a new or amended record plus updates to architecture,
 provider, environment, and data-model documentation.
 
+## UI scope decision — preserve approved Home and Explore
+
+- **Status:** Accepted user constraint; `[IMPLEMENTED]` scoped presentation system,
+  `[PARTIAL]` account-screen integration.
+- **Date:** 2026-09-13.
+- **Decision:** Extend the approved Home/Explore typography, accent, imagery and
+  surface vocabulary through locally scoped planning/account widgets. Keep their
+  visual components and golden references protected. Resolve the explicit
+  navigation constraint before wiring Saved/Profile placeholders.
+- **Data boundary:** Reuse existing backend services. Session trip history records
+  successful-save snapshots only; it does not imply authentication or durable
+  account storage. Remove pretend sign-in choices from the legacy entry path.
+- **Evidence:** [UI redesign audit](UI_REDESIGN.md), Flutter regression tests and
+  screen goldens. No provider, schema, environment or migration change.
+
 ## ADR-001 — PostgreSQL is canonical; Supabase Auth is the target identity layer
 
 - **Status:** Accepted direction; `[IMPLEMENTED]` PostgreSQL, `[PLANNED]` Supabase Auth/RLS.

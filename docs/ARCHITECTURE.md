@@ -9,6 +9,20 @@ repository reality from the intended provider architecture.
 
 ### Flutter
 
+`[IMPLEMENTED]` The September 2026 UI redesign adds locally scoped `YCStyle`,
+`YCScaffold`, a unified three-page onboarding story, responsive trip-creation
+surfaces, and refined discovery/day/map/POI presentations. Home and Explore retain
+their approved layouts and glass components. See [UI redesign](UI_REDESIGN.md).
+
+`[PARTIAL]` `YatraSession` is an in-memory presentation store for successful trip
+save snapshots, preferred name, and default pace. Profile, Saved, session history,
+summary, and settings screens exist; their protected Home/Explore navigation
+handlers remain placeholders pending explicit navigation authorization. There is
+no authenticated account trip list, durable client store, or notification delivery.
+Summary screens call the existing day/saved-place services and retain independent
+results when one request fails. The legacy login screen offers guest entry, not
+nonfunctional authentication buttons.
+
 `[IMPLEMENTED]` The home presentation follows the approved Figma frame
 `xgUd2FZFUscBxVEvMOT97N / 18:16` (700 x 1463), inspected read-only on 2026-09-09.
 `lib/screens/home/widgets/` contains the width-scaled header, search entry, continuation
@@ -51,7 +65,8 @@ or route contract is changed by this UI slice.
 `[IMPLEMENTED]` `lib/main.dart` starts the traveller application and `lib/main_admin.dart`
 starts a separate admin shell. Screens call small `http` service classes using the base URL in
 `lib/config/api_config.dart`. Models are local Dart value objects. Navigation and state are
-widget-local; there is no dependency-injection, router, persistence, or global state layer.
+primarily widget-local, with the session-only presentation store described above;
+there is no router package or durable client persistence layer.
 
 `[IMPLEMENTED]` The trip-building screens share a `TripDraft`. After Preferences, `TripService`
 posts the existing city/date/arrival/purpose/preference values to the backend, retains the

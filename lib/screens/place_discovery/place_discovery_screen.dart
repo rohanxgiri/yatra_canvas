@@ -1457,7 +1457,9 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                       );
                     }
                   },
-                  child: Text('Review ${_savedPlaces.length} selected places'),
+                  child: Text(
+                    'Review ${_savedPlaces.length} selected ${_savedPlaces.length == 1 ? 'place' : 'places'}',
+                  ),
                 ),
               ),
             ),
@@ -2403,148 +2405,156 @@ class _SavedPlaceTile extends StatelessWidget {
         ],
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              gradient: AppColors.tealGradient,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '${index + 1}',
-              style: AppTextStyles.caption.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  savedPlace.place.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.label,
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  gradient: AppColors.tealGradient,
+                  shape: BoxShape.circle,
                 ),
-                if (savedPlace.notes case final notes?) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    notes,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.caption,
+                child: Text(
+                  '${index + 1}',
+                  style: AppTextStyles.caption.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
                   ),
-                ],
-                const SizedBox(height: 3),
-                InkWell(
-                  key: ValueKey('schedule-badge-${savedPlace.placeId}'),
-                  onTap: busy ? null : onSchedule,
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 2,
-                      horizontal: 2,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      savedPlace.place.name,
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isLockedDay
-                              ? Icons.lock_clock_rounded
-                              : Icons.auto_awesome_rounded,
-                          size: 13,
-                          color: isLockedDay
-                              ? AppColors.terracotta
-                              : AppColors.teal,
+                    if (savedPlace.notes case final notes?) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        notes,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.caption,
+                      ),
+                    ],
+                    const SizedBox(height: 3),
+                    InkWell(
+                      key: ValueKey('schedule-badge-${savedPlace.placeId}'),
+                      onTap: busy ? null : onSchedule,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 2,
                         ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            scheduleText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.caption.copyWith(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isLockedDay
+                                  ? Icons.lock_clock_rounded
+                                  : Icons.auto_awesome_rounded,
+                              size: 13,
                               color: isLockedDay
                                   ? AppColors.terracotta
                                   : AppColors.teal,
-                              fontWeight: FontWeight.w700,
                             ),
-                          ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                scheduleText,
+                                style: AppTextStyles.caption.copyWith(
+                                  color: isLockedDay
+                                      ? AppColors.terracotta
+                                      : AppColors.teal,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(
+                              Icons.arrow_drop_down_rounded,
+                              size: 16,
+                              color: isLockedDay
+                                  ? AppColors.terracotta
+                                  : AppColors.teal,
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 2),
-                        Icon(
-                          Icons.arrow_drop_down_rounded,
-                          size: 16,
-                          color: isLockedDay
-                              ? AppColors.terracotta
-                              : AppColors.teal,
-                        ),
-                      ],
+                      ),
                     ),
+                    if (savedPlace.priority > 0 ||
+                        savedPlace.isLocked ||
+                        savedPlace.mustVisit) ...[
+                      const SizedBox(height: 5),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 4,
+                        children: [
+                          if (savedPlace.priority > 0)
+                            _PreferenceBadge(
+                              label: 'Priority ${savedPlace.priority}',
+                            ),
+                          if (savedPlace.mustVisit)
+                            const _PreferenceBadge(label: 'Must visit'),
+                          if (savedPlace.isLocked)
+                            const _PreferenceBadge(label: 'Locked'),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              IconButton(
+                tooltip: savedPlace.notes == null
+                    ? 'Add notes'
+                    : 'Edit notes and preferences',
+                onPressed: busy ? null : onNotes,
+                icon: const Icon(Icons.tune_rounded, size: 20),
+              ),
+              if (busy)
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else
+                IconButton(
+                  tooltip: 'Remove place',
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                ),
+              ReorderableDragStartListener(
+                index: index,
+                enabled: dragEnabled && !busy,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(
+                    Icons.drag_handle_rounded,
+                    color: dragEnabled
+                        ? AppColors.textSecondary
+                        : AppColors.textTertiary,
                   ),
                 ),
-                if (savedPlace.priority > 0 ||
-                    savedPlace.isLocked ||
-                    savedPlace.mustVisit) ...[
-                  const SizedBox(height: 5),
-                  Wrap(
-                    spacing: 5,
-                    runSpacing: 4,
-                    children: [
-                      if (savedPlace.priority > 0)
-                        _PreferenceBadge(
-                          label: 'Priority ${savedPlace.priority}',
-                        ),
-                      if (savedPlace.mustVisit)
-                        const _PreferenceBadge(label: 'Must visit'),
-                      if (savedPlace.isLocked)
-                        const _PreferenceBadge(label: 'Locked'),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: savedPlace.notes == null
-                ? 'Add notes'
-                : 'Edit notes and preferences',
-            onPressed: busy ? null : onNotes,
-            icon: const Icon(Icons.tune_rounded, size: 20),
-          ),
-          if (busy)
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-            )
-          else
-            IconButton(
-              tooltip: 'Remove place',
-              onPressed: onRemove,
-              icon: const Icon(Icons.close_rounded, size: 20),
-            ),
-          ReorderableDragStartListener(
-            index: index,
-            enabled: dragEnabled && !busy,
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Icon(
-                Icons.drag_handle_rounded,
-                color: dragEnabled
-                    ? AppColors.textSecondary
-                    : AppColors.textTertiary,
-              ),
-            ),
+            ],
           ),
         ],
       ),
@@ -2766,7 +2776,7 @@ class _OptimizedRouteCard extends StatelessWidget {
                             d.dayType == DayType.rest,
                       )
                       ? 'Rest day · Take it slow'
-                      : '${route.placesByDay[displayDays[dayIndex]]?.length ?? 0} places',
+                      : '${route.placesByDay[displayDays[dayIndex]]?.length ?? 0} ${route.placesByDay[displayDays[dayIndex]]?.length == 1 ? 'place' : 'places'}',
                   style: AppTextStyles.bodyMuted,
                 ),
                 children: [
@@ -2796,7 +2806,7 @@ class _OptimizedRouteCard extends StatelessWidget {
                   'Visit times and travel durations are estimates. Leave a little room in your day.',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textTertiary,
-                    fontSize: 11,
+                    fontSize: 12,
                   ),
                 ),
               ),
@@ -2822,23 +2832,24 @@ class _OptimizedRouteCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Icon(
               isRest ? Icons.wb_sunny_outlined : Icons.wb_sunny_rounded,
               color: isRest ? AppColors.terracotta : AppColors.teal,
               size: 16,
             ),
-            const SizedBox(width: 8),
             Text(
-              '${dayPlaces.length} planned stops',
+              '${dayPlaces.length} planned ${dayPlaces.length == 1 ? 'stop' : 'stops'}',
               style: AppTextStyles.label.copyWith(
                 color: isRest ? AppColors.terracotta : AppColors.tealDark,
                 fontWeight: FontWeight.w800,
               ),
             ),
             if (dayTypeLabel != null) ...[
-              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
@@ -2857,18 +2868,17 @@ class _OptimizedRouteCard extends StatelessWidget {
                   style: AppTextStyles.caption.copyWith(
                     color: isRest ? AppColors.terracotta : AppColors.charcoal,
                     fontWeight: FontWeight.w700,
-                    fontSize: 11,
+                    fontSize: 12,
                   ),
                 ),
               ),
             ],
             if (timeWindow != null) ...[
-              const Spacer(),
               Text(
                 timeWindow,
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.textSecondary,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -3093,7 +3103,7 @@ class _RouteStop extends StatelessWidget {
           style: AppTextStyles.caption.copyWith(
             color: AppColors.success,
             fontWeight: FontWeight.w700,
-            fontSize: 11,
+            fontSize: 12,
           ),
         ),
       );
@@ -3110,7 +3120,7 @@ class _RouteStop extends StatelessWidget {
           style: AppTextStyles.caption.copyWith(
             color: Colors.amber.shade900,
             fontWeight: FontWeight.w700,
-            fontSize: 11,
+            fontSize: 12,
           ),
         ),
       );
@@ -3128,7 +3138,7 @@ class _RouteStop extends StatelessWidget {
           style: AppTextStyles.caption.copyWith(
             color: AppColors.textSecondary,
             fontWeight: FontWeight.w600,
-            fontSize: 11,
+            fontSize: 12,
           ),
         ),
       );
@@ -3368,7 +3378,7 @@ class _RouteStop extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.caption.copyWith(
                 color: AppColors.textTertiary,
-                fontSize: 11,
+                fontSize: 12,
               ),
             ),
           ),
@@ -3391,7 +3401,7 @@ class _RouteStop extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: AppTextStyles.caption.copyWith(
               color: AppColors.success,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),

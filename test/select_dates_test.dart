@@ -5,6 +5,28 @@ import 'package:yatra_canvas/screens/create_trip/select_dates_screen.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
 void main() {
+  testWidgets('flexible duration replaces the previous date range', (
+    tester,
+  ) async {
+    final start = DateTime.now().add(const Duration(days: 10));
+    final draft = TripDraft(
+      startDate: start,
+      endDate: start.add(const Duration(days: 1)),
+      datesFlexible: true,
+      durationDays: 5,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SelectDatesScreen(draft: draft),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(draft.endDate.difference(draft.startDate).inDays, 4);
+    expect(draft.durationDays, 5);
+  });
   testWidgets('SelectDatesScreen uses dynamic dates without hardcoding', (
     tester,
   ) async {
