@@ -41,7 +41,17 @@ Future<void> _pumpShell(
   );
   await tester.runAsync(() async {
     final context = tester.element(find.byType(HomeScreen));
-    for (final name in ['ujjain', 'jaipur', 'varanasi']) {
+    for (final name in [
+      'ujjain',
+      'jaipur',
+      'varanasi',
+      'udaipur',
+      'manali',
+      'goa',
+      'rishikesh',
+      'mountain_editorial',
+      'journey_editorial',
+    ]) {
       await precacheImage(AssetImage('lib/assets/home/$name.png'), context);
     }
   });
@@ -169,7 +179,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Popular Destinations'), findsOneWidget);
-      expect(find.byType(HomeDestinationCard), findsNWidgets(2));
+      expect(find.byType(HomeDestinationCard), findsNWidgets(6));
       expect(tester.takeException(), isNull);
       final nav = tester.getRect(find.byType(YatraBottomNavigation));
       expect(nav.bottom, lessThanOrEqualTo(876));
@@ -188,7 +198,7 @@ void main() {
     final jaipur = find.byWidgetPredicate(
       (widget) => widget is YatraFavoriteButton && widget.name == 'Jaipur',
     );
-    expect(tester.widget<YatraFavoriteButton>(jaipur).selected, isTrue);
+    expect(tester.widget<YatraFavoriteButton>(jaipur).selected, isFalse);
     await tester.tap(jaipur);
     await tester.pumpAndSettle();
 
@@ -202,8 +212,50 @@ void main() {
     final homeJaipur = find.byWidgetPredicate(
       (widget) => widget is YatraFavoriteButton && widget.name == 'Jaipur',
     );
-    expect(tester.widget<YatraFavoriteButton>(homeJaipur).selected, isFalse);
+    expect(tester.widget<YatraFavoriteButton>(homeJaipur).selected, isTrue);
   });
+
+  testWidgets(
+    'Explore page renders all 6 popular destinations and toggles favorites',
+    (tester) async {
+      await _pumpShell(tester, 393);
+      await tester.tap(_action('Explore'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeDestinationCard), findsNWidgets(6));
+
+      const destinations = [
+        ('Jaipur', 'Rajasthan'),
+        ('Varanasi', 'Uttar Pradesh'),
+        ('Udaipur', 'Rajasthan'),
+        ('Manali', 'Himachal Pradesh'),
+        ('Goa', 'Goa'),
+        ('Rishikesh', 'Uttarakhand'),
+      ];
+
+      for (final dest in destinations) {
+        final card = find.byWidgetPredicate(
+          (w) => w is HomeAction && w.label == '${dest.$1}, ${dest.$2}',
+        );
+        if (card.evaluate().isEmpty) {
+          await tester.scrollUntilVisible(
+            card,
+            150,
+            scrollable: find.byKey(const ValueKey('explore-scroll')),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(card, findsOneWidget);
+      }
+
+      final udaipurHeart = find.byWidgetPredicate(
+        (w) => w is YatraFavoriteButton && w.name == 'Udaipur',
+      );
+      expect(tester.widget<YatraFavoriteButton>(udaipurHeart).selected, isFalse);
+      await tester.tap(udaipurHeart);
+      await tester.pumpAndSettle();
+      expect(tester.widget<YatraFavoriteButton>(udaipurHeart).selected, isTrue);
+    },
+  );
 }
 
 Finder _action(String label) => find.byWidgetPredicate(

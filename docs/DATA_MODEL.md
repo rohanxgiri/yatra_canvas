@@ -35,8 +35,10 @@ Deletion behavior must not be assumed except where an `ondelete` action is expli
 
 | Table/model | Status | Purpose and important constraints |
 | --- | --- | --- |
-| `cities` / `City` | `[IMPLEMENTED]` | Canonical destination name/state/country and coordinates. Nullable indexed `google_place_id` has unique constraint `uq_cities_google_place_id`; coordinate checks apply. |
-| `places` / `Place` | `[IMPLEMENTED]` | Canonical curated POI tied to a city, with category, coordinates, optional rating, review count, feature flags, `wikidata_id`, `importance_score`, `opening_hours_status` (`KNOWN`, `CLOSED`, `UNKNOWN` with check constraint `ck_places_opening_hours_status`), preserved `raw_opening_hours`, `last_fetched_at`, and `created_at`. Rating/review and coordinate checks apply. |
+| `cities` / `City` | `[IMPLEMENTED]` | Canonical destination name/state/country and coordinates. Destination flags `is_enabled`, `is_featured`, `is_popular`, `display_order`, nullable `image_url`, and `description` govern destination promotion and availability. Nullable indexed `google_place_id` has unique constraint `uq_cities_google_place_id`; coordinate checks apply. |
+| `places` / `Place` | `[IMPLEMENTED]` | Canonical curated POI tied to a city, with category, coordinates, optional rating, review count, feature flags, `wikidata_id`, `importance_score`, `moderation_status` (`ACTIVE`, `HIDDEN`, `RESTRICTED`, `DUPLICATE`, `INVALID` with check constraint `ck_places_moderation_status`), `opening_hours_status` (`KNOWN`, `CLOSED`, `UNKNOWN` with check constraint `ck_places_opening_hours_status`), preserved `raw_opening_hours`, `last_fetched_at`, and `created_at`. Rating/review and coordinate checks apply. Moderation status filters out ineligible places from candidate discovery, recommendation scoring, and manual search. |
+| `users` / `User` | `[IMPLEMENTED]` | Registered user account storing unique lowercase `email`, `name`, salted `password_hash` (bcrypt), `role` (`USER`, `ADMIN` with check constraint `ck_users_role`), `is_active` boolean, `created_at`, and `updated_at`. Governs JWT bearer authentication and role-based endpoint authorization. |
+| `place_reports` / `PlaceReport` | `[IMPLEMENTED]` | User/traveler place issue reports tied to `places.id` and optional `users.id`. Stores issue `reason` (`permanently_closed`, `restricted_facility`, `duplicate`, `wrong_category`, etc.), optional `details`, workflow `status` (`OPEN`, `REVIEWING`, `RESOLVED`, `REJECTED` with check constraint `ck_place_reports_status`), optional `admin_notes`, `created_at`, and `updated_at`. |
 | `place_opening_hours` / `PlaceOpeningHours` | `[IMPLEMENTED]` | Normalized daily opening hours tied to `places.id` with `ondelete="CASCADE"`. Stores `day_of_week` (0=Monday .. 6=Sunday), `status` (`KNOWN`, `CLOSED`, `UNKNOWN`), and `intervals` JSON array (`[{"open": "HH:MM", "close": "HH:MM"}]`). Check constraints enforce `0 <= day_of_week <= 6` (`ck_place_opening_hours_day`) and valid status (`ck_place_opening_hours_status`). Unique constraint `uq_place_opening_hours_place_day` guarantees one schedule row per day per canonical place. Feeds exact weekday interval domains in the day-aware optimizer. |
 | `city_category_cache` / `CityCategoryCache` | `[IMPLEMENTED]` | One row per city/category with `last_fetched_at` and required `expires_at`; prevents unnecessary nearby refresh. |
 | `place_tags` / `PlaceTag` | `[IMPLEMENTED]` | Application tags unique per place/tag pair. |
@@ -50,20 +52,9 @@ Deletion behavior must not be assumed except where an `ondelete` action is expli
 | `route_matrix_cache` / `RouteMatrixCache` | `[IMPLEMENTED]` | Per-trip directed pair/mode cache with place IDs or coordinate snapshots. The normal path stores approximate offline costs under `local_estimate`; legacy Google rows remain distinguishable by mode. Selectively purged: start-location edits purge only start-related pairs (`start_only`), preserving valid place-to-place legs; destination edits purge all rows (`all`). |
 | `trip_itinerary` / `TripItinerary` | `[IMPLEMENTED]` | Unique visit order per trip/day, calculated planned arrival/departure times, prior-leg metrics, and execution lifecycle status (`status`: `PLANNED`, `COMPLETED`, `MISSED`, `SKIPPED`, default `'PLANNED'`, governed by check constraint `ck_trip_itinerary_status`). Populated by `RouteOptimizationService` with default `'PLANNED'`. Visit duration is derived by the shared category estimator; known-hours state and unscheduled reasons are response metadata, not persisted columns. Status updates (`PATCH /trips/{trip_id}/itinerary/stops/{stop_id}` or `places/{place_id}`) persist immediately. Moving a place (`POST /trips/{trip_id}/itinerary/move-place`) validates target feasibility, re-optimizes affected suffixes while keeping completed prefixes strictly immutable, and leaves unrelated days untouched. |
 
-There is no application `User`/`Profile`, media, audit-log, map, or provider-job
-table. Currency has been removed from the roadmap. Weather forecasts use in-memory
-TTL caching and do not require persistent database tables.
+There is no separate media, map, or provider-job table. Currency has been removed from the roadmap. Weather forecasts use in-memory TTL caching and do not require persistent database tables.
 
-Authentication is not implemented. `Trip.user_id` is required by the current model but is not a
-foreign key. The create service currently supplies one fixed, server-owned development-only UUID;
-the request schema forbids `user_id`, `trip_id`, timestamps, and other unknown fields. Replace
-this isolated identity dependency with an authenticated principal before multi-user deployment.
-
-## Canonical place and provenance rules
-
-`Place` is the application-owned canonical record. `PlaceSource` stores a provider identity and
-raw-source-aligned metadata without forcing provider columns onto `Place`. A canonical place may
-have multiple sources, but no source/external ID may attach to two canonical places.
+Authentication and role authorization `[IMPLEMENTED]` are supported via JWT tokens and bcrypt password hashing on `User` accounts (`USER` and `ADMIN` roles). Trip creation continues to accept legacy anonymous calls with server-owned default user identities for backward compatibility.
 
 The FSQ importer currently auto-attaches only when normalized name and broad category agree and
 there is exactly one nearby candidate inside the configured distance. Ambiguous, conflicting, or

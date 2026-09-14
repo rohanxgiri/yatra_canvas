@@ -78,6 +78,28 @@ from app.schemas.weather_advisory import (
     TripWeatherAdvisoriesRead,
     WeatherAdvisoryRead,
 )
+from app.schemas.auth import (
+    TokenResponse,
+    UserLoginRequest,
+    UserRead,
+)
+from app.schemas.admin import (
+    AdminDashboardMetrics,
+    AdminDestinationCreate,
+    AdminDestinationRead,
+    AdminDestinationUpdate,
+    AdminPlaceDetailRead,
+    AdminPlaceRead,
+    AdminPlaceUpdate,
+    AdminProviderStatus,
+    AdminReportRead,
+    AdminReportUpdate,
+    AdminTripDetailRead,
+    AdminTripRead,
+    AdminUserRead,
+    AdminUserUpdate,
+)
+
 
 __all__ = [
     "CityCreate",
@@ -134,4 +156,22 @@ __all__ = [
     "DayRearrangePreviewRead",
     "ApplyRearrangementRequest",
     "RearrangePreviewRequest",
+    "UserLoginRequest",
+    "UserRead",
+    "TokenResponse",
+    "AdminDashboardMetrics",
+    "AdminUserRead",
+    "AdminUserUpdate",
+    "AdminDestinationRead",
+    "AdminDestinationCreate",
+    "AdminDestinationUpdate",
+    "AdminPlaceRead",
+    "AdminPlaceDetailRead",
+    "AdminPlaceUpdate",
+    "AdminTripRead",
+    "AdminTripDetailRead",
+    "AdminReportRead",
+    "AdminReportUpdate",
+    "AdminProviderStatus",
 ]
+

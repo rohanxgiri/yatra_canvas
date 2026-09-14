@@ -14,6 +14,13 @@ repository reality from the intended provider architecture.
 surfaces, and refined discovery/day/map/POI presentations. Home and Explore retain
 their approved layouts and glass components. See [UI redesign](UI_REDESIGN.md).
 
+`[IMPLEMENTED]` The interaction layer centralizes durations, easing, reduced-motion
+handling, and page-transition patterns in `YCMotion`. Ripple-free `YCPressable`
+surfaces provide consistent pointer and keyboard behavior for planning selections;
+trip creation uses an honest destination-led wait state without fabricated progress,
+and POI sheets share drag/scroll physics with their selected map marker. See
+[UX and motion polish](UX_MOTION_POLISH.md).
+
 `[PARTIAL]` `YatraSession` is an in-memory presentation store for successful trip
 save snapshots, preferred name, and default pace. Profile, Saved, session history,
 summary, and settings screens exist; their protected Home/Explore navigation
@@ -112,6 +119,9 @@ notices on unassigned days.
 | Area | Current endpoints |
 | --- | --- |
 | Status | `GET /` |
+| Authentication | `POST /api/auth/login`, `GET /api/auth/me` (JWT bearer tokens, bcrypt verification) |
+| Admin Suite | `/api/admin/dashboard`, `/api/admin/users`, `/api/admin/destinations`, `/api/admin/places`, `/api/admin/trips`, `/api/admin/reports`, `/api/admin/provider-status` |
+| Admin Web App | `GET /admin` (responsive single-page administrative dashboard served statically) |
 | Cities | create/list/get/search; Google autocomplete, details, and resolve |
 | Locations | Geoapify-backed `GET /locations/autocomplete` |
 | Places | create/list; legacy Google discovery; OpenStreetMap recommendations; staged background prefetch (`POST /places/prefetch`, `GET /places/prefetch/{city_id}`); destination-scoped search (`GET /cities/{city_id}/places/search`); canonical resolution (`POST /cities/{city_id}/places/resolve`) |
@@ -485,14 +495,22 @@ only with the deployment architecture; both are currently `[UNKNOWN]`.
 
 | Concern | Current | Target |
 | --- | --- | --- |
-| Identity/authorization | `[PLANNED]` login UI only | Supabase Auth, server verification, ownership tests, reviewed RLS |
+| Identity/authorization | `[IMPLEMENTED]` backend JWT auth (`USER`, `ADMIN` roles), bcrypt hashing, `require_admin` guard; `[PARTIAL]` traveler account binding in Flutter | account registration/trip ownership binding in Flutter |
 | Trip lifecycle | `[PARTIAL]` create flow and downstream single-session ID handoff; no read/edit/resume/auth | persisted creation through multi-day itinerary lifecycle |
 | Place acquisition | Google runtime refresh plus local FSQ importer | reviewed FSQ/OSM ingestion and optional Wikimedia enrichment |
 | Routing | `[IMPLEMENTED]` pairwise matrix estimates, constraint-aware optimizer; real road geometry via openrouteservice/OSRM | provider-neutral openrouteservice directions/matrix and multi-day planning |
 | Map | `[IMPLEMENTED]` FlutterMap with OpenStreetMap tiles, markers, and real road-route PolylineLayer | explicit renderer/tiles decision with attribution and offline policy |
-| Admin | mock UI plus review table | authorized, audited review/dedupe/correction workflow |
+| Admin | `[IMPLEMENTED]` authorized admin suite (`/api/admin/*`), POI moderation lifecycle (`ACTIVE`, `HIDDEN`, `RESTRICTED`, `DUPLICATE`, `INVALID`), destination management, trip inspector, report triage, and responsive web dashboard at `/admin` | expanded bulk-moderation tools and offline dataset export |
 | Migrations | `create_all` plus SQL scripts | ordered, reversible, tested migration history |
 | Operations | `[UNKNOWN]` | documented deployment, health, metrics, backup, and incident behavior |
+
+# Admin and moderation architecture note (2026-09-14)
+
+`[IMPLEMENTED]` The role-based administrative system and web dashboard are documented in
+[`ADMIN_ARCHITECTURE.md`](ADMIN_ARCHITECTURE.md). Fast-path candidate discovery, recommendation scoring,
+and destination search enforce `Place.moderation_status == 'ACTIVE'`, cleanly excluding restricted
+or low-quality POIs without ad-hoc code filtering.
+
 # Core-flow reliability note (2026-09-07)
 
 `[IMPLEMENTED]` The integrated trip execution path is verified in

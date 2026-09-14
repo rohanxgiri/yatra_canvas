@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../data/popular_destinations.dart';
 import '../home/widgets/home_destination_card.dart';
 import '../home/widgets/home_style.dart';
 import '../home/widgets/yatra_refractive_glass.dart';
@@ -11,12 +12,14 @@ class ExplorePage extends StatefulWidget {
     required this.favorites,
     required this.onFavorite,
     required this.onOpenTripCreation,
+    this.onOpenDestination,
     super.key,
   });
 
   final Set<String> favorites;
   final ValueChanged<String> onFavorite;
   final VoidCallback onOpenTripCreation;
+  final ValueChanged<String>? onOpenDestination;
 
   @override
   State<ExplorePage> createState() => _ExplorePageState();
@@ -30,7 +33,7 @@ class _ExplorePageState extends State<ExplorePage> {
     ExploreCategory(
       title: 'Nature Retreats',
       phrase: 'Room to breathe, trails to follow',
-      asset: 'jaipur',
+      asset: 'mountain_editorial',
     ),
     ExploreCategory(
       title: 'Spiritual Journeys',
@@ -45,7 +48,7 @@ class _ExplorePageState extends State<ExplorePage> {
     ExploreCategory(
       title: 'Mountain Escapes',
       phrase: 'Cool air and unhurried horizons',
-      asset: 'jaipur',
+      asset: 'mountain_editorial',
     ),
     ExploreCategory(
       title: 'Hidden Gems',
@@ -104,36 +107,44 @@ class _ExplorePageState extends State<ExplorePage> {
                       Align(
                         child: SizedBox(
                           width: (240 * scale).clamp(172.0, 240.0),
-                          height: (58 * scale).clamp(48.0, 58.0),
                           child: YatraRefractiveGlass(
                             radius: 76,
                             blur: 1.4,
                             displacement: 1.6,
                             fill: const Color(0xD9055EC8),
                             borderColor: const Color(0x66FFFFFF),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const ColorFiltered(
-                                  colorFilter: ColorFilter.mode(
-                                    Colors.white,
-                                    BlendMode.srcIn,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const ColorFiltered(
+                                    colorFilter: ColorFilter.mode(
+                                      Colors.white,
+                                      BlendMode.srcIn,
+                                    ),
+                                    child: HomeIcon(
+                                      'route_pin',
+                                      width: 20,
+                                      height: 22,
+                                    ),
                                   ),
-                                  child: HomeIcon(
-                                    'route_pin',
-                                    width: 20,
-                                    height: 22,
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      'Get Inspired to Go',
+                                      textAlign: TextAlign.center,
+                                      style: HomeStyle.text(
+                                        (18 * scale).clamp(14.0, 18.0),
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Get Inspired to Go',
-                                  style: HomeStyle.text(
-                                    (18 * scale).clamp(14.0, 18.0),
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -255,38 +266,53 @@ class _ExplorePageState extends State<ExplorePage> {
                               style: HomeStyle.text(24 * scale),
                             ),
                             SizedBox(height: 14 * scale),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: HomeDestinationCard(
-                                    name: 'Jaipur',
-                                    region: 'Rajisthan',
-                                    image: 'jaipur',
-                                    favorite: widget.favorites.contains(
-                                      'Jaipur',
+                            for (var i = 0; i < popularDestinations.length; i += 2) ...[
+                              if (i > 0) SizedBox(height: 20 * scale),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: HomeDestinationCard(
+                                      name: popularDestinations[i].name,
+                                      region: popularDestinations[i].region,
+                                      image: popularDestinations[i].image,
+                                      favorite: widget.favorites.contains(
+                                        popularDestinations[i].name,
+                                      ),
+                                      onTap: () =>
+                                          widget.onOpenDestination != null
+                                              ? widget.onOpenDestination!(
+                                                  popularDestinations[i].name,
+                                                )
+                                              : widget.onOpenTripCreation(),
+                                      onFavorite: () => widget.onFavorite(
+                                        popularDestinations[i].name,
+                                      ),
                                     ),
-                                    onTap: widget.onOpenTripCreation,
-                                    onFavorite: () =>
-                                        widget.onFavorite('Jaipur'),
                                   ),
-                                ),
-                                SizedBox(width: 20 * scale),
-                                Expanded(
-                                  child: HomeDestinationCard(
-                                    name: 'Varanasi',
-                                    region: 'Uttar Pradesh',
-                                    image: 'varanasi',
-                                    favorite: widget.favorites.contains(
-                                      'Varanasi',
+                                  SizedBox(width: 20 * scale),
+                                  Expanded(
+                                    child: HomeDestinationCard(
+                                      name: popularDestinations[i + 1].name,
+                                      region: popularDestinations[i + 1].region,
+                                      image: popularDestinations[i + 1].image,
+                                      favorite: widget.favorites.contains(
+                                        popularDestinations[i + 1].name,
+                                      ),
+                                      onTap: () =>
+                                          widget.onOpenDestination != null
+                                              ? widget.onOpenDestination!(
+                                                  popularDestinations[i + 1].name,
+                                                )
+                                              : widget.onOpenTripCreation(),
+                                      onFavorite: () => widget.onFavorite(
+                                        popularDestinations[i + 1].name,
+                                      ),
                                     ),
-                                    onTap: widget.onOpenTripCreation,
-                                    onFavorite: () =>
-                                        widget.onFavorite('Varanasi'),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),

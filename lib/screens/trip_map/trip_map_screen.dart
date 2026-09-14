@@ -5,6 +5,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/itinerary_stop_status.dart';
 import '../../models/optimized_route.dart';
@@ -20,7 +21,9 @@ import '../../services/smart_replanning_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../theme/yc_motion.dart';
 import '../../widgets/poi_bottom_sheet.dart';
+import '../home/widgets/yatra_refractive_glass.dart';
 
 class TripMapScreen extends StatefulWidget {
   const TripMapScreen({
@@ -79,6 +82,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
   bool _isLoading = true;
   bool _isRouteLoading = false;
   String? _error;
+  bool _routeUnavailable = false;
 
   TripStartLocation? _startLocation;
   List<SavedPlace> _savedPlaces = [];
@@ -86,6 +90,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
   OptimizedRoute? _optimizedRoute;
   TripRouteGeometry? _routeGeometry;
   int? _selectedDay;
+  String? _selectedPlaceId;
   int? _durationDays;
 
   List<int> get _logicalDays {
@@ -159,7 +164,10 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
   Future<void> _fetchRouteGeometryAsync() async {
     if (!mounted) return;
-    setState(() => _isRouteLoading = true);
+    setState(() {
+      _isRouteLoading = true;
+      _routeUnavailable = false;
+    });
     try {
       final geom = await _routeGeometryService.getRouteGeometry(widget.tripId);
       if (!mounted) return;
@@ -173,7 +181,12 @@ class _TripMapScreenState extends State<TripMapScreen> {
       );
       _fitMapBounds();
     } catch (_) {
-      if (mounted) setState(() => _isRouteLoading = false);
+      if (mounted) {
+        setState(() {
+          _isRouteLoading = false;
+          _routeUnavailable = true;
+        });
+      }
     }
   }
 
@@ -244,7 +257,12 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
   Future<void> _fetchRouteAsync() async {
     if (!mounted) return;
-    setState(() => _isRouteLoading = true);
+    setState(() {
+      _isRouteLoading = true;
+      _routeUnavailable = false;
+    });
+
+    var failed = false;
 
     OptimizedRoute? routeResult;
     try {
@@ -253,7 +271,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
       // user action on the planning screen.
       routeResult = await _replanningService.getItinerary(widget.tripId);
     } catch (_) {
-      // Route optimization optional
+      failed = true;
     }
 
     TripRouteGeometry? geometryResult = routeResult?.routeGeometry;
@@ -263,18 +281,19 @@ class _TripMapScreenState extends State<TripMapScreen> {
           widget.tripId,
         );
       } catch (_) {
-        // Safe degradation: if geometry cannot be fetched, map still shows markers.
+        failed = true;
       }
     }
 
     if (!mounted) return;
     setState(() {
-      _optimizedRoute = routeResult;
-      _routeGeometry = geometryResult;
+      _optimizedRoute = routeResult ?? _optimizedRoute;
+      _routeGeometry = geometryResult ?? _routeGeometry;
       if (routeResult != null && _durationDays == null) {
         _durationDays = routeResult.totalDays;
       }
       _isRouteLoading = false;
+      _routeUnavailable = failed;
     });
 
     developer.log(
@@ -390,27 +409,37 @@ class _TripMapScreenState extends State<TripMapScreen> {
             .where((s) => s.placeId == place.placeId)
             .firstOrNull;
         if (saved != null) {
+          final isSelected = _selectedPlaceId == saved.placeId;
           markers.add(
             Marker(
               point: LatLng(saved.place.latitude, saved.place.longitude),
-              width: 36,
-              height: 36,
+              width: 44,
+              height: 44,
               child: GestureDetector(
                 onTap: () => _showPoiBottomSheet(saved, place),
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    color: AppColors.teal,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: Colors.black26, blurRadius: 4),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${place.visitOrder}',
-                      style: AppTextStyles.caption.copyWith(
+                child: AnimatedScale(
+                  scale: isSelected ? 1.12 : .82,
+                  duration: YCMotion.duration(context, YCMotion.press),
+                  curve: YCMotion.standard,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.teal,
+                      shape: BoxShape.circle,
+                      border: Border.all(
                         color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                        width: isSelected ? 3 : 2,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, blurRadius: 7),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${place.visitOrder}',
+                        style: AppTextStyles.caption.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -451,7 +480,10 @@ class _TripMapScreenState extends State<TripMapScreen> {
   }
 
   /// Opens the rich POI detail bottom sheet for a saved place marker.
-  void _showPoiBottomSheet(SavedPlace saved, OptimizedRoutePlace? stop) {
+  Future<void> _showPoiBottomSheet(
+    SavedPlace saved,
+    OptimizedRoutePlace? stop,
+  ) async {
     final configuredDays = _tripDays.isEmpty
         ? _logicalDays
         : _tripDays
@@ -474,29 +506,45 @@ class _TripMapScreenState extends State<TripMapScreen> {
               .map((day) => day.date)
               .firstOrNull;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        builder: (_, scrollController) => PoiBottomSheet(
-          savedPlace: saved,
-          routeStop: stop,
-          availableDays: availableDays,
-          visitDate: visitDate,
-          onStatusChange: stop == null
-              ? null
-              : (status) => _handleStopStatusChange(stop, status),
-          onMoveToDay: stop == null
-              ? null
-              : (targetDay) => _handleMoveToDay(stop, targetDay),
+    setState(() => _selectedPlaceId = saved.placeId);
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        barrierColor: const Color(0x33141B34),
+        useSafeArea: true,
+        isScrollControlled: true,
+        sheetAnimationStyle: AnimationStyle(
+          duration: YCMotion.duration(context, YCMotion.navigation),
+          reverseDuration: YCMotion.duration(context, YCMotion.component),
         ),
-      ),
-    );
+        builder: (ctx) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          snap: true,
+          snapSizes: const [.5, .9],
+          builder: (_, scrollController) => PoiBottomSheet(
+            savedPlace: saved,
+            routeStop: stop,
+            availableDays: availableDays,
+            visitDate: visitDate,
+            scrollController: scrollController,
+            onStatusChange: stop == null
+                ? null
+                : (status) => _handleStopStatusChange(stop, status),
+            onMoveToDay: stop == null
+                ? null
+                : (targetDay) => _handleMoveToDay(stop, targetDay),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted && _selectedPlaceId == saved.placeId) {
+        setState(() => _selectedPlaceId = null);
+      }
+    }
   }
 
   /// Shows a minimal bottom sheet for the trip start-location marker.
@@ -695,18 +743,19 @@ class _TripMapScreenState extends State<TripMapScreen> {
         title: const Text('Trip Map'),
         actions: [
           if (_logicalDays.isNotEmpty)
-            PopupMenuButton<int?>(
+            PopupMenuButton<int>(
+              tooltip: _selectedDay == null ? 'All days' : 'Day $_selectedDay',
               icon: const Icon(Icons.filter_list_rounded),
               onSelected: (day) {
                 setState(() {
-                  _selectedDay = day;
+                  _selectedDay = day == 0 ? null : day;
                 });
                 _fitMapBounds();
               },
               itemBuilder: (context) {
                 final days = _logicalDays;
                 return [
-                  const PopupMenuItem(value: null, child: Text('All Days')),
+                  const PopupMenuItem(value: 0, child: Text('All Days')),
                   for (final day in days)
                     PopupMenuItem(value: day, child: Text('Day $day')),
                 ];
@@ -758,6 +807,17 @@ class _TripMapScreenState extends State<TripMapScreen> {
       );
     }
 
+    if (_savedPlaces.isEmpty && _startLocation == null) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: YCStateCard(
+          title: 'Your map starts with a place',
+          message: 'Choose a starting point or save places to see them here.',
+          actionLabel: 'Back to your trip',
+          onAction: () => Navigator.maybePop(context),
+        ),
+      );
+    }
     final points = _getVisiblePoints();
     final center = points.isNotEmpty ? points.first : const LatLng(0, 0);
 
@@ -781,7 +841,24 @@ class _TripMapScreenState extends State<TripMapScreen> {
               attributions: [
                 TextSourceAttribution(
                   'OpenStreetMap contributors',
-                  onTap: () {},
+                  onTap: () async {
+                    try {
+                      if (await launchUrl(
+                        Uri.parse('https://www.openstreetmap.org/copyright'),
+                      )) {
+                        return;
+                      }
+                    } catch (_) {}
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Could not open attribution. Visit openstreetmap.org/copyright.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
                 ),
               ],
             ),
@@ -793,13 +870,12 @@ class _TripMapScreenState extends State<TripMapScreen> {
           child: SafeArea(
             top: false,
             left: false,
-            child: Material(
-              color: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-                side: const BorderSide(color: AppColors.border),
-              ),
+            child: YatraRefractiveGlass(
+              radius: 24,
+              blur: 1.2,
+              displacement: 1.4,
+              fill: const Color(0xD9FFFFFF),
+              borderColor: const Color(0xF2FFFFFF),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -877,6 +953,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
           Positioned(
             bottom: 24,
             left: 24,
+            right: 88,
             child: Material(
               elevation: 0,
               borderRadius: BorderRadius.circular(20),
@@ -895,14 +972,46 @@ class _TripMapScreenState extends State<TripMapScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Calculating route…',
-                      style: AppTextStyles.caption.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                    Flexible(
+                      child: Text(
+                        'Loading route…',
+                        style: AppTextStyles.caption.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ],
+                ),
+              ),
+            ),
+          ),
+        if (_routeUnavailable && !_isRouteLoading)
+          Positioned(
+            left: 16,
+            right: 84,
+            bottom: 36,
+            child: SafeArea(
+              top: false,
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Route could not refresh. Your places are still on the map.',
+                        style: AppTextStyles.caption,
+                      ),
+                      TextButton(
+                        onPressed: _fetchRouteAsync,
+                        child: const Text('Retry route'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

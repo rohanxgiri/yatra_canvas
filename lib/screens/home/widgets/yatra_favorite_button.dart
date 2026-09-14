@@ -9,7 +9,7 @@ class YatraFavoriteButton extends StatelessWidget {
     required this.name,
     required this.selected,
     required this.onTap,
-    this.diameter = 46,
+    this.diameter = 35,
     super.key,
   });
   final String name;
@@ -19,7 +19,7 @@ class YatraFavoriteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = diameter.clamp(44.0, 48.0);
+    final size = diameter.clamp(32.0, 38.0);
     return SizedBox(
       width: 48,
       height: 48,
@@ -27,25 +27,28 @@ class YatraFavoriteButton extends StatelessWidget {
         label: 'Favorite $name',
         onTap: onTap,
         toggled: selected,
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: YatraRefractiveGlass(
-            radius: size / 2,
-            blur: 1.2,
-            displacement: 2.8,
-            fill: selected ? const Color(0x20FFE8E2) : const Color(0x18FFFFFF),
-            borderColor: const Color(0xA6FFFFFF),
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 140),
-                child: HomeIcon(
-                  selected ? 'favorite_filled' : 'favorite_outline',
-                  key: ValueKey(selected),
-                  width: (size * .55).clamp(23, 27),
-                  height: (size * .55).clamp(23, 27) * .88,
+        child: Align(
+          alignment: Alignment.topRight,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: YatraRefractiveGlass(
+              radius: size / 2,
+              blur: 1.2,
+              displacement: 2.8,
+              fill: selected ? const Color(0x20FFE8E2) : const Color(0x18FFFFFF),
+              borderColor: const Color(0xA6FFFFFF),
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 140),
+                  child: HomeIcon(
+                    selected ? 'favorite_filled' : 'favorite_outline',
+                    key: ValueKey(selected),
+                    width: (size * .52).clamp(16.0, 19.0),
+                    height: (size * .52).clamp(16.0, 19.0) * .88,
+                  ),
                 ),
               ),
             ),

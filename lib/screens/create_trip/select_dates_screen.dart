@@ -7,8 +7,10 @@ import '../../services/place_prefetch_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../theme/yc_motion.dart';
 import '../../widgets/create_trip_scaffold.dart';
 import '../../widgets/selection_chip.dart';
+import '../../widgets/yc_pressable.dart';
 import 'arrival_details_screen.dart';
 
 class SelectDatesScreen extends StatefulWidget {
@@ -205,36 +207,37 @@ class _FlexibleDateToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.tealLight : AppColors.surface,
+    return YCPressable(
+      onTap: onTap,
+      semanticLabel: "I don't know my exact dates yet",
+      selected: selected,
       borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: selected ? AppColors.teal : AppColors.border,
+      child: AnimatedContainer(
+        duration: YCMotion.duration(context, YCMotion.component),
+        curve: YCMotion.standard,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.tealLight : AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? AppColors.teal : AppColors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.event_busy_outlined,
+              color: selected ? AppColors.teal : AppColors.textSecondary,
             ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.event_busy_outlined,
-                color: selected ? AppColors.teal : AppColors.textSecondary,
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                "I don't know my exact dates yet",
+                style: AppTextStyles.label,
               ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  "I don't know my exact dates yet",
-                  style: AppTextStyles.label,
-                ),
-              ),
-              Switch.adaptive(value: selected, onChanged: (_) => onTap()),
-            ],
-          ),
+            ),
+            Switch.adaptive(value: selected, onChanged: (_) => onTap()),
+          ],
         ),
       ),
     );
@@ -264,9 +267,7 @@ class _DurationPicker extends StatelessWidget {
           children: List.generate(5, (index) {
             final days = index + 1;
             return SelectionChip(
-              label: days == 5
-                  ? '5+ Days'
-                  : '$days ${days == 1 ? 'Day' : 'Days'}',
+              label: '$days ${days == 1 ? 'Day' : 'Days'}',
               selected: selectedDays == days,
               onSelected: (_) => onSelected(days),
             );
@@ -405,37 +406,39 @@ class _CalendarCard extends StatelessWidget {
                   _isSameDay(date, startDate) ||
                   (endDate != null && _isSameDay(date, endDate!));
 
-              return Semantics(
-                button: !isPast,
+              return YCPressable(
+                onTap: isPast ? null : () => onSelected(date),
+                enabled: !isPast,
                 selected: selected,
-                label: isPast
+                semanticLabel: isPast
                     ? '$day ${_monthNames[month - 1]} $year (past)'
                     : '$day ${_monthNames[month - 1]} $year',
-                child: InkWell(
-                  onTap: isPast ? null : () => onSelected(date),
-                  customBorder: const CircleBorder(),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                // The range-fill morph is the primary feedback here. Avoid a
+                // transform layer on every tiny calendar cell at rest.
+                pressedScale: 1,
+                child: AnimatedContainer(
+                  duration: YCMotion.duration(context, YCMotion.component),
+                  curve: YCMotion.standard,
+                  decoration: BoxDecoration(
+                    color: isPast
+                        ? Colors.transparent
+                        : isEdge
+                        ? AppColors.teal
+                        : selected
+                        ? AppColors.tealLight
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$day',
+                    style: AppTextStyles.label.copyWith(
                       color: isPast
-                          ? Colors.transparent
+                          ? AppColors.textTertiary
                           : isEdge
-                          ? AppColors.teal
-                          : selected
-                          ? AppColors.tealLight
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$day',
-                      style: AppTextStyles.label.copyWith(
-                        color: isPast
-                            ? AppColors.textTertiary
-                            : isEdge
-                            ? Colors.white
-                            : AppColors.charcoal,
-                      ),
+                          ? Colors.white
+                          : AppColors.charcoal,
                     ),
                   ),
                 ),

@@ -624,7 +624,7 @@ void main() {
         expect(find.byType(CircularProgressIndicator), findsNothing);
 
         // Day filter popup menu shows all logical days
-        final dayFilterBtn = find.byType(PopupMenuButton<int?>);
+        final dayFilterBtn = find.byType(PopupMenuButton<int>);
         expect(dayFilterBtn, findsOneWidget);
         await tester.tap(dayFilterBtn);
         await tester.pumpAndSettle();

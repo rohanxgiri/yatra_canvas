@@ -1,5 +1,27 @@
 # Home material refinement — 2026-09-09
 
+## Android rendering correction — 2026-09-13
+
+The shader implementation described below is historical and `[DEPRECATED]`.
+Android emulator screenshots reproduced unrelated backdrop content stretched into
+the navigation capsule and buttons. The widget now uses its existing clipped
+native blur treatment on every renderer, preserving tint, borders, rim, geometry,
+and interaction behavior. No layout or navigation-handler change is included.
+The old goldens covered the blur path; they did not validate the custom Android
+shader. Device rendering must accompany future material changes.
+
+`[IMPLEMENTED]` Verification: reproduced on `emulator-5554` (Android 17/API 37),
+installed the corrected regular debug APK, and visually checked Home, Explore,
+and scrolling beneath navigation. The duplicated text/image artifacts were absent.
+All 22 Home/Explore visual, navigation and web-smoke tests passed with the existing
+golden files unchanged; static analysis reported no issues. This verifies the
+emulator renderer, not every physical-device GPU.
+
+Emulator evidence: [before](visual_checks/glass-before.png),
+[Home after](visual_checks/glass-home-after.png),
+[Explore after](visual_checks/glass-explore-after.png), and
+[Explore after scrolling](visual_checks/glass-scroll-after.png).
+
 ## Scope and direction
 
 `[IMPLEMENTED]` Focused Flutter material/interaction changes, not a Home redesign.
@@ -187,3 +209,28 @@ Kotlin/Gradle deprecation and web Cupertino-font warnings are outside this slice
 The image/font/SVG assets, HomeHeader and HomeBackground are unchanged by this
 refinement. Git's total diff also includes the user's uncommitted preceding Home
 implementation; it should not be mistaken for a rewrite performed in this pass.
+
+## Home planning card reference correction — 2026-09-13
+
+[IMPLEMENTED] At the user's request, `ContinuePlanningCard` now follows the supplied
+wide Ujjain card reference: 620:341 minimum proportions, white Planning badge,
+large left-aligned title, a transparent upper image, a localized lower scrim, and
+one footer row with dates/progress and a right-aligned glass Continue action.
+The existing Ujjain asset also illustrates the empty state. Saved Jaipur/Varanasi
+trips retain their destination-specific artwork; other destinations retain the
+editorial fallback. A spiritual purpose supplies the Spiritual Trip subtitle.
+
+The empty state keeps invitation copy and a working Plan a Trip action; it does
+not invent a saved destination or dates. Saved-trip progress is explicitly trip
+setup completeness: destination, valid date range/duration, coordinate-backed
+start, and at least one purpose (one quarter each). Screen-reader semantics name
+this metric. It is not itinerary completion or a fixed sample percentage. There
+is no new API, stored field, or session mutation. Same-year dates omit the year;
+cross-year dates retain it. Larger text stacks footer details above the action,
+and the card grows with its content. The action retains a 48 px minimum hit area.
+
+Validation: Home responsive/navigation goldens and the dedicated saved-card test
+pass; targeted Dart analysis is clean. Saved Ujjain examples at 350 and 554 px
+are in `test/goldens/continue_planning_350.png` and
+`test/goldens/continue_planning_554.png`. Existing Home goldens were updated for
+the explicitly requested card change. Physical-device testing was not performed.

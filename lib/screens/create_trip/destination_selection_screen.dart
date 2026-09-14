@@ -13,6 +13,7 @@ import '../../services/place_prefetch_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../theme/yc_motion.dart';
 import '../../widgets/create_trip_scaffold.dart';
 import '../../widgets/search_field.dart';
 import '../place_discovery/place_discovery_screen.dart';
@@ -296,6 +297,7 @@ class _DestinationSelectionScreenState
 
   @override
   Widget build(BuildContext context) {
+    final selectedCity = _draft.destination;
     return CreateTripScaffold(
       step: 1,
       title: 'Where are you\ngoing?',
@@ -316,47 +318,67 @@ class _DestinationSelectionScreenState
             duration: const Duration(milliseconds: 180),
             child: _buildSearchState(),
           ),
-          if (_draft.destination case final city?) ...[
-            const SizedBox(height: 22),
-            _SelectedCityCard(city: city),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: city.id == null
-                    ? null
-                    : () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) {
-                            final hasStart =
-                                _draft.startLatitude != null &&
-                                _draft.startLongitude != null;
-                            return PlaceDiscoveryScreen(
-                              city: city,
-                              tripId: _draft.tripId,
-                              tripPurposes: {..._draft.purposes},
-                              routeStartReady: hasStart,
-                              durationDays: _draft.durationDays,
-                              startLocation: hasStart
-                                  ? TripStartLocation(
-                                      tripId: _draft.tripId ?? '',
-                                      type: _draft.startLocationType,
-                                      name:
-                                          _draft.startLocationName ??
-                                          'Trip Start',
-                                      latitude: _draft.startLatitude!,
-                                      longitude: _draft.startLongitude!,
-                                    )
-                                  : null,
-                            );
-                          },
-                        ),
-                      ),
-                icon: const Icon(Icons.explore_outlined),
-                label: const Text('Discover nearby places'),
+          AnimatedSwitcher(
+            duration: YCMotion.duration(context, YCMotion.navigation),
+            switchInCurve: YCMotion.emphasized,
+            switchOutCurve: YCMotion.exit,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SizeTransition(
+                sizeFactor: animation,
+                child: child,
               ),
             ),
-          ],
+            child: selectedCity != null
+                ? Column(
+                    key: ValueKey(
+                      'selected-${selectedCity.id ?? selectedCity.name}',
+                    ),
+                    children: [
+                      const SizedBox(height: 22),
+                      _SelectedCityCard(city: selectedCity),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: selectedCity.id == null
+                              ? null
+                              : () => Navigator.of(context).push(
+                                  YCRoutes.detail<void>(
+                                    builder: (_) {
+                                      final hasStart =
+                                          _draft.startLatitude != null &&
+                                          _draft.startLongitude != null;
+                                      return PlaceDiscoveryScreen(
+                                        city: selectedCity,
+                                        tripId: _draft.tripId,
+                                        tripPurposes: {..._draft.purposes},
+                                        routeStartReady: hasStart,
+                                        durationDays: _draft.durationDays,
+                                        startLocation: hasStart
+                                            ? TripStartLocation(
+                                                tripId: _draft.tripId ?? '',
+                                                type: _draft.startLocationType,
+                                                name:
+                                                    _draft.startLocationName ??
+                                                    'Trip Start',
+                                                latitude: _draft.startLatitude!,
+                                                longitude:
+                                                    _draft.startLongitude!,
+                                              )
+                                            : null,
+                                      );
+                                    },
+                                  ),
+                                ),
+                          icon: const Icon(Icons.explore_outlined),
+                          label: const Text('Discover nearby places'),
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(key: ValueKey('no-selected-city')),
+          ),
         ],
       ),
     );
@@ -396,12 +418,35 @@ class _DestinationSelectionScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 22),
-          Text(recent.isNotEmpty ? 'Recent destinations' : 'A little inspiration', style: AppTextStyles.sectionTitle),
+          Text(
+            recent.isNotEmpty ? 'Recent destinations' : 'A little inspiration',
+            style: AppTextStyles.sectionTitle,
+          ),
           const SizedBox(height: 12),
           for (final city in suggestions.entries.take(4))
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.location_on_outlined),
+              leading:
+                  [
+                    'Jaipur',
+                    'Varanasi',
+                    'Ujjain',
+                    'Udaipur',
+                    'Manali',
+                    'Goa',
+                    'Rishikesh',
+                  ].contains(city.key)
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'lib/assets/home/${city.key.toLowerCase()}.png',
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        excludeFromSemantics: true,
+                      ),
+                    )
+                  : const Icon(Icons.location_on_outlined),
               title: Text(city.key),
               subtitle: Text(city.value),
               trailing: const Icon(Icons.north_west_rounded, size: 20),
@@ -682,32 +727,123 @@ class _ErrorCard extends StatelessWidget {
 class _SelectedCityCard extends StatelessWidget {
   const _SelectedCityCard({required this.city});
   final City city;
+
+  String? get _imageAsset {
+    final name = city.name.toLowerCase();
+    const known = [
+      'jaipur',
+      'varanasi',
+      'udaipur',
+      'manali',
+      'goa',
+      'rishikesh',
+    ];
+    for (final item in known) {
+      if (name.contains(item)) return 'lib/assets/home/$item.png';
+    }
+    return null;
+  }
+
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: AppColors.teal),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.check_circle_outline, color: AppColors.teal),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Your destination', style: AppTextStyles.caption),
-              const SizedBox(height: 6),
-              Text(city.name, style: AppTextStyles.sectionTitle),
-              const SizedBox(height: 4),
-              Text(city.locationLabel, style: AppTextStyles.bodyMuted),
-            ],
-          ),
+  Widget build(BuildContext context) {
+    final image = _imageAsset;
+    if (image == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.teal),
         ),
-      ],
-    ),
+        child: _SelectedCityLabel(city: city),
+      );
+    }
+    return Semantics(
+      image: true,
+      label: 'Selected destination: ${city.name}, ${city.locationLabel}',
+      child: Container(
+        height: 176,
+        width: double.infinity,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white, width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A14294E),
+              blurRadius: 22,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(image, fit: BoxFit.cover, excludeFromSemantics: true),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x00141B34), Color(0xD6141B34)],
+                  stops: [.28, 1],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 18,
+              right: 18,
+              bottom: 16,
+              child: _SelectedCityLabel(city: city, onImage: true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedCityLabel extends StatelessWidget {
+  const _SelectedCityLabel({required this.city, this.onImage = false});
+  final City city;
+  final bool onImage;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(
+        Icons.check_circle_rounded,
+        color: onImage ? Colors.white : AppColors.teal,
+      ),
+      const SizedBox(width: 14),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your destination',
+              style: AppTextStyles.caption.copyWith(
+                color: onImage ? Colors.white70 : null,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              city.name,
+              style: AppTextStyles.sectionTitle.copyWith(
+                color: onImage ? Colors.white : null,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              city.locationLabel,
+              style: AppTextStyles.bodyMuted.copyWith(
+                color: onImage ? Colors.white70 : null,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
   );
 }

@@ -5,3 +5,5 @@ sqlmodel
 psycopg[binary]
 pydantic-settings
 ortools>=9.9.0
+bcrypt
+pyjwt

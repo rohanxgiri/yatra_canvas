@@ -352,6 +352,12 @@ class RecommendationService:
         for category in categories_to_retrieve:
             raw_candidates.extend(places_by_category.get(category, []))
 
+        # Filter by moderation status: only ACTIVE places are eligible for recommendations
+        raw_candidates = [
+            p for p in raw_candidates
+            if getattr(p, "moderation_status", "ACTIVE") == "ACTIVE"
+        ]
+
         t_retrieval_ms = (time.monotonic() - t_rec_start) * 1000
         if not raw_candidates:
             logger.info(

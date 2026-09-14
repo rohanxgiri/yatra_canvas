@@ -47,11 +47,23 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   child: SafeArea(
                     child: Column(
                       children: [
-                        _AdminTopBar(
-                          title: _sections[_selectedIndex].label,
-                          showMenu: !showSidebar,
-                          onMenuPressed: () =>
-                              Scaffold.of(context).openDrawer(),
+                        Builder(
+                          builder: (scaffoldContext) => _AdminTopBar(
+                            title: _sections[_selectedIndex].label,
+                            showMenu: !showSidebar,
+                            onMenuPressed: () =>
+                                Scaffold.of(scaffoldContext).openDrawer(),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 8,
+                          ),
+                          child: Text(
+                            'Interface preview · Sample data',
+                            style: AppTextStyles.caption,
+                          ),
                         ),
                         Expanded(
                           child: SingleChildScrollView(

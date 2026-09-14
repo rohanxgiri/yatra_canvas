@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'yc_pressable.dart';
+
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     required this.label,
@@ -51,7 +53,10 @@ class PrimaryButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: semanticLabel ?? label,
-      child: SizedBox(width: expand ? double.infinity : null, child: button),
+      child: YCPressScale(
+        enabled: onPressed != null && !isLoading,
+        child: SizedBox(width: expand ? double.infinity : null, child: button),
+      ),
     );
   }
 }

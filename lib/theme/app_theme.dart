@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 import 'app_text_styles.dart';
+import 'yc_motion.dart';
 
 class AppTheme {
   AppTheme._();
@@ -32,7 +33,18 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.canvas,
       canvasColor: AppColors.canvas,
-      splashFactory: InkSparkle.splashFactory,
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: YCPageTransitionsBuilder(),
+          TargetPlatform.iOS: YCPageTransitionsBuilder(),
+          TargetPlatform.macOS: YCPageTransitionsBuilder(),
+          TargetPlatform.windows: YCPageTransitionsBuilder(),
+          TargetPlatform.linux: YCPageTransitionsBuilder(),
+        },
+      ),
       textTheme: const TextTheme(
         displayLarge: AppTextStyles.display,
         headlineLarge: AppTextStyles.pageTitle,

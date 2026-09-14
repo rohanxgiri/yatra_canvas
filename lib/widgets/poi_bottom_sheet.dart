@@ -21,6 +21,7 @@ class PoiBottomSheet extends StatefulWidget {
     this.availableDays = const [],
     this.isStartLocation = false,
     this.visitDate,
+    this.scrollController,
     this.onStatusChange,
     this.onMoveToDay,
     super.key,
@@ -50,6 +51,10 @@ class PoiBottomSheet extends StatefulWidget {
   /// and "Opening hours unavailable" is shown instead of a potentially wrong
   /// day-of-week guess.
   final DateTime? visitDate;
+
+  /// Controller supplied by [DraggableScrollableSheet] so content scrolling
+  /// and sheet dragging behave as one continuous gesture.
+  final ScrollController? scrollController;
 
   /// Called when the user updates the stop status (complete / missed / skipped).
   final Future<void> Function(ItineraryStopStatus status)? onStatusChange;
@@ -193,12 +198,15 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
       });
     }
 
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open Google Maps.')),
-        );
-      }
+    try {
+      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+    } catch (_) {
+      // Unsupported launchers use the same actionable fallback as a false result.
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps.')),
+      );
     }
   }
 
@@ -276,6 +284,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
             ),
             Flexible(
               child: SingleChildScrollView(
+                controller: widget.scrollController,
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,6 +375,16 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
   Widget _buildInfoRows() {
     final stop = widget.routeStop;
     final rows = <Widget>[];
+
+    if (_place.rating != null) {
+      rows.add(
+        _InfoRow(
+          icon: Icons.star_outline,
+          label:
+              '${_place.rating!.toStringAsFixed(1)}${_place.reviewCount > 0 ? ' · ${_place.reviewCount} reviews' : ''}',
+        ),
+      );
+    }
 
     // Scheduled time window
     if (stop?.formattedTimeWindow != null) {

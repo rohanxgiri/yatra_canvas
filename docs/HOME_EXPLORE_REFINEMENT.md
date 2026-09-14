@@ -33,7 +33,7 @@ only the current index and destination callback. The indicator is one
 `AnimatedPositioned` glass circle using a 280 ms ease-out transition and respecting
 reduced-motion preferences.
 
-`[IMPLEMENTED]` Android/Impeller uses the custom backdrop fragment shader with rounded
+`[DEPRECATED]` The original Android/Impeller implementation used a custom backdrop fragment shader with rounded
 edge displacement, subtle corner refraction, a very small center lens, integrated
 softness, directional rim lighting, and tightly clipped bounds. The fragment program is
 cached while each surface owns and disposes its shader. Web, Skia, unsupported devices,
@@ -46,8 +46,15 @@ seven-card swipeable carousel, selected-card emphasis, visible neighboring cards
 pagination, and Popular Destinations. Categories are Nature Retreats, Spiritual
 Journeys, Food Trails, Mountain Escapes, Hidden Gems, Heritage, and Weekend Escapes.
 No invented traveler counts, rankings, or popularity metrics are shown. Popular
-Destinations reuses the exact Home destination and favorite components, including the
+Destinations reuses the exact Home destination and favorite components across all 6
+curated destinations (Jaipur, Varanasi, Udaipur, Manali, Goa, Rishikesh) via
+shared `popularDestinations` (`lib/data/popular_destinations.dart`), including the
 session-local favorite state shared through the existing Home shell.
+
+`[IMPLEMENTED]` The destination card favorite button (`YatraFavoriteButton`) visual
+diameter was reduced by ~25% (from 46–48 px to 35 px, with proportionally scaled heart icon),
+while retaining the full 48 x 48 logical-pixel touch hit area and top-right positioning
+to ensure accessibility compliance and comfortable touch targets.
 
 ## Verification
 

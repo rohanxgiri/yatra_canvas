@@ -9,10 +9,12 @@ from app.core.config import Settings
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ONLY_VARIABLES = {
+    "ADMIN_PASSWORD",
     "DATABASE_URL",
     "GEOAPIFY_API_KEY",
     "GOOGLE_PLACES_API_KEY",
     "GOOGLE_ROUTES_API_KEY",
+    "JWT_SECRET_KEY",
 }
 
 
@@ -47,6 +49,8 @@ def test_secret_values_have_redacted_representations() -> None:
     database_password = "database-password-that-must-not-render"
     routes_key = "routes-key-that-must-not-render"
     geoapify_key = "geoapify-key-that-must-not-render"
+    jwt_secret = "jwt-secret-that-must-not-render"
+    admin_password = "admin-password-that-must-not-render"
     settings = Settings(
         _env_file=None,
         DATABASE_URL=(
@@ -54,6 +58,8 @@ def test_secret_values_have_redacted_representations() -> None:
         ),
         GOOGLE_ROUTES_API_KEY=routes_key,
         GEOAPIFY_API_KEY=geoapify_key,
+        JWT_SECRET_KEY=jwt_secret,
+        ADMIN_PASSWORD=admin_password,
     )  # type: ignore[call-arg]
 
     rendered = f"{settings!r}\n{settings}"
@@ -61,6 +67,8 @@ def test_secret_values_have_redacted_representations() -> None:
         database_password,
         routes_key,
         geoapify_key,
+        jwt_secret,
+        admin_password,
     ):
         assert secret not in rendered
     assert "**********" in rendered

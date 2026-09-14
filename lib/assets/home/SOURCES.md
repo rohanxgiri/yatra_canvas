@@ -14,6 +14,26 @@ Generation brief: square premium editorial Indian travel illustration; sandstone
 
 ## Approved Home downloads
 
+### Mountain category illustration — 2026-09-13
+
+`mountain_editorial.png` was created using the built-in image-generation tool and
+copied into this asset directory. It is used for Nature Retreats and Mountain
+Escapes in Explore. It is general illustrative inspiration, not a photograph of
+a named attraction. The user explicitly requested an illustrative treatment.
+The initial photographic draft was replaced before delivery.
+
+Final prompt: Create a square editorial travel illustration for YatraCanvas,
+using `journey_editorial.png` only as a painterly style/palette reference. Indian
+Himalayan foothill valley, layered soft blue ridges, deodar trees, winding walking
+path and distant river. Clearly hand-painted gouache, elegant simplified shapes,
+broad visible brushwork, subtle paper texture, flat painted color and gentle depth.
+Cream sky, amber morning light, muted greens and travel blues. Darker lower quarter
+for white title overlays; central 75% safe for mobile cropping. No text, UI, logos,
+people, palaces, temples, landmark mashups, photorealism, camera textures, lens
+effects, 3D, neon or oversaturation. Request 1024 square; tool output is 1254 square.
+
+### Figma asset provenance
+
 | Local asset | Source within frame 18:16 |
 | --- | --- |
 | home_background.png | 18:17, original image fill, flipped vertically and blurred in Flutter |
@@ -40,3 +60,11 @@ Fonts repository `ofl/inter/Inter[opsz,wght].ttf`:
 https://github.com/google/fonts/tree/main/ofl/inter
 The downloaded SIL Open Font License is `../fonts/OFL.txt`. Flutter registers it as
 `HomeInter` to avoid changing typography on other screens.
+
+### Popular destination grid additions — September 2026
+
+`udaipur.png`, `manali.png`, `goa.png`, and `rishikesh.png` were created using the built-in image-generation tool
+to extend the Popular Destinations section to a 6-item 2-column grid.
+They follow the exact painterly travel poster aesthetic of `jaipur.png` and `varanasi.png`, with 4:3 full-bleed
+landscape framing, landmark/cultural focus, and safe lower margins for white destination typography overlays.
+

@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YatraCanvas Admin Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/styles.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-view" class="auth-wrapper">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="brand-badge">YC</div>
+        <h1>YatraCanvas</h1>
+        <p class="subtitle">Admin Studio & Operations Portal</p>
+      </div>
+      <div id="login-error" class="alert alert-danger" style="display: none;"></div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-email">Admin Email</label>
+          <input type="email" id="login-email" class="form-control" placeholder="admin@yatracanvas.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" id="btn-login" class="btn btn-primary btn-block">
+          <span>Sign In to Studio</span>
+        </button>
+      </form>
+      <div class="auth-footer">
+        <span class="security-note">🔒 Restricted system. Role-based authorized access only.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Admin Dashboard App -->
+  <div id="app-view" class="app-container" style="display: none;">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <div class="brand-logo">YC</div>
+          <div>
+            <div class="brand-name">YatraCanvas</div>
+            <div class="brand-tag">ADMIN STUDIO</div>
+          </div>
+        </div>
+        <button id="sidebar-close" class="btn-icon mobile-only" aria-label="Close sidebar">✕</button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#overview" class="nav-item active" data-section="overview">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Overview</span>
+        </a>
+        <a href="#destinations" class="nav-item" data-section="destinations">
+          <span class="nav-icon">🏛️</span>
+          <span class="nav-label">Destinations</span>
+        </a>
+        <a href="#places" class="nav-item" data-section="places">
+          <span class="nav-icon">📍</span>
+          <span class="nav-label">Places & POIs</span>
+        </a>
+        <a href="#trips" class="nav-item" data-section="trips">
+          <span class="nav-icon">🗺️</span>
+          <span class="nav-label">Trips Inspector</span>
+        </a>
+        <a href="#users" class="nav-item" data-section="users">
+          <span class="nav-icon">👥</span>
+          <span class="nav-label">Travellers & Users</span>
+        </a>
+        <a href="#reports" class="nav-item" data-section="reports">
+          <span class="nav-icon">🚩</span>
+          <span class="nav-label">Place Reports</span>
+          <span id="reports-badge" class="badge-count" style="display: none;">0</span>
+        </a>
+        <a href="#providers" class="nav-item" data-section="providers">
+          <span class="nav-icon">⚡</span>
+          <span class="nav-label">Providers & Health</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-profile">
+          <div class="avatar" id="admin-avatar">AD</div>
+          <div class="user-details">
+            <div class="user-name" id="admin-name">Administrator</div>
+            <div class="user-role">Role: <span id="admin-role-badge">ADMIN</span></div>
+          </div>
+        </div>
+        <button id="btn-logout" class="btn btn-outline-danger btn-sm btn-block" title="Sign out of Admin Studio">Sign Out</button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <button id="sidebar-toggle" class="btn-icon mobile-only" aria-label="Open sidebar">☰</button>
+        <h2 id="section-title" class="section-title">Dashboard Overview</h2>
+        <div class="topbar-actions">
+          <span class="status-indicator live"><span class="dot"></span> Live Operations</span>
+        </div>
+      </header>
+
+      <!-- Section Containers -->
+      <div class="content-body">
+        <div id="toast-container" class="toast-container"></div>
+
+        <!-- Section: Overview -->
+        <section id="section-overview" class="admin-section active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon users-icon">👥</div>
+              <div class="stat-meta">
+                <div class="stat-value" id="metric-users">-</div>
+                <div class="stat-label">Total Users</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon trips-icon">🗺️</div>
+              <div class="stat-meta">
+                <div class="stat-value" id="metric-trips">-</div>
+                <div class="stat-label">Total Trips Created</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon places-icon">📍</div>
+              <div class="stat-meta">
+                <div class="stat-value" id="metric-places">-</div>
+                <div class="stat-label">Catalog POIs</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon dest-icon">🏛️</div>
+              <div class="stat-meta">
+                <div class="stat-value" id="metric-destinations">-</div>
+                <div class="stat-label">Destinations Active</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon reports-icon">🚩</div>
+              <div class="stat-meta">
+                <div class="stat-value" id="metric-reports">-</div>
+                <div class="stat-label">Open Place Reports</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon providers-icon">⚡</div>
+              <div class="stat-meta">
+                <div class="stat-value" id="metric-providers">Online</div>
+                <div class="stat-label">External Providers</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Moderation Status Cards -->
+          <div class="card mt-4">
+            <div class="card-header">
+              <h3>Catalog Moderation Health</h3>
+              <span class="caption-muted">Active POIs are eligible for recommendations</span>
+            </div>
+            <div class="moderation-bar-container" id="moderation-pills">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Activity Grids -->
+          <div class="two-col-grid mt-4">
+            <div class="card">
+              <div class="card-header">
+                <h3>Recent Trips</h3>
+                <a href="#trips" class="card-link" onclick="window.navTo('trips')">View all</a>
+              </div>
+              <div class="table-responsive">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Trip Name</th>
+                      <th>Destination</th>
+                      <th>Days</th>
+                      <th>Created</th>
+                    </tr>
+                  </thead>
+                  <tbody id="overview-recent-trips">
+                    <tr><td colspan="4" class="text-center">Loading trips...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>Recent Place Reports</h3>
+                <a href="#reports" class="card-link" onclick="window.navTo('reports')">Review all</a>
+              </div>
+              <div class="table-responsive">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Place</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                      <th>Reported</th>
+                    </tr>
+                  </thead>
+                  <tbody id="overview-recent-reports">
+                    <tr><td colspan="4" class="text-center">Loading reports...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Destinations -->
+        <section id="section-destinations" class="admin-section">
+          <div class="card">
+            <div class="card-header flex-wrap">
+              <div>
+                <h3>Manage Destinations</h3>
+                <span class="caption-muted">Configure cities shown across Explore and Home screens</span>
+              </div>
+              <div class="header-actions">
+                <button id="btn-add-destination" class="btn btn-primary">+ Add Destination</button>
+              </div>
+            </div>
+            <div class="filter-bar">
+              <input type="text" id="dest-search" class="form-control" placeholder="Search destination...">
+              <select id="dest-filter-enabled" class="form-control">
+                <option value="">All Statuses</option>
+                <option value="true">Enabled Only</option>
+                <option value="false">Disabled Only</option>
+              </select>
+              <select id="dest-filter-featured" class="form-control">
+                <option value="">All Highlights</option>
+                <option value="true">Featured Only</option>
+              </select>
+              <select id="dest-filter-popular" class="form-control">
+                <option value="">All Popularity</option>
+                <option value="true">Popular Only</option>
+              </select>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>City</th>
+                    <th>State / Country</th>
+                    <th>Order</th>
+                    <th>Places</th>
+                    <th>Trips</th>
+                    <th>Enabled</th>
+                    <th>Featured</th>
+                    <th>Popular</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="destinations-table-body">
+                  <tr><td colspan="9" class="text-center">Loading destinations...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Places & POIs -->
+        <section id="section-places" class="admin-section">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>Places & POI Moderation</h3>
+                <span class="caption-muted">Hide restricted/private facilities, canteens, or duplicate OSM POIs</span>
+              </div>
+            </div>
+            <div class="filter-bar">
+              <input type="text" id="places-search" class="form-control" placeholder="Search POI name...">
+              <select id="places-city-select" class="form-control">
+                <option value="">All Cities</option>
+              </select>
+              <select id="places-category-select" class="form-control">
+                <option value="">All Categories</option>
+                <option value="tourism">Tourism</option>
+                <option value="heritage">Heritage</option>
+                <option value="religious">Religious</option>
+                <option value="food">Food</option>
+                <option value="cafes">Cafes</option>
+                <option value="markets">Markets</option>
+                <option value="nature">Nature</option>
+              </select>
+              <select id="places-status-select" class="form-control">
+                <option value="">All Moderation Statuses</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="HIDDEN">HIDDEN</option>
+                <option value="RESTRICTED">RESTRICTED</option>
+                <option value="DUPLICATE">DUPLICATE</option>
+                <option value="INVALID">INVALID</option>
+              </select>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Place Name</th>
+                    <th>City</th>
+                    <th>Category</th>
+                    <th>Rating</th>
+                    <th>Prominence</th>
+                    <th>Status</th>
+                    <th>Sources</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="places-table-body">
+                  <tr><td colspan="8" class="text-center">Loading places...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination-bar">
+              <button id="places-prev" class="btn btn-outline btn-sm">Previous</button>
+              <span id="places-page-info" class="caption-muted">Page 1</span>
+              <button id="places-next" class="btn btn-outline btn-sm">Next</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Trips Inspector -->
+        <section id="section-trips" class="admin-section">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>Trip Inspector (Read-only)</h3>
+                <span class="caption-muted">Inspect traveller itineraries, start points, and solver schedules</span>
+              </div>
+            </div>
+            <div class="filter-bar">
+              <input type="text" id="trips-search" class="form-control" placeholder="Search trip name...">
+              <select id="trips-city-select" class="form-control">
+                <option value="">All Destinations</option>
+              </select>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Trip ID</th>
+                    <th>Trip Name</th>
+                    <th>Destination</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>Saved</th>
+                    <th>Stops</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="trips-table-body">
+                  <tr><td colspan="8" class="text-center">Loading trips...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination-bar">
+              <button id="trips-prev" class="btn btn-outline btn-sm">Previous</button>
+              <span id="trips-page-info" class="caption-muted">Page 1</span>
+              <button id="trips-next" class="btn btn-outline btn-sm">Next</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Users -->
+        <section id="section-users" class="admin-section">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>User & Account Management</h3>
+                <span class="caption-muted">Review users, verify roles, and toggle account activation</span>
+              </div>
+            </div>
+            <div class="filter-bar">
+              <input type="text" id="users-search" class="form-control" placeholder="Search name or email...">
+              <select id="users-role-select" class="form-control">
+                <option value="">All Roles</option>
+                <option value="USER">USER</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Trips</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body">
+                  <tr><td colspan="8" class="text-center">Loading users...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Reports -->
+        <section id="section-reports" class="admin-section">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>Place Problem Reports</h3>
+                <span class="caption-muted">Review and resolve traveller reports of closed, invalid, or private venues</span>
+              </div>
+            </div>
+            <div class="filter-bar">
+              <select id="reports-status-select" class="form-control">
+                <option value="">All Statuses</option>
+                <option value="OPEN">OPEN</option>
+                <option value="REVIEWING">REVIEWING</option>
+                <option value="RESOLVED">RESOLVED</option>
+                <option value="REJECTED">REJECTED</option>
+              </select>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Report ID</th>
+                    <th>Place</th>
+                    <th>City</th>
+                    <th>Reason</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Reported</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="reports-table-body">
+                  <tr><td colspan="8" class="text-center">Loading reports...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Providers & Health -->
+        <section id="section-providers" class="admin-section">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>External Location & Routing Providers</h3>
+                <span class="caption-muted">Real-time status of integrated data sources and circuit breakers</span>
+              </div>
+            </div>
+            <div id="providers-container" class="providers-grid">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Place Detail / Moderation Modal -->
+  <div id="place-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-place-name">Place Details</h3>
+        <button class="btn-close" onclick="window.closeModal('place-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="place-meta-grid">
+          <div><strong>City:</strong> <span id="modal-place-city">-</span></div>
+          <div><strong>Category:</strong> <span id="modal-place-category">-</span></div>
+          <div><strong>Coordinates:</strong> <span id="modal-place-coords">-</span></div>
+          <div><strong>Current Status:</strong> <span id="modal-place-status-pill">-</span></div>
+        </div>
+
+        <div class="form-group mt-3">
+          <label for="modal-place-status-select"><strong>Update Moderation Status:</strong></label>
+          <select id="modal-place-status-select" class="form-control">
+            <option value="ACTIVE">ACTIVE (Eligible for recommendations)</option>
+            <option value="HIDDEN">HIDDEN (Excluded from search & recommendations)</option>
+            <option value="RESTRICTED">RESTRICTED (Private / institutional / closed access)</option>
+            <option value="DUPLICATE">DUPLICATE (Redundant OSM node/way)</option>
+            <option value="INVALID">INVALID (Closed / invalid geography)</option>
+          </select>
+        </div>
+
+        <div class="form-group-checkbox mt-2">
+          <label><input type="checkbox" id="modal-place-popular"> Featured / Popular POI</label>
+          <label><input type="checkbox" id="modal-place-heritage"> Heritage POI</label>
+          <label><input type="checkbox" id="modal-place-local"> Local Speciality</label>
+        </div>
+
+        <h4 class="mt-4">Provenance & Sources</h4>
+        <div id="modal-place-sources" class="sources-list caption-muted">None</div>
+
+        <h4 class="mt-4">Opening Hours</h4>
+        <div id="modal-place-hours" class="hours-list caption-muted">None</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="window.closeModal('place-modal')">Cancel</button>
+        <button id="btn-save-place-moderation" class="btn btn-primary">Save Moderation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trip Detail Modal -->
+  <div id="trip-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-trip-title">Trip Inspector</h3>
+        <button class="btn-close" onclick="window.closeModal('trip-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="modal-trip-body">
+        Loading trip details...
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="window.closeModal('trip-modal')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Destination Modal -->
+  <div id="dest-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="modal-dest-title">Add Destination</h3>
+        <button class="btn-close" onclick="window.closeModal('dest-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="dest-form">
+          <input type="hidden" id="dest-form-id">
+          <div class="form-group">
+            <label for="dest-form-name">City Name *</label>
+            <input type="text" id="dest-form-name" class="form-control" required placeholder="e.g. Udaipur">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="dest-form-state">State</label>
+              <input type="text" id="dest-form-state" class="form-control" placeholder="e.g. Rajasthan">
+            </div>
+            <div class="form-group">
+              <label for="dest-form-country">Country *</label>
+              <input type="text" id="dest-form-country" class="form-control" value="India" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="dest-form-lat">Latitude *</label>
+              <input type="number" step="any" id="dest-form-lat" class="form-control" required placeholder="24.5854">
+            </div>
+            <div class="form-group">
+              <label for="dest-form-lng">Longitude *</label>
+              <input type="number" step="any" id="dest-form-lng" class="form-control" required placeholder="73.7125">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="dest-form-image">Image URL</label>
+            <input type="url" id="dest-form-image" class="form-control" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label for="dest-form-desc">Short Description</label>
+            <textarea id="dest-form-desc" class="form-control" rows="2" placeholder="City of Lakes & Palaces"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="dest-form-order">Display Order</label>
+            <input type="number" id="dest-form-order" class="form-control" value="0">
+          </div>
+          <div class="form-group-checkbox">
+            <label><input type="checkbox" id="dest-form-enabled" checked> Enabled (Visible to users)</label>
+            <label><input type="checkbox" id="dest-form-featured"> Featured</label>
+            <label><input type="checkbox" id="dest-form-popular"> Popular</label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="window.closeModal('dest-modal')">Cancel</button>
+        <button id="btn-save-destination" class="btn btn-primary">Save Destination</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report Triage Modal -->
+  <div id="report-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Triage Place Report</h3>
+        <button class="btn-close" onclick="window.closeModal('report-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="report-form-id">
+        <div class="place-meta-grid mb-3">
+          <div><strong>Place:</strong> <span id="modal-report-place">-</span></div>
+          <div><strong>City:</strong> <span id="modal-report-city">-</span></div>
+          <div><strong>Reason:</strong> <span id="modal-report-reason">-</span></div>
+        </div>
+        <div class="form-group">
+          <label><strong>User Details:</strong></label>
+          <div id="modal-report-details" class="caption-muted p-2 bg-light border-rounded">-</div>
+        </div>
+        <div class="form-group mt-3">
+          <label for="modal-report-status">Report Status:</label>
+          <select id="modal-report-status" class="form-control">
+            <option value="OPEN">OPEN</option>
+            <option value="REVIEWING">REVIEWING</option>
+            <option value="RESOLVED">RESOLVED</option>
+            <option value="REJECTED">REJECTED</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="modal-report-notes">Admin Notes / Moderation Action Taken:</label>
+          <textarea id="modal-report-notes" class="form-control" rows="3" placeholder="e.g. Hidden place from recommendations due to campus restriction"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="window.closeModal('report-modal')">Cancel</button>
+        <button id="btn-save-report" class="btn btn-primary">Save Triage</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/admin/app.js"></script>
+</body>
+</html>

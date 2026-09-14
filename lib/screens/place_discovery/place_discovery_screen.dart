@@ -16,6 +16,7 @@ import '../../services/route_optimization_service.dart';
 import '../../services/saved_place_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../theme/yc_motion.dart';
 import '../../models/weather_advisory.dart';
 import '../../models/smart_replanning.dart';
 import '../../services/weather_advisory_service.dart';
@@ -1474,8 +1475,6 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _CityContext(city: widget.city),
-                const SizedBox(height: 22),
-
                 const SizedBox(height: 24),
                 if (_purposeCategories.isNotEmpty) ...[
                   Text(
@@ -1639,7 +1638,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               onTap: () async {
                 await Navigator.push(
                   context,
-                  MaterialPageRoute<void>(
+                  YCRoutes.standard<void>(
                     builder: (_) => PlanDaysScreen(
                       tripId: _tripId!,
                       tripService: _tripService,
@@ -1955,7 +1954,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
+                      YCRoutes.detail<void>(
                         builder: (_) => TripMapScreen(
                           tripId: _tripId!,
                           initialStartLocation: widget.startLocation,
@@ -2660,12 +2659,14 @@ class _OptimizedRouteCard extends StatelessWidget {
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Could not fit into your itinerary',
-                        style: AppTextStyles.caption.copyWith(
-                          color: Colors.amber.shade900,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
+                      Expanded(
+                        child: Text(
+                          'Could not fit into your itinerary',
+                          style: AppTextStyles.caption.copyWith(
+                            color: Colors.amber.shade900,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],

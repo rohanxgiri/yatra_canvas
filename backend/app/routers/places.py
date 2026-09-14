@@ -546,6 +546,7 @@ async def search_city_places(
     db_places = session.exec(
         select(Place)
         .where(Place.city_id == city_id)
+        .where(Place.moderation_status == "ACTIVE")
         .where(col(Place.name).ilike(f"%{clean_query}%"))
         .limit(limit)
     ).all()

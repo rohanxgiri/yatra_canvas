@@ -12,7 +12,9 @@ import '../../services/place_prefetch_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../theme/yc_motion.dart';
 import '../../widgets/create_trip_scaffold.dart';
+import '../../widgets/yc_pressable.dart';
 import 'trip_purpose_screen.dart';
 
 class ArrivalDetailsScreen extends StatefulWidget {
@@ -811,29 +813,26 @@ class _TimeField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
+    return YCPressable(
+      onTap: onTap,
+      semanticLabel: 'Arrival time $value',
       borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.schedule_rounded, color: AppColors.teal),
-              const SizedBox(width: 12),
-              Expanded(child: Text(value, style: AppTextStyles.cardTitle)),
-              const Icon(
-                Icons.expand_more_rounded,
-                color: AppColors.textTertiary,
-              ),
-            ],
-          ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.schedule_rounded, color: AppColors.teal),
+            const SizedBox(width: 12),
+            Expanded(child: Text(value, style: AppTextStyles.cardTitle)),
+            const Icon(
+              Icons.expand_more_rounded,
+              color: AppColors.textTertiary,
+            ),
+          ],
         ),
       ),
     );
@@ -857,34 +856,35 @@ class _StartOptionCard extends StatelessWidget {
       TripStartLocationType.currentLocation => Icons.my_location_rounded,
       TripStartLocationType.custom => Icons.add_location_alt_outlined,
     };
-    return Semantics(
-      button: true,
+    return YCPressable(
+      onTap: onTap,
+      semanticLabel: type.label,
       selected: selected,
-      child: Material(
-        color: selected ? AppColors.tealLight : Colors.white,
-        shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: YCMotion.duration(context, YCMotion.component),
+        curve: YCMotion.standard,
+        decoration: BoxDecoration(
+          color: selected ? AppColors.tealLight : Colors.white,
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: selected ? AppColors.teal : AppColors.border),
+          border: Border.all(
+            color: selected ? AppColors.teal : AppColors.border,
+            width: selected ? 1.5 : 1,
+          ),
         ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(icon, size: 22, color: AppColors.teal),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(type.label, style: AppTextStyles.bodyLarge),
-                ),
-                Icon(
-                  selected ? Icons.check_circle : Icons.circle_outlined,
-                  color: selected ? AppColors.teal : AppColors.borderStrong,
-                  size: 22,
-                ),
-              ],
-            ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: AppColors.teal),
+              const SizedBox(width: 12),
+              Expanded(child: Text(type.label, style: AppTextStyles.bodyLarge)),
+              Icon(
+                selected ? Icons.check_circle : Icons.circle_outlined,
+                color: selected ? AppColors.teal : AppColors.borderStrong,
+                size: 22,
+              ),
+            ],
           ),
         ),
       ),

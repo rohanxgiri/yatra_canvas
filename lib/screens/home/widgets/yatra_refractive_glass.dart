@@ -1,11 +1,10 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// One cached program; independent, lifetime-owned uniforms for each surface.
-/// Web/Skia, asset-load failure and high-contrast requests use the fallback.
-class YatraRefractiveGlass extends StatefulWidget {
+/// Clipped native backdrop blur, shared across renderers.
+/// Custom shader filters remapped unrelated backdrop content on Android.
+class YatraRefractiveGlass extends StatelessWidget {
   const YatraRefractiveGlass({
     required this.child,
     this.radius = 24,
@@ -20,83 +19,21 @@ class YatraRefractiveGlass extends StatefulWidget {
   });
 
   final Widget child;
+  // Displacement remains a compatibility argument; native blur does not warp UVs.
   final double radius, borderWidth, blur, displacement;
   final Color fill, borderColor;
   final bool shadow, highlight;
-  static Future<ui.FragmentProgram?>? _program;
-
-  static Future<ui.FragmentProgram?> _loadProgram() => _program ??= () async {
-    try {
-      return await ui.FragmentProgram.fromAsset(
-        'shaders/yatra_refractive_glass.frag',
-      );
-    } catch (_) {
-      // Optical enhancement is optional: navigation must remain usable.
-      return null;
-    }
-  }();
-
-  @override
-  State<YatraRefractiveGlass> createState() => _YatraRefractiveGlassState();
-}
-
-class _YatraRefractiveGlassState extends State<YatraRefractiveGlass> {
-  ui.FragmentShader? _shader;
-  ui.ImageFilter? _lens;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!kIsWeb && ui.ImageFilter.isShaderFilterSupported) _load();
-  }
-
-  Future<void> _load() async {
-    final program = await YatraRefractiveGlass._loadProgram();
-    if (!mounted || program == null) return;
-    final shader = program.fragmentShader();
-    try {
-      final lens = ui.ImageFilter.shader(shader);
-      setState(() {
-        _shader = shader;
-        _lens = lens;
-      });
-    } catch (_) {
-      shader.dispose();
-    }
-  }
-
-  @override
-  void dispose() {
-    _shader?.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final radius = BorderRadius.circular(widget.radius);
+      final rounded = BorderRadius.circular(radius);
       final reduced = MediaQuery.highContrastOf(context);
-      final shader = _shader;
-      final canRefract =
-          shader != null &&
-          constraints.hasBoundedWidth &&
-          constraints.hasBoundedHeight;
-      if (canRefract) {
-        // Float indices 0/1 and sampler 0 belong to the engine. Never set them.
-        shader
-          ..setFloat(2, constraints.maxWidth)
-          ..setFloat(3, constraints.maxHeight)
-          ..setFloat(4, widget.radius)
-          ..setFloat(5, widget.displacement.clamp(0, 3.3))
-          ..setFloat(6, widget.blur);
-      }
-      final filter = !reduced && canRefract
-          ? _lens!
-          : ui.ImageFilter.blur(sigmaX: widget.blur, sigmaY: widget.blur);
+      final filter = ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur);
       return DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: radius,
-          boxShadow: widget.shadow
+          borderRadius: rounded,
+          boxShadow: shadow
               ? const [
                   BoxShadow(
                     color: Color(0x0D142C53),
@@ -107,15 +44,15 @@ class _YatraRefractiveGlassState extends State<YatraRefractiveGlass> {
               : null,
         ),
         child: ClipRRect(
-          borderRadius: radius,
+          borderRadius: rounded,
           child: BackdropFilter(
             filter: filter,
             child: ColoredBox(
-              color: reduced ? const Color(0xB3DCE7F4) : widget.fill,
+              color: reduced ? const Color(0xB3DCE7F4) : fill,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  borderRadius: radius,
-                  gradient: widget.highlight
+                  borderRadius: rounded,
+                  gradient: highlight
                       ? const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -127,16 +64,11 @@ class _YatraRefractiveGlassState extends State<YatraRefractiveGlass> {
                           stops: [0, .45, 1],
                         )
                       : null,
-                  border: Border.all(
-                    color: widget.borderColor,
-                    width: widget.borderWidth,
-                  ),
+                  border: Border.all(color: borderColor, width: borderWidth),
                 ),
                 child: CustomPaint(
-                  foregroundPainter: widget.highlight
-                      ? _GlassEdge(widget.radius)
-                      : null,
-                  child: widget.child,
+                  foregroundPainter: highlight ? _GlassEdge(radius) : null,
+                  child: child,
                 ),
               ),
             ),

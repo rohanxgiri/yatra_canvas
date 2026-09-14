@@ -71,6 +71,16 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await tester.runAsync(() async {
+          final context = tester.element(find.byKey(const ValueKey('review')));
+          for (final name in ['jaipur', 'varanasi']) {
+            await precacheImage(
+              AssetImage('lib/assets/home/$name.png'),
+              context,
+            );
+          }
+        });
+        await tester.pumpAndSettle();
         expect(
           tester.takeException(),
           isNull,

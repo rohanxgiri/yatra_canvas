@@ -2,6 +2,7 @@
 
 import datetime as dt
 from datetime import date, datetime, time, timezone
+from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -19,6 +20,14 @@ from sqlalchemy import (
 from sqlmodel import Field, SQLModel
 
 
+class UserRole(str, Enum):
+    """User authorization roles."""
+
+    USER = "USER"
+    ADMIN = "ADMIN"
+
+
+
 def created_at_column() -> Column[datetime]:
     """Build a timezone-aware, database-generated creation timestamp."""
 
@@ -27,6 +36,39 @@ def created_at_column() -> Column[datetime]:
         nullable=False,
         server_default=func.now(),
     )
+
+
+class User(SQLModel, table=True):
+    """Application user account with role-based authorization."""
+
+    __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("role IN ('USER', 'ADMIN')", name="ck_users_role"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    email: str = Field(max_length=255, unique=True, index=True)
+    name: str = Field(max_length=120)
+    password_hash: str = Field(max_length=255)
+    role: str = Field(
+        default=UserRole.USER.value,
+        max_length=20,
+        index=True,
+        sa_column_kwargs={"server_default": text("'USER'")},
+    )
+    is_active: bool = Field(
+        default=True,
+        sa_column_kwargs={"server_default": text("true")},
+    )
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+
 
 
 class City(SQLModel, table=True):
@@ -49,6 +91,24 @@ class City(SQLModel, table=True):
     latitude: float
     longitude: float
     google_place_id: str | None = Field(default=None, max_length=255, index=True)
+    is_enabled: bool = Field(
+        default=True,
+        sa_column_kwargs={"server_default": text("true")},
+    )
+    is_featured: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": text("false")},
+    )
+    is_popular: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": text("false")},
+    )
+    image_url: str | None = Field(default=None, max_length=1000)
+    description: str | None = Field(default=None, max_length=1000)
+    display_order: int = Field(
+        default=0,
+        sa_column_kwargs={"server_default": text("0")},
+    )
     created_at: datetime | None = Field(
         default=None,
         sa_column=created_at_column(),
@@ -75,6 +135,10 @@ class Place(SQLModel, table=True):
             "opening_hours_status IN ('KNOWN', 'CLOSED', 'UNKNOWN')",
             name="ck_places_opening_hours_status",
         ),
+        CheckConstraint(
+            "moderation_status IN ('ACTIVE', 'HIDDEN', 'RESTRICTED', 'DUPLICATE', 'INVALID')",
+            name="ck_places_moderation_status",
+        ),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -96,6 +160,12 @@ class Place(SQLModel, table=True):
         sa_column_kwargs={"server_default": text("'UNKNOWN'")},
     )
     raw_opening_hours: str | None = Field(default=None, max_length=1000)
+    moderation_status: str = Field(
+        default="ACTIVE",
+        max_length=20,
+        index=True,
+        sa_column_kwargs={"server_default": text("'ACTIVE'")},
+    )
     last_fetched_at: datetime | None = Field(
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
@@ -601,4 +671,42 @@ class TripDay(SQLModel, table=True):
         default=None,
         sa_column=created_at_column(),
     )
+
+
+class PlaceReport(SQLModel, table=True):
+    """Traveller or moderator report regarding incorrect or low-quality place data."""
+
+    __tablename__ = "place_reports"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('OPEN', 'REVIEWING', 'RESOLVED', 'REJECTED')",
+            name="ck_place_reports_status",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    place_id: UUID = Field(
+        foreign_key="places.id",
+        ondelete="CASCADE",
+        index=True,
+    )
+    user_id: UUID | None = Field(default=None, index=True)
+    reason: str = Field(max_length=100)
+    details: str | None = Field(default=None, max_length=1000)
+    status: str = Field(
+        default="OPEN",
+        max_length=20,
+        index=True,
+        sa_column_kwargs={"server_default": text("'OPEN'")},
+    )
+    admin_notes: str | None = Field(default=None, max_length=1000)
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+
 

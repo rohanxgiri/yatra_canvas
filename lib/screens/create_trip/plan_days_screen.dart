@@ -8,6 +8,7 @@ import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/yc_pressable.dart';
 
 class PlanDaysScreen extends StatefulWidget {
   const PlanDaysScreen({
@@ -134,11 +135,14 @@ class _PlanDaysScreenState extends State<PlanDaysScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Configure Day ${day.dayNumber}',
-                            style: AppTextStyles.sectionTitle,
+                          Expanded(
+                            child: Text(
+                              'Configure Day ${day.dayNumber}',
+                              style: AppTextStyles.sectionTitle,
+                            ),
                           ),
                           IconButton(
+                            tooltip: 'Close day settings',
                             icon: const Icon(Icons.close_rounded),
                             onPressed: isSaving
                                 ? null
@@ -538,8 +542,10 @@ class _DayCard extends StatelessWidget {
         ? 'Rest Day'
         : 'Choose sightseeing hours';
 
-    return InkWell(
+    return YCPressable(
       onTap: isUpdating ? null : onTap,
+      enabled: !isUpdating,
+      semanticLabel: 'Day ${day.dayNumber}, ${day.dayType.label}, $windowText',
       borderRadius: BorderRadius.circular(18),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -651,8 +657,10 @@ class _TimePickerButton extends StatelessWidget {
     final period = time.hour >= 12 ? 'PM' : 'AM';
     final formatted = '${h12.toString().padLeft(2, '0')}:$mStr $period';
 
-    return InkWell(
+    return YCPressable(
       onTap: enabled ? onTap : null,
+      enabled: enabled,
+      semanticLabel: '$label $formatted',
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

@@ -8,7 +8,9 @@ import '../../services/place_prefetch_service.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../theme/yc_motion.dart';
 import '../../widgets/create_trip_scaffold.dart';
+import '../../widgets/yc_pressable.dart';
 import 'trip_preferences_screen.dart';
 
 class TripPurposeScreen extends StatefulWidget {
@@ -166,33 +168,35 @@ class _PurposeCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Semantics(
+  Widget build(BuildContext context) => YCPressable(
+    onTap: onTap,
+    semanticLabel: label,
     selected: selected,
-    button: true,
-    child: Material(
-      color: selected ? AppColors.tealLight : Colors.white,
-      shape: RoundedRectangleBorder(
+    child: AnimatedContainer(
+      duration: YCMotion.duration(context, YCMotion.component),
+      curve: YCMotion.standard,
+      decoration: BoxDecoration(
+        color: selected ? AppColors.tealLight : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: selected ? AppColors.teal : AppColors.border),
+        border: Border.all(
+          color: selected ? AppColors.teal : AppColors.border,
+          width: selected ? 1.5 : 1,
+        ),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Row(
-            children: [
-              Icon(icon, size: 22, color: AppColors.teal),
-              const SizedBox(width: 14),
-              Expanded(child: Text(label, style: AppTextStyles.bodyLarge)),
-              const SizedBox(width: 12),
-              Icon(
-                selected ? Icons.check_circle : Icons.circle_outlined,
-                size: 22,
-                color: selected ? AppColors.teal : AppColors.borderStrong,
-              ),
-            ],
-          ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: AppColors.teal),
+            const SizedBox(width: 14),
+            Expanded(child: Text(label, style: AppTextStyles.bodyLarge)),
+            const SizedBox(width: 12),
+            Icon(
+              selected ? Icons.check_circle : Icons.circle_outlined,
+              size: 22,
+              color: selected ? AppColors.teal : AppColors.borderStrong,
+            ),
+          ],
         ),
       ),
     ),

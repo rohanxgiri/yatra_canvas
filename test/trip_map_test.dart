@@ -476,6 +476,14 @@ void main() {
       polylineLayer.polylines[0].points.last,
       const LatLng(28.6129, 77.2295),
     );
+    await tester.tap(find.byIcon(Icons.filter_list_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All Days'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<PolylineLayer>(find.byType(PolylineLayer)).polylines.length,
+      2,
+    );
   });
 
   testWidgets('TripMapScreen degrades gracefully when route geometry fails', (
@@ -513,6 +521,11 @@ void main() {
       find.byType(PolylineLayer),
     );
     expect(polylineLayer.polylines, isEmpty);
+    expect(find.text('Retry route'), findsOneWidget);
+    await tester.tap(find.text('Retry route'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MarkerLayer), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

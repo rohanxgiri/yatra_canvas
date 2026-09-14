@@ -6,8 +6,14 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from pathlib import Path
+
+from fastapi.staticfiles import StaticFiles
+
 from app.database import create_db_and_tables
 from app.routers import (
+    admin,
+    auth,
     cities,
     locations,
     places,
@@ -18,6 +24,7 @@ from app.routers import (
     trips,
     weather_advisories,
 )
+
 
 
 @asynccontextmanager
@@ -53,6 +60,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(cities.router)
 app.include_router(places.router)
 app.include_router(saved_places.router)
@@ -62,6 +71,11 @@ app.include_router(trips.router)
 app.include_router(locations.router)
 app.include_router(weather_advisories.router)
 app.include_router(smart_replanning.router)
+
+admin_static_dir = Path(__file__).resolve().parent / "static" / "admin"
+if admin_static_dir.exists():
+    app.mount("/admin", StaticFiles(directory=str(admin_static_dir), html=True), name="admin")
+
 
 
 @app.get("/", tags=["status"])

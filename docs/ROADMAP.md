@@ -11,8 +11,8 @@ updated. It is not a release-date commitment.
 Status: `[PARTIAL]`. Approved Home/Explore remain the visual reference. Shared
 planning foundations, unified onboarding, responsive trip creation, discovery,
 day planning, map/POI refinements, and session account screens are implemented.
-Protected Saved/Profile navigation integration and device acceptance testing remain
-open. Durable account history, authentication and notification delivery remain
+Saved/Profile navigation integration is implemented; physical-device acceptance
+testing remains open. Durable account history, authentication and notification delivery remain
 separate backend/product work. See [screen audit and evidence](UI_REDESIGN.md).
 
 ## Phase 1 — Source of truth and configuration alignment

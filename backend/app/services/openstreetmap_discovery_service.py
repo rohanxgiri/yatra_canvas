@@ -559,6 +559,7 @@ class OpenStreetMapDiscoveryService:
                 .where(
                     Place.city_id == city_id,
                     PlaceTag.tag == category.value,
+                    Place.moderation_status == "ACTIVE",
                 )
                 .order_by(Place.name)
             ).all()
@@ -582,9 +583,11 @@ class OpenStreetMapDiscoveryService:
             .where(
                 Place.city_id == city_id,
                 PlaceTag.tag.in_(list(category_by_value)),
+                Place.moderation_status == "ACTIVE",
             )
             .order_by(Place.name)
         ).all()
+
         for place, tag in rows:
             category = category_by_value.get(tag)
             if category is not None:

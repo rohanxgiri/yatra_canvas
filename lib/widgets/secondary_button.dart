@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'yc_pressable.dart';
+
 class SecondaryButton extends StatelessWidget {
   const SecondaryButton({
     required this.label,
@@ -31,6 +33,9 @@ class SecondaryButton extends StatelessWidget {
       ),
     );
 
-    return SizedBox(width: expand ? double.infinity : null, child: button);
+    return YCPressScale(
+      enabled: onPressed != null,
+      child: SizedBox(width: expand ? double.infinity : null, child: button),
+    );
   }
 }

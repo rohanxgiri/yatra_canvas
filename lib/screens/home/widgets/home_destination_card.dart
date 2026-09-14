@@ -155,7 +155,7 @@ class HomeDestinationCard extends StatelessWidget {
                   name: name,
                   selected: favorite,
                   onTap: onFavorite,
-                  diameter: (constraints.maxWidth * .28).clamp(44.0, 48.0),
+                  diameter: (constraints.maxWidth * .21).clamp(32.0, 36.0),
                 ),
               ),
             ],

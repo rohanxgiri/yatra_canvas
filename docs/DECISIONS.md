@@ -351,6 +351,60 @@ provider, environment, and data-model documentation.
   POI sheet, and UI status actions did not match backend move rules.
 - **Decision:** Treat explicit optimization as a planning action. Map entry reads the persisted itinerary,
   POI presentation consumes existing in-memory state, TripDay data determines weekday hours and move
+
+- **Status:** Accepted and `[IMPLEMENTED]`.
+- **Date:** 2026-09-05.
+- **Context:** Real manual testing revealed three core trip flow defects: (1) Days with 0 stops disappeared in multi-day trips
+  (e.g. Day 2 missing from a 3-day trip); (2) Manual place search was a placeholder stub; (3) Interactive map took seconds
+  to open behind a full-screen blocking spinner while recalculating routes.
+- **Decision:**
+  1. **Logical Day Invariant**: Canonical logical day sequence is $\{1 \dots N\}$ derived from trip dates. `RouteOptimizationRead`
+     returns explicit `total_days=trip.days`. Models normalize sparse schedules to empty lists (`[]`), rendering clear empty-day
+     cards in the itinerary and non-empty day selections in map filters.
+  2. **Manual Place Search**: Implement 350ms debounced destination-scoped search (`GET /cities/{city_id}/places/search`) querying
+     local places and concurrent Geoapify Autocomplete within 50km destination radius, resolving candidates through `CanonicalPlaceService`
+     (`POST /cities/{city_id}/places/resolve`), preventing duplicates, and marking places route-eligible.
+  3. **Progressive Map Performance**: Pre-pass known trip state (`initialStartLocation`, `initialSavedPlaces`, `initialOptimizedRoute`,
+     `initialRouteGeometry`, `initialDurationDays`) to `TripMapScreen`. Render base map and markers immediately on Frame 1 ($12-25\text{ ms}$).
+     Fetch route geometry asynchronously in background with a non-blocking indicator, and reuse pre-calculated route state (0 network calls on open).
+- **Consequences:** Trips of any duration ($1, 2, 3, 5, 7$ days) preserve full day integrity. Map opens instantly. Users can manually
+  search and add attractions with guaranteed route participation.
+- **Evidence:** `backend/app/services/route_optimization_service.py`, `backend/app/routers/places.py`, `lib/models/optimized_route.dart`,
+  `lib/screens/place_discovery/place_discovery_screen.dart`, `lib/screens/trip_map/trip_map_screen.dart`,
+  `backend/tests/test_core_trip_flow_hardening.py`, `test/core_trip_flow_hardening_test.dart`, `docs/core_trip_flow_hardening.md`.
+
+## ADR-015 — TripDay-aware, time-feasible partial itinerary generation
+
+- **Status:** `[IMPLEMENTED]` (planner regressions pass; unrelated repository failures documented in the implementation report).
+- **Date:** 2026-09-07.
+- **Decision:** Extend the existing VRPTW solver and matrix/depot architecture. Each usable
+  non-REST TripDay maps to a route with its own time window and original output day number.
+  Native vehicle-variable domains enforce day locks. Disjoint route time bands preserve exact
+  weekday interval unions and visit completion before closing without duplicating selections.
+  UNKNOWN hours remain schedulable and explicitly unverified. Preserve existing duration and
+  priority models, strengthen lock retention, remove hard priority ordering and return structured
+  unscheduled results rather than failing overpacked trips. Balance softly against individual
+  time capacities, with no place-count quotas or automatic recommendations.
+- **Consequences:** Optimization and full-trip preview load the same persisted constraints.
+  Additive response/Flutter models carry unscheduled reasons; scheduled rows alone persist.
+  Existing return-depot assumption (zero return leg), five-second search budget, and matrix
+  caching are retained. Selection cap rises from 24 to 50. No schema migration or provider call
+  is introduced for opening hours. Exact global optimality and durable result snapshots remain
+  outside this phase.
+- **Evidence:** `backend/tests/test_day_aware_planner.py`, route optimization integration tests,
+  `test/day_aware_planner_test.dart`, [implementation report](PLANNER_IMPLEMENTATION.md), and
+  [official OR-Tools routing API reference](https://or-tools.github.io/docs/python/classortools_1_1constraint__solver_1_1pywrapcp_1_1RoutingModel.html),
+  verified 2026-09-07 against local OR-Tools 9.15.6755. Vehicle-domain removal avoids the
+  installed Windows SetAllowedVehiclesForIndex Python span-binding error.
+# ADR-016 — Core trip flow reliability and persisted map reads
+
+- **Status:** Accepted and `[IMPLEMENTED]` in repository tests.
+- **Date:** 2026-09-07.
+- **Context:** Cross-layer verification found that deep map loading could regenerate an itinerary, map
+  mutations did not update the parent itinerary, TripDay dates and REST exclusions were missing from the
+  POI sheet, and UI status actions did not match backend move rules.
+- **Decision:** Treat explicit optimization as a planning action. Map entry reads the persisted itinerary,
+  POI presentation consumes existing in-memory state, TripDay data determines weekday hours and move
   targets, and map mutations publish the backend response to the parent screen. Enforce COMPLETED and
   SKIPPED as terminal statuses while permitting MISSED to become SKIPPED or move through partial replanning.
 - **Consequences:** Viewing a map no longer mutates the itinerary or refreshes its matrix. UI and API
@@ -359,3 +413,21 @@ provider, environment, and data-model documentation.
 - **Evidence:** `backend/tests/test_trip_flow_e2e.py`, `backend/tests/test_partial_replanning.py`,
   `test/trip_map_test.dart`, `test/poi_bottom_sheet_test.dart`, and
   [`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md).
+
+## ADR-017 — Role-based admin authentication, centralized POI moderation, and web dashboard
+
+- **Status:** Accepted and `[IMPLEMENTED]` in repository.
+- **Date:** 2026-09-14.
+- **Context:** Administrative oversight and data quality moderation were unauthenticated or mocked. Poor quality POIs (restricted campuses, student messes, duplicates) required hardcoded conditionals in business logic. External provider health had zero administrative visibility.
+- **Decision:**
+  1. Add `User` model with `UserRole` enum (`USER`, `ADMIN`), salted `bcrypt` password hashing, and signed JWT access tokens (`POST /api/auth/login`, `GET /api/auth/me`).
+  2. Implement backend authorization dependency `require_admin` verifying `current_user.role == UserRole.ADMIN.value`.
+  3. Provide an idempotent admin bootstrapping script (`app.scripts.create_admin`) allowing initial creation of `admin@yatracanvas.com` via CLI or environment variables without committing plaintext passwords.
+  4. Implement `/api/admin/*` endpoints for operational metrics, user status management (with self-deactivation guard), destination curation, POI moderation, read-only trip inspection, traveler place report triage, and provider diagnostics with secret redaction.
+  5. Centralize POI moderation on `Place.moderation_status` (`ACTIVE`, `HIDDEN`, `RESTRICTED`, `DUPLICATE`, `INVALID`) and filter queries uniformly in candidate discovery, recommendation scoring, and manual search.
+  6. Serve a responsive, information-dense administrative web dashboard directly via FastAPI at `/admin` (HTML5, Vanilla CSS, reactive Vanilla JS) preserving the traveler Flutter application intact.
+- **Consequences:**
+  - Standard traveler flows and tests remain 100% backward-compatible (all 217 Flutter tests and 382 backend tests pass).
+  - Admin access is strictly role-governed on the backend; spoofing emails or client headers is impossible.
+  - Moderated places are completely suppressed from traveler discovery and recommendations without ad-hoc code filtering.
+- **Evidence:** `backend/tests/test_admin_api.py`, `backend/sql/add_admin_auth_and_moderation.sql`, `backend/app/static/admin/`, and [`ADMIN_ARCHITECTURE.md`](ADMIN_ARCHITECTURE.md).

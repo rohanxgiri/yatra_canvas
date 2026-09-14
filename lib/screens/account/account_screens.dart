@@ -25,10 +25,12 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     required this.favorites,
     required this.onFavorite,
+    this.embedded = false,
     super.key,
   });
   final Set<String> favorites;
   final ValueChanged<String> onFavorite;
+  final bool embedded;
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -44,11 +46,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: YatraSession.instance,
     builder: (context, _) => YCScaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        automaticallyImplyLeading: !widget.embedded,
+      ),
       body: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(24, 24, 24, widget.embedded ? 150 : 24),
           children: [
             Text('A little about you.', style: YCStyle.title),
             const SizedBox(height: 24),
@@ -124,10 +129,14 @@ class SavedScreen extends StatefulWidget {
   const SavedScreen({
     required this.favorites,
     required this.onFavorite,
+    this.embedded = false,
+    this.onExplore,
     super.key,
   });
   final Set<String> favorites;
   final ValueChanged<String> onFavorite;
+  final bool embedded;
+  final VoidCallback? onExplore;
   @override
   State<SavedScreen> createState() => _SavedScreenState();
 }
@@ -137,11 +146,14 @@ class _SavedScreenState extends State<SavedScreen> {
   Widget build(BuildContext context) {
     final names = widget.favorites.toList()..sort();
     return YCScaffold(
-      appBar: AppBar(title: const Text('Saved')),
+      appBar: AppBar(
+        title: const Text('Saved'),
+        automaticallyImplyLeading: !widget.embedded,
+      ),
       body: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(24, 24, 24, widget.embedded ? 150 : 24),
           children: [
             Text('Places for another day.', style: YCStyle.title),
             const SizedBox(height: 12),
@@ -156,16 +168,19 @@ class _SavedScreenState extends State<SavedScreen> {
                 message: 'Tap the heart on Home or Explore to keep a destination here.',
                 icon: Icons.favorite_border,
                 actionLabel: 'Back to exploring',
-                onAction: () => Navigator.maybePop(context),
+                onAction: widget.onExplore ?? () => Navigator.maybePop(context),
               ),
             for (final name in names) ...[
               HomeDestinationCard(
                 name: name,
-                region: name == 'Jaipur'
-                    ? 'Rajasthan'
-                    : name == 'Varanasi'
-                    ? 'Uttar Pradesh'
-                    : 'Madhya Pradesh',
+                region: switch (name) {
+                  'Jaipur' || 'Udaipur' => 'Rajasthan',
+                  'Varanasi' => 'Uttar Pradesh',
+                  'Manali' => 'Himachal Pradesh',
+                  'Goa' => 'Goa',
+                  'Rishikesh' => 'Uttarakhand',
+                  _ => 'Madhya Pradesh',
+                },
                 image: name.toLowerCase(),
                 favorite: true,
                 onFavorite: () => setState(() => widget.onFavorite(name)),

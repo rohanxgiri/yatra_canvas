@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../theme/yc_motion.dart';
 import '../../widgets/yatra_brand.dart';
 import '../home/home_screen.dart';
 import 'widgets/onboarding_button.dart';
@@ -9,9 +10,9 @@ import 'widgets/onboarding_progress_indicator.dart';
 import 'widgets/onboarding_step_views.dart';
 import 'widgets/onboarding_styles.dart';
 
-/// The 3-screen mobile onboarding experience for YatraCanvas.
+/// The four-screen mobile onboarding experience for YatraCanvas.
 /// Introduces travellers to the core value proposition:
-/// Choose where you are travelling -> tell us what you like -> personalized trip plan.
+/// Discover places -> personalise -> connect the route -> plan your days.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -23,7 +24,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   late final PageController _pageController;
   int _currentPage = 0;
 
-  static const _stepCount = 3;
+  static const _steps = <Widget>[
+    DiscoverStepView(),
+    PersonaliseStepView(),
+    RouteStepView(),
+    ItineraryStepView(),
+  ];
+  static final _stepCount = _steps.length;
 
   @override
   void initState() {
@@ -56,7 +63,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _enterApp() {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+      YCRoutes.journey<void>(builder: (_) => const HomeScreen()),
       (route) => false,
     );
   }
@@ -69,9 +76,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           gradient: OnboardingStyle.backgroundGradient,
         ),
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: OnboardingStyle.radialGlow,
-          ),
+          decoration: const BoxDecoration(gradient: OnboardingStyle.radialGlow),
           child: SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -102,7 +107,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               ),
                               AnimatedOpacity(
                                 duration: const Duration(milliseconds: 200),
-                                opacity: _currentPage < _stepCount - 1 ? 1.0 : 0.0,
+                                opacity: _currentPage < _stepCount - 1
+                                    ? 1.0
+                                    : 0.0,
                                 child: IgnorePointer(
                                   ignoring: _currentPage >= _stepCount - 1,
                                   child: OnboardingGhostButton(
@@ -115,16 +122,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
 
-                        // Swipable 3-step carousel
+                        // Shared swipe navigation for the complete story.
                         Expanded(
-                          child: PageView(
+                          child: PageView.builder(
                             controller: _pageController,
+                            itemCount: _stepCount,
                             onPageChanged: _onPageChanged,
-                            children: const [
-                              DiscoverStepView(),
-                              PersonaliseStepView(),
-                              ItineraryStepView(),
-                            ],
+                            itemBuilder: (context, index) => AnimatedBuilder(
+                              animation: _pageController,
+                              child: _steps[index],
+                              builder: (context, child) {
+                                if (MediaQuery.disableAnimationsOf(context)) {
+                                  return child!;
+                                }
+                                final page = _pageController.hasClients
+                                    ? (_pageController.page ??
+                                          _currentPage.toDouble())
+                                    : _currentPage.toDouble();
+                                final distance = (page - index).abs().clamp(
+                                  0.0,
+                                  1.0,
+                                );
+                                return Opacity(
+                                  opacity: 1 - distance * .22,
+                                  child: Transform.scale(
+                                    scale: 1 - distance * .035,
+                                    alignment: Alignment.center,
+                                    child: child,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
 

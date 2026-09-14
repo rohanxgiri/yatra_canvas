@@ -4,6 +4,11 @@ Reviewed 2026-09-13. This is a staged client redesign, not a backend or identity
 
 ## Reference and protected scope
 
+Subsequent technical correction: the user reported corrupted glass rendering on
+Android. The shared Home/Explore glass widget now uses clipped native blur on all
+renderers; this fixes stretched backdrop imagery without changing screen layouts,
+navigation handlers, or golden references. See [device evidence](HOME_MATERIAL_REFINEMENT.md).
+
 The approved Figma file `xgUd2FZFUscBxVEvMOT97N` was inspected read-only: Home `18:16`, Explore `30:54`, and their design context and screenshots. Their layouts, bundled imagery, typography, glass widgets, navigation styling, and golden references remain protected. The requested Wanderlog reference directory was absent from this checkout; no substitute visual language was introduced.
 
 ## Shared foundations
@@ -70,7 +75,15 @@ The Flutter suite covers service boundaries, duplicate prevention, save reconcil
 
 Visual baselines under `test/goldens/` cover onboarding, five planning steps, account screens, day settings, populated itinerary and POI details. Layout checks include 393-pixel phones and 320-pixel phones at 1.6 text scale; onboarding also covers landscape and 430-pixel devices. Image assets are decoded before account snapshots. Home/Explore goldens are not regenerated.
 
-This document does not declare the entire product production-ready. Navigation integration and physical-device acceptance remain explicit follow-up gates.
+This document does not declare the entire product production-ready. Physical-device acceptance remains an explicit follow-up gate. Navigation integration is covered in the [completion audit](UI_COMPLETION_AUDIT.md).
+
+## UX and motion polish
+
+`[IMPLEMENTED]` Shared motion timing, reduced-motion behavior, ripple-free planning
+selection feedback, standard/detail/journey route patterns, contextual trip-creation
+feedback, and map-marker/POI-sheet continuity are documented in
+[UX and motion polish](UX_MOTION_POLISH.md). Home and Explore retain their approved
+structure; their global navigation benefits only from the shared transition language.
 
 Latest verification on 2026-09-13: complete Flutter suite passed 207 tests. After
 the final profile-count and initial-history-category fixes, all five account tests
@@ -80,3 +93,9 @@ reported no issues. `flutter build apk --debug --no-pub` produced
 installed on a physical device. `git diff --check` passed; comparison against
 pre-redesign checkpoint `222225e` confirmed no changes to Home/Explore source,
 their shared navigation widget, or their golden images.
+
+The earlier protected-scope statements describe the initial staged pass. The current
+completion request authorizes functional Home/Explore refinements: truthful guest
+content, working navigation, destination query handoff, category-appropriate
+illustrative imagery, and responsive badge text. The glass-rendering correction
+already present in the workspace was preserved.

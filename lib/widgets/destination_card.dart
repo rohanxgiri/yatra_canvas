@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'yc_pressable.dart';
 
 class DestinationCard extends StatelessWidget {
   const DestinationCard({
@@ -23,10 +24,12 @@ class DestinationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: onTap != null,
+    return YCPressable(
+      onTap: onTap,
+      enabled: onTap != null,
       selected: selected,
-      label: '$name, $location',
+      semanticLabel: '$name, $location',
+      borderRadius: BorderRadius.circular(22),
       child: Card(
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
@@ -36,89 +39,86 @@ class DestinationCard extends StatelessWidget {
             width: selected ? 1.5 : 1,
           ),
         ),
-        child: InkWell(
-          onTap: onTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _DestinationImage(image: image),
-                    if (selected)
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: DecoratedBox(
-                          decoration: const BoxDecoration(
-                            color: AppColors.teal,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(7),
-                            child: const Icon(
-                              Icons.check_rounded,
-                              size: 18,
-                              color: Colors.white,
-                            ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _DestinationImage(image: image),
+                  if (selected)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          color: AppColors.teal,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(7),
+                          child: const Icon(
+                            Icons.check_rounded,
+                            size: 18,
+                            color: Colors.white,
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.cardTitle,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            location,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.bodyMuted,
-                          ),
-                        ],
                       ),
                     ),
-                    if (tag != null) ...[
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.cardTitle,
                         ),
-                        decoration: BoxDecoration(
-                          color: AppColors.tealLight,
-                          borderRadius: BorderRadius.circular(999),
+                        const SizedBox(height: 4),
+                        Text(
+                          location,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.bodyMuted,
                         ),
-                        child: Text(
-                          tag!,
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.tealDark,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      ],
+                    ),
+                  ),
+                  if (tag != null) ...[
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.tealLight,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        tag!,
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.tealDark,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

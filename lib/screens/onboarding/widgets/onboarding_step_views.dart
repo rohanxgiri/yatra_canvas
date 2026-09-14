@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/yc_style.dart';
+import 'onboarding_journey_image.dart';
+import 'onboarding_route_preview.dart';
 import 'onboarding_styles.dart';
 
 class DiscoverStepView extends StatelessWidget {
@@ -9,7 +11,7 @@ class DiscoverStepView extends StatelessWidget {
   Widget build(BuildContext context) => const _Story(
     title: 'Find somewhere\nworth going.',
     description: 'Discover places and experiences made for your next journey.',
-    child: _JourneyImage(),
+    child: OnboardingJourneyImage(),
   );
 }
 
@@ -22,7 +24,7 @@ class PersonaliseStepView extends StatelessWidget {
         'Choose your places. We’ll connect them into days that make sense.',
     child: Column(
       children: [
-        const _JourneyImage(compact: true),
+        const OnboardingJourneyImage(aspectRatio: 2),
         const SizedBox(height: 16),
         _PreviewSurface(
           children: [
@@ -43,6 +45,17 @@ class PersonaliseStepView extends StatelessWidget {
         ),
       ],
     ),
+  );
+}
+
+class RouteStepView extends StatelessWidget {
+  const RouteStepView({super.key});
+
+  @override
+  Widget build(BuildContext context) => const _Story(
+    title: 'See the journey,\nnot just the places.',
+    description: 'Visualize your complete route and see how every stop fits into your trip.',
+    child: OnboardingRoutePreview(),
   );
 }
 
@@ -123,23 +136,6 @@ class _Story extends StatelessWidget {
         const SizedBox(height: 28),
         child,
       ],
-    ),
-  );
-}
-
-class _JourneyImage extends StatelessWidget {
-  const _JourneyImage({this.compact = false});
-  final bool compact;
-  @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(24),
-    child: AspectRatio(
-      aspectRatio: compact ? 2 : 1,
-      child: Image.asset(
-        'lib/assets/home/journey_editorial.png',
-        fit: BoxFit.cover,
-        excludeFromSemantics: true,
-      ),
     ),
   );
 }

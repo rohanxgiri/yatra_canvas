@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/home/widgets/home_style.dart';
+import 'yc_motion.dart';
 
 /// Tokens extrapolated from the approved Home (18:16) and Explore (30:54).
 /// Applied locally to planning screens; the approved screens keep their theme.
@@ -20,6 +21,10 @@ abstract final class YCStyle {
   static const cardRadius = 18.0;
   static const sheetRadius = 28.0;
   static const controlHeight = 52.0;
+
+  static const pressDuration = YCMotion.press;
+  static const componentDuration = YCMotion.component;
+  static const navigationDuration = YCMotion.navigation;
 
   static const canvas = LinearGradient(
     begin: Alignment.topCenter,
@@ -90,6 +95,15 @@ abstract final class YCStyle {
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
       hoverColor: Colors.transparent,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: YCPageTransitionsBuilder(),
+          TargetPlatform.iOS: YCPageTransitionsBuilder(),
+          TargetPlatform.macOS: YCPageTransitionsBuilder(),
+          TargetPlatform.windows: YCPageTransitionsBuilder(),
+          TargetPlatform.linux: YCPageTransitionsBuilder(),
+        },
+      ),
       textTheme: base.textTheme.apply(
         fontFamily: 'HomeInter',
         bodyColor: ink,

@@ -12,6 +12,7 @@ class YatraBottomNavigation extends StatelessWidget {
     required this.scale,
     required this.currentIndex,
     required this.onDestinationSelected,
+    this.onLightSurface = false,
     super.key,
   }) : assert(currentIndex >= 0 && currentIndex < itemCount);
 
@@ -20,6 +21,7 @@ class YatraBottomNavigation extends StatelessWidget {
   final double scale;
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
+  final bool onLightSurface;
 
   static const _items = <_YatraNavigationDestination>[
     _YatraNavigationDestination(label: 'Home', asset: 'home'),
@@ -81,9 +83,15 @@ class YatraBottomNavigation extends StatelessWidget {
                           label: item.label,
                           selected: currentIndex == index,
                           onTap: () => onDestinationSelected(index),
-                          child: _NavigationGlyph(
-                            asset: item.asset,
-                            iconScale: iconScale,
+                          child: ColorFiltered(
+                            colorFilter: ColorFilter.mode(
+                              onLightSurface ? HomeStyle.ink : Colors.white,
+                              BlendMode.srcIn,
+                            ),
+                            child: _NavigationGlyph(
+                              asset: item.asset,
+                              iconScale: iconScale,
+                            ),
                           ),
                         ),
                       );

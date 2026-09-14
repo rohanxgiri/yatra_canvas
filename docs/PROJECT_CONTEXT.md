@@ -39,13 +39,16 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
   - Keyless road-following route geometry via OSRM (`GET /trips/{trip_id}/route-geometry`);
   - Interactive map in Flutter (`flutter_map` with OpenStreetMap tiles and day-filtered polylines);
   - Weather advisories via Open-Meteo with itinerary-aware threshold detection and indoor/outdoor place environment classification;
-  - Smart re-planning impact analysis and atomic diff application.
+  - Smart re-planning impact analysis and atomic diff application;
+  - Role-based backend authentication and authorization (`POST /api/auth/login`, `GET /api/auth/me`) with bcrypt password hashing and JWT bearer tokens (`USER` and `ADMIN` roles);
+  - Dedicated Admin API suite (`/api/admin/*`) guarded by `require_admin` dependency for operational metrics, user management (with self-deactivation guard), destination management, POI moderation, read-only trip inspection, place report triage, and provider diagnostics;
+  - Centralized POI moderation statuses (`ACTIVE`, `HIDDEN`, `RESTRICTED`, `DUPLICATE`, `INVALID`) filtering candidate discovery, recommendation scoring, and manual search;
+  - Responsive Web Admin Dashboard served by FastAPI at `/admin` (HTML5, Vanilla CSS, reactive Vanilla JS).
 
 - **What is partial / not yet implemented:**
-  - Real authentication / session management: The legacy login entry now offers guest access without pretending OTP/social authentication is available. The backend currently assigns a fixed server-owned development UUID `user_id`;
+  - Traveler account binding in Flutter: Traveler app still uses guest session flow and server-owned default UUID `user_id`; multi-trip persistence under authenticated traveler accounts is planned;
   - Account-level multi-trip persistence: `TripDraft` and successful-save snapshots in `YatraSession` survive screen navigation during a session, but not an app restart; the new account/history screens do not add authenticated ownership or a trip-list endpoint;
-  - Versioned migration runner: Database uses `SQLModel.metadata.create_all` plus manual `.sql` scripts; no Alembic runner is configured;
-  - Admin review: Admin UI shell exists with mock data; no authenticated admin APIs or review actions exist.
+  - Versioned migration runner: Database uses `SQLModel.metadata.create_all` plus manual `.sql` scripts; no Alembic runner is configured.
 
 ---
 
@@ -54,8 +57,9 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
 | Layer | Technologies | Role & Key Details |
 |---|---|---|
 | **Client (Flutter)** | Flutter SDK (Dart `^3.13.0`), Material 3, `http`, `flutter_map: ^8.3.2`, `geolocator`, `flutter_svg` | Widget-local `StatefulWidget` state + shared in-memory `TripDraft`. No external state library (BLoC/Riverpod) or router package. |
-| **Backend (FastAPI)** | Python 3.12+, FastAPI, Pydantic v2, SQLModel, SQLAlchemy, psycopg 3, httpx | Async REST API, Pydantic settings, dependency injection, safe error translation, backend secret encapsulation. |
-| **Database** | PostgreSQL (local or Supabase-hosted) | 11 canonical tables (`cities`, `places`, `place_sources`, `place_categories`, `place_tags`, `city_category_cache`, `trips`, `trip_preferences`, `user_saved_places`, `route_matrix_cache`, `trip_itinerary`) + `place_import_reviews` schema. |
+| **Admin Web App** | HTML5, Vanilla CSS, Vanilla JavaScript (ES6+), Fetch API | Responsive, information-dense operational dashboard served by FastAPI at `/admin` with JWT bearer authentication. |
+| **Backend (FastAPI)** | Python 3.12+, FastAPI, Pydantic v2, SQLModel, SQLAlchemy, psycopg 3, httpx, bcrypt, pyjwt | Async REST API, Pydantic settings, dependency injection, safe error translation, backend secret encapsulation, JWT auth, admin suite. |
+| **Database** | PostgreSQL (local or Supabase-hosted) | 13 canonical tables (`users`, `place_reports`, `cities`, `places`, `place_sources`, `place_categories`, `place_tags`, `city_category_cache`, `trips`, `trip_days`, `trip_preferences`, `user_saved_places`, `route_matrix_cache`, `trip_itinerary`) + `place_import_reviews` schema. |
 | **Optimization** | Google OR-Tools (`>=9.9.0`) | Multi-day Vehicle Routing Problem with Time Windows (VRPTW) solver (`VrptwSolverService`). |
 | **Routing & Matrix** | Local coordinate estimates (default matrix), OSRM / openrouteservice (geometry) | Keyless Haversine distance/duration calculations for matrices; OSRM public demo / ORS for road geometry polylines. |
 | **Weather** | Open-Meteo | Hourly/daily weather forecasts with in-memory TTL caching and deterministic exposure classification. |

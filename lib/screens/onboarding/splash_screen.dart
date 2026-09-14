@@ -51,22 +51,29 @@ class _SplashScreenState extends State<SplashScreen> {
         gradient: OnboardingStyle.backgroundGradient,
       ),
       child: SafeArea(
-        child: SizedBox.expand(
-          child: Padding(
-            padding: const EdgeInsets.all(YCStyle.gutter),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const YatraBrand(compact: true),
-                const Spacer(),
-                Text(
-                  'A little curiosity.\nA world to discover.',
-                  style: YCStyle.title,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Padding(
+                  padding: const EdgeInsets.all(YCStyle.gutter),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const YatraBrand(compact: true),
+                      const Spacer(),
+                      Text(
+                        'A little curiosity.\nA world to discover.',
+                        style: YCStyle.title,
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Your journey, mapped.', style: YCStyle.secondary),
+                      const SizedBox(height: 48),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-                Text('Your journey, mapped.', style: YCStyle.secondary),
-                const SizedBox(height: 48),
-              ],
+              ),
             ),
           ),
         ),

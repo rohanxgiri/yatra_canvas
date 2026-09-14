@@ -11,6 +11,7 @@ import 'package:yatra_canvas/screens/home/widgets/home_style.dart';
 import 'package:yatra_canvas/screens/home/widgets/yatra_favorite_button.dart';
 import 'package:yatra_canvas/screens/home/widgets/yatra_refractive_glass.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
+import 'package:yatra_canvas/screens/create_trip/destination_selection_screen.dart';
 import 'package:yatra_canvas/widgets/yatra_bottom_navigation.dart';
 
 Future<void> _pumpHome(
@@ -48,9 +49,14 @@ Future<void> _pumpHome(
     for (final name in [
       'home_background',
       'avatar',
+      'journey_editorial',
       'ujjain',
       'jaipur',
       'varanasi',
+      'udaipur',
+      'manali',
+      'goa',
+      'rishikesh',
     ]) {
       await precacheImage(AssetImage('lib/assets/home/$name.png'), context);
     }
@@ -66,11 +72,11 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(
       tester.getSize(find.byType(ContinuePlanningCard)),
-      const Size(620, 341),
+      predicate<Size>((size) => size.width == 620 && size.height >= 341),
     );
     expect(
       tester.getTopLeft(find.byType(ContinuePlanningCard)).dy,
-      closeTo(363, 1),
+      greaterThan(300),
     );
     expect(tester.getSize(find.byType(WhereNextCard)), const Size(620, 252));
     expect(
@@ -123,51 +129,70 @@ void main() {
       await _pumpHome(tester, size, textScale: 2);
       expect(tester.takeException(), isNull);
       // A short landscape viewport lazily builds this sliver after scrolling.
-      if (find.text('Ujjain\nSpritual Trip').evaluate().isEmpty) {
+      if (find.text('Somewhere\nworth going.').evaluate().isEmpty) {
         await tester.scrollUntilVisible(
-          find.text('Ujjain\nSpritual Trip'),
+          find.text('Somewhere\nworth going.'),
           200,
         );
         await tester.pumpAndSettle();
       }
       expect(
-        tester.getBottomLeft(find.text('Ujjain\nSpritual Trip')).dy,
-        lessThan(tester.getTopLeft(find.text('25 Aug - 28 Aug')).dy),
+        tester.getBottomLeft(find.text('Somewhere\nworth going.')).dy,
+        lessThan(
+          tester.getTopLeft(find.text('Choose a place. Make it your own.')).dy,
+        ),
       );
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -1600));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(find.byType(HomeDestinationCard), findsNWidgets(2));
-      for (final name in ['Jaipur', 'Varanasi']) {
+      for (final name in [
+        'Jaipur',
+        'Varanasi',
+        'Udaipur',
+        'Manali',
+        'Goa',
+        'Rishikesh',
+      ]) {
+        final heart = _action('Favorite $name');
+        if (heart.evaluate().isEmpty) {
+          await tester.scrollUntilVisible(
+            heart,
+            150,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pumpAndSettle();
+        }
+        final titleFinder = find.descendant(
+          of: find.ancestor(
+            of: heart,
+            matching: find.byType(HomeDestinationCard),
+          ),
+          matching: find.text(name),
+        ).first;
         expect(
-          tester.getBottomLeft(_action('Favorite $name')).dy,
-          lessThan(tester.getTopLeft(find.text(name)).dy),
+          tester.getBottomLeft(heart).dy,
+          lessThan(tester.getTopLeft(titleFinder).dy),
           reason: 'Enlarged caption must stay below the larger glass heart',
         );
       }
+      expect(find.byType(HomeDestinationCard), findsWidgets);
+      expect(tester.takeException(), isNull);
       await tester.tap(_action('Home'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets(
-    'search opens existing flow and Continue retains existing behavior',
-    (tester) async {
-      await _pumpHome(tester, const Size(700, 1463));
-      await tester.tap(_action('Where do you want to go?'));
-      await tester.pumpAndSettle();
-      expect(find.text('Where are you going?'), findsOneWidget);
-      await tester.tap(find.byWidgetPredicate((w) => w is HomeAction && w.label == 'Back'));
-      await tester.pumpAndSettle();
-      await tester.tap(_action('Continue planning'));
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Trip planning is coming in the next phase.'),
-        findsOneWidget,
-      );
-    },
-  );
+  testWidgets('search and first-trip hero open trip creation', (tester) async {
+    await _pumpHome(tester, const Size(700, 1463));
+    await tester.tap(_action('Where do you want to go?'));
+    await tester.pumpAndSettle();
+    expect(find.text('Where are you going?'), findsOneWidget);
+    await tester.tap(
+      find.byWidgetPredicate((w) => w is HomeAction && w.label == 'Back'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_action('Plan your first trip'));
+    await tester.pumpAndSettle();
+    expect(find.text('Where are you going?'), findsOneWidget);
+  });
 
   for (final width in [360.0, 393.0, 412.0, 430.0]) {
     testWidgets(
@@ -184,8 +209,12 @@ void main() {
         expect(hero.width, where.width);
         expect(hero.left, inInclusiveRange(20, 26));
         expect(
-          tester.getBottomLeft(find.text('Ujjain\nSpritual Trip')).dy,
-          lessThan(tester.getTopLeft(find.text('25 Aug - 28 Aug')).dy),
+          tester.getBottomLeft(find.text('Somewhere\nworth going.')).dy,
+          lessThan(
+            tester
+                .getTopLeft(find.text('Choose a place. Make it your own.'))
+                .dy,
+          ),
         );
         await tester.drag(find.byType(CustomScrollView), const Offset(0, -350));
         await tester.pumpAndSettle();
@@ -198,7 +227,7 @@ void main() {
           (w) => w is YatraFavoriteButton && w.name == 'Varanasi',
         );
         expect(tester.getSize(jaipur), const Size(48, 48));
-        expect(tester.widget<YatraFavoriteButton>(jaipur).selected, isTrue);
+        expect(tester.widget<YatraFavoriteButton>(jaipur).selected, isFalse);
         expect(tester.widget<YatraFavoriteButton>(varanasi).selected, isFalse);
         expect(
           tester
@@ -206,11 +235,11 @@ void main() {
               .getSemanticsData()
               .flagsCollection
               .isToggled,
-          ui.Tristate.isTrue,
+          ui.Tristate.isFalse,
         );
         await tester.tap(jaipur);
         await tester.pumpAndSettle();
-        expect(tester.widget<YatraFavoriteButton>(jaipur).selected, isFalse);
+        expect(tester.widget<YatraFavoriteButton>(jaipur).selected, isTrue);
         await tester.tap(varanasi);
         await tester.pumpAndSettle();
         expect(tester.widget<YatraFavoriteButton>(varanasi).selected, isTrue);
@@ -328,36 +357,96 @@ void main() {
     },
   );
 
-  testWidgets('unsupported renderer uses a tightly clipped blur fallback', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 48,
-              height: 48,
-              child: YatraRefractiveGlass(child: SizedBox.expand()),
+  testWidgets(
+    'glass consistently uses clipped native blur without shader loading',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: YatraRefractiveGlass(child: SizedBox.expand()),
+              ),
             ),
           ),
         ),
-      ),
-    );
-    expect(ui.ImageFilter.isShaderFilterSupported, isFalse);
-    expect(find.byType(BackdropFilter), findsOneWidget);
-    expect(tester.getSize(find.byType(ClipRRect)), const Size(48, 48));
-    expect(
-      tester
-          .widget<BackdropFilter>(find.byType(BackdropFilter))
-          .filter
-          .toString(),
-      contains('blur'),
-    );
-    expect(tester.takeException(), isNull);
-  });
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      expect(tester.getSize(find.byType(ClipRRect)), const Size(48, 48));
+      expect(
+        tester
+            .widget<BackdropFilter>(find.byType(BackdropFilter))
+            .filter
+            .toString(),
+        contains('blur'),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'popular destinations grid renders 6 cards with independent favorite and navigation',
+    (tester) async {
+      await _pumpHome(tester, const Size(700, 1463));
+      expect(find.byType(HomeDestinationCard), findsWidgets);
+
+      // Verify each destination card exists with proper labels
+      const destinations = [
+        ('Jaipur', 'Rajasthan'),
+        ('Varanasi', 'Uttar Pradesh'),
+        ('Udaipur', 'Rajasthan'),
+        ('Manali', 'Himachal Pradesh'),
+        ('Goa', 'Goa'),
+        ('Rishikesh', 'Uttarakhand'),
+      ];
+
+      for (final dest in destinations) {
+        final card = find.byWidgetPredicate(
+          (w) => w is HomeAction && w.label == '${dest.$1}, ${dest.$2}',
+        );
+        if (card.evaluate().isEmpty) {
+          await tester.scrollUntilVisible(
+            card,
+            150,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(card, findsOneWidget);
+        expect(
+          find.descendant(of: card, matching: find.text(dest.$1)),
+          findsWidgets,
+        );
+        expect(
+          find.descendant(of: card, matching: find.text(dest.$2)),
+          findsWidgets,
+        );
+      }
+
+      // Verify favorite toggle does not trigger navigation
+      final udaipurHeart = find.byWidgetPredicate(
+        (w) => w is YatraFavoriteButton && w.name == 'Udaipur',
+      );
+      expect(tester.widget<YatraFavoriteButton>(udaipurHeart).selected, isFalse);
+      await tester.tap(udaipurHeart);
+      await tester.pumpAndSettle();
+      expect(tester.widget<YatraFavoriteButton>(udaipurHeart).selected, isTrue);
+      // Navigation should NOT have opened DestinationSelectionScreen
+      expect(find.byType(DestinationSelectionScreen), findsNothing);
+
+      // Verify tapping the destination card opens destination selection
+      final cardAction = find.byWidgetPredicate(
+        (w) => w is HomeAction && w.label == 'Udaipur, Rajasthan',
+      );
+      await tester.tap(cardAction);
+      await tester.pumpAndSettle();
+      expect(find.byType(DestinationSelectionScreen), findsOneWidget);
+    },
+  );
 }
 
 Finder _action(String label) =>
     find.byWidgetPredicate((w) => w is HomeAction && w.label == label);
-

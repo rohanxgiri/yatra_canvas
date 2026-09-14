@@ -17,6 +17,27 @@ class Settings(BaseSettings):
     """
 
     database_url: SecretStr = Field(min_length=1, validation_alias="DATABASE_URL")
+    jwt_secret_key: SecretStr = Field(
+        default=SecretStr("yatracanvas-dev-insecure-jwt-secret-key-change-in-production"),
+        validation_alias="JWT_SECRET_KEY",
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        validation_alias="JWT_ALGORITHM",
+    )
+    jwt_access_token_expire_minutes: int = Field(
+        default=1440,
+        ge=5,
+        validation_alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
+    )
+    admin_email: str | None = Field(
+        default=None,
+        validation_alias="ADMIN_EMAIL",
+    )
+    admin_password: SecretStr | None = Field(
+        default=None,
+        validation_alias="ADMIN_PASSWORD",
+    )
     google_routes_api_key: SecretStr | None = Field(
         default=None,
         validation_alias="GOOGLE_ROUTES_API_KEY",
@@ -379,6 +400,18 @@ class Settings(BaseSettings):
     @staticmethod
     def _optional_secret_value(value: SecretStr | None) -> str | None:
         return value.get_secret_value() if value is not None else None
+
+    @property
+    def jwt_secret_key_value(self) -> str:
+        """Return the JWT signing secret value."""
+
+        return self.jwt_secret_key.get_secret_value()
+
+    @property
+    def admin_password_value(self) -> str | None:
+        """Return the bootstrap admin password only during administrative seeding."""
+
+        return self._optional_secret_value(self.admin_password)
 
     @property
     def google_routes_api_key_value(self) -> str | None:

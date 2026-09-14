@@ -1,6 +1,6 @@
 # Environment variables
 
-Last reviewed: 2026-09-06
+Last reviewed: 2026-09-14
 
 This is the complete repository-owned configuration inventory. Names are documented; real
 values are not. Backend settings load from process environment or untracked `backend/.env`.
@@ -11,6 +11,11 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 | Variable | Service/provider | Required? | Owner | Purpose | Public/secret | Status and replacement note |
 | --- | --- | --- | --- | --- | --- | --- |
 | `DATABASE_URL` | PostgreSQL (Supabase URL supported) | Required to start | Backend/deployment | SQLAlchemy/psycopg database connection | Secret | `[IMPLEMENTED]`; remains required in target architecture |
+| `JWT_SECRET_KEY` | Authentication / JWT | Optional; dev fallback provided | Backend | Cryptographic secret for signing and verifying JWT authentication tokens | Secret | `[IMPLEMENTED]`; rotate and provide strong secret in production |
+| `JWT_ALGORITHM` | Authentication / JWT | Optional | Backend | JWT token signing algorithm, default `HS256` | Non-secret | `[IMPLEMENTED]` |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Authentication / JWT | Optional | Backend | Token validity duration, default 1440 minutes (24 hours) | Non-secret | `[IMPLEMENTED]` |
+| `ADMIN_EMAIL` | Admin bootstrap CLI/service | Optional | Backend CLI | Default email address for initial administrator creation | Safe configuration | `[IMPLEMENTED]`; default `admin@yatracanvas.com` |
+| `ADMIN_PASSWORD` | Admin bootstrap CLI/service | Optional | Backend CLI | Bootstrap password for initial administrator creation; prompt used if omitted | Secret | `[IMPLEMENTED]`; never commit |
 | `GOOGLE_PLACES_API_KEY` | Google Places API (New) | Optional; legacy endpoints only, not the normal destination/recommendation flow | Backend | Authenticates retained Autocomplete, Place Details, and Nearby Search adapters | Secret | `[DEPRECATED]`; normal Flutter flow does not require it |
 | `GOOGLE_ROUTES_API_KEY` | Google Routes API | Optional; not used by the normal optimizer | Backend | Authenticates the retained legacy adapter | Secret | `[DEPRECATED]`; normal optimization uses local estimates |
 | `GEOAPIFY_API_KEY` | Geoapify | Optional; required for new destination and arrival suggestions through `/locations/autocomplete` | Backend | Authenticates runtime autocomplete/geocoding | Secret | `[IMPLEMENTED]`; intended to remain narrowly scoped |

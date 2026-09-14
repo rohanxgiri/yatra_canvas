@@ -7,7 +7,9 @@ import 'package:yatra_canvas/screens/onboarding/personal_interests_screen.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
 void main() {
-  testWidgets('launch story reaches home without a sign-in detour', (tester) async {
+  testWidgets('launch story reaches home without a sign-in detour', (
+    tester,
+  ) async {
     await tester.pumpWidget(const YatraCanvasApp());
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
@@ -17,9 +19,13 @@ void main() {
     expect(find.byType(HomeScreen), findsOneWidget);
   });
 
-  testWidgets('legacy personalisation entry follows the three-page story', (tester) async {
-    await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: const PersonalInterestsScreen()));
-    for (var page = 0; page < 2; page++) {
+  testWidgets('legacy personalisation entry follows the four-page story', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(theme: AppTheme.light, home: const PersonalInterestsScreen()),
+    );
+    for (var page = 0; page < 3; page++) {
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
     }
@@ -51,4 +57,3 @@ void main() {
     }
   });
 }
-

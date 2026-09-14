@@ -7,8 +7,11 @@ import '../../models/trip_start_location.dart';
 import '../../services/trip_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../theme/yc_motion.dart';
 import '../../widgets/create_trip_scaffold.dart';
 import '../../widgets/selection_chip.dart';
+import '../../widgets/trip_generation_experience.dart';
+import '../../widgets/yc_pressable.dart';
 import '../place_discovery/place_discovery_screen.dart';
 
 class TripPreferencesScreen extends StatefulWidget {
@@ -106,7 +109,7 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
           widget.draft.startLatitude != null &&
           widget.draft.startLongitude != null;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
+        YCRoutes.journey<void>(
           builder: (_) => PlaceDiscoveryScreen(
             city: city,
             tripId: effectiveTripId,
@@ -140,104 +143,119 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
   Widget build(BuildContext context) {
     final isEditing =
         widget.draft.tripId != null && widget.draft.tripId!.isNotEmpty;
-    return CreateTripScaffold(
-      step: 5,
-      title: 'How do you like\nto travel?',
-      subtitle: 'Tell us what feels right and we will tune the flow and pace of the trip.',
-      continueLabel: _isCreating
-          ? (isEditing ? 'Saving Trip…' : 'Creating Trip…')
-          : (isEditing ? 'Save & Discover Places' : 'Find Places For Me'),
-      continueIcon: Icons.auto_awesome_rounded,
-      continueEnabled: !_isCreating,
-      onContinue: _finish,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionTitle('Travel pace'),
-          const SizedBox(height: 12),
-          ..._paces.map(
-            (pace) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _PaceCard(
-                label: pace.$1,
-                description: pace.$2,
-                icon: pace.$3,
-                selected: _pace == pace.$1,
-                onTap: () => setState(() => _pace = pace.$1),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          const _SectionTitle('Budget'),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = (constraints.maxWidth - 20) / 3;
-              return Row(
-                children: _budgets
-                    .map((budget) {
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          right: budget == _budgets.last ? 0 : 10,
-                        ),
-                        child: SizedBox(
-                          width: width,
-                          child: _BudgetCard(
-                            label: budget.$1,
-                            icon: budget.$2,
-                            selected: _budget == budget.$1,
-                            onTap: () => setState(() => _budget = budget.$1),
-                          ),
-                        ),
-                      );
-                    })
-                    .toList(growable: false),
-              );
-            },
-          ),
-          const SizedBox(height: 28),
-          const _SectionTitle('Getting around'),
-          const SizedBox(height: 6),
-          Text('Choose all that work for you.', style: AppTextStyles.bodyMuted),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 9,
-            runSpacing: 10,
-            children: _transports
-                .map(
-                  (transport) => SelectionChip(
-                    label: transport.$1,
-                    icon: transport.$2,
-                    selected: _transport.contains(transport.$1),
-                    onSelected: (_) {
-                      setState(() {
-                        if (!_transport.add(transport.$1)) {
-                          _transport.remove(transport.$1);
-                        }
-                      });
-                    },
-                  ),
-                )
-                .toList(growable: false),
-          ),
-          const SizedBox(height: 30),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: const Text('Your trip at a glance'),
+    return Stack(
+      children: [
+        CreateTripScaffold(
+          step: 5,
+          title: 'How do you like\nto travel?',
+          subtitle: 'Tell us what feels right and we will tune the flow and pace of the trip.',
+          continueLabel: _isCreating
+              ? (isEditing ? 'Saving Trip…' : 'Creating Trip…')
+              : (isEditing ? 'Save & Discover Places' : 'Find Places For Me'),
+          continueIcon: Icons.auto_awesome_rounded,
+          continueEnabled: !_isCreating,
+          onContinue: _finish,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _TripSummary(draft: widget.draft, pace: _pace, budget: _budget),
+              const _SectionTitle('Travel pace'),
+              const SizedBox(height: 12),
+              ..._paces.map(
+                (pace) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _PaceCard(
+                    label: pace.$1,
+                    description: pace.$2,
+                    icon: pace.$3,
+                    selected: _pace == pace.$1,
+                    onTap: () => setState(() => _pace = pace.$1),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const _SectionTitle('Budget'),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = (constraints.maxWidth - 20) / 3;
+                  return Row(
+                    children: _budgets
+                        .map((budget) {
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              right: budget == _budgets.last ? 0 : 10,
+                            ),
+                            child: SizedBox(
+                              width: width,
+                              child: _BudgetCard(
+                                label: budget.$1,
+                                icon: budget.$2,
+                                selected: _budget == budget.$1,
+                                onTap: () =>
+                                    setState(() => _budget = budget.$1),
+                              ),
+                            ),
+                          );
+                        })
+                        .toList(growable: false),
+                  );
+                },
+              ),
+              const SizedBox(height: 28),
+              const _SectionTitle('Getting around'),
+              const SizedBox(height: 6),
+              Text(
+                'Choose all that work for you.',
+                style: AppTextStyles.bodyMuted,
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 9,
+                runSpacing: 10,
+                children: _transports
+                    .map(
+                      (transport) => SelectionChip(
+                        label: transport.$1,
+                        icon: transport.$2,
+                        selected: _transport.contains(transport.$1),
+                        onSelected: (_) {
+                          setState(() {
+                            if (!_transport.add(transport.$1)) {
+                              _transport.remove(transport.$1);
+                            }
+                          });
+                        },
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+              const SizedBox(height: 30),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('Your trip at a glance'),
+                children: [
+                  _TripSummary(
+                    draft: widget.draft,
+                    pace: _pace,
+                    budget: _budget,
+                  ),
+                ],
+              ),
+              if (_creationError case final error?) ...[
+                const SizedBox(height: 14),
+                _TripCreationError(message: error),
+              ],
             ],
           ),
-          if (_isCreating) ...[
-            const SizedBox(height: 14),
-            const LinearProgressIndicator(),
-          ],
-          if (_creationError case final error?) ...[
-            const SizedBox(height: 14),
-            _TripCreationError(message: error),
-          ],
-        ],
-      ),
+        ),
+        if (_isCreating)
+          Positioned.fill(
+            child: TripGenerationExperience(
+              destination: widget.draft.destination?.name ?? 'your destination',
+              editing: isEditing,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -296,55 +314,54 @@ class _PaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.tealLight : AppColors.surface,
+    return YCPressable(
+      onTap: onTap,
+      semanticLabel: label,
+      selected: selected,
       borderRadius: BorderRadius.circular(19),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(19),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(19),
-            border: Border.all(
-              color: selected ? AppColors.teal : AppColors.border,
-              width: selected ? 1.5 : 1,
+      child: AnimatedContainer(
+        duration: YCMotion.duration(context, YCMotion.component),
+        curve: YCMotion.standard,
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(19),
+          border: Border.all(
+            color: selected ? AppColors.teal : AppColors.border,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.teal : AppColors.surfaceSoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                icon,
+                color: selected ? Colors.white : AppColors.teal,
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.teal : AppColors.surfaceSoft,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  icon,
-                  color: selected ? Colors.white : AppColors.teal,
-                ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: AppTextStyles.cardTitle),
+                  const SizedBox(height: 4),
+                  Text(description, style: AppTextStyles.bodyMuted),
+                ],
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label, style: AppTextStyles.cardTitle),
-                    const SizedBox(height: 4),
-                    Text(description, style: AppTextStyles.bodyMuted),
-                  ],
-                ),
-              ),
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                color: selected ? AppColors.teal : AppColors.borderStrong,
-              ),
-            ],
-          ),
+            ),
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: selected ? AppColors.teal : AppColors.borderStrong,
+            ),
+          ],
         ),
       ),
     );
@@ -366,11 +383,14 @@ class _BudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return YCPressable(
       onTap: onTap,
+      semanticLabel: label,
+      selected: selected,
       borderRadius: BorderRadius.circular(17),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: YCMotion.duration(context, YCMotion.component),
+        curve: YCMotion.standard,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 15),
         decoration: BoxDecoration(
           color: selected ? AppColors.tealLight : AppColors.surface,

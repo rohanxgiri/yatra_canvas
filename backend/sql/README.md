@@ -1,6 +1,6 @@
 # YatraCanvas manual database changes
 
-Last reviewed: 2026-09-07
+Last reviewed: 2026-09-14
 
 This directory contains upgrade scripts for databases created by older versions of
 YatraCanvas. It is not an ordered migration runner, and filenames must not be executed
@@ -52,6 +52,7 @@ the catalog before continuing.
 9. `add_places_opening_hours.sql`
 10. `add_saved_places_assignment_mode.sql`
 11. `add_trip_itinerary_status.sql`
+12. `add_admin_auth_and_moderation.sql`
 
 `repair_current_schema_parity.sql` is a convergence repair for the older provider and route
 scripts. On the currently configured database its effects are already present, so rerunning the
@@ -62,8 +63,9 @@ historical chain adds no value and makes execution history harder to understand.
 Files beginning with `rollback_` remove schema and may discard data. They are recovery tools for
 their matching forward migration, not later steps in the sequence. Use one only as part of a
 reviewed restore plan. In particular, `rollback_fsq_geoapify_foundation.sql` drops provenance
-tables and columns, and `rollback_trip_days_foundation.sql` drops configured trip days with
-dependent assignment data.
+tables and columns, `rollback_trip_days_foundation.sql` drops configured trip days with
+dependent assignment data, and `rollback_admin_auth_and_moderation.sql` drops place reports,
+users, and admin moderation/destination columns.
 
 ## Verification checklist
 

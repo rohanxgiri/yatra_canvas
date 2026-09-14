@@ -20,6 +20,7 @@ Thumbs.db
 build/
 coverage/
 doc/api/
+test/failures/
 
 # Local configuration and secrets
 .env

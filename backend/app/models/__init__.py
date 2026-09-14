@@ -7,6 +7,7 @@ from app.models.entities import (
     PlaceCategory,
     PlaceImportReview,
     PlaceOpeningHours,
+    PlaceReport,
     PlaceSource,
     PlaceTag,
     RouteMatrixCache,
@@ -14,6 +15,8 @@ from app.models.entities import (
     TripDay,
     TripItinerary,
     TripPreference,
+    User,
+    UserRole,
     UserSavedPlace,
 )
 
@@ -24,6 +27,7 @@ __all__ = [
     "PlaceCategory",
     "PlaceImportReview",
     "PlaceOpeningHours",
+    "PlaceReport",
     "PlaceSource",
     "PlaceTag",
     "RouteMatrixCache",
@@ -31,5 +35,8 @@ __all__ = [
     "TripDay",
     "TripItinerary",
     "TripPreference",
+    "User",
+    "UserRole",
     "UserSavedPlace",
 ]
+
