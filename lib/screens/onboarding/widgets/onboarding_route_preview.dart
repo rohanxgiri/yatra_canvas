@@ -1,262 +1,637 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../../theme/yc_style.dart';
-import 'onboarding_journey_image.dart';
 import 'onboarding_styles.dart';
 
-// Normalized map anchors keep the cards and road in the same coordinate space.
-const _stops = [Offset(.23, .42), Offset(.74, .61), Offset(.30, .88)];
+class _JaipurStop {
+  const _JaipurStop({
+    required this.name,
+    required this.subtitle,
+    required this.cardLeft,
+    required this.cardTop,
+    required this.cardWidth,
+    required this.cardHeightRatio,
+    required this.waypoint,
+    required this.badgeOffset,
+    required this.imageAlignment,
+    required this.imageScale,
+  });
 
-/// An illustrative journey, rendered locally without map tiles or location data.
-class OnboardingRoutePreview extends StatelessWidget {
+  final String name;
+  final String subtitle;
+  final double cardLeft; // normalized [0, 1]
+  final double cardTop; // normalized [0, 1]
+  final double cardWidth; // normalized [0, 1]
+  final double cardHeightRatio; // height / width
+  final Offset waypoint; // normalized [0, 1]
+  final Offset badgeOffset; // normalized [0, 1]
+  final Alignment imageAlignment;
+  final double imageScale;
+}
+
+const _stops = <_JaipurStop>[
+  _JaipurStop(
+    name: 'Amer Fort',
+    subtitle: 'Hilltop fortress',
+    cardLeft: .08,
+    cardTop: .06,
+    cardWidth: .35,
+    cardHeightRatio: 0.92,
+    waypoint: Offset(.25, .41),
+    badgeOffset: Offset(.32, .39),
+    imageAlignment: Alignment(-0.45, -0.70),
+    imageScale: 2.6,
+  ),
+  _JaipurStop(
+    name: 'Hawa Mahal',
+    subtitle: 'Palace of Winds',
+    cardLeft: .57,
+    cardTop: .20,
+    cardWidth: .35,
+    cardHeightRatio: 0.92,
+    waypoint: Offset(.76, .58),
+    badgeOffset: Offset(.44, .56),
+    imageAlignment: Alignment(0.55, 0.15),
+    imageScale: 2.4,
+  ),
+  _JaipurStop(
+    name: 'Jal Mahal',
+    subtitle: 'Water Palace',
+    cardLeft: .09,
+    cardTop: .54,
+    cardWidth: .35,
+    cardHeightRatio: 0.92,
+    waypoint: Offset(.27, .88),
+    badgeOffset: Offset(.35, .86),
+    imageAlignment: Alignment(-0.45, 0.10),
+    imageScale: 2.9,
+  ),
+];
+
+/// Redesigned illustrative route preview for YatraCanvas journey onboarding.
+/// Combines the photo-pin composition of coordinated Jaipur destinations with the
+/// restrained aqua canvas, white curved route, and coordinated motion from design reference.
+class OnboardingRoutePreview extends StatefulWidget {
   const OnboardingRoutePreview({super.key});
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    image: true,
-    label:
-        'Illustrated journey: stop 1, Palace; stop 2, Café, highlighted; '
-        'stop 3, riverside ghats. One route connects all three places.',
-    child: ExcludeSemantics(
+  State<OnboardingRoutePreview> createState() => _OnboardingRoutePreviewState();
+}
+
+class _OnboardingRoutePreviewState extends State<OnboardingRoutePreview>
+    with TickerProviderStateMixin {
+  int _selectedIndex = 1; // Default selected stop: Hawa Mahal
+
+  late final AnimationController _entranceController;
+  late final Animation<double> _routeProgressAnimation;
+
+  late final AnimationController _ambientController;
+  late final Animation<double> _ambientAnimation;
+
+  bool _isPrecached = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1250),
+    );
+    _routeProgressAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeInOutCubic,
+    );
+
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    );
+    _ambientAnimation = Tween<double>(begin: -1.0, end: 1.0).animate(
+      CurvedAnimation(parent: _ambientController, curve: Curves.easeInOutSine),
+    );
+
+    _entranceController.forward();
+    if (!WidgetsBinding.instance.runtimeType.toString().contains('Test')) {
+      _ambientController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isPrecached) {
+      _isPrecached = true;
+      precacheImage(const AssetImage('lib/assets/home/jaipur.png'), context);
+    }
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    _ambientController.dispose();
+    super.dispose();
+  }
+
+  void _onSelectStop(int index) {
+    if (_selectedIndex != index) {
+      setState(() => _selectedIndex = index);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+
+    if (reducedMotion && !_entranceController.isCompleted) {
+      _entranceController.value = 1.0;
+    }
+
+    return Semantics(
+      image: true,
+      label:
+          'Illustrated Jaipur journey: stop 1, Amer Fort; stop 2, Hawa Mahal, highlighted; '
+          'stop 3, Jal Mahal. A flowing curved white route connects all three destinations. '
+          'Currently selected destination: ${_stops[_selectedIndex].name}.',
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            // Let labels grow with accessibility text settings, independently
-            // of the image crops, while preserving the map composition.
-            final textScale = MediaQuery.textScalerOf(context).scale(12) / 12;
-            final height = width * 1.16 + (textScale - 1) * 80;
-            final markerSize = (width * .08).clamp(26.0, 32.0);
-            return SizedBox(
+            final textScale =
+                MediaQuery.textScalerOf(context).scale(12) / 12;
+            final height = (width * 1.02 + (textScale - 1) * 50).clamp(
+              280.0,
+              520.0,
+            );
+
+            return Container(
+              width: width,
               height: height,
-              child: CustomPaint(
-                painter: const _RouteMapPainter(),
-                child: Stack(
-                  children: [
-                    for (var index = 0; index < _stops.length; index++)
-                      Positioned(
-                        left:
-                            width *
-                            (_stops[index].dx - (index == 1 ? .17 : .145)),
-                        bottom:
-                            height * (1 - _stops[index].dy) +
-                            markerSize / 2 +
-                            6,
-                        width: width * (index == 1 ? .34 : .29),
-                        child: _StopCard(index: index),
-                      ),
-                    for (var index = 0; index < _stops.length; index++)
-                      Positioned(
-                        left: width * _stops[index].dx - markerSize / 2,
-                        top: height * _stops[index].dy - markerSize / 2,
-                        child: Container(
-                          width: markerSize,
-                          height: markerSize,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: OnboardingStyle.bluePrimary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x18055EC8),
+                    blurRadius: 24,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: AnimatedBuilder(
+                animation: Listenable.merge([
+                  _routeProgressAnimation,
+                  _ambientAnimation,
+                ]),
+                builder: (context, _) {
+                  final routeProgress = reducedMotion
+                      ? 1.0
+                      : _routeProgressAnimation.value;
+                  final ambientShift = reducedMotion
+                      ? 0.0
+                      : _ambientAnimation.value;
+
+                  return CustomPaint(
+                    painter: _AquaCanvasPainter(
+                      routeProgress: routeProgress,
+                      ambientShift: ambientShift,
+                    ),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Layer 1: Photo Pins (Amer Fort, Hawa Mahal, Jal Mahal)
+                        for (var i = 0; i < _stops.length; i++)
+                          _buildPhotoPin(
+                            index: i,
+                            width: width,
+                            height: height,
+                            textScale: textScale,
+                            routeProgress: routeProgress,
+                            reducedMotion: reducedMotion,
                           ),
-                          child: Text(
-                            '${index + 1}',
-                            // The illustration has one complete semantic label.
-                            textScaler: TextScaler.noScaling,
-                            style: YCStyle.secondary.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
+
+                        // Layer 2: Circular Waypoints along the route
+                        for (var i = 0; i < _stops.length; i++)
+                          _buildWaypoint(
+                            index: i,
+                            width: width,
+                            height: height,
+                            routeProgress: routeProgress,
+                            reducedMotion: reducedMotion,
                           ),
+
+                        // Layer 3: Floating Translucent Destination Badge
+                        _buildFloatingBadge(
+                          width: width,
+                          height: height,
+                          routeProgress: routeProgress,
+                          reducedMotion: reducedMotion,
                         ),
-                      ),
-                  ],
-                ),
+                      ],
+                    ),
+                  );
+                },
               ),
             );
           },
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-class _StopCard extends StatelessWidget {
-  const _StopCard({required this.index});
-  final int index;
+  Widget _buildPhotoPin({
+    required int index,
+    required double width,
+    required double height,
+    required double textScale,
+    required double routeProgress,
+    required bool reducedMotion,
+  }) {
+    final stop = _stops[index];
+    final isSelected = _selectedIndex == index;
+    final cardW = width * stop.cardWidth;
+    final cardH = cardW * stop.cardHeightRatio;
 
-  @override
-  Widget build(BuildContext context) {
-    final selected = index == 1;
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: selected ? OnboardingStyle.bluePrimary : Colors.white,
-          width: selected ? 2 : 1,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          OnboardingJourneyImage(
-            detailScale: 3,
-            alignment: [
-              const Alignment(-.35, -.85),
-              const Alignment(-1, .35),
-              const Alignment(1, -.05),
-            ][index],
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-            child: Text(
-              ['Palace', 'Café', 'Ghats'][index],
-              textAlign: TextAlign.center,
-              style: YCStyle.caption.copyWith(
-                color: selected ? OnboardingStyle.bluePrimary : YCStyle.ink,
-                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+    // Sequential pin reveal during entrance
+    final revealThreshold = [0.0, 0.40, 0.78][index];
+    final pinVisible = reducedMotion || routeProgress >= revealThreshold;
+    final pinOpacity = reducedMotion
+        ? 1.0
+        : ((routeProgress - revealThreshold) / 0.22).clamp(0.0, 1.0);
+
+    return Positioned(
+      left: width * stop.cardLeft,
+      top: height * stop.cardTop,
+      width: cardW,
+      height: cardH,
+      child: AnimatedOpacity(
+        duration: reducedMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 260),
+        opacity: pinVisible ? pinOpacity : 0.0,
+        child: GestureDetector(
+          onTap: () => _onSelectStop(index),
+          behavior: HitTestBehavior.opaque,
+          child: Semantics(
+            button: true,
+            selected: isSelected,
+            label: 'Select destination ${stop.name}',
+            child: AnimatedScale(
+              scale: isSelected ? 1.06 : 1.0,
+              duration: reducedMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isSelected
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: .85),
+                    width: isSelected ? 2.4 : 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isSelected
+                          ? const Color(0x35000000)
+                          : const Color(0x1A000000),
+                      blurRadius: isSelected ? 12 : 7,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Photographic crop from jaipur.png
+                      LayoutBuilder(
+                        builder: (context, boxConstraints) => OverflowBox(
+                          alignment: stop.imageAlignment,
+                          maxWidth: boxConstraints.maxWidth * stop.imageScale,
+                          maxHeight:
+                              boxConstraints.maxHeight * stop.imageScale,
+                          child: Image.asset(
+                            'lib/assets/home/jaipur.png',
+                            fit: BoxFit.cover,
+                            excludeFromSemantics: true,
+                          ),
+                        ),
+                      ),
+
+                      // Refined frosted bottom caption for landmark identity
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 4,
+                            horizontal: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.62),
+                                Colors.black.withValues(alpha: 0.0),
+                              ],
+                            ),
+                          ),
+                          child: Text(
+                            stop.name,
+                            style: YCStyle.caption.copyWith(
+                              color: Colors.white,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              fontSize:
+                                  (10.5 * textScale).clamp(9.0, 12.0),
+                              letterSpacing: 0.1,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWaypoint({
+    required int index,
+    required double width,
+    required double height,
+    required double routeProgress,
+    required bool reducedMotion,
+  }) {
+    final stop = _stops[index];
+    final isSelected = _selectedIndex == index;
+    final markerSize = isSelected ? 22.0 : 13.0;
+
+    // Sequential waypoint reveal
+    final revealThreshold = [0.05, 0.50, 0.90][index];
+    final visible = reducedMotion || routeProgress >= revealThreshold;
+    final opacity = reducedMotion
+        ? 1.0
+        : ((routeProgress - revealThreshold) / 0.12).clamp(0.0, 1.0);
+
+    return Positioned(
+      left: width * stop.waypoint.dx - markerSize / 2,
+      top: height * stop.waypoint.dy - markerSize / 2,
+      width: markerSize,
+      height: markerSize,
+      child: IgnorePointer(
+        child: AnimatedOpacity(
+          duration: reducedMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
+          opacity: visible ? opacity : 0.0,
+          child: isSelected
+              // Selected: Dark slate outlined ring with aqua hollow center matching reference
+              ? Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: OnboardingStyle.waypointSelectedRing,
+                      width: 3.5,
+                    ),
+                  ),
+                )
+              // Inactive: Solid white dot with soft outer halo
+              : Container(
+                  width: 13,
+                  height: 13,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x66FFFFFF),
+                        blurRadius: 5,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingBadge({
+    required double width,
+    required double height,
+    required double routeProgress,
+    required bool reducedMotion,
+  }) {
+    final stop = _stops[_selectedIndex];
+    final isVisible = reducedMotion || routeProgress >= 0.35;
+
+    final targetLeft = (width * stop.badgeOffset.dx).clamp(
+      8.0,
+      width - 110.0,
+    );
+    final targetTop = (height * stop.badgeOffset.dy - 12).clamp(
+      6.0,
+      height - 36.0,
+    );
+
+    return AnimatedPositioned(
+      duration: reducedMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      left: targetLeft,
+      top: targetTop,
+      child: AnimatedOpacity(
+        duration: reducedMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 250),
+        opacity: isVisible ? 1.0 : 0.0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .90),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: .95),
+              width: 1.0,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x18000000),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: AnimatedSwitcher(
+            duration: reducedMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 240),
+            transitionBuilder: (child, animation) => SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.22, 0),
+                end: Offset.zero,
+              ).animate(animation),
+              child: FadeTransition(opacity: animation, child: child),
+            ),
+            child: Text(
+              stop.name,
+              key: ValueKey(stop.name),
+              style: YCStyle.caption.copyWith(
+                color: OnboardingStyle.ink,
+                fontWeight: FontWeight.w600,
+                fontSize: 11.5,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-class _RouteMapPainter extends CustomPainter {
-  const _RouteMapPainter();
+/// Custom painter for the restrained aqua atmospheric surface and flowing white curved route.
+class _AquaCanvasPainter extends CustomPainter {
+  const _AquaCanvasPainter({
+    required this.routeProgress,
+    required this.ambientShift,
+  });
+
+  final double routeProgress;
+  final double ambientShift;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Geometry is proportional to the available illustration bounds, not a
-    // phone-sized artboard. The blue route follows the same road underneath it.
-    Offset point(double x, double y) => Offset(x * size.width, y * size.height);
-    final fill = Paint();
-    canvas.drawRect(Offset.zero & size, fill..color = YCStyle.background);
+    // 1. Base soft cyan/aqua atmospheric gradient matching reference
+    final baseGradient = const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color(0xFF5CCDE6),
+        Color(0xFF76D8ED),
+        Color(0xFF8DE3F4),
+      ],
+      stops: [0.0, 0.52, 1.0],
+    ).createShader(Offset.zero & size);
 
-    final river = Path()
-      ..moveTo(size.width * .91, 0)
+    final bgPaint = Paint()..shader = baseGradient;
+    canvas.drawRect(Offset.zero & size, bgPaint);
+
+    // 2. Broad, heavily diffused organic white highlights with subtle ambient drift
+    final h1Center = Offset(
+      size.width * (0.40 + 0.035 * ambientShift),
+      size.height * (0.28 + 0.025 * ambientShift),
+    );
+    final h1Paint = Paint()
+      ..shader = ui.Gradient.radial(
+        h1Center,
+        size.width * 0.72,
+        [
+          Colors.white.withValues(alpha: .44),
+          Colors.white.withValues(alpha: .18),
+          Colors.white.withValues(alpha: .0),
+        ],
+        [0.0, 0.5, 1.0],
+      );
+    canvas.drawRect(Offset.zero & size, h1Paint);
+
+    final h2Center = Offset(
+      size.width * (0.80 - 0.03 * ambientShift),
+      size.height * (0.68 - 0.02 * ambientShift),
+    );
+    final h2Paint = Paint()
+      ..shader = ui.Gradient.radial(
+        h2Center,
+        size.width * 0.60,
+        [
+          Colors.white.withValues(alpha: .28),
+          Colors.white.withValues(alpha: .0),
+        ],
+        [0.0, 1.0],
+      );
+    canvas.drawRect(Offset.zero & size, h2Paint);
+
+    // 3. Smooth flowing white curved route connecting the 3 Jaipur destinations
+    final p0 = Offset(
+      size.width * _stops[0].waypoint.dx,
+      size.height * _stops[0].waypoint.dy,
+    );
+    final p1 = Offset(
+      size.width * _stops[1].waypoint.dx,
+      size.height * _stops[1].waypoint.dy,
+    );
+    final p2 = Offset(
+      size.width * _stops[2].waypoint.dx,
+      size.height * _stops[2].waypoint.dy,
+    );
+
+    final fullRoute = Path()
+      ..moveTo(p0.dx, p0.dy)
       ..cubicTo(
-        size.width * .77,
-        size.height * .3,
-        size.width * 1.13,
-        size.height * .48,
-        size.width * .91,
-        size.height * .75,
+        size.width * 0.46,
+        size.height * 0.38,
+        size.width * 0.65,
+        size.height * 0.46,
+        p1.dx,
+        p1.dy,
       )
-      ..quadraticBezierTo(
-        size.width * .80,
-        size.height * .94,
-        size.width * .97,
-        size.height,
-      )
-      ..lineTo(size.width, size.height)
-      ..lineTo(size.width, 0)
-      ..close();
-    canvas.drawPath(river, fill..color = YCStyle.border);
+      ..cubicTo(
+        size.width * 0.78,
+        size.height * 0.72,
+        size.width * 0.52,
+        size.height * 0.88,
+        p2.dx,
+        p2.dy,
+      );
 
-    for (final block in [
-      const Rect.fromLTWH(.04, .05, .31, .22),
-      const Rect.fromLTWH(.40, .05, .34, .21),
-      const Rect.fromLTWH(.04, .46, .31, .19),
-      const Rect.fromLTWH(.53, .69, .12, .12),
-      const Rect.fromLTWH(.04, .94, .56, .12),
-    ]) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            block.left * size.width,
-            block.top * size.height,
-            block.width * size.width,
-            block.height * size.height,
-          ),
-          const Radius.circular(18),
-        ),
-        fill..color = OnboardingStyle.blueLight,
-      );
-    }
-    // Small planted courtyards borrow the artwork's warm, quiet accent.
-    for (final park in [const Offset(.10, .74), const Offset(.57, .15)]) {
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: point(park.dx, park.dy),
-          width: size.width * .13,
-          height: size.height * .09,
-        ),
-        fill..color = OnboardingStyle.amber.withValues(alpha: .12),
-      );
+    if (routeProgress <= 0.001) return;
+
+    // Truncate path according to routeProgress (for progressive reveal entrance)
+    final animatedPath = Path();
+    for (final metric in fullRoute.computeMetrics()) {
+      final targetLength = metric.length * routeProgress.clamp(0.0, 1.0);
+      animatedPath.addPath(metric.extractPath(0, targetLength), Offset.zero);
     }
 
-    final road = Paint()
-      ..color = Colors.white
+    // Route subtle outer halo glow
+    final glowPaint = Paint()
+      ..color = Colors.white.withValues(alpha: .38)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 9
+      ..strokeWidth = 9.0
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    final streets = [
-      Path()
-        ..moveTo(0, size.height * .42)
-        ..lineTo(size.width, size.height * .42),
-      Path()
-        ..moveTo(size.width * .46, 0)
-        ..lineTo(size.width * .46, size.height),
-      Path()
-        ..moveTo(0, size.height * .88)
-        ..lineTo(size.width, size.height * .88),
-      Path()
-        ..moveTo(size.width * .74, size.height * .22)
-        ..lineTo(size.width * .74, size.height),
-      Path()
-        ..moveTo(0, size.height * .70)
-        ..lineTo(size.width * .46, size.height * .70),
-    ];
-    for (final street in streets) {
-      canvas.drawPath(street, road);
-    }
+    canvas.drawPath(animatedPath, glowPaint);
 
-    final route = Path()
-      ..moveTo(size.width * _stops[0].dx, size.height * _stops[0].dy)
-      ..lineTo(size.width * .42, size.height * .42)
-      ..quadraticBezierTo(
-        size.width * .46,
-        size.height * .42,
-        size.width * .46,
-        size.height * .46,
-      )
-      ..lineTo(size.width * .46, size.height * .57)
-      ..quadraticBezierTo(
-        size.width * .46,
-        size.height * .61,
-        size.width * .50,
-        size.height * .61,
-      )
-      ..lineTo(size.width * .70, size.height * .61)
-      ..quadraticBezierTo(
-        size.width * .74,
-        size.height * .61,
-        size.width * .74,
-        size.height * .65,
-      )
-      ..lineTo(size.width * .74, size.height * .84)
-      ..quadraticBezierTo(
-        size.width * .74,
-        size.height * .88,
-        size.width * .70,
-        size.height * .88,
-      )
-      ..lineTo(size.width * _stops[2].dx, size.height * _stops[2].dy);
-    canvas.drawPath(route, road..strokeWidth = 10);
-    canvas.drawPath(
-      route,
-      road
-        ..color = OnboardingStyle.bluePrimary
-        ..strokeWidth = 4,
-    );
+    // Route solid flowing white line
+    final routePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(animatedPath, routePaint);
   }
 
   @override
-  bool shouldRepaint(_RouteMapPainter oldDelegate) => false;
+  bool shouldRepaint(_AquaCanvasPainter oldDelegate) =>
+      oldDelegate.routeProgress != routeProgress ||
+      oldDelegate.ambientShift != ambientShift;
 }

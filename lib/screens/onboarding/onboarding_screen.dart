@@ -72,8 +72,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: OnboardingStyle.backgroundGradient,
+        decoration: BoxDecoration(
+          gradient: _currentPage == 2
+              ? OnboardingStyle.journeyBackgroundGradient
+              : OnboardingStyle.backgroundGradient,
         ),
         child: DecoratedBox(
           decoration: const BoxDecoration(gradient: OnboardingStyle.radialGlow),
@@ -167,11 +169,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              OnboardingProgressIndicator(
-                                currentPage: _currentPage,
-                                pageCount: _stepCount,
-                              ),
-                              SizedBox(height: 14 * scale),
+                              if (_currentPage != 2) ...[
+                                OnboardingProgressIndicator(
+                                  currentPage: _currentPage,
+                                  pageCount: _stepCount,
+                                ),
+                                SizedBox(height: 14 * scale),
+                              ],
                               OnboardingPrimaryButton(
                                 label: _currentPage == _stepCount - 1
                                     ? 'Start Planning'

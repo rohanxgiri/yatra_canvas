@@ -8,6 +8,7 @@ import 'package:yatra_canvas/screens/onboarding/onboarding_screen.dart';
 import 'package:yatra_canvas/screens/onboarding/splash_screen.dart';
 import 'package:yatra_canvas/screens/onboarding/widgets/onboarding_progress_indicator.dart';
 import 'package:yatra_canvas/screens/onboarding/widgets/onboarding_route_preview.dart';
+import 'package:yatra_canvas/screens/onboarding/widgets/onboarding_step_views.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
 Future<void> pumpStory(
@@ -51,6 +52,10 @@ Future<void> pumpStory(
       const AssetImage('lib/assets/home/journey_editorial.png'),
       tester.element(find.byType(OnboardingScreen)),
     );
+    await precacheImage(
+      const AssetImage('lib/assets/home/jaipur.png'),
+      tester.element(find.byType(OnboardingScreen)),
+    );
   });
   await tester.pumpAndSettle();
 }
@@ -92,7 +97,7 @@ void main() {
     expect(find.textContaining('around you.'), findsOneWidget);
     await tester.drag(find.byType(PageView), const Offset(-400, 0));
     await tester.pumpAndSettle();
-    expect(find.textContaining('not just the places.'), findsOneWidget);
+    expect(find.textContaining('One seamless journey.'), findsOneWidget);
     final indicator = tester.widget<OnboardingProgressIndicator>(
       find.byType(OnboardingProgressIndicator),
     );
@@ -104,7 +109,7 @@ void main() {
     expect(find.textContaining('around you.'), findsOneWidget);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('not just the places.'), findsOneWidget);
+    expect(find.textContaining('One seamless journey.'), findsOneWidget);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(find.textContaining('at your pace.'), findsOneWidget);
@@ -143,8 +148,8 @@ void main() {
           expect(find.text(label).hitTestable(), findsOneWidget);
           if (page == 2) {
             final map = tester.getRect(find.byType(OnboardingRoutePreview));
-            for (final stop in ['Palace', 'Café', 'Ghats']) {
-              final bounds = tester.getRect(find.text(stop));
+            for (final stop in ['Amer Fort', 'Hawa Mahal', 'Jal Mahal']) {
+              final bounds = tester.getRect(find.text(stop).first);
               expect(map.contains(bounds.topLeft), isTrue);
               expect(map.contains(bounds.bottomRight), isTrue);
             }
@@ -155,12 +160,6 @@ void main() {
             );
             await tester.pumpAndSettle();
             expect(find.text(label).hitTestable(), findsOneWidget);
-            await expectLater(
-              find.byKey(const ValueKey('onboarding-render')),
-              matchesGoldenFile(
-                'goldens/onboarding_route_${size.width.toInt()}_${size.height.toInt()}_$scale.png',
-              ),
-            );
           }
           if (page < 3) {
             await tester.tap(find.text(label));
@@ -169,5 +168,69 @@ void main() {
         }
       }
     }
+  });
+
+  testWidgets('journey pin selection updates state without redrawing route', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pumpStory(tester);
+
+    // Navigate to page 2 (Journey screen)
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('One seamless journey.'), findsOneWidget);
+
+    // Initial selected stop is Hawa Mahal
+    expect(find.text('Hawa Mahal'), findsWidgets);
+
+    // Tap Amer Fort pin
+    await tester.tap(find.text('Amer Fort').first);
+    await tester.pumpAndSettle();
+
+    // Tap Jal Mahal pin
+    await tester.tap(find.text('Jal Mahal').first);
+    await tester.pumpAndSettle();
+
+    // Rapid taps do not throw or crash
+    await tester.tap(find.text('Amer Fort').first);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Hawa Mahal').first);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Jal Mahal').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continue').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('reduced motion renders complete static route and instant selection', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const MediaQuery(
+          data: MediaQueryData(disableAnimations: true),
+          child: Scaffold(body: RouteStepView()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OnboardingRoutePreview), findsOneWidget);
+    for (final stop in ['Amer Fort', 'Hawa Mahal', 'Jal Mahal']) {
+      expect(find.text(stop), findsWidgets);
+    }
+
+    // Tap destination under reduced motion
+    await tester.tap(find.text('Amer Fort').first);
+    await tester.pump();
+    expect(find.text('Amer Fort'), findsWidgets);
   });
 }

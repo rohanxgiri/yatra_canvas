@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/yc_style.dart';
 import 'onboarding_journey_image.dart';
+import 'onboarding_progress_indicator.dart';
 import 'onboarding_route_preview.dart';
 import 'onboarding_styles.dart';
 
@@ -52,11 +53,81 @@ class RouteStepView extends StatelessWidget {
   const RouteStepView({super.key});
 
   @override
-  Widget build(BuildContext context) => const _Story(
-    title: 'See the journey,\nnot just the places.',
-    description: 'Visualize your complete route and see how every stop fits into your trip.',
-    child: OnboardingRoutePreview(),
-  );
+  Widget build(BuildContext context) {
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final scale = (width / 400).clamp(.82, 1.15);
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            20 * scale,
+            6 * scale,
+            20 * scale,
+            18 * scale,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Large rounded aqua travel illustration panel
+              const OnboardingRoutePreview(),
+
+              SizedBox(height: 16 * scale),
+
+              // 2. Pagination indicator centered below illustration
+              const Center(
+                child: OnboardingProgressIndicator(
+                  currentPage: 2,
+                  pageCount: 4,
+                ),
+              ),
+
+              SizedBox(height: 20 * scale),
+
+              // 3. Headline and description with subtle entrance lift & fade
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: reducedMotion
+                    ? Duration.zero
+                    : const Duration(milliseconds: 550),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, child) => Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - value) * 12),
+                    child: child,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Beautiful places.\nOne seamless journey.',
+                      style: OnboardingStyle.text(
+                        34 * scale,
+                        weight: FontWeight.w300,
+                        height: 1.16,
+                      ),
+                    ),
+                    SizedBox(height: 12 * scale),
+                    Text(
+                      'Discover places you love and bring them together in a trip that feels like you.',
+                      style: YCStyle.body.copyWith(
+                        color: YCStyle.muted,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 class ItineraryStepView extends StatelessWidget {

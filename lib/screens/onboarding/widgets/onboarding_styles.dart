@@ -14,6 +14,11 @@ abstract final class OnboardingStyle {
   static const amber = Color(0xFFFCB61F);
   static const borderSubtle = Color(0x66FFFFFF);
 
+  static const aquaBase = Color(0xFF67D2EA);
+  static const aquaLight = Color(0xFF8CE3F4);
+  static const aquaDeep = Color(0xFF52C4DE);
+  static const waypointSelectedRing = Color(0xFF2C3E50);
+
   /// Consistent cream-to-travel-blue gradient matching ExplorePage and Home.
   static const backgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -26,6 +31,19 @@ abstract final class OnboardingStyle {
       Color(0xFF5798F1),
     ],
     stops: [0, .2, .43, .7, 1],
+  );
+
+  /// Airy off-white screen background for the redesigned journey onboarding screen.
+  static const journeyBackgroundGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFFFFFFFF),
+      Color(0xFFFAFBFC),
+      Color(0xFFF5F7FA),
+      Color(0xFFEFF3F8),
+    ],
+    stops: [0, .25, .65, 1],
   );
 
   /// Warm sunlit glow overlay for depth and calm travel feeling.

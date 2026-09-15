@@ -31,6 +31,10 @@ Current-model migrations verified as applied on 2026-09-07:
    All 1,265 existing places were preserved and defaulted to `opening_hours_status='UNKNOWN'`.
 2. `add_trip_itinerary_status.sql` — the status column, default, and lifecycle check are present.
    All 92 existing itinerary rows were preserved and backfilled to `PLANNED`.
+3. `add_admin_auth_and_moderation.sql` — users and place_reports tables, destination management columns
+   on cities (`is_enabled`, `is_featured`, `is_popular`, `image_url`, `description`, `display_order`),
+   and `moderation_status` column and check on places verified as applied on 2026-09-14. All existing
+   cities preserved with `is_enabled=true`, and all existing places preserved with `moderation_status='ACTIVE'`.
 
 The exact execution actor and restore point cannot be attributed from repository evidence. Do
 not rerun older scripts on this database, and do not run a rollback script as an installation step.

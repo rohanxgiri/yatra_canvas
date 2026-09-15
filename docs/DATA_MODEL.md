@@ -137,6 +137,8 @@ The authoritative dependency order and the latest configured-database audit are 
 | `backend/sql/rollback_places_opening_hours.sql` | Reviewed rollback paired with the opening hours foundation |
 | `backend/sql/add_trip_itinerary_status.sql` | Forward; adds `status` VARCHAR(20) NOT NULL DEFAULT 'PLANNED' to `trip_itinerary`, backfill, and check constraint `ck_trip_itinerary_status` |
 | `backend/sql/rollback_trip_itinerary_status.sql` | Reviewed rollback paired with the itinerary status migration |
+| `backend/sql/add_admin_auth_and_moderation.sql` | Forward; adds `users`, `place_reports` tables, destination promotion columns to `cities`, `moderation_status` column and check constraint to `places` |
+| `backend/sql/rollback_admin_auth_and_moderation.sql` | Reviewed rollback paired with admin auth, moderation, and destination management |
 
 No ordered/versioned runner records which scripts ran. A read-only 2026-09-01 audit found the
 configured remote catalog compatible with current model metadata, but its environment
