@@ -19,6 +19,29 @@ abstract final class OnboardingStyle {
   static const aquaDeep = Color(0xFF52C4DE);
   static const waypointSelectedRing = Color(0xFF2C3E50);
 
+  // Design tokens aligned with Image 1 approved visual target
+  static const darkTeal = Color(0xFF134552);
+  static const darkTealMarker = Color(0xFF154C5B);
+  static const oceanBlue = Color(0xFF0284C7);
+  static const inkNavy = Color(0xFF0F2537);
+  static const mutedSlate = Color(0xFF5A7A8E);
+  static const activeDotTeal = Color(0xFF1F8A98);
+  static const inactiveDotGrey = Color(0xFFD1E6EC);
+  static const skipPillBg = Color(0xFFF0F9FB);
+  static const skipPillBorder = Color(0xFFD3EEF4);
+  static const skipTextTeal = Color(0xFF1B6B7C);
+
+  static const cardGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFFE2F7FB),
+      Color(0xFF6ED8ED),
+      Color(0xFF50CBE5),
+    ],
+    stops: [0.0, 0.55, 1.0],
+  );
+
   /// Consistent cream-to-travel-blue gradient matching ExplorePage and Home.
   static const backgroundGradient = LinearGradient(
     begin: Alignment.topCenter,

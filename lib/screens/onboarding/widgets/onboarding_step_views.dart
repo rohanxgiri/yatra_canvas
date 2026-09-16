@@ -101,22 +101,31 @@ class RouteStepView extends StatelessWidget {
                   ),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
                       'Beautiful places.\nOne seamless journey.',
+                      textAlign: TextAlign.center,
                       style: OnboardingStyle.text(
-                        34 * scale,
-                        weight: FontWeight.w300,
-                        height: 1.16,
+                        31 * scale,
+                        weight: FontWeight.w800,
+                        color: OnboardingStyle.inkNavy,
+                        height: 1.14,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    SizedBox(height: 12 * scale),
-                    Text(
-                      'Discover places you love and bring them together in a trip that feels like you.',
-                      style: YCStyle.body.copyWith(
-                        color: YCStyle.muted,
-                        height: 1.45,
+                    SizedBox(height: 14 * scale),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10 * scale),
+                      child: Text(
+                        'Discover places you love and bring them together in a trip that feels like you.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'HomeInter',
+                          fontSize: 15 * scale,
+                          color: OnboardingStyle.mutedSlate,
+                          height: 1.42,
+                        ),
                       ),
                     ),
                   ],

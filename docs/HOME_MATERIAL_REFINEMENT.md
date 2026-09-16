@@ -74,8 +74,10 @@ sampling offsets at current call sites). This supplies restrained backdrop blur
 without a second filter pass inflating the shader's texture bounds. Translucent
 fill and a top-left highlight/bottom-right darkening gradient are separate paint
 layers so fill/tint is not lost underneath a gradient shader. A subpixel light
-border and inner optical rim finish the material. Only the navigation capsule
-has a restrained 5%-opacity, 8 px blur, 2 px offset outer shadow.
+border and inner optical rim finish the material. The navigation capsule keeps its
+restrained 5%-opacity, 8 px blur, 2 px offset outer shadow. Destination favorites
+use a locally stronger cool-grey shadow so their circular edge remains legible over
+very pale imagery without changing other glass surfaces.
 
 Program loading is cached as one Future for the process. Each mounted surface
 owns one shader/filter pair and disposes its shader; mutable uniforms are not
@@ -113,10 +115,12 @@ Impeller support.
 ## Favorites and responsive layout
 
 `[IMPLEMENTED]` `YatraFavoriteButton` has a 48 x 48 logical-pixel touch target,
-44–48 px visible glass circle, approximately 24–26 px wide original heart SVG,
+35 px visible glass circle, a proportionally scaled original heart SVG,
 and 10–14 px top/right insets driven by card width. Both states retain the same
-circle. Selected uses the original warm red filled SVG and a tiny warm glass tint;
-unselected uses the original white outline. The heart crossfades over 140 ms with
+circle. Selected uses the original warm red filled SVG and a warm frosted tint;
+unselected uses the original white outline. Both states use a 5 px backdrop blur,
+roughly 30–35% milky fill, a crisp white rim, and a restrained local shadow for
+contrast on pale image regions. The heart crossfades over 140 ms with
 the shared press-scale motion. The favorite action is a sibling of the card action,
 so toggling a heart does not navigate into trip creation.
 

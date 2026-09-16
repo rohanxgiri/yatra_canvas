@@ -54,7 +54,9 @@ session-local favorite state shared through the existing Home shell.
 `[IMPLEMENTED]` The destination card favorite button (`YatraFavoriteButton`) visual
 diameter was reduced by ~25% (from 46–48 px to 35 px, with proportionally scaled heart icon),
 while retaining the full 48 x 48 logical-pixel touch hit area and top-right positioning
-to ensure accessibility compliance and comfortable touch targets.
+to ensure accessibility compliance and comfortable touch targets. The circle now has
+a stronger milky frost, crisp white rim, and restrained cool-grey shadow so the control
+remains visible across both pale skies and detailed destination imagery.
 
 ## Verification
 

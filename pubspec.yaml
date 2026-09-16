@@ -29,6 +29,7 @@ flutter:
   assets:
     - lib/Logo/logo.svg
     - lib/assets/home/
+    - lib/assets/onboarding/
     - lib/assets/fonts/OFL.txt
   fonts:
     - family: HomeInter

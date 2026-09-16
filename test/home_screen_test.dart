@@ -387,6 +387,50 @@ void main() {
     },
   );
 
+  testWidgets('favorite glass stays visible over pale destination imagery', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: YatraFavoriteButton(
+            name: 'Varanasi',
+            selected: false,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+
+    var glass = tester.widget<YatraRefractiveGlass>(
+      find.byType(YatraRefractiveGlass),
+    );
+    expect(glass.blur, 5);
+    expect(glass.fill, const Color(0x4DFFFFFF));
+    expect(glass.borderColor, const Color(0xE6FFFFFF));
+    expect(glass.borderWidth, .9);
+    expect(glass.shadow, isTrue);
+    expect(glass.shadowColor, const Color(0x24142C53));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: YatraFavoriteButton(
+            name: 'Varanasi',
+            selected: true,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    glass = tester.widget<YatraRefractiveGlass>(
+      find.byType(YatraRefractiveGlass),
+    );
+    expect(glass.fill, const Color(0x59FFE8E2));
+  });
+
   testWidgets(
     'popular destinations grid renders 6 cards with independent favorite and navigation',
     (tester) async {

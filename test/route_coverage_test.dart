@@ -26,7 +26,7 @@ void main() {
       MaterialApp(theme: AppTheme.light, home: const PersonalInterestsScreen()),
     );
     for (var page = 0; page < 3; page++) {
-      await tester.tap(find.text('Continue'));
+      await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
     }
     await tester.tap(find.text('Start Planning'));

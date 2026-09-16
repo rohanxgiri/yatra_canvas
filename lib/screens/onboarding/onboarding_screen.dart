@@ -48,6 +48,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() => _currentPage = index);
   }
 
+  void _previous() {
+    if (_currentPage > 0) {
+      _pageController.previousPage(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 340),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   void _next() {
     if (_currentPage < _stepCount - 1) {
       _pageController.nextPage(
@@ -90,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     width: width,
                     child: Column(
                       children: [
-                        // Top navigation bar with Brand and Skip
+                        // Top navigation bar with centered Brand and right Skip pill
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             20 * scale,
@@ -98,25 +109,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             16 * scale,
                             6 * scale,
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Stack(
+                            alignment: Alignment.center,
                             children: [
-                              const Expanded(
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: YatraBrand(compact: true),
-                                ),
+                              const Align(
+                                alignment: Alignment.center,
+                                child: YatraBrand(compact: true),
                               ),
-                              AnimatedOpacity(
-                                duration: const Duration(milliseconds: 200),
-                                opacity: _currentPage < _stepCount - 1
-                                    ? 1.0
-                                    : 0.0,
-                                child: IgnorePointer(
-                                  ignoring: _currentPage >= _stepCount - 1,
-                                  child: OnboardingGhostButton(
-                                    label: 'Skip',
-                                    onTap: _enterApp,
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 200),
+                                  opacity: _currentPage < _stepCount - 1
+                                      ? 1.0
+                                      : 0.0,
+                                  child: IgnorePointer(
+                                    ignoring: _currentPage >= _stepCount - 1,
+                                    child: OnboardingSkipButton(
+                                      label: 'Skip',
+                                      onTap: _enterApp,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -158,12 +170,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
 
-                        // Bottom action area: Progress indicator and Primary CTA
+                        // Bottom action area: Progress indicator and Action Controls
                         Padding(
                           padding: EdgeInsets.fromLTRB(
-                            24 * scale,
+                            20 * scale,
                             8 * scale,
-                            24 * scale,
+                            20 * scale,
                             18 * scale,
                           ),
                           child: Column(
@@ -176,13 +188,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 ),
                                 SizedBox(height: 14 * scale),
                               ],
-                              OnboardingPrimaryButton(
-                                label: _currentPage == _stepCount - 1
-                                    ? 'Start Planning'
-                                    : 'Continue',
-                                isProminent: _currentPage == _stepCount - 1,
-                                icon: Icons.arrow_forward_rounded,
-                                onTap: _next,
+                              Row(
+                                children: [
+                                  if (_currentPage > 0) ...[
+                                    OnboardingCircleBackButton(
+                                      onTap: _previous,
+                                    ),
+                                    SizedBox(width: 12 * scale),
+                                  ],
+                                  Expanded(
+                                    child: OnboardingPrimaryButton(
+                                      label: _currentPage == _stepCount - 1
+                                          ? 'Start Planning'
+                                          : 'Next',
+                                      isProminent:
+                                          _currentPage == _stepCount - 1,
+                                      icon: Icons.arrow_forward_rounded,
+                                      onTap: _next,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

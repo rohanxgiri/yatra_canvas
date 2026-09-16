@@ -14,6 +14,9 @@ class YatraRefractiveGlass extends StatelessWidget {
     this.blur = 2,
     this.displacement = 2.4,
     this.shadow = false,
+    this.shadowColor = const Color(0x0D142C53),
+    this.shadowBlur = 8,
+    this.shadowOffset = const Offset(0, 2),
     this.highlight = true,
     super.key,
   });
@@ -22,6 +25,9 @@ class YatraRefractiveGlass extends StatelessWidget {
   // Displacement remains a compatibility argument; native blur does not warp UVs.
   final double radius, borderWidth, blur, displacement;
   final Color fill, borderColor;
+  final Color shadowColor;
+  final double shadowBlur;
+  final Offset shadowOffset;
   final bool shadow, highlight;
 
   @override
@@ -34,11 +40,11 @@ class YatraRefractiveGlass extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: rounded,
           boxShadow: shadow
-              ? const [
+              ? [
                   BoxShadow(
-                    color: Color(0x0D142C53),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
+                    color: shadowColor,
+                    blurRadius: shadowBlur,
+                    offset: shadowOffset,
                   ),
                 ]
               : null,

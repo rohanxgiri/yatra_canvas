@@ -34,10 +34,15 @@ class YatraFavoriteButton extends StatelessWidget {
             height: size,
             child: YatraRefractiveGlass(
               radius: size / 2,
-              blur: 1.2,
+              blur: 5,
               displacement: 2.8,
-              fill: selected ? const Color(0x20FFE8E2) : const Color(0x18FFFFFF),
-              borderColor: const Color(0xA6FFFFFF),
+              fill: selected
+                  ? const Color(0x59FFE8E2)
+                  : const Color(0x4DFFFFFF),
+              borderColor: const Color(0xE6FFFFFF),
+              borderWidth: .9,
+              shadow: true,
+              shadowColor: const Color(0x24142C53),
               child: Center(
                 child: AnimatedSwitcher(
                   duration: MediaQuery.disableAnimationsOf(context)
