@@ -1,6 +1,6 @@
 # Route onboarding page
 
-Verified: 2026-09-15. Status: `[IMPLEMENTED]` in Flutter widget, interaction, and visual tests. Aligned with approved visual target (Image 1).
+Verified: 2026-09-17. Status: `[IMPLEMENTED]` in Flutter widget, interaction, and visual tests. Aligned with approved visual target (Image 1).
 
 ## Redesign and Visual Architecture
 
@@ -24,8 +24,9 @@ Redesigned the third step of the YatraCanvas onboarding carousel to match the ap
 ## Validation
 
 - `flutter analyze lib test`: zero issues found across all packages.
-- `flutter test test/onboarding_screen_test.dart test/flow_updates_test.dart test/route_coverage_test.dart --no-pub`: all 11 tests pass.
+- `flutter test --no-pub`: all 225 tests pass.
+- `backend pytest`: all 382 tests pass.
 - Responsive layout verified across small phones (320×640), standard (393×852), large (430×932), and landscape (844×390) at text scales 1.0 and 1.6 with zero overflows.
 - Interactive destination selection tested: Amber Fort, City Palace, Hawa Mahal coordinate state cleanly. Rapid taps execute without overlap or jitter.
 - Reduced-motion mode verified: presents instant completed route, stationary highlights, and instant selection.
-- Visual baseline golden captured in `test/goldens/onboarding_screen_3.png`.
+- Visual baseline goldens captured in `test/goldens/onboarding_screen_3.png` and `test/goldens/account_saved.png`.
