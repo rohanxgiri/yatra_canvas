@@ -554,7 +554,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('India Gate'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('poi_move_day_button')));
+      final moveButton = find.byKey(const Key('poi_move_day_button'));
+      await tester.ensureVisible(moveButton);
+      await tester.pumpAndSettle();
+      await tester.tap(moveButton);
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('poi_move_day_option_2')), findsNothing);
@@ -587,7 +590,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('1').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('poi_mark_visited_button')));
+    final visitedButton = find.byKey(const Key('poi_mark_visited_button'));
+    await tester.ensureVisible(visitedButton);
+    await tester.pumpAndSettle();
+    await tester.tap(visitedButton);
     await tester.pumpAndSettle();
 
     expect(published, isNotNull);

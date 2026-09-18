@@ -208,6 +208,49 @@ class PlaceTag(SQLModel, table=True):
     tag: str = Field(max_length=80, index=True)
 
 
+class PlaceImageCache(SQLModel, table=True):
+    """Durable normalized image resolution state for one canonical place."""
+
+    __tablename__ = "place_image_cache"
+    __table_args__ = (
+        UniqueConstraint("place_id", name="uq_place_image_cache_place_id"),
+        CheckConstraint(
+            "status IN ('resolved', 'not_found', 'failed')",
+            name="ck_place_image_cache_status",
+        ),
+        CheckConstraint(
+            "provider IN ('geoapify', 'wikimedia', 'foursquare') OR provider IS NULL",
+            name="ck_place_image_cache_provider",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    place_id: UUID = Field(
+        foreign_key="places.id",
+        ondelete="CASCADE",
+        index=True,
+    )
+    provider_place_id: str | None = Field(default=None, max_length=255, index=True)
+    normalized_category: str = Field(max_length=40, index=True)
+    url: str | None = Field(default=None, max_length=2000)
+    thumbnail_url: str | None = Field(default=None, max_length=2000)
+    provider: str | None = Field(default=None, max_length=40, index=True)
+    source_url: str | None = Field(default=None, max_length=2000)
+    attribution: str | None = Field(default=None, max_length=1000)
+    author: str | None = Field(default=None, max_length=500)
+    license: str | None = Field(default=None, max_length=160)
+    license_url: str | None = Field(default=None, max_length=1000)
+    status: str = Field(max_length=20, index=True)
+    fetched_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+    expires_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False, index=True),
+    )
+    failure_reason: str | None = Field(default=None, max_length=500)
+
+
 class PlaceSource(SQLModel, table=True):
     __tablename__ = "place_sources"
     __table_args__ = (

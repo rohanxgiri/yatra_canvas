@@ -17,6 +17,7 @@ from app.schemas.place import (
     PlaceResolveRequest,
     PlaceSearchResult,
 )
+from app.schemas.place_image import PlaceImageRead
 from app.schemas.location import (
     LocationAutocompleteResponse,
     LocationAutocompleteResult,
@@ -111,6 +112,7 @@ __all__ = [
     "OpeningHoursInterval",
     "PlaceCreate",
     "PlaceRead",
+    "PlaceImageRead",
     "PlaceResolveRequest",
     "PlaceSearchResult",
     "DiscoveryCategory",

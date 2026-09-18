@@ -36,6 +36,7 @@ from app.schemas.smart_replanning import (
     TripReplanImpactRead,
     TripReplanPreviewRead,
 )
+from app.services.place_image_service import enrich_image_reads
 from app.services.planner_inputs import load_planner_inputs
 from app.services.route_matrix_service import (
     RouteMatrixProvider,
@@ -554,7 +555,7 @@ class SmartReplanningService:
         place = session.get(Place, stop.place_id)
         place_name = place.name if place else "Unknown Place"
 
-        return OptimizedPlaceRead(
+        result = OptimizedPlaceRead(
             id=stop.id,
             place_id=stop.place_id,
             name=place_name,
@@ -572,6 +573,8 @@ class SmartReplanningService:
             else False,
             status=stop.status,
         )
+        enrich_image_reads(session, [result], id_attribute="place_id")
+        return result
 
     def get_trip_itinerary(
         self,
@@ -632,6 +635,7 @@ class SmartReplanningService:
                 )
             )
 
+        enrich_image_reads(session, optimized_places, id_attribute="place_id")
         return RouteOptimizationRead(
             trip_id=trip_id,
             optimized_places=optimized_places,

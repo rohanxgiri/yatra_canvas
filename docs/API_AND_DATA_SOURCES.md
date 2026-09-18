@@ -1,9 +1,10 @@
 # APIs and data sources
 
-Last reviewed: 2026-09-08
+Last reviewed: 2026-09-18
 
-Last verified: 2026-09-06 for Geoapify autocomplete/places, Audiala, and OpenStreetMap/Overpass;
-2026-08-31 for other provider rows
+Last verified: 2026-09-18 for Geoapify Place Details, Wikimedia Action API, and Foursquare
+Place Search/Photos; 2026-09-06 for Geoapify autocomplete/places, Audiala, and
+OpenStreetMap/Overpass; 2026-08-31 for other provider rows
 
 Provider behavior, pricing, quotas, schemas, and policies are volatile. The facts below were
 checked against the linked official pages on the stated date; re-check them before launch or a
@@ -15,10 +16,10 @@ provider change. `[PLANNED]` entries are not configured or callable in this repo
 | --- | --- | --- | --- | --- | --- | --- |
 | PostgreSQL / Supabase | Canonical app data; target auth | `[IMPLEMENTED]` PostgreSQL connection; `[PLANNED]` Supabase Auth/client | Runtime | Backend/database | `DATABASE_URL`; no Supabase API key is used | PostgreSQL open source; hosted Supabase is freemium/paid |
 | FSQ Open Source Places | Open POI candidate ingestion | `[IMPLEMENTED]` local CSV/JSONL importer | Operator export + batch import | Backend CLI | No importer key; current Places Portal access uses an operator token outside app config | Free/open dataset |
-| Geoapify | Destination city & arrival autocomplete; Places fallback provider (`GeoapifyPlacesProvider`); destination-scoped manual search | `[IMPLEMENTED]` | Runtime | Backend | `GEOAPIFY_API_KEY` | Freemium |
+| Geoapify | Destination city & arrival autocomplete; Places fallback provider; destination-scoped manual search; image metadata/details adapter | `[IMPLEMENTED]` | Runtime/background | Backend | `GEOAPIFY_API_KEY` | Freemium |
 | Audiala | Curated seed dataset & secondary POI candidate discovery (`AudialaPlacesProvider`) | `[IMPLEMENTED]` | Runtime / local seed | Backend | None (`AUDIALA_DATASET_PATH`) | Open data (CC BY 4.0) |
 | OpenStreetMap / Overpass | Bounded POI discovery for recommendations with circuit breaker | `[IMPLEMENTED]` with a public-instance availability caveat | Runtime cache refresh | Backend | No key for the configured public endpoint | Open data/public service; commercial/self-hosted options vary |
-| Wikimedia / Wikipedia / Wikidata | Descriptions, notable context, licensed images; Wikidata prominence scoring (`PlaceImportanceScorer`) | `[IMPLEMENTED]` prominence scoring; `[PLANNED]` media enrichment | Batch / seed / calculation | Backend ingestion | No key for intended public read API; identify the application | Open-access API; content license varies by item |
+| Wikimedia / Wikipedia / Wikidata | Notable-place images with item attribution/license; Wikidata prominence scoring | `[IMPLEMENTED]` image resolution and prominence scoring; descriptions remain `[PLANNED]` | Background enrichment / calculation | Backend | No key; meaningful User-Agent | Open-access API; content license varies by item |
 | openrouteservice | Real road-route geometry (directions v2) and target route matrices | `[IMPLEMENTED]` directions geometry; `[PLANNED]` matrix | Runtime | Backend | `OPENROUTESERVICE_API_KEY` for hosted API; self-host URL differs | Freemium hosted / open-source self-host option |
 | OSRM | Keyless open-data road-route geometry | `[IMPLEMENTED]` | Runtime | Backend | None (`OSRM_ROUTER_URL`) | Open source / open data (OSM) |
 | Open-Meteo | Hourly/daily forecasts for weather-aware advisories | `[IMPLEMENTED]` | Runtime via backend | Backend | Free non-commercial endpoint: no key; commercial customer endpoint: key | Freemium; commercial plan decision required |
@@ -28,7 +29,7 @@ provider change. `[PLANNED]` entries are not configured or callable in this repo
 | Google Routes API | Legacy route-matrix adapter | `[DEPRECATED]` for normal flows; adapter retained | Not used by the normal endpoint | Backend | `GOOGLE_ROUTES_API_KEY` only for legacy adapter use | Commercial, billed/quota-controlled |
 | FlutterMap / OSM Tiles | Interactive map rendering with progressive Frame 1 render and road polyline display | `[IMPLEMENTED]` | Runtime | Flutter | None (`com.yatracanvas.app` user agent) | Open source / OpenStreetMap tile usage policy |
 | Google Maps SDK | Interactive map rendering | `[DEPRECATED]` decision; **not installed** | None | None | None in current repo | Not applicable currently |
-| Proprietary Foursquare Places API | No approved responsibility | `[DEPRECATED]`/not integrated | None | None | None | Not applicable |
+| Foursquare Places API | Optional business/venue image lookup after conservative name, distance, category, and locality matching | `[IMPLEMENTED]` optional enrichment | Background only | Backend | `FOURSQUARE_API_KEY` optional | Commercial/quota-controlled |
 
 ## Data, policy, and fallback matrix
 
@@ -36,9 +37,9 @@ provider change. `[PLANNED]` entries are not configured or callable in this repo
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | PostgreSQL / Supabase | Canonical entities and caches | Application-defined; no general retention job | Application data policy is `[UNKNOWN]`; RLS must be tracked before direct client access | [Supabase docs](https://supabase.com/docs), [database](https://supabase.com/docs/guides/database/overview), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security) | 2026-08-31 | Backend cannot start without a valid PostgreSQL URL | Supabase Auth, SDK, migrations, RLS, and production topology are absent |
 | FSQ OS Places | Selected fields in `PlaceSource`/`PlaceCategory`; ambiguity in `PlaceImportReview` | `date_refreshed` retained; no automated delta/deletion process | Dataset docs state Apache 2.0; preserve source/license metadata | [Access](https://docs.foursquare.com/data-products/docs/access-fsq-os-places), [schema](https://docs.foursquare.com/data-products/docs/places-os-data-schema) | 2026-08-31 | Skip import; existing canonical places remain | Portal now uses an Iceberg catalog/token; importer only reads operator-exported CSV/JSONL. Open schema does not list proprietary rating/popularity fields |
-| Geoapify | Normalized suggestions in process memory; selected destination fields are persisted as a canonical city and selected trip start locations may be persisted | `GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS`; cleared on restart | OSM attribution always; Geoapify attribution required on free plan per official terms | [Autocomplete](https://apidocs.geoapify.com/docs/geocoding/address-autocomplete/), [terms](https://www.geoapify.com/terms-and-conditions/) | 2026-09-01 | Stored-city search remains available; device/custom arrival entry and unrelated stored data remain | Destination rows do not yet retain the Geoapify place ID; no persistent/shared autocomplete cache; pricing and quotas are volatile |
+| Geoapify | Normalized suggestions plus imported `wiki_and_media` identifiers and resolved image cache entries | Autocomplete uses in-memory TTL; place images use persistent success/negative/failure TTLs | OSM/Geoapify attribution requirements continue to apply; direct image metadata may not expose a reusable item license | [Autocomplete](https://apidocs.geoapify.com/docs/geocoding/address-autocomplete/), [Place Details](https://apidocs.geoapify.com/docs/place-details/), [terms](https://www.geoapify.com/terms-and-conditions/) | 2026-09-18 | Wikimedia, optional Foursquare, then app asset | Place Details is called only when imported Geoapify payload lacks an image; pricing/quotas are volatile |
 | OSM / Overpass | Canonical `Place` rows plus `PlaceSource` element ID/type, URL, and `ODbL-1.0` provenance | City/category TTL cache; uncached categories retain independent radius/quota queries, limited to three concurrent calls and one 12-second default discovery budget | OSM data is ODbL and requires attribution; the recommendation UI links the OSM copyright page | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API), [OSM copyright](https://www.openstreetmap.org/copyright) | 2026-09-01 | Serve the last successfully persisted category data when a refresh fails; return a retryable error only when no selected category has stored results | Development defaults to the documented public FOSSGIS `lz4` endpoint. Public instances are best-effort; raw OSM records can contain internal institutional facilities and node/way duplicates, resolved by YatraCanvas's canonical deduplication and traveller-suitability pipeline |
-| Wikimedia | None | `[PLANNED]`; cache by revision/source timestamp | Preserve author, source URL, item license, attribution, and modifications; license varies by content | [Action API](https://www.mediawiki.org/wiki/API:Main_page), [API etiquette](https://www.mediawiki.org/wiki/API:Etiquette) | 2026-08-31 | Omit enrichment and keep canonical place | Meaningful User-Agent/contact and considerate serial/batched requests are required; image reuse cannot assume one universal license |
+| Wikimedia | Normalized image URL/thumbnail, Commons source, author, item license, license URL, and attribution in `place_image_cache` | Persistent positive/negative/failure TTLs; direct Wikidata/Commons/Wikipedia identifiers precede conservative contextual search | Preserve author, source URL, item license and attribution; license varies by item | [Action API](https://www.mediawiki.org/wiki/API:Main_page), [imageinfo](https://www.mediawiki.org/wiki/API:Imageinfo), [pageimages](https://www.mediawiki.org/wiki/Extension:PageImages#API) | 2026-09-18 | Optional Foursquare or app asset | Fuzzy matches require strong name similarity and reject distant coordinates; metadata completeness depends on the item |
 | openrouteservice | Real road-route geometry coordinates and leg summaries | In-memory TTL cache (`ROUTE_GEOMETRY_CACHE_TTL_MINUTES`, default 60 min) | Routing based on OSM; OSM copyright attribution required | [API docs](https://openrouteservice.org/dev/#/api-docs), [directions v2](https://giscience.github.io/openrouteservice/api-reference/endpoints/) | 2026-09-02 | Keyless OSRM provider or safe map degradation without road polyline | Hosted rate limits (2000 req/day free tier) |
 | OSRM | Real road-route geometry coordinates and leg summaries | In-memory TTL cache (`ROUTE_GEOMETRY_CACHE_TTL_MINUTES`, default 60 min) | Routing based on OSM; OSM attribution required | [OSRM project](https://project-osrm.org/) | 2026-09-02 | Safe map degradation without road polyline | Public demo router has no production SLA; self-host for production |
 | Open-Meteo | In-memory cached forecasts (`WEATHER_CACHE_TTL_MINUTES`, default 60 min) | TTL in memory | Weather data is CC BY 4.0 and requires attribution; free endpoint is non-commercial | [Forecast docs](https://open-meteo.com/en/docs), [pricing](https://open-meteo.com/en/pricing), [terms](https://open-meteo.com/en/terms) | 2026-09-02 | Hide advisory or show status `weather_unavailable`; trips/maps continue unaffected | Free hosted API restricted to non-commercial use; horizon limited to 16 days; self-host or commercial key needed for production |
@@ -47,7 +48,7 @@ provider change. `[PLANNED]` entries are not configured or callable in this repo
 | Local coordinate estimator | `RouteMatrixCache` approximate distances/durations under travel mode `local_estimate` | Complete static matrices are reused until targeted trip/place invalidation; traffic TTL applies only to volatile traffic values | No external-provider terms; calculation is labelled approximate in the UI | Repository implementation and tests | 2026-09-01 | Recompute from stored coordinates | Straight-line distance with a road factor and average speed is not turn-by-turn routing or live traffic |
 | Google Routes API | Legacy Google route-matrix cache rows, where present | Legacy traffic/static expiry behavior remains | Google Maps Platform terms/attribution apply to retained legacy data | [Compute Route Matrix](https://developers.google.com/maps/documentation/routes/compute_route_matrix) | 2026-08-31 | Normal optimizer uses local estimates | Adapter is retained but is not injected into the normal route-optimization endpoint |
 | Google Maps SDK | Nothing | None | Would require separate Maps SDK terms, key restrictions, and attribution if adopted | [Google Maps Platform documentation](https://developers.google.com/maps/documentation) | 2026-08-31 | No current map exists | Places/Routes keys do not prove an SDK is configured; map renderer/tiles decision remains open |
-| Proprietary Foursquare Places API | Nothing | None | Not assessed because it is not selected | [Foursquare developer docs](https://docs.foursquare.com/) | 2026-08-31 | Use reviewed open-dataset ingestion | Must not be introduced as a required runtime dependency without a new decision and documentation |
+| Foursquare Places API | Matched provider place ID plus normalized selected photo URL/source and attribution in `place_image_cache` | Persistent positive/negative/failure TTLs; no foreground call | Foursquare attribution/terms apply; this adapter does not assert an image license the API did not return | [authentication](https://docs.foursquare.com/fsq-developers-places/reference/authentication), [Place Search](https://docs.foursquare.com/fsq-developers-places/reference/place-search), [Place Photos](https://docs.foursquare.com/fsq-developers-places/reference/place-photos) | 2026-09-18 | Geoapify/Wikimedia or app asset | Optional only; rejects far/wrong-category/wrong-locality branches and excludes logo/menu/product classifications when supplied |
 
 ## Progressive prefetch contract
 
@@ -64,6 +65,31 @@ interactive recommendation, while speculative prefetch attempts refresh. Cache k
 canonical city ID, category, and `PLACE_DISCOVERY_CACHE_VERSION`. Weather retains its
 separate 60-minute default in-memory TTL, Geoapify autocomplete its 300-second default TTL, route
 geometry its 60-minute default TTL, and traffic-backed matrices their 30-minute default TTL.
+
+## Place image response contract
+
+`[IMPLEMENTED]` Place, recommendation, saved-place, search, optimized-route, and persisted
+itinerary reads may include `normalized_category` and an optional provider-neutral `image` object:
+
+```json
+{
+  "url": "https://…",
+  "thumbnail_url": "https://…",
+  "provider": "wikimedia",
+  "source_url": "https://…",
+  "attribution": "…",
+  "author": "…",
+  "license": "CC BY-SA 4.0",
+  "license_url": "https://…",
+  "status": "resolved"
+}
+```
+
+Fields are nullable and old rows/clients may omit the object. Status is `resolved`, `not_found`,
+or `failed`; the latter two intentionally carry no image URL and direct Flutter to a bundled
+category asset. Foreground endpoints perform database cache reads only. Provider resolution is
+best-effort background work, so image failure cannot fail trip creation, recommendations, saved
+places, optimization, persisted itinerary reads, or the map sheet.
 
 ## Current Google dependency assessment
 

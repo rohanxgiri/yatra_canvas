@@ -651,6 +651,13 @@ class _TripMapScreenState extends State<TripMapScreen> {
                 visitDurationMinutes: updated.visitDurationMinutes,
                 isOpeningHoursKnown: updated.isOpeningHoursKnown,
                 status: updated.status,
+                category: updated.category == 'other'
+                    ? p.category
+                    : updated.category,
+                normalizedCategory: updated.normalizedCategory == 'other'
+                    ? p.normalizedCategory
+                    : updated.normalizedCategory,
+                image: updated.image ?? p.image,
               );
             }
             return p;

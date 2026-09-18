@@ -3,3 +3,11 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .env
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.pgdump
+*.backup
+*.sql.gz
+backups/

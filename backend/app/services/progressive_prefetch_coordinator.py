@@ -38,6 +38,7 @@ class PrefetchState:
 
 
 PrefetchRunner = Callable[[list[DiscoveryCategory]], Awaitable[PrefetchSummary]]
+PrefetchCompletion = Callable[[PrefetchSummary], None]
 
 
 def _run_async_worker(
@@ -66,6 +67,7 @@ class ProgressivePrefetchCoordinator:
         categories: list[DiscoveryCategory],
         runner: PrefetchRunner | None = None,
         offload: bool = False,
+        on_complete: PrefetchCompletion | None = None,
     ) -> tuple[PrefetchState, list[str], list[str]]:
         now = datetime.now(timezone.utc)
         state = self._states.setdefault(
@@ -111,6 +113,7 @@ class ProgressivePrefetchCoordinator:
                     runner=runner,
                     dependencies=reused_tasks,
                     offload=offload,
+                    on_complete=on_complete,
                 )
             )
             for category in enqueued:
@@ -145,6 +148,7 @@ class ProgressivePrefetchCoordinator:
         runner: PrefetchRunner,
         dependencies: set[asyncio.Task[None]],
         offload: bool,
+        on_complete: PrefetchCompletion | None,
     ) -> None:
         try:
             summary = (
@@ -173,6 +177,8 @@ class ProgressivePrefetchCoordinator:
                 state.poi_count,
                 sorted(state.categories_loaded),
             )
+            if on_complete is not None:
+                on_complete(summary)
         except Exception as exc:
             state.failed_stages.add(stage.value)
             state.status = (

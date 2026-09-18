@@ -13,5 +13,11 @@ def isolated_startup_database(monkeypatch):
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
     monkeypatch.setattr("app.database.get_engine", lambda: engine)
+    # External image enrichment is covered with mocked providers in focused
+    # tests; API tests must remain offline and deterministic.
+    monkeypatch.setattr(
+        "app.routers.places.schedule_place_image_enrichment",
+        lambda *args, **kwargs: None,
+    )
     yield
     engine.dispose()

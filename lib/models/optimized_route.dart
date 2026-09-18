@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'route_geometry.dart';
+import 'place_image.dart';
 
 class OptimizedRoutePlace {
   const OptimizedRoutePlace({
@@ -16,6 +17,9 @@ class OptimizedRoutePlace {
     this.visitDurationMinutes = 60,
     this.isOpeningHoursKnown = false,
     this.status = 'PLANNED',
+    this.category = 'other',
+    this.normalizedCategory = 'other',
+    this.image,
   });
 
   final String? id;
@@ -30,6 +34,9 @@ class OptimizedRoutePlace {
   final int visitDurationMinutes;
   final bool isOpeningHoursKnown;
   final String status;
+  final String category;
+  final String normalizedCategory;
+  final PlaceImageData? image;
 
   bool get isPlanned => status == 'PLANNED';
   bool get isCompleted => status == 'COMPLETED';
@@ -54,6 +61,7 @@ class OptimizedRoutePlace {
   }
 
   factory OptimizedRoutePlace.fromJson(Map<String, dynamic> json) {
+    final imageJson = json['image'];
     return OptimizedRoutePlace(
       id: json['id'] as String?,
       placeId: json['place_id'] as String,
@@ -68,10 +76,17 @@ class OptimizedRoutePlace {
           (json['visit_duration_minutes'] as num?)?.toInt() ?? 60,
       isOpeningHoursKnown: json['is_opening_hours_known'] as bool? ?? false,
       status: json['status'] as String? ?? 'PLANNED',
+      category: json['category'] as String? ?? 'other',
+      normalizedCategory:
+          json['normalized_category'] as String? ??
+          json['category'] as String? ??
+          'other',
+      image: imageJson is Map
+          ? PlaceImageData.fromJson(Map<String, dynamic>.from(imageJson))
+          : null,
     );
   }
 }
-
 
 class ItineraryBreak {
   const ItineraryBreak({

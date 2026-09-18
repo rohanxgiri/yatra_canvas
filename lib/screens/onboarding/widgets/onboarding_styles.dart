@@ -58,15 +58,14 @@ abstract final class OnboardingStyle {
 
   /// Airy off-white screen background for the redesigned journey onboarding screen.
   static const journeyBackgroundGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
+    begin: Alignment.topRight,
+    end: Alignment.bottomLeft,
     colors: [
-      Color(0xFFFFFFFF),
-      Color(0xFFFAFBFC),
+      Color(0xFFFDF9E7),
+      Color(0xFFFAF9F2),
       Color(0xFFF5F7FA),
-      Color(0xFFEFF3F8),
     ],
-    stops: [0, .25, .65, 1],
+    stops: [0, .42, 1],
   );
 
   /// Warm sunlit glow overlay for depth and calm travel feeling.

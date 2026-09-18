@@ -17,6 +17,7 @@ from app.services.google_routes_service import (
 from app.services.itinerary_timing_service import (
     PlaceOpeningHours,
 )
+from app.services.place_image_service import enrich_image_reads
 from app.services.planner_inputs import load_planner_inputs
 from app.services.route_matrix_service import (
     RouteMatrixProvider,
@@ -140,6 +141,8 @@ class RouteOptimizationService:
         except ValueError as exc:
             # Propagate validation errors
             raise RouteValidationError(str(exc)) from exc
+
+        enrich_image_reads(session, scheduled_places, id_attribute="place_id")
 
         session.exec(
             delete(TripItinerary).where(

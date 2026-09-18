@@ -1,6 +1,6 @@
 # YatraCanvas architecture
 
-Last reviewed: 2026-09-10
+Last reviewed: 2026-09-18
 
 Status labels are defined in [Project context](PROJECT_CONTEXT.md). This document separates
 repository reality from the intended provider architecture.
@@ -112,6 +112,14 @@ Frame 1 without blocking on route recalculation, while fetching missing route po
 The day filter exposes every logical day in the trip ($1 \dots N$), displaying clear non-destructive empty
 notices on unassigned days.
 
+`[IMPLEMENTED]` Place imagery is presentation-supporting and never a route or recommendation
+prerequisite. Flutter parses the optional provider-neutral `image` object and
+`normalized_category`, then renders recommendation cards, itinerary stops, and selected map POI
+sheets through one `PlaceImage` widget. `cached_network_image` supplies memory/disk-backed native
+caching; the widget reserves its aspect ratio and immediately paints a bundled,
+category-specific fallback while a remote image loads or after it fails. Home and Explore are
+unchanged by this slice.
+
 ### FastAPI
 
 `[IMPLEMENTED]` `backend/app/main.py` assembles routers for:
@@ -186,6 +194,18 @@ provider boundary.
 - Recommendation-Level Deduplication (`deduplicate_places` in `RecommendationService`): Operates downstream of database identity as a presentation-layer filter, clustering any unmerged ambiguous items ($\le 75$m distance threshold with normalized tokenized name similarity and Levenshtein typo tolerance $\le 2$) and capping multi-outlet commercial chain brands to at most 1 representative instance so travelers never see duplicate cards or 10 identical fast-food outlets while database provenance remains completely intact.
 - Traveller-Suitability & Access Confidence (`is_traveller_suitable`): general context-based evaluation classifying venues into `PUBLIC_LIKELY`, `UNKNOWN`, `RESTRICTED_LIKELY`, and `RESTRICTED`. Evaluates explicit OSM access tags, institutional `operator` values, `building` context, and non-tourist facility patterns (corporate offices, retail bank branches, ATMs). Automatically excludes student messes, institutional canteens, staff cafeterias, and restricted-access venues without blacklisting individual university/company names.
 - Scoring & Diversity: deterministic scoring combining category match, access confidence, verified ratings/reviews, and bounded POI prominence scoring (`PlaceImportanceScorer` using log-normalized sitelinks & PageRank from Wikidata/Audiala, weighted at 15.0 pts within relevant candidates) without fabricated data; generates explainable recommendation reasons and flags saved places. Mixed-interest category balancing interleaves strongly requested categories without prohibitive cross-tier score dropoffs, preventing category starvation.
+- `[IMPLEMENTED]` Place Image Resolution (`PlaceImageResolver`, `PlaceImageCache`): a single
+  category normalizer drives provider priority and Flutter fallback selection. API serializers
+  batch-read cached image rows and never await a remote image provider. Missing/expired IDs are
+  scheduled after POI prefetch or recommendation work on a separate task. Each batch shares one
+  `httpx.AsyncClient`, uses bounded concurrency/timeouts, and tries category-aware chains:
+  Geoapify/Wikimedia/Foursquare for landmarks and nature, and
+  Foursquare/Geoapify/Wikimedia for businesses. Geoapify imported media is reused before Place
+  Details; Wikimedia direct Commons/Wikipedia/Wikidata identifiers precede conservative fuzzy
+  matching; optional Foursquare candidates must pass name, distance, category, and locality
+  checks. Positive, not-found, and failed outcomes are persisted with different TTLs and
+  attribution/license fields. Provider failure therefore changes imagery to a local asset, not
+  the place-list or itinerary response.
 - `[IMPLEMENTED]` Progressive POI Prefetch & Cache-First Live Discovery Reliability (`ProgressivePrefetchCoordinator`, `CityPlacePrefetchService`, `OpenStreetMapDiscoveryService`, `GeoapifyPlacesProvider`, `ProviderCircuitBreaker`):
   - **3-Tier Cache Semantics**: Queries evaluate category coverage into `FRESH` ($\le 24$h / `PLACE_DISCOVERY_CACHE_TTL_HOURS`), `STALE_USABLE` ($\le 168$h / `DISCOVERY_STALE_USABLE_HOURS`), and `MISSING`. A completed fresh destination query is authoritative even when a small city has fewer results than the request limit, preventing perpetual refetch. Cache keys are `(city_id, PLACE_DISCOVERY_CACHE_VERSION, category)`; incrementing the configured version invalidates an incompatible query strategy without deleting rows manually.
   - **Stale Cache Behavior**: Stale-usable categories immediately return cached places without a foreground provider call. A durable background refresh queue is not implemented.
@@ -193,7 +213,7 @@ provider boundary.
   - **Provider Hierarchy & Circuit Breaker**: Discovery first serves stored DB cache, then merges `AudialaPlacesProvider` (local enriched POI dataset), `GeoapifyPlacesProvider` (hosted Geoapify `/v2/places` API with bounded coordinate radius), and `OpenStreetMapPlacesService` (Overpass OSM) for missing categories. Speculative destination prefetch uses the fast local/Geoapify layers and leaves genuinely missing categories for foreground fallback. Foreground discovery skips Overpass for categories where those layers already meet `DISCOVERY_MIN_USABLE_CANDIDATES_PER_CATEGORY`. Remaining Overpass work is protected by an in-memory circuit breaker and a 12-second default phase budget.
   - **Background Dispatch**: `POST /places/prefetch` returns HTTP 202 after enqueueing work. Database lookup, normalization, and provider work run in a worker thread with an independent session, so remote database stalls cannot freeze FastAPI's event loop. The process-wide coordinator deduplicates active `(city_id, category)` tasks; foreground recommendations join matching tasks before reading the cache. `GET /places/prefetch/{city_id}` reports coarse state (`idle`, `fetching`, `partially_ready`, `ready`, `failed`), completed/failed stages, normalized POI count, and loaded categories.
   - **Remote Database Efficiency**: Cache metadata, category coverage, stored places, and existing provider identities are loaded in batches rather than one query per category or POI. When a city has no stored places and all discovery categories are requested, provider candidates are canonicalized in memory and inserted as one cold-city batch while preserving provider provenance, category tags, and opening hours. This avoids a remote-database identity query for every candidate.
-  - **Progressive Lifecycle**: destination confirmation enqueues a bounded pool across all seven supported discovery categories before immediate navigation; dates and start location record readiness without premature weather, image, route, or matrix calls; interests reuse fresh coverage and enrich only deficient categories. Final recommendations use the same `CityCategoryCache` and normalized `Place` rows.
+  - **Progressive Lifecycle**: destination confirmation enqueues a bounded pool across all seven supported discovery categories before immediate navigation; completed POI work separately schedules best-effort image cache warming, while dates and start location still avoid weather, route, or matrix calls; interests reuse fresh coverage and enrich only deficient categories. Final recommendations use the same `CityCategoryCache` and normalized `Place` rows.
   - **Start-aware Ranking**: Once a persisted trip supplies start coordinates, recommendation scoring adds a bounded proximity signal. It uses straight-line filtering only and does not build an NxN route matrix.
   - **Durability**: `[PARTIAL]` POI/cache rows are durable, but queued tasks and progress state are process-local and are lost on backend restart. A durable multi-process worker queue remains `[PLANNED]`.
   - **Partial Provider Success**: Individual category failures (e.g. Overpass food timeout) do not fail the request; available categories are merged, scored, and returned. Full blocking error screens appear only when genuinely 0 usable places exist across all sources.
@@ -346,10 +366,14 @@ ingestion-job, or observability endpoints.
 reviews, trips/preferences, saved places, route-matrix cache rows, and itinerary rows. PostgreSQL
 is required by configuration; tests substitute in-memory SQLite where supported.
 
-`[PARTIAL]` Startup calls `SQLModel.metadata.create_all`. Standalone forward SQL scripts in
-`backend/sql/` handle changes to existing databases; only the FSQ/Geoapify foundation currently
-has a tracked rollback script. There is no Alembic/Supabase migration history or automated
-schema-version check. No migration was applied during this documentation audit.
+`[PARTIAL]` FastAPI startup calls `SQLModel.metadata.create_all` unconditionally in every
+environment, including staging and production; `APP_ENV` does not yet alter startup behavior.
+Standalone forward SQL scripts in `backend/sql/` handle changes to existing databases. There is
+no Alembic/Supabase migration history or automated schema-version check. Once formal migrations
+are adopted, startup schema creation should be restricted to disposable development/test
+environments or removed. The guarded `backend/scripts/verify_place_image_cache.py` utility is
+read-only by default and permits its temporary persistence test only when `APP_ENV` is explicitly
+`development` or `test`.
 
 ## Current runtime flow
 

@@ -440,10 +440,12 @@ def test_discover_places_persists_and_uses_fresh_cache(
         "created_at": first.json()[0]["created_at"],
         "opening_hours_status": "UNKNOWN",
         "raw_opening_hours": None,
-        "opening_hours": {day: [] for day in (
+            "opening_hours": {day: [] for day in (
             "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
-        )},
-    }
+            )},
+            "normalized_category": "place_of_worship",
+            "image": None,
+        }
 
     second = client.get(path, params={"category": "religious"})
     assert second.status_code == 200

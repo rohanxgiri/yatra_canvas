@@ -1,6 +1,6 @@
 # Data model
 
-Last reviewed: 2026-09-07
+Last reviewed: 2026-09-18
 
 The source of truth for the current schema is `backend/app/models/entities.py`. This document
 describes those SQLModel tables and the tracked SQL scripts; it does not assert what exists in
@@ -18,6 +18,7 @@ erDiagram
     PLACE ||--o{ PLACE_OPENING_HOURS : has
     PLACE ||--o{ PLACE_CATEGORY : classified_by
     PLACE ||--o{ PLACE_TAG : tagged
+    PLACE ||--o| PLACE_IMAGE_CACHE : image_state
     TRIP ||--o{ TRIP_PREFERENCE : has
     TRIP ||--o{ TRIP_DAY : configures
     TRIP ||--o{ USER_SAVED_PLACE : selects
@@ -43,6 +44,7 @@ Deletion behavior must not be assumed except where an `ondelete` action is expli
 | `city_category_cache` / `CityCategoryCache` | `[IMPLEMENTED]` | One row per city/category with `last_fetched_at` and required `expires_at`; prevents unnecessary nearby refresh. |
 | `place_tags` / `PlaceTag` | `[IMPLEMENTED]` | Application tags unique per place/tag pair. |
 | `place_sources` / `PlaceSource` | `[IMPLEMENTED]` | Provider provenance and external identity. Unique per place/source and globally per source/external ID. Stores `wikidata_id`, source URL, licence identifier, address/contact/social fields, preserved `raw_opening_hours`, provider lifecycle dates, unresolved flags, fetch/import timestamps. |
+| `place_image_cache` / `PlaceImageCache` | `[IMPLEMENTED]` schema and service; migration not applied by repository work | One durable normalized image-resolution row per canonical place. Stores provider/place ID, normalized category, URL/thumbnail, source/attribution/author/license metadata, `resolved`/`not_found`/`failed` status, fetch/expiry timestamps, and bounded failure reason. Provider/status checks and unique `place_id` prevent ambiguous active cache rows. |
 | `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label and creation timestamp, unique for place/source/external category. |
 | `place_import_reviews` / `PlaceImportReview` | `[IMPLEMENTED]` schema, `[PARTIAL]` workflow | One review per provider/external place ID. Status is `pending`, `resolved`, or `ignored`; stores candidates, match evidence, and a source snapshot. No connected admin endpoint/UI action exists. |
 | `trips` / `Trip` | `[IMPLEMENTED]` schema, create, get, and patch APIs, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. An optional client-generated `request_id` becomes `trips.id`; replaying the same ID and payload returns the existing trip, while reuse with different data is rejected. `GET /trips/{trip_id}` returns the complete application trip representation, and `PATCH /trips/{trip_id}` supports partial updates with date/coordinate/preference validation and downstream cache invalidation. List/delete and authentication remain absent. |
@@ -52,7 +54,9 @@ Deletion behavior must not be assumed except where an `ondelete` action is expli
 | `route_matrix_cache` / `RouteMatrixCache` | `[IMPLEMENTED]` | Per-trip directed pair/mode cache with place IDs or coordinate snapshots. The normal path stores approximate offline costs under `local_estimate`; legacy Google rows remain distinguishable by mode. Selectively purged: start-location edits purge only start-related pairs (`start_only`), preserving valid place-to-place legs; destination edits purge all rows (`all`). |
 | `trip_itinerary` / `TripItinerary` | `[IMPLEMENTED]` | Unique visit order per trip/day, calculated planned arrival/departure times, prior-leg metrics, and execution lifecycle status (`status`: `PLANNED`, `COMPLETED`, `MISSED`, `SKIPPED`, default `'PLANNED'`, governed by check constraint `ck_trip_itinerary_status`). Populated by `RouteOptimizationService` with default `'PLANNED'`. Visit duration is derived by the shared category estimator; known-hours state and unscheduled reasons are response metadata, not persisted columns. Status updates (`PATCH /trips/{trip_id}/itinerary/stops/{stop_id}` or `places/{place_id}`) persist immediately. Moving a place (`POST /trips/{trip_id}/itinerary/move-place`) validates target feasibility, re-optimizes affected suffixes while keeping completed prefixes strictly immutable, and leaves unrelated days untouched. |
 
-There is no separate media, map, or provider-job table. Currency has been removed from the roadmap. Weather forecasts use in-memory TTL caching and do not require persistent database tables.
+`place_image_cache` is the media-resolution cache; there is no separate provider-job or map table.
+Currency has been removed from the roadmap. Weather forecasts use in-memory TTL caching and do
+not require persistent database tables.
 
 Authentication and role authorization `[IMPLEMENTED]` are supported via JWT tokens and bcrypt password hashing on `User` accounts (`USER` and `ADMIN` roles). Trip creation continues to accept legacy anonymous calls with server-owned default user identities for backward compatibility.
 
@@ -110,6 +114,8 @@ provenance unless policy requires deletion and a reviewed migration defines it.
 | `RouteMatrixCache.calculated_at` | When the matrix leg was written from a route calculation. |
 | `RouteMatrixCache.expires_at` | Current traffic-duration freshness boundary. Static distance/duration may still be used during an outage when every required leg exists. |
 | `PlaceImportReview.updated_at` | Last importer update to the review row; it is not a human-review audit trail. |
+| `PlaceImageCache.fetched_at` | Last completed provider-chain resolution attempt for the place. |
+| `PlaceImageCache.expires_at` | Refresh boundary: successful rows use the long TTL; not-found and failed rows use shorter configured TTLs. A stale resolved image may still be served while refresh is scheduled. |
 
 Geoapify's autocomplete cache is in memory and therefore has no table timestamp.
 
@@ -139,6 +145,8 @@ The authoritative dependency order and the latest configured-database audit are 
 | `backend/sql/rollback_trip_itinerary_status.sql` | Reviewed rollback paired with the itinerary status migration |
 | `backend/sql/add_admin_auth_and_moderation.sql` | Forward; adds `users`, `place_reports` tables, destination promotion columns to `cities`, `moderation_status` column and check constraint to `places` |
 | `backend/sql/rollback_admin_auth_and_moderation.sql` | Reviewed rollback paired with admin auth, moderation, and destination management |
+| `backend/sql/add_place_image_cache.sql` | Forward; adds the durable normalized positive/negative/failure image cache and indexes |
+| `backend/sql/rollback_place_image_cache.sql` | Destructive reviewed rollback paired with the image cache; drops cached metadata only, not canonical places |
 
 No ordered/versioned runner records which scripts ran. A read-only 2026-09-01 audit found the
 configured remote catalog compatible with current model metadata, but its environment

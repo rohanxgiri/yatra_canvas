@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import Field
 from sqlmodel import SQLModel
 
+from app.schemas.place_image import PlaceImageRead
 from app.schemas.route_geometry import TripRouteGeometryRead
 
 
@@ -23,6 +24,9 @@ class OptimizedPlaceRead(SQLModel):
     visit_duration_minutes: int = Field(default=60, ge=0)
     is_opening_hours_known: bool = False
     status: str = Field(default="PLANNED")
+    category: str = "other"
+    normalized_category: str = "other"
+    image: PlaceImageRead | None = None
 
 
 

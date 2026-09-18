@@ -1,5 +1,6 @@
 """Application settings loaded from environment variables."""
 
+from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 
@@ -7,6 +8,15 @@ from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+
+class AppEnvironment(str, Enum):
+    """Explicit deployment classification for operational safety checks."""
+
+    DEVELOPMENT = "development"
+    TEST = "test"
+    STAGING = "staging"
+    PRODUCTION = "production"
 
 
 class Settings(BaseSettings):
@@ -17,6 +27,10 @@ class Settings(BaseSettings):
     """
 
     database_url: SecretStr = Field(min_length=1, validation_alias="DATABASE_URL")
+    app_env: AppEnvironment | None = Field(
+        default=None,
+        validation_alias="APP_ENV",
+    )
     jwt_secret_key: SecretStr = Field(
         default=SecretStr("yatracanvas-dev-insecure-jwt-secret-key-change-in-production"),
         validation_alias="JWT_SECRET_KEY",
@@ -61,6 +75,44 @@ class Settings(BaseSettings):
         ge=0,
         le=3600,
         validation_alias="GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS",
+    )
+    foursquare_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias="FOURSQUARE_API_KEY",
+    )
+    foursquare_base_url: str = Field(
+        default="https://places-api.foursquare.com",
+        validation_alias="FOURSQUARE_BASE_URL",
+    )
+    place_image_timeout_seconds: float = Field(
+        default=5.0,
+        gt=0,
+        le=20,
+        validation_alias="PLACE_IMAGE_TIMEOUT_SECONDS",
+    )
+    place_image_concurrency: int = Field(
+        default=4,
+        ge=1,
+        le=12,
+        validation_alias="PLACE_IMAGE_CONCURRENCY",
+    )
+    place_image_cache_ttl_hours: int = Field(
+        default=720,
+        ge=1,
+        le=8760,
+        validation_alias="PLACE_IMAGE_CACHE_TTL_HOURS",
+    )
+    place_image_negative_ttl_hours: int = Field(
+        default=24,
+        ge=1,
+        le=720,
+        validation_alias="PLACE_IMAGE_NEGATIVE_TTL_HOURS",
+    )
+    place_image_failed_ttl_minutes: int = Field(
+        default=30,
+        ge=1,
+        le=1440,
+        validation_alias="PLACE_IMAGE_FAILED_TTL_MINUTES",
     )
     overpass_api_url: str = Field(
         default="https://lz4.overpass-api.de/api/interpreter",
@@ -297,6 +349,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @field_validator("app_env", mode="before")
+    @classmethod
+    def normalize_app_environment(cls, value: object) -> object:
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            return normalized or None
+        return value
+
     @field_validator("database_url")
     @classmethod
     def validate_database_url(cls, value: SecretStr) -> SecretStr:
@@ -313,6 +373,7 @@ class Settings(BaseSettings):
     @field_validator(
         "google_routes_api_key",
         "geoapify_api_key",
+        "foursquare_api_key",
         "openrouteservice_api_key",
     )
     @classmethod
@@ -330,12 +391,12 @@ class Settings(BaseSettings):
         normalized = value.strip()
         return normalized or None
 
-    @field_validator("geoapify_base_url")
+    @field_validator("geoapify_base_url", "foursquare_base_url")
     @classmethod
-    def normalize_geoapify_base_url(cls, value: str) -> str:
+    def normalize_image_provider_base_url(cls, value: str) -> str:
         normalized = value.strip().rstrip("/")
         if not normalized.startswith(("https://", "http://")):
-            raise ValueError("GEOAPIFY_BASE_URL must be an HTTP(S) URL")
+            raise ValueError("Image-provider base URLs must use HTTP(S)")
         return normalized
 
     @field_validator("overpass_api_url")
@@ -424,6 +485,12 @@ class Settings(BaseSettings):
         """Return the Geoapify key only at the backend provider boundary."""
 
         return self._optional_secret_value(self.geoapify_api_key)
+
+    @property
+    def foursquare_api_key_value(self) -> str | None:
+        """Return the optional Foursquare service key only at its adapter boundary."""
+
+        return self._optional_secret_value(self.foursquare_api_key)
 
     @property
     def openrouteservice_api_key_value(self) -> str | None:

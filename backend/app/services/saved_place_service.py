@@ -13,11 +13,11 @@ from app.schemas import (
     DayType,
     PlaceRead,
     SavedPlaceCreate,
-    SavedPlaceUpdate,
-    SavedPlaceOrder,
     SavedPlaceRead,
     SavedPlaceReorder,
+    SavedPlaceUpdate,
 )
+from app.services.place_image_service import get_cached_place_images
 
 
 class SavedPlaceServiceError(Exception):
@@ -48,11 +48,15 @@ class InvalidSavedPlaceAssignmentError(SavedPlaceServiceError):
     pass
 
 
+_IMAGE_UNSET = object()
+
+
 class SavedPlaceService:
     def list(self, session: Session, trip_id: UUID) -> list[SavedPlaceRead]:
         self._require_trip(session, trip_id)
         rows = self._saved_rows(session, trip_id)
-        return [self._to_read(session, row) for row in rows]
+        images, _ = get_cached_place_images(session, {row.place_id for row in rows})
+        return [self._to_read(session, row, image=images.get(row.place_id)) for row in rows]
 
     def add(
         self,
@@ -295,10 +299,21 @@ class SavedPlaceService:
             row.custom_order = index
 
     @staticmethod
-    def _to_read(session: Session, saved: UserSavedPlace) -> SavedPlaceRead:
+    def _to_read(
+        session: Session,
+        saved: UserSavedPlace,
+        *,
+        image=_IMAGE_UNSET,
+    ) -> SavedPlaceRead:
         place = session.get(Place, saved.place_id)
         if place is None:
             raise PlaceNotFoundError("Place not found.")
+        if image is _IMAGE_UNSET:
+            image = get_cached_place_images(session, [saved.place_id])[0].get(
+                saved.place_id
+            )
+        place_read = PlaceRead.model_validate(place)
+        place_read.image = image
         return SavedPlaceRead(
             id=saved.id,
             trip_id=saved.trip_id,
@@ -313,5 +328,5 @@ class SavedPlaceService:
             assigned_day_id=saved.assigned_day_id,
             notes=saved.notes,
             created_at=saved.created_at,
-            place=PlaceRead.model_validate(place),
+            place=place_read,
         )

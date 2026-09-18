@@ -27,6 +27,12 @@ from app.services.place_importance_scorer import PlaceImportanceScorer
 logger = logging.getLogger(__name__)
 
 WIKIDATA_QID_PATTERN: Final[re.Pattern] = re.compile(r"^Q\d+$")
+MEDIA_IDENTIFIER_KEYS: Final[tuple[str, ...]] = (
+    "wikidata",
+    "wikipedia",
+    "wikimedia_commons",
+    "geoapify_image",
+)
 
 # Conservative distance threshold for geographic fallback matching
 MAX_FALLBACK_DISTANCE_METERS: Final[float] = 100.0
@@ -127,6 +133,18 @@ def is_conservative_name_match(name1: str, name2: str) -> bool:
     return False
 
 
+def _with_media_identifiers(
+    metrics: dict[str, str] | None,
+    tags: dict[str, str] | None,
+) -> dict[str, str]:
+    result = dict(metrics or {})
+    for key in MEDIA_IDENTIFIER_KEYS:
+        value = tags.get(key) if tags else None
+        if isinstance(value, str) and value.strip():
+            result[key] = value.strip()
+    return result
+
+
 class CanonicalPlaceService:
     """Central service resolving place identity and managing multi-source provenance."""
 
@@ -165,7 +183,9 @@ class CanonicalPlaceService:
                 raw_hours = None
             wikidata_id = extract_wikidata_id(external_id, tags)
             prominence = PlaceImportanceScorer.extract_prominence_from_tags(tags)
-            raw_metrics = PlaceImportanceScorer.extract_metrics_from_tags(tags)
+            raw_metrics = _with_media_identifiers(
+                PlaceImportanceScorer.extract_metrics_from_tags(tags), tags
+            )
 
             place = places_by_wikidata.get(wikidata_id) if wikidata_id else None
             if place is None:
@@ -325,7 +345,9 @@ class CanonicalPlaceService:
 
         # Extract prominence score and raw metrics
         prominence = PlaceImportanceScorer.extract_prominence_from_tags(tags)
-        raw_metrics = PlaceImportanceScorer.extract_metrics_from_tags(tags)
+        raw_metrics = _with_media_identifiers(
+            PlaceImportanceScorer.extract_metrics_from_tags(tags), tags
+        )
         if prominence == 0.0 and effective_wikidata_id:
             audiala_prom = PlaceImportanceScorer.lookup_audiala_prominence(
                 effective_wikidata_id

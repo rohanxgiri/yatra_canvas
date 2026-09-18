@@ -43,6 +43,7 @@ from app.services.place_deduplication_service import (
     deduplicate_places,
     haversine_distance_meters,
 )
+from app.services.place_image_service import enrich_image_reads
 from app.services.place_importance_scorer import PlaceImportanceScorer
 from app.services.place_suitability_service import (
     AccessConfidence,
@@ -677,4 +678,5 @@ class RecommendationService:
             len(final_results),
             total_rec_ms,
         )
+        enrich_image_reads(session, final_results)
         return final_results

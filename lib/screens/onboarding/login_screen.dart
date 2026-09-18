@@ -1,44 +1,24 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/yc_style.dart';
-import '../../widgets/yc_scaffold.dart';
-import '../../widgets/yatra_brand.dart';
-import 'onboarding_screen.dart';
+import '../auth/account_entry_screen.dart';
 
-/// Guest entry until authentication is available.
+/// Legacy entry point — now redirects to [AccountEntryScreen].
+///
+/// Kept to avoid breaking any existing navigation references.
+/// Previously served as a guest-only placeholder.
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
+
   @override
-  Widget build(BuildContext context) => YCScaffold(
-    appBar: AppBar(),
-    body: SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const YatraBrand(compact: true),
-          const SizedBox(height: 48),
-          Text('Start with a little curiosity.', style: YCStyle.title),
-          const SizedBox(height: 16),
-          Text(
-            'Discover destinations and shape your next trip as a guest.',
-            style: YCStyle.body,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Account sign-in is not available yet. Your recent trips and preferences stay in this app session.',
-            style: YCStyle.secondary,
-          ),
-        ],
-      ),
-    ),
-    bottomNavigationBar: SafeArea(
-      minimum: const EdgeInsets.all(24),
-      child: FilledButton(
-        onPressed: () => Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const OnboardingScreen()),
-        ),
-        child: const Text('Continue as Guest'),
-      ),
-    ),
-  );
+  Widget build(BuildContext context) {
+    // Redirect immediately via WidgetsBinding so the route stack is clean.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const AccountEntryScreen()),
+      );
+    });
+    // Blank scaffold during the single-frame redirect.
+    return const Scaffold(backgroundColor: Color(0xFFFFFCF5));
+  }
 }

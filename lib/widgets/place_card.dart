@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/yc_motion.dart';
+import '../models/place_image.dart';
+import 'place_image.dart';
 import 'yc_pressable.dart';
 
 class PlaceCard extends StatelessWidget {
@@ -10,6 +12,8 @@ class PlaceCard extends StatelessWidget {
     required this.name,
     required this.description,
     this.image,
+    this.imageData,
+    this.normalizedCategory,
     this.category,
     this.meta,
     this.selected = false,
@@ -23,6 +27,8 @@ class PlaceCard extends StatelessWidget {
   final String name;
   final String description;
   final ImageProvider? image;
+  final PlaceImageData? imageData;
+  final String? normalizedCategory;
   final String? category;
   final String? meta;
   final bool selected;
@@ -55,21 +61,19 @@ class PlaceCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (image != null) ...[
+            if (image != null || imageData != null || category != null) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: AspectRatio(
-                  aspectRatio: 1.8,
-                  child: Image(
-                    image: image!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, error, stack) => const ColoredBox(
-                      color: AppColors.surfaceSoft,
-                      child: Center(
-                        child: Icon(Icons.image_not_supported_outlined),
-                      ),
-                    ),
-                  ),
+                  aspectRatio: 4 / 3,
+                  child: image != null
+                      ? Image(image: image!, fit: BoxFit.cover)
+                      : PlaceImage(
+                          name: name,
+                          image: imageData,
+                          normalizedCategory: normalizedCategory,
+                          rawCategory: category,
+                        ),
                 ),
               ),
               const SizedBox(height: 14),

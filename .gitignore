@@ -27,10 +27,21 @@ test/failures/
 .env
 .env.*
 !.env.example
+!**/.env.example
 *.jks
 *.keystore
 key.properties
 local.properties
+
+# Local database files and backup artifacts
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.pgdump
+*.backup
+*.sql.gz
+backups/
 
 # Python backend tooling
 .venv/

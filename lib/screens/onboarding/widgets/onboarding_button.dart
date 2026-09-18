@@ -10,6 +10,9 @@ class OnboardingPrimaryButton extends StatelessWidget {
     required this.onTap,
     this.icon,
     this.width,
+    this.height = 56,
+    this.backgroundColor = OnboardingStyle.darkTeal,
+    this.showShadow = true,
     this.isProminent = false,
     super.key,
   });
@@ -18,6 +21,9 @@ class OnboardingPrimaryButton extends StatelessWidget {
   final VoidCallback onTap;
   final IconData? icon;
   final double? width;
+  final double height;
+  final Color backgroundColor;
+  final bool showShadow;
   final bool isProminent;
 
   @override
@@ -27,17 +33,19 @@ class OnboardingPrimaryButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: width ?? double.infinity,
-        height: 56,
+        height: height,
         decoration: BoxDecoration(
-          color: OnboardingStyle.darkTeal,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x22134552),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(height / 2),
+          boxShadow: showShadow
+              ? const [
+                  BoxShadow(
+                    color: Color(0x22134552),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -65,10 +73,7 @@ class OnboardingPrimaryButton extends StatelessWidget {
 
 /// Circular back button matching Image 1: 56x56 white circle with subtle dark-teal border and arrow.
 class OnboardingCircleBackButton extends StatelessWidget {
-  const OnboardingCircleBackButton({
-    required this.onTap,
-    super.key,
-  });
+  const OnboardingCircleBackButton({required this.onTap, super.key});
 
   final VoidCallback onTap;
 
@@ -107,7 +112,7 @@ class OnboardingCircleBackButton extends StatelessWidget {
   }
 }
 
-/// Pill-shaped Skip button for the top navigation bar matching Image 1.
+/// Quiet 44pt Skip action for the shared onboarding header.
 class OnboardingSkipButton extends StatelessWidget {
   const OnboardingSkipButton({
     required this.label,
@@ -123,24 +128,21 @@ class OnboardingSkipButton extends StatelessWidget {
     return OnboardingAction(
       label: label,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: OnboardingStyle.skipPillBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: OnboardingStyle.skipPillBorder,
-            width: 1.0,
-          ),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'HomeInter',
-            color: OnboardingStyle.skipTextTeal,
-            fontSize: 14.5,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.2,
+      child: SizedBox(
+        height: 44,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Center(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'HomeInter',
+                color: Color(0xFF50617B),
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.1,
+              ),
+            ),
           ),
         ),
       ),
@@ -160,5 +162,6 @@ class OnboardingGhostButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => OnboardingSkipButton(label: label, onTap: onTap);
+  Widget build(BuildContext context) =>
+      OnboardingSkipButton(label: label, onTap: onTap);
 }

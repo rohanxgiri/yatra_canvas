@@ -41,9 +41,15 @@ from app.services.openstreetmap_places_service import (
     OpenStreetMapPlacesTimeoutError,
     OpenStreetMapPlacesUnavailableError,
 )
+from app.services.place_category_normalizer import normalize_place_category
 from app.services.place_deduplication_service import (
     haversine_distance_meters,
     normalize_name_for_dedupe,
+)
+from app.services.place_image_service import (
+    build_place_reads,
+    get_cached_place_images,
+    schedule_place_image_enrichment,
 )
 from app.services.progressive_prefetch_coordinator import (
     PrefetchState,
@@ -230,7 +236,7 @@ RecommendationDependency = Annotated[
 
 
 @router.post("/places", response_model=PlaceRead, status_code=status.HTTP_201_CREATED)
-def create_place(place_data: PlaceCreate, session: SessionDependency) -> Place:
+def create_place(place_data: PlaceCreate, session: SessionDependency) -> PlaceRead:
     """Create a place after verifying that its parent city exists."""
 
     if session.get(City, place_data.city_id) is None:
@@ -251,7 +257,8 @@ def create_place(place_data: PlaceCreate, session: SessionDependency) -> Place:
         ) from exc
 
     session.refresh(place)
-    return place
+    result, _ = build_place_reads(session, [place])
+    return result[0]
 
 
 @router.get("/cities/{city_id}/places", response_model=list[PlaceRead])
@@ -260,7 +267,7 @@ def list_city_places(
     session: SessionDependency,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
-) -> list[Place]:
+) -> list[PlaceRead]:
     """Return the places belonging to a city."""
 
     if session.get(City, city_id) is None:
@@ -276,7 +283,9 @@ def list_city_places(
         .offset(offset)
         .limit(limit)
     )
-    return list(session.exec(statement).all())
+    places = list(session.exec(statement).all())
+    result, _ = build_place_reads(session, places)
+    return result
 
 
 @router.get(
@@ -288,7 +297,7 @@ async def discover_city_places(
     category: Annotated[DiscoveryCategory, Query()],
     session: SessionDependency,
     discovery: OpenStreetMapDiscoveryDependency,
-) -> list[Place]:
+) -> list[PlaceRead]:
     """Return cached places or refresh one city/category from OpenStreetMap."""
 
     city = session.get(City, city_id)
@@ -299,11 +308,14 @@ async def discover_city_places(
         )
 
     try:
-        return await discovery.discover(
+        places = await discovery.discover(
             session=session,
             city=city,
             category=category,
         )
+        result, refresh = build_place_reads(session, places)
+        schedule_place_image_enrichment(refresh, engine=session.get_bind())
+        return result
     except OpenStreetMapPlacesRateLimitError as exc:
         session.rollback()
         headers = {"Retry-After": exc.retry_after} if exc.retry_after else None
@@ -353,13 +365,17 @@ async def recommend_city_places(
         ):
             categories_to_join.append(recommendation_request.category_filter)
         await coordinator.join_active(city_id, categories_to_join)
-        return await asyncio.to_thread(
+        result = await asyncio.to_thread(
             _recommend_in_worker,
             session.get_bind(),
             city_id,
             recommendation_request,
             recommendation,
         )
+        schedule_place_image_enrichment(
+            {item.id for item in result}, engine=session.get_bind()
+        )
+        return result
     except _CityNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -450,6 +466,18 @@ async def prefetch_city_places(
                 categories=categories,
             )
 
+    def schedule_images_after_prefetch(_summary) -> None:
+        with Session(background_engine) as image_session:
+            image_ids = list(
+                image_session.exec(
+                    select(Place.id)
+                    .where(Place.city_id == city_id)
+                    .order_by(Place.importance_score.desc().nullslast(), Place.name)
+                    .limit(60)
+                ).all()
+            )
+        schedule_place_image_enrichment(image_ids, engine=background_engine)
+
     prefetch_state, enqueued, reused = coordinator.enqueue(
         city_id=city_id,
         city_name=city_name,
@@ -457,6 +485,7 @@ async def prefetch_city_places(
         categories=requested_categories,
         runner=run_prefetch if requested_categories else None,
         offload=bool(requested_categories),
+        on_complete=schedule_images_after_prefetch if requested_categories else None,
     )
     return _prefetch_response(
         prefetch_state,
@@ -550,6 +579,10 @@ async def search_city_places(
         .where(col(Place.name).ilike(f"%{clean_query}%"))
         .limit(limit)
     ).all()
+    db_images, db_refresh = get_cached_place_images(
+        session, [place.id for place in db_places]
+    )
+    schedule_place_image_enrichment(db_refresh, engine=session.get_bind())
 
     for p in db_places:
         norm = normalize_name_for_dedupe(p.name)
@@ -567,6 +600,10 @@ async def search_city_places(
                 distance_meters=round(dist, 1),
                 place_id=p.id,
                 source="database",
+                normalized_category=normalize_place_category(
+                    p.category, name=p.name
+                ).value,
+                image=db_images.get(p.id),
             )
         )
 
@@ -604,6 +641,7 @@ async def search_city_places(
                         place_id=None,
                         external_place_id=g.provider_place_id,
                         source="geoapify",
+                        normalized_category="landmark",
                     )
                 )
                 if len(results) >= limit:
@@ -624,7 +662,7 @@ def resolve_manual_place(
     request: PlaceResolveRequest,
     session: SessionDependency,
     canonical_service: CanonicalPlaceDependency,
-) -> Place:
+) -> PlaceRead:
     """Resolve or create a canonical Place entity from a search result."""
     city = session.get(City, city_id)
     if city is None:
@@ -656,4 +694,5 @@ def resolve_manual_place(
     )
     session.commit()
     session.refresh(place)
-    return place
+    result, _ = build_place_reads(session, [place])
+    return result[0]

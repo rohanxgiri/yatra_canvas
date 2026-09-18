@@ -1,4 +1,14 @@
-enum PlaceCategory { religious, food, tourism, cafes, heritage }
+import 'place_image.dart';
+
+enum PlaceCategory {
+  religious,
+  food,
+  tourism,
+  cafes,
+  heritage,
+  markets,
+  nature,
+}
 
 extension PlaceCategoryLabel on PlaceCategory {
   String get apiValue => name;
@@ -9,6 +19,8 @@ extension PlaceCategoryLabel on PlaceCategory {
     PlaceCategory.tourism => 'Tourism',
     PlaceCategory.cafes => 'Cafes',
     PlaceCategory.heritage => 'Heritage',
+    PlaceCategory.markets => 'Markets',
+    PlaceCategory.nature => 'Nature',
   };
 
   static Set<PlaceCategory> categoriesForPurposes(Iterable<String> purposes) {
@@ -30,11 +42,15 @@ extension PlaceCategoryLabel on PlaceCategory {
         case 'Mixed Trip':
           categories.addAll(PlaceCategory.values);
           break;
-        case 'Sightseeing':
         case 'Nature':
+          categories.add(PlaceCategory.nature);
+          break;
+        case 'Shopping':
+          categories.add(PlaceCategory.markets);
+          break;
+        case 'Sightseeing':
         case 'Relaxation':
         case 'Family Trip':
-        case 'Shopping':
           categories.add(PlaceCategory.tourism);
           break;
       }
@@ -64,10 +80,7 @@ enum OpeningHoursStatus {
 }
 
 class OpeningHoursInterval {
-  const OpeningHoursInterval({
-    required this.open,
-    required this.close,
-  });
+  const OpeningHoursInterval({required this.open, required this.close});
 
   final String open;
   final String close;
@@ -79,10 +92,7 @@ class OpeningHoursInterval {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'open': open,
-    'close': close,
-  };
+  Map<String, dynamic> toJson() => {'open': open, 'close': close};
 
   /// Returns true if given (hour, minute) is within [open, close).
   bool containsTime(int hour, int minute) {
@@ -97,7 +107,9 @@ class OpeningHoursInterval {
     final closeM = int.tryParse(closeParts[1]) ?? 0;
 
     final startMinutes = openH * 60 + openM;
-    final endMinutes = (closeH == 24 && closeM == 0) ? 24 * 60 : closeH * 60 + closeM;
+    final endMinutes = (closeH == 24 && closeM == 0)
+        ? 24 * 60
+        : closeH * 60 + closeM;
 
     return currentMinutes >= startMinutes && currentMinutes < endMinutes;
   }
@@ -120,6 +132,8 @@ class Place {
     this.openingHoursStatus = OpeningHoursStatus.unknown,
     this.rawOpeningHours,
     this.openingHours = const {},
+    this.normalizedCategory = 'other',
+    this.image,
   });
 
   final String id;
@@ -137,6 +151,8 @@ class Place {
   final OpeningHoursStatus openingHoursStatus;
   final String? rawOpeningHours;
   final Map<String, List<OpeningHoursInterval>> openingHours;
+  final String normalizedCategory;
+  final PlaceImageData? image;
 
   /// Returns intervals for a given date.
   List<OpeningHoursInterval> getIntervalsForDay(DateTime date) {
@@ -182,12 +198,17 @@ class Place {
       for (final entry in openingHoursRaw.entries) {
         if (entry.value is List) {
           openingHoursMap[entry.key.toLowerCase()] = (entry.value as List)
-              .map((e) => OpeningHoursInterval.fromJson(Map<String, dynamic>.from(e as Map)))
+              .map(
+                (e) => OpeningHoursInterval.fromJson(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
               .toList();
         }
       }
     }
 
+    final imageJson = json['image'];
     return Place(
       id: json['id'] as String,
       cityId: json['city_id'] as String,
@@ -208,6 +229,13 @@ class Place {
       ),
       rawOpeningHours: json['raw_opening_hours'] as String?,
       openingHours: openingHoursMap,
+      normalizedCategory:
+          json['normalized_category'] as String? ??
+          json['category'] as String? ??
+          'other',
+      image: imageJson is Map
+          ? PlaceImageData.fromJson(Map<String, dynamic>.from(imageJson))
+          : null,
     );
   }
 
@@ -229,6 +257,8 @@ class Place {
     'opening_hours': openingHours.map(
       (k, v) => MapEntry(k, v.map((i) => i.toJson()).toList()),
     ),
+    'normalized_category': normalizedCategory,
+    'image': image?.toJson(),
   };
 }
 
@@ -243,6 +273,8 @@ class PlaceSearchResult {
     this.distanceMeters,
     this.placeId,
     this.externalPlaceId,
+    this.normalizedCategory = 'other',
+    this.image,
   });
 
   final String name;
@@ -254,8 +286,11 @@ class PlaceSearchResult {
   final String? placeId;
   final String? externalPlaceId;
   final String source;
+  final String normalizedCategory;
+  final PlaceImageData? image;
 
   factory PlaceSearchResult.fromJson(Map<String, dynamic> json) {
+    final imageJson = json['image'];
     return PlaceSearchResult(
       name: json['name'] as String,
       address: json['address'] as String?,
@@ -266,6 +301,13 @@ class PlaceSearchResult {
       placeId: json['place_id'] as String?,
       externalPlaceId: json['external_place_id'] as String?,
       source: json['source'] as String? ?? 'database',
+      normalizedCategory:
+          json['normalized_category'] as String? ??
+          json['category'] as String? ??
+          'other',
+      image: imageJson is Map
+          ? PlaceImageData.fromJson(Map<String, dynamic>.from(imageJson))
+          : null,
     );
   }
 }

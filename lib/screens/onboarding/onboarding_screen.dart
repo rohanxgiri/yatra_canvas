@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../../theme/yc_motion.dart';
 import '../../widgets/yatra_brand.dart';
-import '../home/home_screen.dart';
+import '../auth/account_entry_screen.dart';
+import '../home/widgets/yatra_refractive_glass.dart';
 import 'widgets/onboarding_button.dart';
+import 'widgets/onboarding_figma_first_screen.dart';
 import 'widgets/onboarding_progress_indicator.dart';
 import 'widgets/onboarding_step_views.dart';
 import 'widgets/onboarding_styles.dart';
@@ -13,6 +15,9 @@ import 'widgets/onboarding_styles.dart';
 /// The four-screen mobile onboarding experience for YatraCanvas.
 /// Introduces travellers to the core value proposition:
 /// Discover places -> personalise -> connect the route -> plan your days.
+///
+/// After the visual pages the user is routed to [AccountEntryScreen] where
+/// they choose between Google, Sign Up, Sign In, or Guest mode.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -24,13 +29,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   late final PageController _pageController;
   int _currentPage = 0;
 
-  static const _steps = <Widget>[
-    DiscoverStepView(),
-    PersonaliseStepView(),
-    RouteStepView(),
-    ItineraryStepView(),
-  ];
-  static final _stepCount = _steps.length;
+  static const _stepCount = 4;
+
+  Widget _stepAt(int index) => switch (index) {
+    0 => const DiscoverStepView(),
+    1 => const PersonaliseStepView(),
+    2 => OnboardingMapStep(isActive: _currentPage == 2),
+    3 => const ItineraryStepView(),
+    _ => const SizedBox.shrink(),
+  };
 
   @override
   void initState() {
@@ -48,17 +55,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() => _currentPage = index);
   }
 
-  void _previous() {
-    if (_currentPage > 0) {
-      _pageController.previousPage(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 340),
-        curve: Curves.easeOutCubic,
-      );
-    }
-  }
-
   void _next() {
     if (_currentPage < _stepCount - 1) {
       _pageController.nextPage(
@@ -68,14 +64,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.easeOutCubic,
       );
     } else {
-      _enterApp();
+      _enterAuth();
     }
   }
 
-  void _enterApp() {
-    Navigator.of(context).pushAndRemoveUntil(
-      YCRoutes.journey<void>(builder: (_) => const HomeScreen()),
-      (route) => false,
+  /// Navigate to the auth entry screen.
+  /// From there the traveller chooses Google, Sign Up, Sign In, or Guest.
+  void _enterAuth() {
+    Navigator.of(context).pushReplacement(
+      YCRoutes.journey<void>(builder: (_) => const AccountEntryScreen()),
     );
   }
 
@@ -101,7 +98,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     width: width,
                     child: Column(
                       children: [
-                        // Top navigation bar with centered Brand and right Skip pill
+                        // One stable onboarding shell for every page.
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             20 * scale,
@@ -109,28 +106,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             16 * scale,
                             6 * scale,
                           ),
-                          child: Stack(
-                            alignment: Alignment.center,
+                          child: Row(
                             children: [
-                              const Align(
-                                alignment: Alignment.center,
-                                child: YatraBrand(compact: true),
-                              ),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 200),
-                                  opacity: _currentPage < _stepCount - 1
-                                      ? 1.0
-                                      : 0.0,
-                                  child: IgnorePointer(
-                                    ignoring: _currentPage >= _stepCount - 1,
-                                    child: OnboardingSkipButton(
-                                      label: 'Skip',
-                                      onTap: _enterApp,
-                                    ),
-                                  ),
+                              const Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: YatraBrand(compact: true),
                                 ),
+                              ),
+                              OnboardingSkipButton(
+                                label: 'Skip',
+                                onTap: _enterAuth,
                               ),
                             ],
                           ),
@@ -144,7 +130,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             onPageChanged: _onPageChanged,
                             itemBuilder: (context, index) => AnimatedBuilder(
                               animation: _pageController,
-                              child: _steps[index],
+                              child: _stepAt(index),
                               builder: (context, child) {
                                 if (MediaQuery.disableAnimationsOf(context)) {
                                   return child!;
@@ -170,7 +156,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ),
 
-                        // Bottom action area: Progress indicator and Action Controls
+                        // Shared glass progress pill and full-width action.
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             20 * scale,
@@ -181,33 +167,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (_currentPage != 2) ...[
-                                OnboardingProgressIndicator(
-                                  currentPage: _currentPage,
-                                  pageCount: _stepCount,
-                                ),
-                                SizedBox(height: 14 * scale),
-                              ],
-                              Row(
-                                children: [
-                                  if (_currentPage > 0) ...[
-                                    OnboardingCircleBackButton(
-                                      onTap: _previous,
-                                    ),
-                                    SizedBox(width: 12 * scale),
-                                  ],
-                                  Expanded(
-                                    child: OnboardingPrimaryButton(
-                                      label: _currentPage == _stepCount - 1
-                                          ? 'Start Planning'
-                                          : 'Next',
-                                      isProminent:
-                                          _currentPage == _stepCount - 1,
-                                      icon: Icons.arrow_forward_rounded,
-                                      onTap: _next,
-                                    ),
+                              YatraRefractiveGlass(
+                                radius: 16,
+                                blur: 5,
+                                fill: const Color(0x66FFFFFF),
+                                borderColor: const Color(0xB3FFFFFF),
+                                shadow: true,
+                                shadowColor: const Color(0x0A142C53),
+                                shadowBlur: 6,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 11,
+                                    vertical: 7,
                                   ),
-                                ],
+                                  child: OnboardingProgressIndicator(
+                                    currentPage: _currentPage,
+                                    pageCount: _stepCount,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 14 * scale),
+                              OnboardingPrimaryButton(
+                                label: _currentPage == _stepCount - 1
+                                    ? 'Get Started'
+                                    : 'Continue',
+                                isProminent: _currentPage == _stepCount - 1,
+                                icon: Icons.arrow_forward_rounded,
+                                height: 48,
+                                backgroundColor: const Color(0xFF235EC6),
+                                showShadow: false,
+                                onTap: _next,
                               ),
                             ],
                           ),

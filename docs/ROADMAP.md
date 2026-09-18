@@ -1,6 +1,6 @@
 # YatraCanvas roadmap
 
-Last reviewed: 2026-09-07
+Last reviewed: 2026-09-18
 
 This roadmap is sequenced for reversible, testable changes. A phase is not complete until its
 acceptance criteria pass in a local/test environment and the source-of-truth documents are
@@ -91,7 +91,10 @@ Acceptance criteria:
 
 ## Phase 5 — Wikimedia enrichment
 
-Status: `[PLANNED]`.
+Status: `[PARTIAL]`. Provider-neutral place images, direct-identifier-first Wikimedia lookup,
+item attribution/license storage, durable TTL cache, and Flutter rendering/fallbacks are
+`[IMPLEMENTED]`. Descriptions, revision-aware refresh, operator batch controls, and media-removal
+reconciliation remain `[PLANNED]`.
 
 Scope: enrich reviewed notable places with descriptions and images through a backend batch job.
 Store revision/source identifiers and item-level creator/license/attribution, not merely an image
@@ -103,6 +106,10 @@ Acceptance criteria:
 - Every displayed media item can render its required attribution and source link.
 - Refresh/revision and removal behavior is tested; missing/ambiguous content is safely omitted.
 - Requests follow current Wikimedia API etiquette and backoff guidance.
+
+The implemented runtime/background image slice does not promote or merge canonical places and
+does not block recommendation or itinerary APIs. Its process-local task dispatch remains
+`[PARTIAL]`; a durable multi-process job queue is still future work.
 
 ## Phase 6 — Geoapify completion and Google Places exit readiness
 

@@ -9,6 +9,7 @@ import '../models/place.dart';
 import '../models/saved_place.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'place_image.dart';
 
 /// A polished map-layer POI detail sheet.
 ///
@@ -289,6 +290,18 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: PlaceImage(
+                        name: _place.name,
+                        image: _place.image,
+                        normalizedCategory: _place.normalizedCategory,
+                        rawCategory: _place.category,
+                        borderRadius: BorderRadius.circular(18),
+                        showAttribution: true,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
                     _buildHeader(),
                     const SizedBox(height: 16),
                     _buildInfoRows(),

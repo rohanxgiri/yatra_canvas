@@ -36,6 +36,19 @@ Current-model migrations verified as applied on 2026-09-07:
    and `moderation_status` column and check on places verified as applied on 2026-09-14. All existing
    cities preserved with `is_enabled=true`, and all existing places preserved with `moderation_status='ACTIVE'`.
 
+Pending deployment review:
+
+- `add_place_image_cache.sql` is `[IMPLEMENTED]` in repository models/tests. A read-only catalog
+  inspection found `place_image_cache` already present on the configured remote database with the
+  expected columns, indexes, constraints, and no server default on `fetched_at`. Its creation
+  mechanism remains `[UNKNOWN]`; unconditional startup `create_all` may have created it. The SQL
+  now matches the ORM/application-owned `fetched_at` behavior. Do not rerun it against the
+  unclassified remote database.
+- `backend/scripts/verify_place_image_cache.py` performs catalog checks in a PostgreSQL-enforced
+  read-only transaction by default. Its optional `--write-test` is rejected unless `APP_ENV` is
+  explicitly `development` or `test`, commits uniquely identified temporary rows, verifies them
+  in a fresh session, and deletes only those rows in cleanup.
+
 The exact execution actor and restore point cannot be attributed from repository evidence. Do
 not rerun older scripts on this database, and do not run a rollback script as an installation step.
 
@@ -57,6 +70,7 @@ the catalog before continuing.
 10. `add_saved_places_assignment_mode.sql`
 11. `add_trip_itinerary_status.sql`
 12. `add_admin_auth_and_moderation.sql`
+13. `add_place_image_cache.sql`
 
 `repair_current_schema_parity.sql` is a convergence repair for the older provider and route
 scripts. On the currently configured database its effects are already present, so rerunning the
@@ -75,7 +89,7 @@ users, and admin moderation/destination columns.
 
 Before a forward change:
 
-- confirm the exact Supabase project is development/test;
+- set `APP_ENV` explicitly and confirm the exact target is development/test;
 - create and record a recoverable backup, branch, or point-in-time restore target;
 - run a read-only catalog and data-precondition audit;
 - stop application writers if the migration requires it.

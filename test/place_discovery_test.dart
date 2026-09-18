@@ -214,7 +214,7 @@ void main() {
     final extraInterests = tester.widgetList<SelectionChip>(
       find.byType(SelectionChip),
     );
-    expect(extraInterests, hasLength(3));
+    expect(extraInterests, hasLength(5));
     expect(extraInterests.every((chip) => !chip.selected), isTrue);
   });
 

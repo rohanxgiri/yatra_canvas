@@ -1,6 +1,6 @@
 # Architectural decisions
 
-Last reviewed: 2026-09-07
+Last reviewed: 2026-09-18
 
 These records describe accepted direction without claiming all consequences are implemented.
 Changing an accepted decision requires a new or amended record plus updates to architecture,
@@ -431,3 +431,33 @@ provider, environment, and data-model documentation.
   - Admin access is strictly role-governed on the backend; spoofing emails or client headers is impossible.
   - Moderated places are completely suppressed from traveler discovery and recommendations without ad-hoc code filtering.
 - **Evidence:** `backend/tests/test_admin_api.py`, `backend/sql/add_admin_auth_and_moderation.sql`, `backend/app/static/admin/`, and [`ADMIN_ARCHITECTURE.md`](ADMIN_ARCHITECTURE.md).
+
+## ADR-018 — Place images are optional cached enrichment, never flow-critical data
+
+- **Status:** Accepted and `[IMPLEMENTED]` in repository; production migration application and
+  multi-process job delivery remain `[PARTIAL]`.
+- **Date:** 2026-09-18.
+- **Context:** Place cards and map sheets need useful imagery without coupling trip creation,
+  recommendation, routing, or itinerary reads to volatile third-party latency. Geoapify payloads
+  may already contain Wikimedia identifiers; notable places can use Wikimedia metadata; current
+  venue photos may be available from Foursquare. Wrong-branch photos and missing attribution are
+  worse than a curated category fallback.
+- **Decision:** Define one optional `image` response object and one normalized category vocabulary.
+  Batch-read a one-row-per-place persistent cache on API paths and schedule provider work outside
+  the response. Resolve category-aware chains with bounded concurrency and a shared batch client.
+  Reuse Geoapify payload metadata before Place Details, prefer direct Wikimedia identifiers before
+  conservative contextual matching, and enable the Foursquare Places API only when
+  `FOURSQUARE_API_KEY` is present and the candidate passes name/distance/category/locality checks.
+  Store positive, not-found, and failed outcomes with different TTLs. Flutter always reserves the
+  image region and falls back to bundled category assets.
+- **Consequences:** This narrows ADR-002 only for optional photo enrichment: FSQ OS Places remains
+  the batch POI source, while the proprietary API is not required and cannot create/rank places.
+  It also expands ADR-003 only for image metadata/details after existing payload reuse; Geoapify is
+  still not a routing/map/weather provider. No provider key is shipped to Flutter. Image outages
+  are visually graceful and do not fail core flows. A production deployment must review provider
+  terms/quotas and apply `add_place_image_cache.sql` through its controlled migration process.
+- **Evidence:** `backend/app/services/place_image_service.py`, the three image provider adapters,
+  `backend/tests/test_*_image_provider.py`, `backend/tests/test_place_image_cache.py`,
+  `lib/widgets/place_image.dart`, and `test/place_image_test.dart`; official Geoapify Place Details,
+  Wikimedia Action API imageinfo/pageimages, and Foursquare authentication/search/photos docs,
+  verified 2026-09-18 and linked in `API_AND_DATA_SOURCES.md`.

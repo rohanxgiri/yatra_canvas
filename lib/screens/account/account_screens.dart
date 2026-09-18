@@ -8,11 +8,14 @@ import '../../models/trip_start_location.dart';
 import '../../models/yatra_session.dart';
 import '../../services/trip_service.dart';
 import '../../services/saved_place_service.dart';
+import '../../theme/yc_motion.dart';
 import '../../theme/yc_style.dart';
 import '../../widgets/yc_scaffold.dart';
 import '../../widgets/selection_chip.dart';
 import '../../widgets/place_card.dart';
+import '../auth/account_entry_screen.dart';
 import '../home/widgets/home_destination_card.dart';
+import '../home/widgets/yatra_refractive_glass.dart';
 import '../create_trip/destination_selection_screen.dart';
 import '../create_trip/plan_days_screen.dart';
 import '../place_discovery/place_discovery_screen.dart';
@@ -20,6 +23,10 @@ import '../trip_map/trip_map_screen.dart';
 
 void _open(BuildContext context, Widget page) =>
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ProfileScreen
+// ─────────────────────────────────────────────────────────────────────────────
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -35,7 +42,12 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entryController;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+
   Set<String> get favorites => widget.favorites;
   void onFavorite(String name) {
     widget.onFavorite(name);
@@ -43,87 +55,741 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: YatraSession.instance,
-    builder: (context, _) => YCScaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        automaticallyImplyLeading: !widget.embedded,
-      ),
-      body: SafeArea(
-        top: false,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(24, 24, 24, widget.embedded ? 150 : 24),
-          children: [
-            Text('A little about you.', style: YCStyle.title),
-            const SizedBox(height: 24),
-            _Surface(
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 28,
-                    backgroundColor: YCStyle.selected,
-                    child: Icon(Icons.person_outline, color: YCStyle.blue),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          YatraSession.instance.name,
-                          style: YCStyle.sectionTitle,
+  void initState() {
+    super.initState();
+    _entryController = AnimationController(
+      vsync: this,
+      duration: YCMotion.navigation,
+    );
+    final curved = CurvedAnimation(
+      parent: _entryController,
+      curve: YCMotion.standard,
+    );
+    _fade = curved;
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.04),
+      end: Offset.zero,
+    ).animate(curved);
+    _entryController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entryController.dispose();
+    super.dispose();
+  }
+
+  void _openAccountEntry() {
+    Navigator.of(context).push(
+      YCRoutes.standard<void>(builder: (_) => const AccountEntryScreen()),
+    );
+  }
+
+  void _signOut() {
+    YatraSession.instance.signOut();
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: YatraSession.instance,
+      builder: (context, _) {
+        final session = YatraSession.instance;
+        final isGuest = session.isGuest;
+        final tripCount = session.trips.length;
+        final savedCount = favorites.length;
+
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: DecoratedBox(
+            decoration: const BoxDecoration(gradient: YCStyle.canvas),
+            child: SafeArea(
+              top: !widget.embedded,
+              bottom: false,
+              child: FadeTransition(
+                opacity: _fade,
+                child: SlideTransition(
+                  position: _slide,
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          24,
+                          widget.embedded ? 20 : 12,
+                          24,
+                          widget.embedded ? 150 : 32,
                         ),
-                        const SizedBox(height: 4),
-                        Text('Exploring as a guest', style: YCStyle.secondary),
-                      ],
-                    ),
+                        sliver: SliverList.list(
+                          children: [
+                            // ── Header ─────────────────────────────────────
+                            _ProfileHeader(
+                              name: session.name,
+                              email: session.displayEmail,
+                              isGuest: isGuest,
+                              onCreateAccount: _openAccountEntry,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // ── Stats ──────────────────────────────────────
+                            if (tripCount > 0 || savedCount > 0)
+                              _StatsRow(
+                                trips: tripCount,
+                                saved: savedCount,
+                              ),
+                            if (tripCount > 0 || savedCount > 0)
+                              const SizedBox(height: 20),
+
+                            // ── Guest upgrade strip ────────────────────────
+                            if (isGuest) ...[
+                              _GuestUpgradeStrip(
+                                onCreateAccount: _openAccountEntry,
+                              ),
+                              const SizedBox(height: 28),
+                            ],
+
+                            // ── My Travel section ──────────────────────────
+                            _SectionLabel(label: 'MY TRAVEL'),
+                            const SizedBox(height: 12),
+                            _YCRow(
+                              icon: Icons.luggage_outlined,
+                              title: 'My Trips',
+                              trailing: tripCount > 0 ? '$tripCount' : null,
+                              onTap: () =>
+                                  _open(context, const TripHistoryScreen()),
+                            ),
+                            _YCRowDivider(),
+                            _YCRow(
+                              icon: Icons.favorite_border_rounded,
+                              title: 'Saved Destinations',
+                              trailing:
+                                  savedCount > 0 ? '$savedCount' : null,
+                              onTap: () => _open(
+                                context,
+                                SavedScreen(
+                                  favorites: favorites,
+                                  onFavorite: onFavorite,
+                                ),
+                              ),
+                            ),
+                            _YCRowDivider(),
+                            _YCRow(
+                              icon: Icons.tune_rounded,
+                              title: 'Travel Preferences',
+                              onTap: () =>
+                                  _open(context, const SettingsScreen()),
+                            ),
+                            const SizedBox(height: 28),
+
+                            // ── Travel style section ───────────────────────
+                            _SectionLabel(label: 'YOUR TRAVEL STYLE'),
+                            const SizedBox(height: 14),
+                            _TravelStylePanel(
+                              pace: session.pace,
+                              onEdit: () =>
+                                  _open(context, const SettingsScreen()),
+                            ),
+                            const SizedBox(height: 28),
+
+                            // ── App section ────────────────────────────────
+                            _SectionLabel(label: 'APP'),
+                            const SizedBox(height: 12),
+                            _YCRow(
+                              icon: Icons.settings_outlined,
+                              title: 'Settings',
+                              onTap: () =>
+                                  _open(context, const SettingsScreen()),
+                            ),
+                            _YCRowDivider(),
+                            const _YCRow(
+                              icon: Icons.info_outline_rounded,
+                              title: 'About YatraCanvas',
+                              subtitle:
+                                  'Thoughtful journeys, at your pace · v0.1.0',
+                            ),
+                            const SizedBox(height: 28),
+
+                            // ── Account section ────────────────────────────
+                            _SectionLabel(label: 'ACCOUNT'),
+                            const SizedBox(height: 12),
+                            if (isGuest) ...[
+                              _YCRow(
+                                icon: Icons.login_rounded,
+                                title: 'Sign in',
+                                onTap: _openAccountEntry,
+                              ),
+                              _YCRowDivider(),
+                              _YCRow(
+                                icon: Icons.person_add_outlined,
+                                title: 'Create account',
+                                onTap: _openAccountEntry,
+                              ),
+                            ] else ...[
+                              _YCRow(
+                                icon: Icons.mail_outline_rounded,
+                                title: 'Account',
+                                subtitle: session.displayEmail ?? '',
+                              ),
+                              _YCRowDivider(),
+                              _YCRow(
+                                icon: Icons.logout_rounded,
+                                title: 'Sign out',
+                                onTap: _signOut,
+                                destructive: true,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 24),
-            _Surface(
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _ProfileHeader
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.name,
+    required this.email,
+    required this.isGuest,
+    required this.onCreateAccount,
+  });
+
+  final String name;
+  final String? email;
+  final bool isGuest;
+  final VoidCallback onCreateAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = name.trim().isNotEmpty
+        ? name.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
+        : 'T';
+
+    return YatraRefractiveGlass(
+      radius: 24,
+      blur: 8,
+      fill: const Color(0x55FFFFFF),
+      borderColor: const Color(0xB3FFFFFF),
+      shadow: true,
+      shadowColor: const Color(0x10142C53),
+      shadowBlur: 12,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            // Avatar
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF1E5FD0), Color(0xFF0E3DA6)],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  width: 2,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    fontFamily: 'HomeInter',
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // Name + status
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _NavigationRow(
-                    icon: Icons.favorite_border,
-                    title: 'Saved destinations',
-                    subtitle:
-                        '${favorites.length} ${favorites.length == 1 ? 'destination' : 'destinations'} to dream about',
-                    onTap: () => _open(
-                      context,
-                      SavedScreen(favorites: favorites, onFavorite: onFavorite),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontFamily: 'HomeInter',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF141B34),
+                      letterSpacing: -0.3,
                     ),
                   ),
-                  const Divider(),
-                  _NavigationRow(
-                    icon: Icons.luggage_outlined,
-                    title: 'Your trips',
-                    subtitle: 'Plans from this session',
-                    onTap: () => _open(context, const TripHistoryScreen()),
-                  ),
-                  const Divider(),
-                  _NavigationRow(
-                    icon: Icons.tune,
-                    title: 'Preferences & settings',
-                    subtitle: 'Make planning feel like you',
-                    onTap: () => _open(context, const SettingsScreen()),
+                  const SizedBox(height: 3),
+                  Text(
+                    isGuest
+                        ? 'Guest Traveller'
+                        : (email ?? 'Signed in'),
+                    style: TextStyle(
+                      fontFamily: 'HomeInter',
+                      fontSize: 13,
+                      color: const Color(0xFF526077).withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Guest preferences and recent trips are available during this app session. Account sync is not available yet.',
-              style: YCStyle.secondary,
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _StatsRow
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StatsRow extends StatelessWidget {
+  const _StatsRow({required this.trips, required this.saved});
+  final int trips;
+  final int saved;
+
+  @override
+  Widget build(BuildContext context) {
+    return YatraRefractiveGlass(
+      radius: 18,
+      blur: 5,
+      fill: const Color(0x44FFFFFF),
+      borderColor: const Color(0x99FFFFFF),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _Stat(value: '$trips', label: trips == 1 ? 'Trip' : 'Trips'),
+            _StatDivider(),
+            _Stat(value: '$saved', label: saved == 1 ? 'Saved' : 'Saved'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label});
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontFamily: 'HomeInter',
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF141B34),
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'HomeInter',
+            fontSize: 12,
+            color: Color(0xFF526077),
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 28,
+      width: 1,
+      color: const Color(0x33526077),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _GuestUpgradeStrip
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GuestUpgradeStrip extends StatelessWidget {
+  const _GuestUpgradeStrip({required this.onCreateAccount});
+  final VoidCallback onCreateAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    return YatraRefractiveGlass(
+      radius: 18,
+      blur: 6,
+      fill: const Color(0x44E8F0FF),
+      borderColor: const Color(0x99AABFE8),
+      shadow: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.cloud_upload_outlined,
+              color: Color(0xFF1A4FC4),
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Save your journeys across devices',
+                style: const TextStyle(
+                  fontFamily: 'HomeInter',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF1A2E5A),
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: onCreateAccount,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A4FC4),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Create account',
+                  style: TextStyle(
+                    fontFamily: 'HomeInter',
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _TravelStylePanel
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TravelStylePanel extends StatelessWidget {
+  const _TravelStylePanel({required this.pace, required this.onEdit});
+  final String pace;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    const paces = ['Relaxed', 'Balanced', 'Packed'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final p in paces)
+              _StyleChip(label: p, selected: pace == p),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: onEdit,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Text(
+              'Edit travel style',
+              style: const TextStyle(
+                fontFamily: 'HomeInter',
+                fontSize: 13,
+                color: Color(0xFF1A4FC4),
+                fontWeight: FontWeight.w500,
+                decoration: TextDecoration.underline,
+                decorationColor: Color(0xFF1A4FC4),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StyleChip extends StatelessWidget {
+  const _StyleChip({required this.label, required this.selected});
+  final String label;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: YCMotion.component,
+      curve: YCMotion.standard,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: selected
+            ? const Color(0xFF1A4FC4).withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: selected
+              ? const Color(0xFF1A4FC4).withValues(alpha: 0.50)
+              : const Color(0xFFD7E2EF),
+          width: selected ? 1.5 : 1.0,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'HomeInter',
+          fontSize: 14,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          color: selected
+              ? const Color(0xFF1A4FC4)
+              : const Color(0xFF526077),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section label + row components
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontFamily: 'HomeInter',
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.6,
+        color: Color(0xFF8A9AB8),
+      ),
+    );
+  }
+}
+
+class _YCRow extends StatelessWidget {
+  const _YCRow({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.destructive = false,
+  });
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final String? trailing;
+  final VoidCallback? onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = destructive
+        ? const Color(0xFFCC3333)
+        : const Color(0xFF141B34);
+    final iconColor = destructive
+        ? const Color(0xFFCC3333)
+        : const Color(0xFF1A4FC4);
+
+    Widget row = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 22),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: 'HomeInter',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    color: foreground,
+                  ),
+                ),
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: const TextStyle(
+                      fontFamily: 'HomeInter',
+                      fontSize: 12,
+                      color: Color(0xFF8A9AB8),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7F0FF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                trailing!,
+                style: const TextStyle(
+                  fontFamily: 'HomeInter',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A4FC4),
+                ),
+              ),
+            ),
+          if (onTap != null)
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: const Color(0xFFB8C8DC),
+            ),
+        ],
+      ),
+    );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: const Color(0x08055EC8),
+        borderRadius: BorderRadius.circular(8),
+        child: row,
+      );
+    }
+    return row;
+  }
+}
+
+class _YCRowDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const Divider(
+      height: 1,
+      thickness: 1,
+      color: Color(0xFFEEF3FA),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// YCStateCard (shared empty/loading state surface)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class YCStateCard extends StatelessWidget {
+  const YCStateCard({
+    required this.title,
+    required this.message,
+    this.icon,
+    this.actionLabel,
+    this.onAction,
+    this.loading = false,
+    super.key,
+  });
+  final String title;
+  final String message;
+  final IconData? icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+      side: const BorderSide(color: YCStyle.border),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (loading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (icon != null) ...[
+            Icon(icon, color: YCStyle.blue, size: 28),
+            const SizedBox(height: 12),
+          ],
+          Text(title, style: YCStyle.sectionTitle),
+          const SizedBox(height: 6),
+          Text(message, style: YCStyle.secondary),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: onAction,
+              child: Text(actionLabel!),
+            ),
+          ],
+        ],
+      ),
     ),
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SavedScreen
+// ─────────────────────────────────────────────────────────────────────────────
 
 class SavedScreen extends StatefulWidget {
   const SavedScreen({
@@ -165,10 +831,12 @@ class _SavedScreenState extends State<SavedScreen> {
             if (names.isEmpty)
               YCStateCard(
                 title: 'A little inspiration goes a long way',
-                message: 'Tap the heart on Home or Explore to keep a destination here.',
+                message:
+                    'Tap the heart on Home or Explore to keep a destination here.',
                 icon: Icons.favorite_border,
                 actionLabel: 'Back to exploring',
-                onAction: widget.onExplore ?? () => Navigator.maybePop(context),
+                onAction:
+                    widget.onExplore ?? () => Navigator.maybePop(context),
               ),
             for (final name in names) ...[
               HomeDestinationCard(
@@ -183,7 +851,8 @@ class _SavedScreenState extends State<SavedScreen> {
                 },
                 image: name.toLowerCase(),
                 favorite: true,
-                onFavorite: () => setState(() => widget.onFavorite(name)),
+                onFavorite: () =>
+                    setState(() => widget.onFavorite(name)),
                 onTap: () => _open(
                   context,
                   DestinationSelectionScreen(initialQuery: name),
@@ -191,9 +860,9 @@ class _SavedScreenState extends State<SavedScreen> {
               ),
               const SizedBox(height: 20),
             ],
-            _Surface(
-              child: _NavigationRow(
-                icon: Icons.bookmark_border,
+            _LightCard(
+              child: _YCRow(
+                icon: Icons.bookmark_border_rounded,
                 title: 'Places in your trips',
                 subtitle: 'View and edit the places you selected for a plan',
                 onTap: () => _open(context, const TripHistoryScreen()),
@@ -205,6 +874,10 @@ class _SavedScreenState extends State<SavedScreen> {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TripHistoryScreen
+// ─────────────────────────────────────────────────────────────────────────────
 
 class TripHistoryScreen extends StatefulWidget {
   const TripHistoryScreen({super.key});
@@ -262,7 +935,8 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                     SelectionChip(
                       label: label,
                       selected: _filter == label,
-                      onSelected: (_) => setState(() => _filter = label),
+                      onSelected: (_) =>
+                          setState(() => _filter = label),
                     ),
                 ],
               ),
@@ -272,19 +946,21 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                   title: _filter == 'Past'
                       ? 'Memories start with a plan'
                       : 'Room for your next journey',
-                  message: 'No ${_filter.toLowerCase()} trips in this session.',
+                  message:
+                      'No ${_filter.toLowerCase()} trips in this session.',
                   actionLabel: 'Plan a trip',
                   onAction: () =>
                       _open(context, const DestinationSelectionScreen()),
                 ),
               for (final trip in trips) ...[
-                _Surface(
-                  child: _NavigationRow(
+                _LightCard(
+                  child: _YCRow(
                     icon: Icons.route_outlined,
                     title: trip.destination?.name ?? 'Your trip',
                     subtitle:
                         '${MaterialLocalizations.of(context).formatMediumDate(trip.startDate)} · ${trip.durationDays} days',
-                    onTap: () => _open(context, TripSummaryScreen(draft: trip)),
+                    onTap: () =>
+                        _open(context, TripSummaryScreen(draft: trip)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -296,6 +972,10 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
     },
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TripSummaryScreen
+// ─────────────────────────────────────────────────────────────────────────────
 
 class TripSummaryScreen extends StatefulWidget {
   const TripSummaryScreen({
@@ -378,7 +1058,9 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
     try {
       await _saved.removeSavedPlace(widget.draft.tripId!, place.placeId);
       if (mounted) {
-        setState(() => _places.removeWhere((p) => p.placeId == place.placeId));
+        setState(
+          () => _places.removeWhere((p) => p.placeId == place.placeId),
+        );
       }
     } catch (_) {
       if (mounted) {
@@ -448,7 +1130,7 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
                 style: YCStyle.secondary,
               ),
               const SizedBox(height: 24),
-              _Surface(
+              _LightCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -500,8 +1182,8 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
                     onAction: _load,
                   ),
                 if (_daysLoaded)
-                  _Surface(
-                    child: _NavigationRow(
+                  _LightCard(
+                    child: _YCRow(
                       icon: Icons.calendar_month_outlined,
                       title:
                           '${_days.where((d) => d.dayType == DayType.rest).length} rest days',
@@ -538,6 +1220,8 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
                     name: saved.place.name,
                     description: saved.notes ?? 'Included in this trip',
                     category: saved.place.category,
+                    normalizedCategory: saved.place.normalizedCategory,
+                    imageData: saved.place.image,
                     selected: true,
                     actionLabel: 'Remove',
                     actionBusy: _removing.contains(saved.placeId),
@@ -553,6 +1237,10 @@ class _TripSummaryScreenState extends State<TripSummaryScreen> {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SettingsScreen
+// ─────────────────────────────────────────────────────────────────────────────
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -585,6 +1273,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _notice(String text) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+
   @override
   Widget build(BuildContext context) => YCScaffold(
     appBar: AppBar(title: const Text('Settings')),
@@ -636,23 +1325,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          _Surface(
+          _LightCard(
             child: Column(
               children: [
-                _NavigationRow(
+                _YCRow(
                   icon: Icons.location_on_outlined,
                   title: 'Location permissions',
-                  subtitle: 'Used only when you choose your current location',
+                  subtitle:
+                      'Used only when you choose your current location',
                   onTap: _locationSettings,
                 ),
-                const Divider(),
-                const _NavigationRow(
+                _YCRowDivider(),
+                const _YCRow(
                   icon: Icons.light_mode_outlined,
                   title: 'Appearance',
                   subtitle: 'YatraCanvas light appearance',
                 ),
-                const Divider(),
-                const _NavigationRow(
+                _YCRowDivider(),
+                const _YCRow(
                   icon: Icons.notifications_none,
                   title: 'Notifications',
                   subtitle: 'Trip notifications are not available yet',
@@ -661,10 +1351,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          _Surface(
+          _LightCard(
             child: Column(
               children: [
-                _NavigationRow(
+                _YCRow(
                   icon: Icons.history,
                   title: 'Clear recent trip list',
                   subtitle: 'Keeps your saved trip data intact',
@@ -675,11 +1365,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-                const Divider(),
-                const _NavigationRow(
+                _YCRowDivider(),
+                const _YCRow(
                   icon: Icons.info_outline,
                   title: 'About YatraCanvas',
-                  subtitle: 'Thoughtful journeys, at your pace. Version 0.1.0',
+                  subtitle:
+                      'Thoughtful journeys, at your pace. Version 0.1.0',
                 ),
               ],
             ),
@@ -695,8 +1386,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   );
 }
 
-class _Surface extends StatelessWidget {
-  const _Surface({required this.child});
+// ─────────────────────────────────────────────────────────────────────────────
+// _LightCard (white surface for non-profile screens)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LightCard extends StatelessWidget {
+  const _LightCard({required this.child});
   final Widget child;
   @override
   Widget build(BuildContext context) => Material(
@@ -705,31 +1400,9 @@ class _Surface extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       side: const BorderSide(color: YCStyle.border),
     ),
-    child: Padding(padding: const EdgeInsets.all(16), child: child),
-  );
-}
-
-class _NavigationRow extends StatelessWidget {
-  const _NavigationRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onTap,
-  });
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-  @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: Icon(icon, color: YCStyle.blue, size: 24),
-    title: Text(title, style: YCStyle.body),
-    subtitle: Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Text(subtitle, style: YCStyle.secondary),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: child,
     ),
-    trailing: onTap == null ? null : const Icon(Icons.chevron_right, size: 20),
-    onTap: onTap,
   );
 }

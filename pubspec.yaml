@@ -15,6 +15,7 @@ dependencies:
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   url_launcher: ^6.3.1
+  cached_network_image: ^4.0.0
 
 dev_dependencies:
   flutter_test:
@@ -30,6 +31,8 @@ flutter:
     - lib/Logo/logo.svg
     - lib/assets/home/
     - lib/assets/onboarding/
+    - lib/assets/onboarding/figma_map/
+    - assets/images/place_fallbacks/
     - lib/assets/fonts/OFL.txt
   fonts:
     - family: HomeInter

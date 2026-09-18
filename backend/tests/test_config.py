@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from app.core.config import Settings
+from app.core.config import AppEnvironment, Settings
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ONLY_VARIABLES = {
@@ -43,6 +43,30 @@ def test_optional_provider_keys_normalize_to_none() -> None:
 
     assert settings.google_routes_api_key_value is None
     assert settings.geoapify_api_key_value is None
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("development", AppEnvironment.DEVELOPMENT),
+        ("test", AppEnvironment.TEST),
+        ("staging", AppEnvironment.STAGING),
+        ("production", AppEnvironment.PRODUCTION),
+    ],
+)
+def test_app_environment_accepts_only_explicit_classifications(
+    value: str,
+    expected: AppEnvironment,
+) -> None:
+    assert _settings(APP_ENV=value).app_env is expected
+
+
+def test_app_environment_is_unset_by_default_and_rejects_unknown_values() -> None:
+    assert _settings().app_env is None
+    assert _settings(APP_ENV="   ").app_env is None
+
+    with pytest.raises(ValidationError):
+        _settings(APP_ENV="unknown")
 
 
 def test_secret_values_have_redacted_representations() -> None:

@@ -1,7 +1,7 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-09-11
-Last verified against repository: 2026-09-11
+Last reviewed: 2026-09-18
+Last verified against repository: 2026-09-18
 
 This document is the concise, authoritative primary overview for humans and agents. Status labels mean:
 
@@ -34,6 +34,7 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
   - City and arrival location autocomplete via Geoapify (`GET /locations/autocomplete`);
   - OpenStreetMap/Overpass bounded city-wide candidate discovery across 7 categories;
   - Multi-stage recommendation pipeline with canonical/spatial/brand deduplication, generalizable institutional/private suitability filtering, purpose/interest weighting, bounded Wikidata importance, and mixed-interest category balancing hardened across 7 benchmark cities and validated with 0 restricted POI leakage;
+  - Provider-neutral, cache-first place imagery with background Geoapify/Wikimedia/optional Foursquare resolution, item attribution metadata, negative/failure TTLs, and category-specific Flutter fallbacks that never block place or itinerary responses;
   - Saved places management (`UserSavedPlace`) with custom ordering, locks, must-visit flags, priorities, notes, and authoritative backend reconciliation;
   - Multi-day itinerary optimization powered by Google OR-Tools VRPTW solver with opening hours, category visit duration heuristics, midday lunch breaks, locked stops, and must-visit penalties;
   - Keyless road-following route geometry via OSRM (`GET /trips/{trip_id}/route-geometry`);
@@ -56,14 +57,14 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
 
 | Layer | Technologies | Role & Key Details |
 |---|---|---|
-| **Client (Flutter)** | Flutter SDK (Dart `^3.13.0`), Material 3, `http`, `flutter_map: ^8.3.2`, `geolocator`, `flutter_svg` | Widget-local `StatefulWidget` state + shared in-memory `TripDraft`. No external state library (BLoC/Riverpod) or router package. |
+| **Client (Flutter)** | Flutter SDK (Dart `^3.13.0`), Material 3, `http`, `flutter_map: ^8.3.2`, `geolocator`, `flutter_svg`, `cached_network_image` | Widget-local `StatefulWidget` state + shared in-memory `TripDraft`. No external state library (BLoC/Riverpod) or router package. |
 | **Admin Web App** | HTML5, Vanilla CSS, Vanilla JavaScript (ES6+), Fetch API | Responsive, information-dense operational dashboard served by FastAPI at `/admin` with JWT bearer authentication. |
 | **Backend (FastAPI)** | Python 3.12+, FastAPI, Pydantic v2, SQLModel, SQLAlchemy, psycopg 3, httpx, bcrypt, pyjwt | Async REST API, Pydantic settings, dependency injection, safe error translation, backend secret encapsulation, JWT auth, admin suite. |
-| **Database** | PostgreSQL (local or Supabase-hosted) | 13 canonical tables (`users`, `place_reports`, `cities`, `places`, `place_sources`, `place_categories`, `place_tags`, `city_category_cache`, `trips`, `trip_days`, `trip_preferences`, `user_saved_places`, `route_matrix_cache`, `trip_itinerary`) + `place_import_reviews` schema. |
+| **Database** | PostgreSQL (local or Supabase-hosted) | Canonical/supporting tables include places and provenance, `place_image_cache`, users/reports, trips/days/preferences/saved places, route/itinerary caches, and import reviews. Existing deployments require reviewed manual SQL because no ordered migration runner exists. |
 | **Optimization** | Google OR-Tools (`>=9.9.0`) | Multi-day Vehicle Routing Problem with Time Windows (VRPTW) solver (`VrptwSolverService`). |
 | **Routing & Matrix** | Local coordinate estimates (default matrix), OSRM / openrouteservice (geometry) | Keyless Haversine distance/duration calculations for matrices; OSRM public demo / ORS for road geometry polylines. |
 | **Weather** | Open-Meteo | Hourly/daily weather forecasts with in-memory TTL caching and deterministic exposure classification. |
-| **Caching** | Database + In-Process Memory | DB tables for `city_category_cache` and `route_matrix_cache`; in-memory TTL caches for Geoapify autocomplete, route geometry, and weather forecasts. |
+| **Caching** | Database + In-Process Memory | DB tables for `city_category_cache`, `route_matrix_cache`, and positive/negative/failed `place_image_cache`; in-memory TTL caches for Geoapify autocomplete, route geometry, and weather forecasts. |
 
 ---
 
@@ -78,6 +79,7 @@ Recommendations & Manual Search:
   - Cache-first POI recommendations (OSM + Audiala + Geoapify fallback)
   - Debounced manual search (Geoapify 50km destination radius + local DB)
   - Canonical place resolution via CanonicalPlaceService
+  - Cached image metadata returned immediately; missing images enriched in background
     ↓
 Saved Places (CRUD, reorder, locks, must-visit flags under trip_id)
     ↓
@@ -122,7 +124,9 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
 |---|---|---|---|
 | **OpenStreetMap / Overpass** | `[IMPLEMENTED]` | Primary runtime POI discovery across 7 categories with city-category TTL caching. | None (`OVERPASS_API_URL` defaults to public FOSSGIS endpoint). |
 | **Audiala** | `[IMPLEMENTED]` | Production seed and secondary POI candidate discovery layer; reads local JSON extract and resolves into canonical places. | None (`AUDIALA_DATASET_PATH`). |
-| **Geoapify** | `[IMPLEMENTED]` | Destination city and arrival location autocomplete/geocoding. | `GEOAPIFY_API_KEY` (backend-only). |
+| **Geoapify** | `[IMPLEMENTED]` | Destination/arrival autocomplete, POI fallback, and existing-payload-first place image metadata/details. | `GEOAPIFY_API_KEY` (backend-only). |
+| **Wikimedia / Wikipedia / Wikidata** | `[IMPLEMENTED]` images/prominence; `[PLANNED]` descriptions | Direct-identifier-first notable-place images with source/author/license metadata and conservative contextual fallback. | None; backend supplies a meaningful User-Agent. |
+| **Foursquare Places API** | `[IMPLEMENTED]` optional image enrichment | Conservative venue match and photo selection only; never creates or ranks canonical POIs. | `FOURSQUARE_API_KEY` optional and backend-only. |
 | **Open-Meteo** | `[IMPLEMENTED]` | Weather forecasts and itinerary-aware advisory engine. | None for free non-commercial endpoint (`OPEN_METEO_BASE_URL`). |
 | **OSRM** | `[IMPLEMENTED]` | Default keyless road-route geometry polyline generation. | None (`OSRM_ROUTER_URL`). |
 | **openrouteservice** | `[IMPLEMENTED]` (geometry), `[PLANNED]` (matrix) | Alternative road-route geometry provider. | `OPENROUTESERVICE_API_KEY` (optional). |

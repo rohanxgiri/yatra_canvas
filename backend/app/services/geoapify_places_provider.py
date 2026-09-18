@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
-
 import httpx
 
 from app.schemas import DiscoveryCategory
@@ -174,8 +172,17 @@ class GeoapifyPlacesProvider:
                 tags["website"] = str(props["website"])
             if props.get("phone"):
                 tags["phone"] = str(props["phone"])
-            if props.get("wiki_and_media", {}).get("wikidata"):
-                tags["wikidata"] = str(props["wiki_and_media"]["wikidata"])
+            wiki_and_media = props.get("wiki_and_media", {})
+            if isinstance(wiki_and_media, dict):
+                for source_key, tag_key in (
+                    ("wikidata", "wikidata"),
+                    ("wikipedia", "wikipedia"),
+                    ("wikimedia_commons", "wikimedia_commons"),
+                    ("image", "geoapify_image"),
+                ):
+                    value = wiki_and_media.get(source_key)
+                    if value:
+                        tags[tag_key] = str(value)
             opening_hours = (
                 props.get("opening_hours")
                 or props.get("datasource", {}).get("raw", {}).get("opening_hours")

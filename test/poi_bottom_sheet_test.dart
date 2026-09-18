@@ -252,6 +252,8 @@ void main() {
         onStatusChange: (s) async => captured = s,
       ),
     );
+    await tester.ensureVisible(find.byKey(const Key('poi_mark_visited_button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('poi_mark_visited_button')));
     await tester.pump();
     expect(captured, ItineraryStopStatus.completed);
@@ -267,6 +269,8 @@ void main() {
         onStatusChange: (s) async => captured = s,
       ),
     );
+    await tester.ensureVisible(find.byKey(const Key('poi_couldnt_visit_button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('poi_couldnt_visit_button')));
     await tester.pump();
     expect(captured, ItineraryStopStatus.missed);
@@ -280,6 +284,8 @@ void main() {
         onStatusChange: (s) async => captured = s,
       ),
     );
+    await tester.ensureVisible(find.byKey(const Key('poi_skip_button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('poi_skip_button')));
     await tester.pump();
     expect(captured, ItineraryStopStatus.skipped);
@@ -309,6 +315,8 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('poi_move_day_button')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('poi_move_day_button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('poi_move_day_button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('poi_move_day_picker')), findsOneWidget);
@@ -339,6 +347,8 @@ void main() {
       ),
     );
     await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('poi_move_day_button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('poi_move_day_button')));
     await tester.pumpAndSettle();
@@ -696,6 +706,8 @@ void main() {
       ),
     );
     await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('poi_mark_visited_button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('poi_mark_visited_button')));
     await tester.pump();

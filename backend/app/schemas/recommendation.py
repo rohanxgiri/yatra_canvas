@@ -6,6 +6,8 @@ from uuid import UUID
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
+from app.schemas.place_image import PlaceImageRead
+
 
 class DiscoveryCategory(str, Enum):
     RELIGIOUS = "religious"
@@ -18,7 +20,7 @@ class DiscoveryCategory(str, Enum):
 
 
 class RecommendationRequest(SQLModel):
-    categories: list[DiscoveryCategory] = Field(min_length=1, max_length=5)
+    categories: list[DiscoveryCategory] = Field(min_length=1, max_length=7)
     limit: int = Field(default=30, ge=1, le=100)
     trip_id: UUID | None = None
     purposes: list[str] | None = None
@@ -50,3 +52,5 @@ class RecommendationRead(SQLModel):
     recommendation_reason: str | None = None
     access_confidence: str = "PUBLIC_LIKELY"
     is_saved: bool = False
+    normalized_category: str = "other"
+    image: PlaceImageRead | None = None

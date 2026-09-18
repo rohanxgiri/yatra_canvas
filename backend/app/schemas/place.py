@@ -7,6 +7,9 @@ from uuid import UUID
 from pydantic import ValidationInfo, field_validator, model_validator
 from sqlmodel import Field, SQLModel
 
+from app.schemas.place_image import PlaceImageRead
+from app.services.place_category_normalizer import normalize_place_category
+
 WEEKDAY_NAMES: Final[list[str]] = [
     "monday",
     "tuesday",
@@ -66,6 +69,8 @@ class PlaceRead(PlaceBase):
     id: UUID
     city_id: UUID
     created_at: datetime
+    normalized_category: str = "other"
+    image: PlaceImageRead | None = None
     opening_hours: dict[str, list[OpeningHoursInterval]] = Field(
         default_factory=lambda: {d: [] for d in WEEKDAY_NAMES}
     )
@@ -87,6 +92,9 @@ class PlaceRead(PlaceBase):
 
     @model_validator(mode="after")
     def ensure_opening_hours(self) -> "PlaceRead":
+        self.normalized_category = normalize_place_category(
+            self.category, name=self.name
+        ).value
         if self.raw_opening_hours and all(
             not intervals for intervals in self.opening_hours.values()
         ):
@@ -163,6 +171,8 @@ class PlaceSearchResult(SQLModel):
     place_id: UUID | None = None
     external_place_id: str | None = None
     source: str = "database"
+    normalized_category: str = "other"
+    image: PlaceImageRead | None = None
 
 
 class PlaceResolveRequest(SQLModel):

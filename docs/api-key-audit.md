@@ -1,6 +1,6 @@
 # YatraCanvas API key and environment audit
 
-Audit date: 2026-08-31; provider responsibilities updated 2026-09-01
+Audit date: 2026-08-31; place-image configuration updated 2026-09-18
 
 Branch: `chore/api-key-configuration-audit`
 
@@ -34,6 +34,10 @@ only required secret configuration value.
 | `GEOAPIFY_BASE_URL` | Geoapify | Optional override; safe default exists | `backend/app/core/config.py`, `backend/app/routers/locations.py`, `backend/.env.example` | Backend | No | Geoapify client base URL | Defaults to `https://api.geoapify.com` | Keep the default unless using a controlled compatible endpoint |
 | `GEOAPIFY_TIMEOUT_SECONDS` | Geoapify | Optional tuning; safe default exists | Same Geoapify settings and router files | Backend | No | Outbound autocomplete timeout | Defaults to `8` seconds | Keep the documented default unless measured behaviour requires a change |
 | `GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS` | Geoapify | Optional tuning; safe default exists | Same Geoapify settings and router files | Backend | No | In-memory autocomplete cache | Defaults to `300` seconds | Keep the default or tune within validation bounds |
+| `FOURSQUARE_API_KEY` | Foursquare Places API | `[IMPLEMENTED]` optional image enrichment | `backend/app/core/config.py`, image provider, `.env.example` | Backend only | Yes | Conservative matched-place photo lookup only | Provider is disabled; Geoapify/Wikimedia and bundled fallbacks continue | Store only in backend deployment secrets; never expose to Flutter |
+| `FOURSQUARE_BASE_URL` | Foursquare Places API | `[IMPLEMENTED]` optional override; safe default exists | Backend settings and image provider | Backend | No | Foursquare image-enrichment requests | Defaults to `https://places-api.foursquare.com` | Keep the official HTTPS endpoint unless using a controlled compatible service |
+| `PLACE_IMAGE_TIMEOUT_SECONDS`, `PLACE_IMAGE_CONCURRENCY` | Place-image resolver | `[IMPLEMENTED]` optional tuning | Backend settings, resolver, `.env.example` | Backend | No | Per-provider budget and bounded background concurrency | Safe validated defaults apply | Tune only from measured provider behaviour |
+| `PLACE_IMAGE_CACHE_TTL_HOURS`, `PLACE_IMAGE_NEGATIVE_TTL_HOURS`, `PLACE_IMAGE_FAILED_TTL_MINUTES` | Place-image cache | `[IMPLEMENTED]` optional tuning | Backend settings, resolver, `.env.example` | Backend | No | Positive, not-found, and transient-failure cache freshness | Safe validated defaults apply | Keep positive entries longest and transient failures shortest |
 | `OVERPASS_API_URL` | OpenStreetMap/Overpass | Optional override; safe public default exists | OSM services, settings, and `.env.example` | Backend | No | Normal bounded POI recommendations | Defaults to the documented public endpoint | Treat public service as best-effort; evaluate self-hosting/extracts for production |
 | `OVERPASS_TIMEOUT_SECONDS` | OpenStreetMap/Overpass | Optional tuning; safe default exists | OSM services, settings, and `.env.example` | Backend | No | Outbound query timeout | Defaults to `25` seconds | Keep within validated bounds |
 | `OVERPASS_RADIUS_METERS` | OpenStreetMap/Overpass | Optional tuning; safe default exists | OSM services, settings, and `.env.example` | Backend | No | Bounded city POI area | Defaults to `8000` metres | Keep bounded to limit public-instance load |
@@ -60,7 +64,6 @@ exist.
 | Variable | Provider | Required/Optional/Unused | Location | Backend/Client | Secret? | Used by | Missing behaviour | Recommended action |
 | -------- | -------- | ------------------------ | -------- | -------------- | ------- | ------- | ----------------- | ------------------ |
 | No variable declared | Supabase Auth/client | Planned, not implemented | Intended architecture and backend documentation only | Undecided; no client SDK or auth code | Depends on future key type | Nothing in current code | No authentication functionality exists | Design Auth and Row Level Security first; never place a future service-role key in Flutter |
-| No variable declared | Wikidata/Wikipedia | Planned, not implemented | Backend provider table only | Likely backend | Normally no runtime key | Nothing in current code | No notable-place enrichment | Add no key placeholder now |
 | No variable declared | openrouteservice | Planned, not implemented; Google Routes is the actual provider | Intended architecture only | Likely backend | A future key would be secret | Nothing in current code | Routing continues to use Google Routes | Provider replacement is outside this audit; add configuration only with implementation |
 | No variable declared | Open-Meteo | Planned, not implemented | Intended architecture only | Likely backend | Normally no key for the selected public endpoint | Nothing in current code | No weather feature | Add no key placeholder now |
 | No variable declared | Frankfurter | Planned, not implemented | Intended architecture only | Likely backend | Normally no key | Nothing in current code | No currency conversion | Add no key placeholder now |
@@ -91,7 +94,7 @@ appearance in this report is documentation only).
 | -------- | -------- | ------------------------ | -------- | -------------- | ------- | ------- | ----------------- | ------------------ |
 | `GOOGLE_MAPS_API_KEY` | Google Maps SDK | Verified unused / not declared | No Maps SDK dependency, manifest metadata, or source configuration | Neither | Yes if one existed | Nothing; the destination UI attributes its active Geoapify/OSM source and does not initialize a map SDK | None | Do not add it; manually remove it from local environments if present and not used by external infrastructure |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase client/Auth | Verified unused / not declared | No SDK, source, platform, deployment, or CI reference | Neither | URL: no; anon key: public credential; service role: highly secret | Nothing | No current change because Auth/client functionality is absent | Do not add now; a service-role key must never enter Flutter |
-| `FOURSQUARE_API_KEY`, `FOURSQUARE_API_TOKEN` | Proprietary Foursquare Places API | Verified unused / not declared | Local FSQ OS importer only | Neither | Yes | Nothing | Local FSQ import remains available from a file | Do not add; a portal download token is outside application runtime configuration |
+| `FOURSQUARE_API_TOKEN` | Foursquare portal/download token | Verified unused / not declared | Local FSQ OS importer accepts a file path only | Neither | Yes | Nothing | Local FSQ import remains available from a file; runtime photo enrichment uses the separately scoped `FOURSQUARE_API_KEY` | Keep portal/download credentials outside application runtime configuration |
 | `OPENROUTESERVICE_API_KEY` | openrouteservice | Verified unused / not declared | No client or dependency | Neither | Yes | Nothing | Google Routes remains the implemented router | Do not add until an approved provider migration is implemented |
 | `OPEN_METEO_API_KEY`, `FRANKFURTER_API_KEY`, `WIKIDATA_API_KEY`, `WIKIPEDIA_API_KEY`, `OVERPASS_API_KEY` | Intended no-key providers | Verified unused / not declared | No client, dependency, build, or deployment reference | Neither | Not expected for the selected public implementations | Nothing | Corresponding features are not implemented | Do not add placeholders |
 | Firebase/OAuth client secrets | Firebase, Google Sign-In, Apple Sign-In | Verified unused / not declared | Login buttons are UI-only; no SDK or platform configuration | Neither | Depends on credential type | Nothing | Login remains a mock UI flow | Do not add until authentication is implemented and reviewed |
@@ -108,7 +111,7 @@ confirmed reader and use. No unexplained variable name was found in the local
 | -------- | -------- | ------------------------ | -------- | -------------- | ------- | ------- | ----------------- | ------------------ |
 | `FSQ_OS_PLACES_PATH` or CLI `--source` (path, not key) | Foursquare Open Source Places | Optional implemented local import | `backend/app/importers/fsq_os_places.py`, `backend/app/cli.py` | Backend/CLI | No runtime credential | CSV/JSONL/NDJSON import | No import occurs without a local file | Keep the importer keyless; portal access used to obtain a file must remain outside app runtime |
 | `OVERPASS_API_URL` (URL, not key) | OpenStreetMap/Overpass | Implemented normal recommendations | OSM discovery services and Flutter attribution | Backend / client attribution | No | Bounded cached POI refresh | Retryable 429/503/504 on public-instance failure | Preserve attribution and use responsible caching; no API key exists |
-| No variable | Wikidata/Wikipedia | Planned only | Intended architecture | Backend when implemented | No | Nothing currently | No enrichment | Add no key unless a future selected service explicitly requires one |
+| No variable | Wikidata/Wikipedia/Wikimedia Commons | `[IMPLEMENTED]` place-image enrichment | Backend Wikimedia image provider | Backend | No | Direct identifiers first, then conservative contextual image search with license metadata | Provider misses/failures leave the place intact and Flutter uses a bundled fallback | Keep the provider keyless and preserve source/license metadata |
 | No variable | Open-Meteo | Planned only | Intended architecture | Backend when implemented | No for the selected public endpoint | Nothing currently | No weather | Add no key now |
 | No variable | Frankfurter | Planned only | Intended architecture | Backend when implemented | No | Nothing currently | No currency conversion | Add no key now |
 
@@ -120,7 +123,7 @@ confirmed reader and use. No unexplained variable name was found in the local
 | Authentication | Supabase Auth | Not implemented; login controls are mock UI |
 | Open POI import | FSQ OS Places | Implemented as a local file importer with no runtime token |
 | Additional POIs | OpenStreetMap/Overpass | No live client; only OSM-related provenance/attribution is present |
-| Notable-place enrichment | Wikidata/Wikipedia | Not implemented |
+| Notable-place enrichment | Wikidata/Wikipedia/Wikimedia Commons | `[IMPLEMENTED]` for optional place imagery; broader knowledge enrichment remains `[PLANNED]` |
 | Autocomplete/geocoding | Geoapify | Implemented through the backend |
 | Directions/matrices | openrouteservice | Not implemented; Google Routes is currently used instead |
 | Weather | Open-Meteo | Not implemented |
@@ -130,7 +133,7 @@ confirmed reader and use. No unexplained variable name was found in the local
 ## Secret placement review
 
 - Flutter contains only the non-secret `API_BASE_URL`. No backend credential
-  name or value is compiled into Dart.
+  name or value, including `FOURSQUARE_API_KEY`, is compiled into Dart.
 - Android has Internet and location permissions but no Google Maps/Firebase
   metadata, Google Services plugin, or secret Gradle property. There is no iOS
   directory or `Info.plist` in this revision.
@@ -141,7 +144,8 @@ confirmed reader and use. No unexplained variable name was found in the local
 - Provider exceptions and API responses use stable messages and do not include
   keys or raw upstream response bodies. Existing tests cover safe Geoapify
   failures; added tests cover missing Google keys and redacted settings.
-- Google keys are sent in `X-Goog-Api-Key` headers. Geoapify requires its key in
+- Google keys are sent in `X-Goog-Api-Key` headers. Foursquare image requests use
+  an `Authorization: Bearer` header. Geoapify requires its key in
   the outbound query string, so production HTTP client/proxy debug logging must
   keep query-string redaction enabled. The repository does not enable such
   outbound debug logging.

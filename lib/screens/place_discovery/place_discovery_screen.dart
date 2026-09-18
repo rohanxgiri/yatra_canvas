@@ -26,6 +26,7 @@ import '../../models/trip_day.dart';
 import '../../services/trip_service.dart';
 import '../create_trip/plan_days_screen.dart';
 import '../../widgets/place_card.dart';
+import '../../widgets/place_image.dart';
 import '../../widgets/selection_chip.dart';
 import '../trip_map/trip_map_screen.dart';
 import 'widgets/weather_advisory_card.dart';
@@ -172,11 +173,15 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         case 'Mixed Trip':
           categories.addAll(PlaceCategory.values);
           break;
-        case 'Sightseeing':
         case 'Nature':
+          categories.add(PlaceCategory.nature);
+          break;
+        case 'Shopping':
+          categories.add(PlaceCategory.markets);
+          break;
+        case 'Sightseeing':
         case 'Relaxation':
         case 'Family Trip':
-        case 'Shopping':
           categories.add(PlaceCategory.tourism);
           break;
       }
@@ -547,6 +552,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
               visitDurationMinutes: p.visitDurationMinutes,
               isOpeningHoursKnown: p.isOpeningHoursKnown,
               status: updatedStop.status,
+              category: updatedStop.category == 'other'
+                  ? p.category
+                  : updatedStop.category,
+              normalizedCategory: updatedStop.normalizedCategory == 'other'
+                  ? p.normalizedCategory
+                  : updatedStop.normalizedCategory,
+              image: updatedStop.image ?? p.image,
             );
           }
           return p;
@@ -2087,6 +2099,19 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          AspectRatio(
+                            aspectRatio: 4 / 3,
+                            child: PlaceImage(
+                              name: recommendation.name,
+                              image: recommendation.image,
+                              normalizedCategory:
+                                  recommendation.normalizedCategory,
+                              rawCategory: recommendation.category,
+                              borderRadius: BorderRadius.circular(18),
+                              showAttribution: true,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
                           Text(
                             recommendation.name,
                             style: AppTextStyles.pageTitle,
@@ -2118,6 +2143,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                 ),
                 name: recommendation.name,
                 category: _categoryLabel(recommendation.category),
+                normalizedCategory: recommendation.normalizedCategory,
+                imageData: recommendation.image,
                 description: _matchDescription(recommendation),
                 meta: _recommendationMeta(recommendation),
                 selected: selected,
@@ -3191,6 +3218,17 @@ class _RouteStop extends StatelessWidget {
                       ),
               ),
               const SizedBox(width: 11),
+              SizedBox.square(
+                dimension: 52,
+                child: PlaceImage(
+                  name: place.name,
+                  image: place.image,
+                  normalizedCategory: place.normalizedCategory,
+                  rawCategory: place.category,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3612,6 +3650,8 @@ IconData _categoryIcon(PlaceCategory category) => switch (category) {
   PlaceCategory.tourism => Icons.photo_camera_outlined,
   PlaceCategory.cafes => Icons.local_cafe_rounded,
   PlaceCategory.heritage => Icons.account_balance_rounded,
+  PlaceCategory.markets => Icons.shopping_bag_outlined,
+  PlaceCategory.nature => Icons.park_rounded,
 };
 
 class _ReplanAdvisoryCard extends StatelessWidget {

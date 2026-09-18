@@ -1,6 +1,6 @@
 # Environment variables
 
-Last reviewed: 2026-09-14
+Last reviewed: 2026-09-18
 
 This is the complete repository-owned configuration inventory. Names are documented; real
 values are not. Backend settings load from process environment or untracked `backend/.env`.
@@ -10,6 +10,7 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 
 | Variable | Service/provider | Required? | Owner | Purpose | Public/secret | Status and replacement note |
 | --- | --- | --- | --- | --- | --- | --- |
+| `APP_ENV` | Backend runtime classification | Optional for normal startup; required for diagnostic writes | Backend/deployment | Explicitly classifies `development`, `test`, `staging`, or `production`; never inferred from a database URL | Non-secret | `[IMPLEMENTED]`; database write-test utilities fail closed unless explicitly `development` or `test` |
 | `DATABASE_URL` | PostgreSQL (Supabase URL supported) | Required to start | Backend/deployment | SQLAlchemy/psycopg database connection | Secret | `[IMPLEMENTED]`; remains required in target architecture |
 | `JWT_SECRET_KEY` | Authentication / JWT | Optional; dev fallback provided | Backend | Cryptographic secret for signing and verifying JWT authentication tokens | Secret | `[IMPLEMENTED]`; rotate and provide strong secret in production |
 | `JWT_ALGORITHM` | Authentication / JWT | Optional | Backend | JWT token signing algorithm, default `HS256` | Non-secret | `[IMPLEMENTED]` |
@@ -22,6 +23,13 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 | `GEOAPIFY_BASE_URL` | Geoapify | Optional | Backend | Provider base URL; default is the official HTTPS API host | Non-secret | `[IMPLEMENTED]`; useful for controlled testing, validate as HTTP(S) |
 | `GEOAPIFY_TIMEOUT_SECONDS` | Geoapify | Optional | Backend | Outbound request timeout, default 8 seconds | Non-secret | `[IMPLEMENTED]` |
 | `GEOAPIFY_AUTOCOMPLETE_CACHE_TTL_SECONDS` | Geoapify | Optional | Backend | In-process autocomplete TTL, default 300 seconds | Non-secret | `[IMPLEMENTED]`; cache is not shared/persistent |
+| `FOURSQUARE_API_KEY` | Foursquare Places API | Optional | Backend | Enables conservative venue-match photo enrichment only; never sent to Flutter | Secret | `[IMPLEMENTED]`; empty disables this adapter without breaking place responses |
+| `FOURSQUARE_BASE_URL` | Foursquare Places API | Optional | Backend | Provider base URL, default `https://places-api.foursquare.com` | Non-secret | `[IMPLEMENTED]`; validate as HTTP(S) |
+| `PLACE_IMAGE_TIMEOUT_SECONDS` | Place image providers | Optional | Backend | Per-request provider timeout, default 5 seconds | Non-secret | `[IMPLEMENTED]`; work is outside the foreground response path |
+| `PLACE_IMAGE_CONCURRENCY` | Place image providers | Optional | Backend | Maximum places enriched concurrently per batch, default 4 | Non-secret | `[IMPLEMENTED]` |
+| `PLACE_IMAGE_CACHE_TTL_HOURS` | Place image cache | Optional | Backend | Successful image cache TTL, default 720 hours | Non-secret | `[IMPLEMENTED]` |
+| `PLACE_IMAGE_NEGATIVE_TTL_HOURS` | Place image cache | Optional | Backend | Not-found cache TTL, default 24 hours | Non-secret | `[IMPLEMENTED]` |
+| `PLACE_IMAGE_FAILED_TTL_MINUTES` | Place image cache | Optional | Backend | Provider-failure cache TTL, default 30 minutes | Non-secret | `[IMPLEMENTED]` |
 | `OVERPASS_API_URL` | OpenStreetMap / Overpass | Optional | Backend | Bounded runtime POI query endpoint; defaults to the public FOSSGIS `lz4` endpoint and may point to a self-hosted instance | Non-secret | `[IMPLEMENTED]` for development/small-scale discovery; public service has no production SLA |
 | `OVERPASS_TIMEOUT_SECONDS` | OpenStreetMap / Overpass | Optional | Backend | Outbound and query timeout, default 25 seconds | Non-secret | `[IMPLEMENTED]` |
 | `OVERPASS_RADIUS_METERS` | OpenStreetMap / Overpass | Optional | Backend | Default half-width of bounded POI discovery box, default 8,000 m | Non-secret | `[IMPLEMENTED]` |
@@ -73,15 +81,20 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 ## What a developer needs today
 
 - Always: a PostgreSQL `DATABASE_URL` for the backend environment.
+- For any mutation-oriented database diagnostic: an explicit `APP_ENV=development` or
+  `APP_ENV=test`. Missing, staging, and production classifications are rejected. Runtime startup
+  remains backward-compatible when `APP_ENV` is absent.
 - For the normal destination and arrival autocomplete flow: `GEOAPIFY_API_KEY`.
 - For POI recommendations: no key; the backend uses the configured public or self-hosted
-  `OVERPASS_API_URL` and persists ODbL provenance.
+  `OVERPASS_API_URL` and persists ODbL provenance. Images still render from local fallbacks;
+  `FOURSQUARE_API_KEY` is optional enrichment, never a recommendation prerequisite.
 - For route optimization: no key; the current normal path uses clearly labelled local estimates.
-- For local FSQ import: an operator-exported file and optionally `FSQ_OS_PLACES_PATH`; the app does
-  not need a proprietary Foursquare API key or an FSQ portal token.
+- For local FSQ import: an operator-exported file and optionally `FSQ_OS_PLACES_PATH`; the importer
+  does not use `FOURSQUARE_API_KEY` or an FSQ portal token.
 
-Only `DATABASE_URL` is globally required. The three provider keys are independently optional;
-request only keys for features being exercised.
+Only `DATABASE_URL` is globally required for normal backend startup. `APP_ENV` is additionally
+required before a guarded diagnostic can perform test writes. Provider keys are independently
+optional; request only keys for features being exercised.
 
 ## Planned providers are intentionally absent
 
@@ -104,6 +117,8 @@ The following variables were removed from `Settings` and `backend/.env.example` 
 ## Secret-handling rules
 
 - Copy `backend/.env.example` to `backend/.env`; never commit or paste the real file.
+- Keep database dumps and backups outside the repository. Common local database and backup
+  extensions, plus `backups/` directories, are ignored as a second line of defense.
 - Do not put `DATABASE_URL` or provider keys in Flutter, screenshots, HTTP responses, logs, test
   assertions, documentation, or issue descriptions.
 - Restrict and rotate keys in the provider console. Do not call a paid API merely to test a key.
