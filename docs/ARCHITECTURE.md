@@ -116,9 +116,11 @@ notices on unassigned days.
 prerequisite. Flutter parses the optional provider-neutral `image` object and
 `normalized_category`, then renders recommendation cards, itinerary stops, and selected map POI
 sheets through one `PlaceImage` widget. `cached_network_image` supplies memory/disk-backed native
-caching; the widget reserves its aspect ratio and immediately paints a bundled,
-category-specific fallback while a remote image loads or after it fails. Home and Explore are
-unchanged by this slice.
+caching; the widget reserves its aspect ratio, paints a neutral image-region placeholder while a
+remote image loads, and uses a neutral YatraCanvas gradient plus category icon when no authentic
+photo exists or loading fails. It never substitutes a generic photograph. Returned HTTP(S) image
+URLs are precached with explicit failure handling after recommendation metadata arrives. Home and
+Explore are unchanged by this slice.
 
 ### FastAPI
 
@@ -195,7 +197,7 @@ provider boundary.
 - Traveller-Suitability & Access Confidence (`is_traveller_suitable`): general context-based evaluation classifying venues into `PUBLIC_LIKELY`, `UNKNOWN`, `RESTRICTED_LIKELY`, and `RESTRICTED`. Evaluates explicit OSM access tags, institutional `operator` values, `building` context, and non-tourist facility patterns (corporate offices, retail bank branches, ATMs). Automatically excludes student messes, institutional canteens, staff cafeterias, and restricted-access venues without blacklisting individual university/company names.
 - Scoring & Diversity: deterministic scoring combining category match, access confidence, verified ratings/reviews, and bounded POI prominence scoring (`PlaceImportanceScorer` using log-normalized sitelinks & PageRank from Wikidata/Audiala, weighted at 15.0 pts within relevant candidates) without fabricated data; generates explainable recommendation reasons and flags saved places. Mixed-interest category balancing interleaves strongly requested categories without prohibitive cross-tier score dropoffs, preventing category starvation.
 - `[IMPLEMENTED]` Place Image Resolution (`PlaceImageResolver`, `PlaceImageCache`): a single
-  category normalizer drives provider priority and Flutter fallback selection. API serializers
+  category normalizer drives provider priority and the neutral Flutter fallback icon. API serializers
   batch-read cached image rows and never await a remote image provider. Missing/expired IDs are
   scheduled after POI prefetch or recommendation work on a separate task. Each batch shares one
   `httpx.AsyncClient`, uses bounded concurrency/timeouts, and tries category-aware chains:
@@ -203,9 +205,14 @@ provider boundary.
   Foursquare/Geoapify/Wikimedia for businesses. Geoapify imported media is reused before Place
   Details; Wikimedia direct Commons/Wikipedia/Wikidata identifiers precede conservative fuzzy
   matching; optional Foursquare candidates must pass name, distance, category, and locality
-  checks. Positive, not-found, and failed outcomes are persisted with different TTLs and
-  attribution/license fields. Provider failure therefore changes imagery to a local asset, not
-  the place-list or itinerary response.
+  checks. Search adapters use `exact name, city, state, country`, with coordinates/category sent
+  separately where supported, and the resolver rejects candidate URLs that do not return an image
+  media type. Positive, not-found, and failed outcomes are persisted with different TTLs and
+  attribution/license fields. The durable key is the canonical `Place.id`; diagnostic/provider
+  identity is `provider_name + provider_place_id`, falling back to normalized name, city, and
+  rounded coordinates when no provider identity exists. New image-capable provenance invalidates
+  an older cache row so a valid negative result cannot mask later enrichment. Provider failure
+  therefore changes only imagery, not the place-list or itinerary response.
 - `[IMPLEMENTED]` Progressive POI Prefetch & Cache-First Live Discovery Reliability (`ProgressivePrefetchCoordinator`, `CityPlacePrefetchService`, `OpenStreetMapDiscoveryService`, `GeoapifyPlacesProvider`, `ProviderCircuitBreaker`):
   - **3-Tier Cache Semantics**: Queries evaluate category coverage into `FRESH` ($\le 24$h / `PLACE_DISCOVERY_CACHE_TTL_HOURS`), `STALE_USABLE` ($\le 168$h / `DISCOVERY_STALE_USABLE_HOURS`), and `MISSING`. A completed fresh destination query is authoritative even when a small city has fewer results than the request limit, preventing perpetual refetch. Cache keys are `(city_id, PLACE_DISCOVERY_CACHE_VERSION, category)`; incrementing the configured version invalidates an incompatible query strategy without deleting rows manually.
   - **Stale Cache Behavior**: Stale-usable categories immediately return cached places without a foreground provider call. A durable background refresh queue is not implemented.
@@ -257,7 +264,7 @@ provider boundary.
 - **Optimizer Integration**:
   - `[IMPLEMENTED]` Normalized weekday rows feed the tested day-aware solver.
 
-`[IMPLEMENTED]` Day-aware OR-Tools VRPTW pipeline (verified 2026-09-07):
+`[IMPLEMENTED]` Day-aware OR-Tools VRPTW pipeline (verified 2026-09-19):
 
 ```text
 TripDays
@@ -292,9 +299,11 @@ TripDays
   100,000,000; locks add 1,000,000,000. These are retention preferences, not hard priority
   visit precedence. All visits remain optional to support feasible partial itineraries.
 - Travel/service cost plus a soft span penalty above 75% of each individual day's capacity
-  discourages heavily utilized days. The coefficient scales inversely with capacity.
-  A small 100-unit route activation cost allows underfilled trips to use fewer days.
-  No POI-count quotas or equal-duration constraints are imposed.
+  discourages heavily utilized days. A separate `VisitCount` dimension minimizes the largest
+  per-day stop count across feasible non-REST routes. There is no vehicle activation cost, so
+  a small distance saving no longer rewards leaving an otherwise feasible active day empty.
+  This is not a hard quota: opening intervals, touring windows, visit duration, explicit day
+  assignments, and locks remain hard constraints and may produce unequal counts.
 - Lunch uses the existing 60-minute duration and 12:30–14:00 start range only when a full
   break fits inside the day's window. Break transit metadata includes service times so
   lunch cannot overlap a visit. Empty routes do not emit breaks.
@@ -304,14 +313,25 @@ TripDays
   fractional test limits are honored in milliseconds. No optimality proof is promised.
 - Responses and replan previews add `unscheduled_places` with place ID/name, structured
   reason and optional assigned day ID. Scheduled rows retain times, leg metrics and known-hours
-  state. `total_days=trip.days` preserves empty logical days. The selection cap is now 50;
-  there is no minimum-place-per-day requirement. No recommendations fill empty days.
+  state. `total_days=trip.days` preserves empty logical days. When fewer feasible saved places
+  exist than active days, Flutter labels those empty active days as light/flexible time rather
+  than user-selected REST. The selection cap is now 50; no recommendations are invented,
+  duplicated, or fetched merely to fill an empty day.
 - Scheduled rows alone are persisted in `TripItinerary`; saved selections are never deleted.
   Unscheduled reasons and known-hours state are generation-response metadata, not durable
   snapshots. No schema migration is introduced. Full-trip preview and apply share inputs;
   existing staleness detection still flags intentionally unscheduled places (technical debt).
 - Geometry attachment remains best-effort after persistence. Flutter consumes optional
   unscheduled lists and existing known-hours booleans; no final itinerary UI redesign.
+
+`[IMPLEMENTED]` Place and itinerary loading presentation uses explicit loading, loaded, empty,
+and error states. Initial recommendation fetches render 4–6 scrollable skeleton cards matching
+the real 4:3 image and text/action layout; route generation renders day headers, compact thumbnails,
+and connector geometry. One composition-level subtle grey color pulse is disabled by the platform
+reduced-motion setting. Skeletons start and stop with the actual Future and introduce no artificial
+delay. Once place metadata arrives, cards render immediately while `PlaceImage` independently
+resolves its cached/network photo through explicit `unknown`, `loading`, `success`, `notFound`, and
+`error` presentation states.
 
 See [planner implementation report](PLANNER_IMPLEMENTATION.md) and
 [actual synthetic five-day example](PLANNER_EXAMPLE.md).

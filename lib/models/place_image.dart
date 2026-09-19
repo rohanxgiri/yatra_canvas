@@ -1,3 +1,5 @@
+enum PlaceImageState { unknown, loading, success, notFound, error }
+
 class PlaceImageData {
   const PlaceImageData({
     this.url,
@@ -21,16 +23,35 @@ class PlaceImageData {
   final String? licenseUrl;
   final String status;
 
-  bool get hasRemoteImage {
-    final candidate = thumbnailUrl ?? url;
-    final uri = candidate == null ? null : Uri.tryParse(candidate);
-    return status == 'resolved' &&
-        uri != null &&
-        (uri.scheme == 'https' || uri.scheme == 'http') &&
-        uri.host.isNotEmpty;
+  PlaceImageState get state {
+    switch (status) {
+      case 'resolved':
+        return _validRemoteUrl == null
+            ? PlaceImageState.error
+            : PlaceImageState.success;
+      case 'not_found':
+        return PlaceImageState.notFound;
+      case 'failed':
+        return PlaceImageState.error;
+      default:
+        return PlaceImageState.unknown;
+    }
   }
 
-  String? get bestUrl => hasRemoteImage ? (thumbnailUrl ?? url) : null;
+  String? get _validRemoteUrl {
+    final candidate = thumbnailUrl ?? url;
+    final uri = candidate == null ? null : Uri.tryParse(candidate);
+    if (uri == null ||
+        (uri.scheme != 'https' && uri.scheme != 'http') ||
+        uri.host.isEmpty) {
+      return null;
+    }
+    return candidate;
+  }
+
+  bool get hasRemoteImage => state == PlaceImageState.success;
+
+  String? get bestUrl => hasRemoteImage ? _validRemoteUrl : null;
 
   factory PlaceImageData.fromJson(Map<String, dynamic> json) => PlaceImageData(
     url: json['url'] as String?,

@@ -218,6 +218,27 @@ class ProgressivePrefetchCoordinator:
     def get_state(self, city_id: UUID) -> PrefetchState | None:
         return self._states.get(city_id)
 
+    def active_categories(self, city_id: UUID) -> list[str]:
+        """Return active category names without waiting for provider work."""
+
+        return sorted(
+            category
+            for (task_city_id, category), task in self._tasks.items()
+            if task_city_id == city_id and not task.done()
+        )
+
+    def is_prefetch_active(
+        self,
+        city_id: UUID,
+        categories: list[DiscoveryCategory] | None = None,
+    ) -> bool:
+        """Inspect in-flight state without joining the background tasks."""
+
+        active = set(self.active_categories(city_id))
+        if categories is None:
+            return bool(active)
+        return any(category.value in active for category in categories)
+
     async def wait_for_city(self, city_id: UUID) -> None:
         tasks = {
             task

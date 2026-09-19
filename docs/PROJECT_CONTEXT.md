@@ -34,7 +34,7 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
   - City and arrival location autocomplete via Geoapify (`GET /locations/autocomplete`);
   - OpenStreetMap/Overpass bounded city-wide candidate discovery across 7 categories;
   - Multi-stage recommendation pipeline with canonical/spatial/brand deduplication, generalizable institutional/private suitability filtering, purpose/interest weighting, bounded Wikidata importance, and mixed-interest category balancing hardened across 7 benchmark cities and validated with 0 restricted POI leakage;
-  - Provider-neutral, cache-first place imagery with background Geoapify/Wikimedia/optional Foursquare resolution, item attribution metadata, negative/failure TTLs, and category-specific Flutter fallbacks that never block place or itinerary responses;
+  - Provider-neutral, cache-first place imagery with background Geoapify/Wikimedia/optional Foursquare resolution, item attribution metadata, negative/failure TTLs, URL validation, and a neutral non-photographic Flutter fallback that never blocks place or itinerary responses;
   - Saved places management (`UserSavedPlace`) with custom ordering, locks, must-visit flags, priorities, notes, and authoritative backend reconciliation;
   - Multi-day itinerary optimization powered by Google OR-Tools VRPTW solver with opening hours, category visit duration heuristics, midday lunch breaks, locked stops, and must-visit penalties;
   - Keyless road-following route geometry via OSRM (`GET /trips/{trip_id}/route-geometry`);

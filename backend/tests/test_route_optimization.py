@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from collections import Counter
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
@@ -220,10 +221,15 @@ def test_matrix_cache_reuses_removed_places_and_fetches_only_new_edges(
 
     response = client.post(f"/trips/{trip_id}/optimize-route")
     assert response.status_code == 200
-    assert [item["name"] for item in response.json()["optimized_places"]] == [
+    first_route = response.json()["optimized_places"]
+    assert {item["name"] for item in first_route} == {
+        "Place A",
         "Place B",
         "Place C",
-        "Place A",
+    }
+    assert sorted(Counter(item["day_number"] for item in first_route).values()) == [
+        1,
+        2,
     ]
     assert len(routes.calls) == 4
     with Session(engine) as session:
@@ -577,11 +583,12 @@ def test_fewer_places_than_days_preserves_empty_days(
 
 
 def test_persisted_days_hours_and_preview_use_same_constraints(client_engine_routes):
-    from datetime import date, time
-    from app.models.entities import TripDay, PlaceOpeningHours
-    from app.services.smart_replanning_service import SmartReplanningService
-    from app.services.route_matrix_service import RouteMatrixService
     import asyncio
+    from datetime import date, time
+
+    from app.models.entities import PlaceOpeningHours, TripDay
+    from app.services.route_matrix_service import RouteMatrixService
+    from app.services.smart_replanning_service import SmartReplanningService
 
     client, engine, provider = client_engine_routes
     city = _create_city(client)

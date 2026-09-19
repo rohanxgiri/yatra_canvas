@@ -626,7 +626,7 @@ async def test_stale_sufficient_category_is_refreshed(
 
 
 @pytest.mark.anyio
-async def test_fresh_low_coverage_destination_cache_does_not_refetch_forever(
+async def test_fresh_low_coverage_destination_cache_is_usable_but_deepened(
     test_db: Session,
     sample_city: City,
 ) -> None:
@@ -663,8 +663,9 @@ async def test_fresh_low_coverage_destination_cache_does_not_refetch_forever(
         categories=[DiscoveryCategory.HERITAGE],
     )
 
-    assert summary.categories_skipped_sufficient == ["heritage"]
-    assert provider.calls == []
+    assert summary.categories_skipped_sufficient == []
+    assert summary.categories_enriched == ["heritage"]
+    assert provider.calls == [DiscoveryCategory.HERITAGE]
 
 
 @pytest.mark.anyio
@@ -786,7 +787,9 @@ def test_prefetch_api_endpoint(sample_city: City):
         app.dependency_overrides.clear()
 
 
-def test_recommendation_endpoint_joins_active_prefetch(sample_city: City) -> None:
+def test_recommendation_endpoint_does_not_join_active_prefetch(
+    sample_city: City,
+) -> None:
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -812,11 +815,18 @@ def test_recommendation_endpoint_joins_active_prefetch(sample_city: City) -> Non
 
     class RecordingCoordinator:
         def __init__(self) -> None:
-            self.joined: tuple[object, list[DiscoveryCategory]] | None = None
+            self.inspected: tuple[object, list[DiscoveryCategory]] | None = None
+
+        def is_prefetch_active(self, city_id, categories):
+            self.inspected = (city_id, categories)
+            return True
+
+        def active_categories(self, city_id):
+            assert city_id == sample_city.id
+            return [DiscoveryCategory.FOOD.value]
 
         async def join_active(self, city_id, categories):
-            self.joined = (city_id, categories)
-            return [category.value for category in categories]
+            raise AssertionError("foreground recommendations must not join prefetch")
 
     class EmptyRecommendationService:
         async def recommend(self, **_kwargs):
@@ -834,7 +844,7 @@ def test_recommendation_endpoint_joins_active_prefetch(sample_city: City) -> Non
             )
         assert response.status_code == 200
         assert response.json() == []
-        assert coordinator.joined == (
+        assert coordinator.inspected == (
             sample_city.id,
             [DiscoveryCategory.FOOD],
         )

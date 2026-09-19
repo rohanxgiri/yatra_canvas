@@ -1,10 +1,13 @@
 import asyncio
 import logging
+import threading
+import time
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
@@ -82,18 +85,45 @@ def _recommend_in_worker(
     city_id: UUID,
     request: RecommendationRequest,
     recommendation: RecommendationService,
-) -> list[RecommendationRead]:
-    with Session(engine) as worker_session:
-        city = worker_session.get(City, city_id)
-        if city is None:
-            raise _CityNotFoundError
-        return asyncio.run(
-            recommendation.recommend(
-                session=worker_session,
-                city=city,
-                request=request,
+) -> tuple[str, list[RecommendationRead]]:
+    query_count = 0
+    worker_thread_id = threading.get_ident()
+
+    def count_query(*_args) -> None:
+        nonlocal query_count
+        if threading.get_ident() == worker_thread_id:
+            query_count += 1
+
+    started = time.monotonic()
+    event.listen(engine, "before_cursor_execute", count_query)
+    try:
+        with Session(engine) as worker_session:
+            city_started = time.monotonic()
+            city = worker_session.get(City, city_id)
+            city_lookup_ms = (time.monotonic() - city_started) * 1000
+            if city is None:
+                raise _CityNotFoundError
+            recommendation_started = time.monotonic()
+            result = asyncio.run(
+                recommendation.recommend(
+                    session=worker_session,
+                    city=city,
+                    request=request,
+                )
             )
-        )
+            recommendation_ms = (time.monotonic() - recommendation_started) * 1000
+            logger.info(
+                "RECOMMEND_DB city_id=%s query_count=%d city_lookup_ms=%.1f "
+                "recommendation_ms=%.1f elapsed_ms=%.1f",
+                city_id,
+                query_count,
+                city_lookup_ms,
+                recommendation_ms,
+                (time.monotonic() - started) * 1000,
+            )
+            return city.name, result
+    finally:
+        event.remove(engine, "before_cursor_execute", count_query)
 
 
 def get_geoapify_service(settings: SettingsDependency) -> GeoapifyService:
@@ -355,17 +385,35 @@ async def recommend_city_places(
     recommendation: RecommendationDependency,
     coordinator: PrefetchCoordinatorDependency,
 ) -> list[RecommendationRead]:
-    """Return deduplicated, ranked places for selected categories."""
+    """Return cached/available places without joining background prefetch."""
 
+    request_id = uuid4()
+    request_started = time.monotonic()
+    logger.info(
+        "RECOMMEND_START request_id=%s city_id=%s trip_id=%s categories=%s",
+        request_id,
+        city_id,
+        recommendation_request.trip_id,
+        [category.value for category in recommendation_request.categories],
+    )
     try:
-        categories_to_join = list(recommendation_request.categories)
+        requested_categories = list(recommendation_request.categories)
         if (
             recommendation_request.category_filter is not None
-            and recommendation_request.category_filter not in categories_to_join
+            and recommendation_request.category_filter not in requested_categories
         ):
-            categories_to_join.append(recommendation_request.category_filter)
-        await coordinator.join_active(city_id, categories_to_join)
-        result = await asyncio.to_thread(
+            requested_categories.append(recommendation_request.category_filter)
+        prefetch_active = coordinator.is_prefetch_active(
+            city_id,
+            requested_categories,
+        )
+        logger.info(
+            "RECOMMEND_BACKGROUND city_id=%s prefetch_active=%s active_categories=%s",
+            city_id,
+            prefetch_active,
+            coordinator.active_categories(city_id),
+        )
+        city_name, result = await asyncio.to_thread(
             _recommend_in_worker,
             session.get_bind(),
             city_id,
@@ -374,6 +422,40 @@ async def recommend_city_places(
         )
         schedule_place_image_enrichment(
             {item.id for item in result}, engine=session.get_bind()
+        )
+        background_discovery = getattr(recommendation, "discovery", None)
+        if background_discovery is not None and not prefetch_active:
+            background_engine = session.get_bind()
+
+            async def refresh_selected(categories: list[DiscoveryCategory]):
+                with Session(background_engine) as background_session:
+                    background_city = background_session.get(City, city_id)
+                    if background_city is None:
+                        raise RuntimeError(
+                            "City was removed before recommendation refresh started."
+                        )
+                    return await CityPlacePrefetchService(
+                        background_discovery
+                    ).prefetch(
+                        session=background_session,
+                        city=background_city,
+                        stage=PrefetchStage.INTERESTS_CONFIRMED,
+                        categories=categories,
+                    )
+
+            coordinator.enqueue(
+                city_id=city_id,
+                city_name=city_name,
+                stage=PrefetchStage.INTERESTS_CONFIRMED,
+                categories=requested_categories,
+                runner=refresh_selected,
+                offload=True,
+            )
+        logger.info(
+            "RECOMMEND_RESULT request_id=%s count=%d elapsed_ms=%.1f",
+            request_id,
+            len(result),
+            (time.monotonic() - request_started) * 1000,
         )
         return result
     except _CityNotFoundError as exc:

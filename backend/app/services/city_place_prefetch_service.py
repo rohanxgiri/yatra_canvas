@@ -26,6 +26,15 @@ class PrefetchStage(str, Enum):
     START_LOCATION_CONFIRMED = "start_location_confirmed"
 
 
+class CategoryCacheState(str, Enum):
+    FRESH = "fresh"
+    STALE_USABLE = "stale_usable"
+    PARTIAL = "partial"
+    INSUFFICIENT = "insufficient"
+    MISSING = "missing"
+    REFRESHING = "refreshing"
+
+
 # Default core categories for broad shallow prefetch
 SHALLOW_PREFETCH_CATEGORIES: list[DiscoveryCategory] = [
     DiscoveryCategory.TOURISM,
@@ -133,9 +142,11 @@ class CityPlacePrefetchService:
                 if key in self._in_flight and not self._in_flight[key].done():
                     duplicate_prevented += 1
                     logger.info(
-                        "Prefetch: refresh already in-flight for city=%s category=%s",
+                        "PREFETCH_CACHE city=%s category=%s state=%s count=%d",
                         city.name,
                         category.value,
+                        CategoryCacheState.REFRESHING.value,
+                        coverage_by_category.get(category.value, 0),
                     )
                     continue
 
@@ -148,28 +159,39 @@ class CityPlacePrefetchService:
             is_fresh = expires_at is not None and expires_at > datetime.now(
                 timezone.utc
             )
-            has_sufficient_coverage = (
-                coverage > 0
-                if stage == PrefetchStage.DESTINATION_CONFIRMED
-                else coverage >= min_candidates
-            )
+            has_sufficient_coverage = coverage >= min_candidates
+            if is_fresh and has_sufficient_coverage:
+                cache_state = CategoryCacheState.FRESH
+            elif is_fresh and coverage > 0:
+                cache_state = CategoryCacheState.PARTIAL
+            elif coverage > 0:
+                cache_state = CategoryCacheState.STALE_USABLE
+            elif cache is not None:
+                cache_state = CategoryCacheState.INSUFFICIENT
+            else:
+                cache_state = CategoryCacheState.MISSING
             if has_sufficient_coverage and is_fresh:
                 skipped_sufficient.append(category.value)
                 logger.info(
-                    "PREFETCH_CACHE_HIT city_id=%s category=%s count=%d stage=%s",
+                    "PREFETCH_CACHE city_id=%s category=%s state=%s count=%d "
+                    "target=%d stage=%s",
                     city.id,
                     category.value,
+                    cache_state.value,
                     coverage,
+                    min_candidates,
                     stage.value,
                 )
             else:
                 needed_categories.append(category)
                 logger.info(
-                    "PREFETCH_CACHE_MISS city_id=%s category=%s count=%d fresh=%s stage=%s",
+                    "PREFETCH_CACHE city_id=%s category=%s state=%s count=%d "
+                    "target=%d stage=%s",
                     city.id,
                     category.value,
+                    cache_state.value,
                     coverage,
-                    is_fresh,
+                    min_candidates,
                     stage.value,
                 )
 
@@ -220,6 +242,7 @@ class CityPlacePrefetchService:
                 categories=needed_categories,
                 custom_category_limits=custom_limits,
                 prefer_stale=False,
+                force_refresh_categories=set(needed_categories),
                 include_overpass=(
                     stage != PrefetchStage.DESTINATION_CONFIRMED
                     or not self._discovery.has_fast_prefetch_provider

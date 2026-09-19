@@ -206,12 +206,60 @@ def test_no_active_routes_and_impossible_lock():
     check(r, days, p)
 
 
-def test_underfilled_can_use_one_day():
+def test_insufficient_places_use_distinct_days_without_inventing_content():
     days = [day(i) for i in range(1, 6)]
     p, s = fixture(["park"] * 2)
     r = solve(days, p, s)
     assert len(r.optimized_places) == 2
-    assert len({x.day_number for x in r.optimized_places}) == 1
+    assert len({x.day_number for x in r.optimized_places}) == 2
+    assert {x.place_id for x in r.optimized_places} == {place.id for place in p}
+    assert len({x.place_id for x in r.optimized_places}) == 2
+    check(r, days, p)
+
+
+@pytest.mark.parametrize("count", [5, 10, 15])
+def test_feasible_places_are_balanced_across_five_non_rest_days(count):
+    days = [day(i) for i in range(1, 6)]
+    p, s = fixture(["park"] * count)
+    r = solve(days, p, s, seconds=1)
+
+    counts = [
+        sum(stop.day_number == trip_day.day_number for stop in r.optimized_places)
+        for trip_day in days
+    ]
+    assert len(r.optimized_places) == count
+    assert all(day_count > 0 for day_count in counts)
+    assert max(counts) - min(counts) <= 1
+    assert len({stop.place_id for stop in r.optimized_places}) == count
+    check(r, days, p)
+
+
+def test_user_selected_rest_day_is_preserved_while_active_days_are_populated():
+    days = [day(1), day(2, "REST"), day(3), day(4), day(5)]
+    p, s = fixture(["park"] * 8)
+    r = solve(days, p, s, seconds=1)
+
+    counts = {
+        trip_day.day_number: sum(
+            stop.day_number == trip_day.day_number for stop in r.optimized_places
+        )
+        for trip_day in days
+    }
+    assert counts[2] == 0
+    assert all(counts[n] > 0 for n in (1, 3, 4, 5))
+    check(r, days, p)
+
+
+def test_balancing_repairs_an_overloaded_day_beside_an_empty_feasible_day():
+    days = [day(1), day(2)]
+    p, s = fixture(["bakery"] * 6)
+    r = solve(days, p, s, seconds=1)
+
+    counts = [
+        sum(stop.day_number == trip_day.day_number for stop in r.optimized_places)
+        for trip_day in days
+    ]
+    assert counts == [3, 3]
     check(r, days, p)
 
 

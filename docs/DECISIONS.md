@@ -441,15 +441,19 @@ provider, environment, and data-model documentation.
   recommendation, routing, or itinerary reads to volatile third-party latency. Geoapify payloads
   may already contain Wikimedia identifiers; notable places can use Wikimedia metadata; current
   venue photos may be available from Foursquare. Wrong-branch photos and missing attribution are
-  worse than a curated category fallback.
+  worse than an honest neutral placeholder.
 - **Decision:** Define one optional `image` response object and one normalized category vocabulary.
   Batch-read a one-row-per-place persistent cache on API paths and schedule provider work outside
   the response. Resolve category-aware chains with bounded concurrency and a shared batch client.
   Reuse Geoapify payload metadata before Place Details, prefer direct Wikimedia identifiers before
   conservative contextual matching, and enable the Foursquare Places API only when
   `FOURSQUARE_API_KEY` is present and the candidate passes name/distance/category/locality checks.
-  Store positive, not-found, and failed outcomes with different TTLs. Flutter always reserves the
-  image region and falls back to bundled category assets.
+  Store positive, not-found, and failed outcomes with different TTLs under the canonical place ID.
+  Search with exact place/city/state/country context, validate returned image media before storing
+  it, and invalidate an older row when new image-capable provider provenance arrives. Flutter
+  always reserves the image region, tracks explicit image states, precaches only valid HTTP(S)
+  URLs with error handling, and falls back to a neutral gradient/category icon rather than an
+  unrelated photograph.
 - **Consequences:** This narrows ADR-002 only for optional photo enrichment: FSQ OS Places remains
   the batch POI source, while the proprietary API is not required and cannot create/rank places.
   It also expands ADR-003 only for image metadata/details after existing payload reuse; Geoapify is
@@ -461,3 +465,29 @@ provider, environment, and data-model documentation.
   `lib/widgets/place_image.dart`, and `test/place_image_test.dart`; official Geoapify Place Details,
   Wikimedia Action API imageinfo/pageimages, and Foursquare authentication/search/photos docs,
   verified 2026-09-18 and linked in `API_AND_DATA_SOURCES.md`.
+
+## ADR-019 — Feasible-day balancing and fetch-driven place/itinerary skeletons
+
+- **Status:** Accepted and `[IMPLEMENTED]` in repository tests.
+- **Date:** 2026-09-19.
+- **Context:** The VRPTW objective combined travel minimization with a fixed vehicle activation
+  cost but had no visit-count balancing term. It could therefore pack feasible saved POIs into
+  fewer day vehicles, making an active `FULL_DAY` look like an implicit rest day. Place and route
+  fetches also used generic progress treatments that did not resemble their final layouts.
+- **Decision:** Remove the route activation cost and add a soft OR-Tools `VisitCount` dimension
+  whose global span cost minimizes the maximum stops assigned to a feasible non-REST day. Keep
+  opening hours, day windows, visit durations, explicit assignments, and locks as hard constraints;
+  never invent or duplicate POIs. Preserve the existing `TripDay` model: only `day_type=REST`
+  is a rest day, while an empty active day is presented as light/flexible time. Flutter renders
+  recommendation-card and itinerary-day skeletons only while their actual Futures are pending,
+  uses one reduced-motion-aware pulse per composition, and resolves remote photos independently
+  behind a stable image-region placeholder and bundled WebP fallback.
+- **Consequences:** Feasible 5/10/15-place, five-day inputs populate all active days with balanced
+  counts; two places across five days remain two unique visits with the other days truthfully
+  flexible. Constraints may still require uneven or empty days. No schema, provider, Home, or
+  Explore change is introduced.
+- **Evidence:** `backend/app/services/vrptw_solver_service.py`,
+  `backend/tests/test_day_aware_planner.py`,
+  `lib/screens/place_discovery/place_discovery_screen.dart`,
+  `lib/widgets/place_image.dart`, `lib/widgets/yc_skeleton.dart`,
+  `test/place_discovery_test.dart`, and `test/place_image_test.dart`.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,13 +8,18 @@ import 'package:http/testing.dart';
 import 'package:yatra_canvas/models/city.dart';
 import 'package:yatra_canvas/models/optimized_route.dart';
 import 'package:yatra_canvas/models/place.dart';
+import 'package:yatra_canvas/models/place_image.dart';
 import 'package:yatra_canvas/models/recommendation.dart';
 import 'package:yatra_canvas/models/saved_place.dart';
+import 'package:yatra_canvas/models/trip_day.dart';
 import 'package:yatra_canvas/screens/place_discovery/place_discovery_screen.dart';
 import 'package:yatra_canvas/services/place_service.dart';
+import 'package:yatra_canvas/services/place_image_prefetch_service.dart';
+import 'package:yatra_canvas/services/recommendation_cache.dart';
 import 'package:yatra_canvas/services/recommendation_service.dart';
 import 'package:yatra_canvas/services/route_optimization_service.dart';
 import 'package:yatra_canvas/services/saved_place_service.dart';
+import 'package:yatra_canvas/services/trip_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 import 'package:yatra_canvas/widgets/selection_chip.dart';
 
@@ -110,6 +116,258 @@ void main() {
       ]);
     },
   );
+
+  testWidgets('places loading skeleton transitions directly to real cards', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final service = _ControlledRecommendationService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripPurposes: const {'Food Exploration'},
+          recommendationService: service,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('place-results-skeleton')),
+      findsOneWidget,
+    );
+    expect(find.text('Controlled Cafe'), findsNothing);
+
+    service.complete([
+      const Recommendation(
+        id: 'controlled-cafe',
+        name: 'Controlled Cafe',
+        category: 'cafe',
+        latitude: 23.17,
+        longitude: 75.78,
+        reviewCount: 0,
+        isPopular: false,
+        isHeritage: false,
+        isLocalSpeciality: true,
+        matchedCategories: [PlaceCategory.food],
+        recommendationScore: 70,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('place-results-skeleton')), findsNothing);
+    expect(find.text('Controlled Cafe'), findsOneWidget);
+  });
+
+  testWidgets('local recommendations render before backend sync completes', (
+    tester,
+  ) async {
+    final service = _ControlledRecommendationService();
+    final cache = _FakeRecommendationCache([
+      const Recommendation(
+        id: 'cached-cafe',
+        name: 'Cached Cafe',
+        category: 'cafe',
+        latitude: 23.17,
+        longitude: 75.78,
+        reviewCount: 0,
+        isPopular: false,
+        isHeritage: false,
+        isLocalSpeciality: true,
+        matchedCategories: [PlaceCategory.food],
+        recommendationScore: 65,
+      ),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripPurposes: const {'Food Exploration'},
+          recommendationService: service,
+          recommendationCache: cache,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Cached Cafe'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('additional-place-skeletons')),
+      findsOneWidget,
+    );
+
+    service.complete([
+      const Recommendation(
+        id: 'cached-cafe',
+        name: 'Updated Cafe',
+        category: 'cafe',
+        latitude: 23.17,
+        longitude: 75.78,
+        reviewCount: 12,
+        isPopular: false,
+        isHeritage: false,
+        isLocalSpeciality: true,
+        matchedCategories: [PlaceCategory.food],
+        recommendationScore: 72,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cached Cafe'), findsNothing);
+    expect(find.text('Updated Cafe'), findsOneWidget);
+    expect(cache.writtenIds, ['cached-cafe']);
+  });
+
+  testWidgets('returned image metadata is sent to client precache', (
+    tester,
+  ) async {
+    final recommendationService = _ControlledRecommendationService();
+    final imagePrefetchService = _RecordingPlaceImagePrefetchService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripPurposes: const {'Food Exploration'},
+          recommendationService: recommendationService,
+          placeImagePrefetchService: imagePrefetchService,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(imagePrefetchService.placeIds, isEmpty);
+
+    recommendationService.complete([
+      const Recommendation(
+        id: 'controlled-cafe',
+        name: 'Controlled Cafe',
+        category: 'cafe',
+        latitude: 23.17,
+        longitude: 75.78,
+        reviewCount: 0,
+        isPopular: false,
+        isHeritage: false,
+        isLocalSpeciality: true,
+        matchedCategories: [PlaceCategory.food],
+        recommendationScore: 70,
+        image: PlaceImageData(
+          status: 'resolved',
+          url: 'https://images.example/controlled-cafe.jpg',
+        ),
+      ),
+    ]);
+    await tester.pump();
+    await tester.pump();
+
+    expect(imagePrefetchService.placeIds, ['controlled-cafe']);
+  });
+
+  testWidgets('places loading skeleton fits supported phone widths', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    for (final width in <double>[320, 393, 430]) {
+      tester.view.physicalSize = Size(width, 844);
+      final service = _ControlledRecommendationService();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: PlaceDiscoveryScreen(
+            key: ValueKey('place-skeleton-$width'),
+            city: _city,
+            tripPurposes: const {'Food Exploration'},
+            recommendationService: service,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('place-results-skeleton')),
+        findsOneWidget,
+        reason: 'Skeleton should render at $width px.',
+      );
+      expect(tester.takeException(), isNull);
+
+      service.complete(const []);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('empty recommendation response replaces the skeleton', (
+    tester,
+  ) async {
+    final service = _ControlledRecommendationService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripPurposes: const {'Food Exploration'},
+          recommendationService: service,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('place-results-skeleton')),
+      findsOneWidget,
+    );
+
+    service.complete(const []);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('place-results-skeleton')), findsNothing);
+    expect(find.text('No matching places found'), findsOneWidget);
+  });
+
+  testWidgets('recommendation failure replaces the skeleton with retry UI', (
+    tester,
+  ) async {
+    final service = _ControlledRecommendationService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripPurposes: const {'Food Exploration'},
+          recommendationService: service,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('place-results-skeleton')),
+      findsOneWidget,
+    );
+
+    service.completeError(
+      const RecommendationServiceException('Controlled fetch failure.'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('place-results-skeleton')), findsNothing);
+    expect(find.text('Controlled fetch failure.'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+  });
 
   testWidgets(
     'discovery screen selects multiple interests and requests ranking',
@@ -359,6 +617,92 @@ void main() {
     expect(find.text('3.5 km · 13 min'), findsOneWidget);
   });
 
+  testWidgets('route optimization uses a day-shaped itinerary skeleton', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final routeService = _ControlledRouteOptimizationService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripId: 'trip-itinerary-loading',
+          recommendationService: _FakeRecommendationService(),
+          savedPlaceService: _FakeSavedPlaceService(
+            initial: [_savedPlace('place-a', 'Place A', 1)],
+          ),
+          routeOptimizationService: routeService,
+          tripService: _FakeTripService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final optimizeButton = find.widgetWithText(FilledButton, 'Optimize Route');
+    await tester.ensureVisible(optimizeButton);
+    await tester.tap(optimizeButton);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('itinerary-skeleton')), findsOneWidget);
+    expect(find.text('Optimized route'), findsNothing);
+
+    routeService.complete(_threeDayRoute);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('itinerary-skeleton')), findsNothing);
+    expect(find.text('Optimized route'), findsOneWidget);
+  });
+
+  testWidgets('itinerary distinguishes user rest from an empty light day', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PlaceDiscoveryScreen(
+          city: _city,
+          tripId: 'trip-day-states',
+          recommendationService: _FakeRecommendationService(),
+          savedPlaceService: _FakeSavedPlaceService(
+            initial: [_savedPlace('place-a', 'Place A', 1)],
+          ),
+          routeOptimizationService: _DayStateRouteOptimizationService(),
+          tripService: _FakeTripService(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final optimizeButton = find.widgetWithText(FilledButton, 'Optimize Route');
+    await tester.ensureVisible(optimizeButton);
+    await tester.tap(optimizeButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rest day · Take it slow'), findsOneWidget);
+    expect(find.text('Light day · Flexible time'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('itinerary-rest-day-2'), skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('itinerary-flexible-day-3'),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('saved settings use backend response and render all fields', (
     tester,
   ) async {
@@ -559,6 +903,134 @@ const _city = City(
   latitude: 23.1765,
   longitude: 75.7885,
 );
+
+const _threeDayRoute = OptimizedRoute(
+  tripId: 'trip-day-states',
+  places: [
+    OptimizedRoutePlace(
+      placeId: 'place-a',
+      name: 'Place A',
+      dayNumber: 1,
+      visitOrder: 1,
+      distanceFromPrevious: 1.2,
+      travelTimeMinutes: 8,
+      category: 'religious',
+      normalizedCategory: 'place_of_worship',
+    ),
+  ],
+  totalDistance: 1.2,
+  totalTravelTimeMinutes: 8,
+  totalDays: 3,
+);
+
+class _ControlledRecommendationService extends RecommendationService {
+  _ControlledRecommendationService() : super(baseUrl: 'http://example.test');
+
+  final Completer<List<Recommendation>> _completer = Completer();
+
+  void complete(List<Recommendation> recommendations) =>
+      _completer.complete(recommendations);
+
+  void completeError(Object error) => _completer.completeError(error);
+
+  @override
+  Future<List<Recommendation>> getRecommendations(
+    String cityId,
+    Iterable<PlaceCategory> categories, {
+    int limit = 30,
+    String? tripId,
+    Iterable<String>? purposes,
+    Iterable<String>? interests,
+    PlaceCategory? categoryFilter,
+  }) => _completer.future;
+
+  @override
+  void close() {}
+}
+
+class _FakeRecommendationCache extends RecommendationCache {
+  _FakeRecommendationCache(this.items);
+
+  final List<Recommendation> items;
+  List<String> writtenIds = [];
+
+  @override
+  String profileKey({
+    required String cityId,
+    required Iterable<String> purposes,
+    required Iterable<PlaceCategory> categories,
+    PlaceCategory? categoryFilter,
+  }) => 'test-profile';
+
+  @override
+  Future<RecommendationCacheSnapshot?> read(String key) async =>
+      RecommendationCacheSnapshot(
+        recommendations: items,
+        savedAt: DateTime.utc(2026, 9, 19),
+        lastValidatedAt: DateTime.utc(2026, 9, 19),
+        freshness: RecommendationCacheFreshness.fresh,
+      );
+
+  @override
+  Future<void> write(
+    String key,
+    String cityId,
+    Iterable<Recommendation> recommendations,
+  ) async {
+    writtenIds = recommendations.map((item) => item.id).toList();
+  }
+}
+
+class _RecordingPlaceImagePrefetchService extends PlaceImagePrefetchService {
+  final List<String> placeIds = [];
+
+  @override
+  Future<void> prefetchRecommendations(
+    BuildContext context,
+    Iterable<Recommendation> recommendations, {
+    int concurrency = 4,
+    int firstScreenful = 8,
+    int nextScreenful = 8,
+  }) async {
+    placeIds.addAll(recommendations.map((place) => place.id));
+  }
+}
+
+class _FakeTripService extends TripService {
+  _FakeTripService() : super(baseUrl: 'http://example.test');
+
+  @override
+  Future<List<TripDay>> getTripDays(String tripId) async => [
+    TripDay(
+      id: 'day-1',
+      tripId: tripId,
+      dayNumber: 1,
+      date: DateTime(2026, 9, 10),
+      dayType: DayType.fullDay,
+      startTime: '09:00:00',
+      endTime: '19:00:00',
+    ),
+    TripDay(
+      id: 'day-2',
+      tripId: tripId,
+      dayNumber: 2,
+      date: DateTime(2026, 9, 11),
+      dayType: DayType.rest,
+    ),
+    TripDay(
+      id: 'day-3',
+      tripId: tripId,
+      dayNumber: 3,
+      date: DateTime(2026, 9, 12),
+      dayType: DayType.fullDay,
+      startTime: '09:00:00',
+      endTime: '19:00:00',
+    ),
+  ];
+
+  @override
+  void close() {}
+}
 
 class _FakeRecommendationService extends RecommendationService {
   _FakeRecommendationService() : super(baseUrl: 'http://example.test');
@@ -832,6 +1304,30 @@ class _FakeRouteOptimizationService extends RouteOptimizationService {
       totalTravelTimeMinutes: 13,
     );
   }
+
+  @override
+  void close() {}
+}
+
+class _ControlledRouteOptimizationService extends RouteOptimizationService {
+  _ControlledRouteOptimizationService() : super(baseUrl: 'http://example.test');
+
+  final Completer<OptimizedRoute> _completer = Completer();
+
+  void complete(OptimizedRoute route) => _completer.complete(route);
+
+  @override
+  Future<OptimizedRoute> optimizeRoute(String tripId) => _completer.future;
+
+  @override
+  void close() {}
+}
+
+class _DayStateRouteOptimizationService extends RouteOptimizationService {
+  _DayStateRouteOptimizationService() : super(baseUrl: 'http://example.test');
+
+  @override
+  Future<OptimizedRoute> optimizeRoute(String tripId) async => _threeDayRoute;
 
   @override
   void close() {}

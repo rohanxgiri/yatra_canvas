@@ -39,12 +39,12 @@ For any trip with duration $N$ days (derived from `trip.days` or `end_date - sta
 3. **Empty-Day UX**:
    - In [lib/screens/place_discovery/place_discovery_screen.dart](file:///c:/Users/girir/Documents/YatraCanvas/lib/screens/place_discovery/place_discovery_screen.dart), `_OptimizedRouteCard` iterates over `route.logicalDays`. For any day where `places.isEmpty`, it renders an empty day state card:
      ```text
-     Day X · No places scheduled yet.
+     Day X · Light day · Flexible time
      Add a place or optimize your itinerary.
      ```
    - In [lib/screens/trip_map/trip_map_screen.dart](file:///c:/Users/girir/Documents/YatraCanvas/lib/screens/trip_map/trip_map_screen.dart), the day filter includes all logical days $1 \dots N$. When an empty day is selected, the base map remains active and displays:
      ```text
-     Day X · No places scheduled yet.
+     Day X · Flexible time. This is not a rest day.
      ```
 
 ---

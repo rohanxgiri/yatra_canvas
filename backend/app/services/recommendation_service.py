@@ -317,6 +317,12 @@ class RecommendationService:
         self._weights = weights
         self._preference_config = preference_config
 
+    @property
+    def discovery(self) -> RecommendationDiscovery:
+        """Expose the provider-neutral discovery boundary for background refresh."""
+
+        return self._discovery
+
     async def recommend(
         self,
         *,

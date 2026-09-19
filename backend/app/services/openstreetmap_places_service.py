@@ -192,6 +192,22 @@ class OpenStreetMapPlacesService:
             response = await self._request(query)
             self._raise_for_status(response)
             payload = response.json()
+        except asyncio.CancelledError as exc:
+            duration = time.monotonic() - start_time
+            logger.warning(
+                "OpenStreetMap discovery cancelled for category=%s radius=%dm "
+                "duration=%.2fs",
+                category.value,
+                effective_radius,
+                duration,
+            )
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure(
+                    OpenStreetMapPlacesTimeoutError(
+                        "OpenStreetMap discovery was cancelled by its time budget."
+                    )
+                )
+            raise
         except (ValueError, KeyError) as exc:
             duration = time.monotonic() - start_time
             logger.warning(

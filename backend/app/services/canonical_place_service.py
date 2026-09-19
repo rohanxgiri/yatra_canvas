@@ -13,9 +13,16 @@ from datetime import datetime, timezone
 from typing import Any, Final
 from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
-from app.models import City, Place, PlaceOpeningHours, PlaceSource, PlaceTag
+from app.models import (
+    City,
+    Place,
+    PlaceImageCache,
+    PlaceOpeningHours,
+    PlaceSource,
+    PlaceTag,
+)
 from app.schemas import DiscoveryCategory
 from app.services.opening_hours_parser import OpeningHoursParser
 from app.services.place_deduplication_service import (
@@ -126,9 +133,12 @@ def is_conservative_name_match(name1: str, name2: str) -> bool:
     # and the differing token is a recognized benign variant (e.g. "Devi", "Mandir")
     if len(set1) >= 2 and len(set2) >= 2:
         diff = set1 ^ set2
-        if len(diff) <= 1 and diff.issubset(ALLOWED_HONORIFIC_OR_QUALIFIER_VARIANTS):
-            if set1.issubset(set2) or set2.issubset(set1):
-                return True
+        if (
+            len(diff) <= 1
+            and diff.issubset(ALLOWED_HONORIFIC_OR_QUALIFIER_VARIANTS)
+            and (set1.issubset(set2) or set2.issubset(set1))
+        ):
+            return True
 
     return False
 
@@ -143,6 +153,27 @@ def _with_media_identifiers(
         if isinstance(value, str) and value.strip():
             result[key] = value.strip()
     return result
+
+
+def _image_identity_changed(
+    source: PlaceSource,
+    *,
+    wikidata_id: str | None,
+    identifiers: dict[str, str] | None,
+) -> bool:
+    if wikidata_id and source.wikidata_id != wikidata_id:
+        return True
+    existing = source.social_identifiers or {}
+    return any(
+        key in MEDIA_IDENTIFIER_KEYS and existing.get(key) != value
+        for key, value in (identifiers or {}).items()
+    )
+
+
+def _invalidate_cached_place_image(session: Session, *place_ids: UUID) -> None:
+    ids = list(dict.fromkeys(place_ids))
+    if ids:
+        session.exec(delete(PlaceImageCache).where(PlaceImageCache.place_id.in_(ids)))
 
 
 class CanonicalPlaceService:
@@ -267,6 +298,7 @@ class CanonicalPlaceService:
                         last_fetched_at=fetched_at,
                     )
                 )
+                _invalidate_cached_place_image(session, place.id)
                 place_provider_sources.add(provider_key)
                 source_identities.add(source_identity)
 
@@ -354,9 +386,15 @@ class CanonicalPlaceService:
             )
             if audiala_prom is not None:
                 prominence = audiala_prom
-                raw_metrics = PlaceImportanceScorer.lookup_audiala_metrics(
-                    effective_wikidata_id
-                )
+                raw_metrics = {
+                    **raw_metrics,
+                    **(
+                        PlaceImportanceScorer.lookup_audiala_metrics(
+                            effective_wikidata_id
+                        )
+                        or {}
+                    ),
+                }
 
         # ---------------------------------------------------------------------
         # Rule 1: Existing Provider Identity (source, external_place_id)
@@ -377,6 +415,11 @@ class CanonicalPlaceService:
                 else session.get(Place, existing_source.place_id)
             )
             if place is not None:
+                image_identity_changed = _image_identity_changed(
+                    existing_source,
+                    wikidata_id=effective_wikidata_id,
+                    identifiers=raw_metrics,
+                )
                 # Update source metadata
                 existing_source.last_fetched_at = now
                 if source_url:
@@ -400,13 +443,14 @@ class CanonicalPlaceService:
                     place.wikidata_id = effective_wikidata_id
                 if is_heritage_cat:
                     place.is_heritage = True
-                if prominence > 0.0:
-                    if (
-                        place.importance_score is None
-                        or prominence > place.importance_score
-                    ):
-                        place.importance_score = prominence
+                if prominence > 0.0 and (
+                    place.importance_score is None
+                    or prominence > place.importance_score
+                ):
+                    place.importance_score = prominence
                 place.last_fetched_at = now
+                if image_identity_changed:
+                    _invalidate_cached_place_image(session, place.id)
 
                 # Ingest opening hours if provided and place doesn't already have them
                 if effective_raw_opening_hours:
@@ -472,12 +516,11 @@ class CanonicalPlaceService:
                     matched_place.wikidata_id = effective_wikidata_id
                 if is_heritage_cat:
                     matched_place.is_heritage = True
-                if prominence > 0.0:
-                    if (
-                        matched_place.importance_score is None
-                        or prominence > matched_place.importance_score
-                    ):
-                        matched_place.importance_score = prominence
+                if prominence > 0.0 and (
+                    matched_place.importance_score is None
+                    or prominence > matched_place.importance_score
+                ):
+                    matched_place.importance_score = prominence
                 matched_place.last_fetched_at = now
 
                 source = self._upsert_place_source(
@@ -557,12 +600,11 @@ class CanonicalPlaceService:
                 matched_fallback_place.wikidata_id = effective_wikidata_id
             if is_heritage_cat:
                 matched_fallback_place.is_heritage = True
-            if prominence > 0.0:
-                if (
-                    matched_fallback_place.importance_score is None
-                    or prominence > matched_fallback_place.importance_score
-                ):
-                    matched_fallback_place.importance_score = prominence
+            if prominence > 0.0 and (
+                matched_fallback_place.importance_score is None
+                or prominence > matched_fallback_place.importance_score
+            ):
+                matched_fallback_place.importance_score = prominence
             matched_fallback_place.last_fetched_at = now
 
             source = self._upsert_place_source(
@@ -707,6 +749,15 @@ class CanonicalPlaceService:
         ).first()
 
         if source is not None:
+            previous_place_id = source.place_id
+            image_identity_changed = (
+                _image_identity_changed(
+                    source,
+                    wikidata_id=wikidata_id,
+                    identifiers=social_identifiers,
+                )
+                or source.place_id != place_id
+            )
             source.place_id = place_id
             source.last_fetched_at = fetched_at
             if wikidata_id and not source.wikidata_id:
@@ -726,6 +777,12 @@ class CanonicalPlaceService:
                 }
             if raw_opening_hours:
                 source.raw_opening_hours = raw_opening_hours
+            if image_identity_changed:
+                _invalidate_cached_place_image(
+                    session,
+                    previous_place_id,
+                    place_id,
+                )
             return source
 
         # Check by (place_id, source)
@@ -737,6 +794,14 @@ class CanonicalPlaceService:
         ).first()
 
         if source is not None:
+            image_identity_changed = (
+                _image_identity_changed(
+                    source,
+                    wikidata_id=wikidata_id,
+                    identifiers=social_identifiers,
+                )
+                or source.external_place_id != external_place_id
+            )
             source.external_place_id = external_place_id
             source.last_fetched_at = fetched_at
             if wikidata_id and not source.wikidata_id:
@@ -756,6 +821,8 @@ class CanonicalPlaceService:
                 }
             if raw_opening_hours:
                 source.raw_opening_hours = raw_opening_hours
+            if image_identity_changed:
+                _invalidate_cached_place_image(session, place_id)
             return source
 
         new_source = PlaceSource(
@@ -772,6 +839,7 @@ class CanonicalPlaceService:
             last_fetched_at=fetched_at,
         )
         session.add(new_source)
+        _invalidate_cached_place_image(session, place_id)
         return new_source
 
     def _upsert_place_opening_hours(

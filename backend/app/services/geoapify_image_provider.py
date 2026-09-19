@@ -47,6 +47,13 @@ class GeoapifyImageProvider:
             f"{self._base_url}/v2/place-details",
             params={"id": place_id, "apiKey": self._api_key},
         )
+        logger.debug(
+            "PLACE_IMAGE_HTTP provider=geoapify operation=place_details "
+            "status=%s provider_place_id=%s response=%s",
+            response.status_code,
+            place_id,
+            response.text[:2000],
+        )
         response.raise_for_status()
         payload = response.json()
         features = payload.get("features") if isinstance(payload, dict) else None

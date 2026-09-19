@@ -76,7 +76,7 @@ void main() {
     expect((await rootBundle.load(genericPath)).lengthInBytes, greaterThan(0));
   });
 
-  testWidgets('missing metadata renders the category fallback immediately', (
+  testWidgets('missing metadata renders a neutral unknown state', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -92,36 +92,49 @@ void main() {
       ),
     );
 
-    expect(find.byKey(const Key('place_image_fallback')), findsOneWidget);
+    expect(find.byKey(const Key('place_image_state_unknown')), findsOneWidget);
+    expect(
+      find.byKey(const Key('place_image_neutral_fallback')),
+      findsOneWidget,
+    );
+    expect(find.text('Photo unavailable'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('valid remote metadata uses cached network loading', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: SizedBox(
-          width: 320,
-          height: 180,
-          child: PlaceImage(
-            name: 'Hawa Mahal',
-            image: PlaceImageData(
-              status: 'resolved',
-              url: 'https://images.example/hawa.jpg',
+  testWidgets(
+    'valid remote metadata uses an image-region loading placeholder',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SizedBox(
+            width: 320,
+            height: 180,
+            child: PlaceImage(
+              name: 'Hawa Mahal',
+              image: PlaceImageData(
+                status: 'resolved',
+                url: 'https://images.example/hawa.jpg',
+              ),
+              normalizedCategory: 'landmark',
             ),
-            normalizedCategory: 'landmark',
           ),
         ),
-      ),
-    );
+      );
 
-    final widget = tester.widget<CachedNetworkImage>(
-      find.byKey(const Key('place_image_remote')),
-    );
-    expect(widget.imageUrl, 'https://images.example/hawa.jpg');
-    expect(find.byKey(const Key('place_image_fallback')), findsOneWidget);
-  });
+      final widget = tester.widget<CachedNetworkImage>(
+        find.byKey(const Key('place_image_remote')),
+      );
+      expect(widget.imageUrl, 'https://images.example/hawa.jpg');
+      expect(
+        find.byKey(const Key('place_image_state_loading')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('place_image_neutral_fallback')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('network failure settles on fallback without layout overflow', (
     tester,
@@ -151,10 +164,64 @@ void main() {
         ),
       ),
     );
-    await tester.pump(const Duration(seconds: 1));
 
-    expect(find.byKey(const Key('place_image_fallback')), findsOneWidget);
+    final cached = tester.widget<CachedNetworkImage>(
+      find.byKey(const Key('place_image_remote')),
+    );
+    final errorFallback = cached.errorWidget!(
+      tester.element(find.byKey(const Key('place_image_remote'))),
+      cached.imageUrl,
+      StateError('controlled image failure'),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(width: 320, height: 180, child: errorFallback),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('place_image_state_error')), findsOneWidget);
+    expect(
+      find.byKey(const Key('place_image_neutral_fallback')),
+      findsOneWidget,
+    );
+    expect(find.text('Photo unavailable'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('not-found metadata shows the neutral unavailable state', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 180,
+          child: PlaceImage(
+            name: 'No provider photo',
+            normalizedCategory: 'landmark',
+            image: PlaceImageData(status: 'not_found'),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('place_image_state_not_found')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('place_image_neutral_fallback')),
+      findsOneWidget,
+    );
+    expect(find.text('Photo unavailable'), findsOneWidget);
+  });
+
+  test('invalid resolved image URL maps to the error state', () {
+    const image = PlaceImageData(status: 'resolved', url: 'not-an-http-image');
+
+    expect(image.state, PlaceImageState.error);
+    expect(image.bestUrl, isNull);
   });
 
   testWidgets(
@@ -177,9 +244,53 @@ void main() {
       );
       await tester.pump();
       expect(find.byType(Image), findsOneWidget);
+      expect(
+        find.byKey(const Key('place_image_state_success')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('place_image_state_loading')), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('remote loading skeleton is replaced by the success state', (
+    tester,
+  ) async {
+    final bytes = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 180,
+          child: PlaceImage(
+            name: 'Hawa Mahal',
+            image: PlaceImageData(
+              status: 'resolved',
+              url: 'https://images.example/hawa.jpg',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final cached = tester.widget<CachedNetworkImage>(
+      find.byKey(const Key('place_image_remote')),
+    );
+    expect(find.byKey(const Key('place_image_state_loading')), findsOneWidget);
+
+    final success = cached.imageBuilder!(
+      tester.element(find.byKey(const Key('place_image_remote'))),
+      MemoryImage(bytes),
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: SizedBox(width: 320, height: 180, child: success)),
+    );
+
+    expect(find.byKey(const Key('place_image_state_loading')), findsNothing);
+    expect(find.byKey(const Key('place_image_state_success')), findsOneWidget);
+  });
 
   testWidgets('place cards keep a stable image layout across device widths', (
     tester,
@@ -219,9 +330,7 @@ void main() {
     final fallbackProvider = ResizeImage.resizeIfNeeded(
       900,
       null,
-      AssetImage(
-        placeFallbackAsset(normalizedCategory: 'fort_palace'),
-      ),
+      AssetImage(placeFallbackAsset(normalizedCategory: 'fort_palace')),
     );
 
     await tester.pumpWidget(
@@ -238,8 +347,7 @@ void main() {
                   key: const Key('place_image_visual'),
                   child: PlaceCard(
                     name: 'Amber Fort',
-                    description:
-                        'Hilltop courtyards, gateways, and sweeping Jaipur views.',
+                    description: 'Hilltop courtyards, gateways, and sweeping Jaipur views.',
                     image: fallbackProvider,
                     category: 'Heritage',
                     normalizedCategory: 'fort_palace',

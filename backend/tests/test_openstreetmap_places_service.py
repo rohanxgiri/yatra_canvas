@@ -410,6 +410,39 @@ def test_open_circuit_skips_category_waves_that_have_not_started() -> None:
     assert request_count == 3
 
 
+def test_outer_timeout_cancellation_records_circuit_breaker_failure() -> None:
+    async def handler(_: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(1)
+        return httpx.Response(200, json={"elements": []})
+
+    async def run() -> None:
+        breaker = ProviderCircuitBreaker(
+            "overpass",
+            failure_threshold=1,
+            cooldown_seconds=60,
+        )
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            service = OpenStreetMapPlacesService(
+                "https://overpass.test/api/interpreter",
+                client=client,
+                circuit_breaker=breaker,
+            )
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(
+                    service.search_nearby_places(
+                        latitude=22.5726,
+                        longitude=88.3639,
+                        category=DiscoveryCategory.NATURE,
+                    ),
+                    timeout=0.01,
+                )
+
+        assert breaker.state == CircuitState.OPEN
+        assert breaker.allow_request() is False
+
+    asyncio.run(run())
+
+
 def test_rate_limit_timeout_and_invalid_payload_are_normalized() -> None:
     async def rate_limited(_: httpx.Request) -> httpx.Response:
         return httpx.Response(429, headers={"Retry-After": "20"})

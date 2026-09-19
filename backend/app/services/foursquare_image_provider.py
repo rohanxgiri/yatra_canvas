@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import unicodedata
 from difflib import SequenceMatcher
 
@@ -9,14 +10,25 @@ import httpx
 
 from app.services.place_category_normalizer import NormalizedPlaceCategory
 from app.services.place_deduplication_service import haversine_distance_meters
-from app.services.place_image_provider import PlaceImageCandidate, PlaceImageContext
+from app.services.place_image_provider import (
+    PlaceImageCandidate,
+    PlaceImageContext,
+    place_image_search_query,
+)
+
+logger = logging.getLogger(__name__)
 
 _CATEGORY_TERMS: dict[NormalizedPlaceCategory, tuple[str, ...]] = {
     NormalizedPlaceCategory.CAFE: ("cafe", "coffee", "tea"),
     NormalizedPlaceCategory.RESTAURANT: ("restaurant", "food", "dining"),
     NormalizedPlaceCategory.HOTEL: ("hotel", "lodging", "resort"),
     NormalizedPlaceCategory.MARKET_SHOPPING: ("market", "shopping", "store", "mall"),
-    NormalizedPlaceCategory.PLACE_OF_WORSHIP: ("temple", "mosque", "church", "religious"),
+    NormalizedPlaceCategory.PLACE_OF_WORSHIP: (
+        "temple",
+        "mosque",
+        "church",
+        "religious",
+    ),
     NormalizedPlaceCategory.MUSEUM: ("museum", "gallery"),
     NormalizedPlaceCategory.FORT_PALACE: ("historic", "palace", "fort", "landmark"),
     NormalizedPlaceCategory.LANDMARK: ("landmark", "historic", "attraction"),
@@ -34,7 +46,9 @@ def _fold(value: object) -> str:
 class FoursquareImageProvider:
     name = "foursquare"
 
-    def __init__(self, api_key: str | None, *, base_url: str, client: httpx.AsyncClient) -> None:
+    def __init__(
+        self, api_key: str | None, *, base_url: str, client: httpx.AsyncClient
+    ) -> None:
         self._api_key = api_key.strip() if api_key else None
         self._base_url = base_url.rstrip("/")
         self._client = client
@@ -50,12 +64,22 @@ class FoursquareImageProvider:
             f"{self._base_url}/places/search",
             headers=headers,
             params={
-                "query": context.name,
+                "query": place_image_search_query(context),
                 "ll": f"{context.latitude},{context.longitude}",
                 "radius": 500,
                 "limit": 5,
                 "fields": "fsq_place_id,name,latitude,longitude,categories,location",
             },
+        )
+        logger.debug(
+            "PLACE_IMAGE_HTTP provider=foursquare operation=search status=%s "
+            "query=%r latitude=%.5f longitude=%.5f category=%s response=%s",
+            response.status_code,
+            place_image_search_query(context),
+            context.latitude,
+            context.longitude,
+            context.normalized_category.value,
+            response.text[:2000],
         )
         response.raise_for_status()
         results = response.json().get("results", [])
@@ -69,6 +93,13 @@ class FoursquareImageProvider:
             f"{self._base_url}/places/{place_id}/photos",
             headers=headers,
             params={"limit": 25, "sort": "NEWEST"},
+        )
+        logger.debug(
+            "PLACE_IMAGE_HTTP provider=foursquare operation=photos status=%s "
+            "provider_place_id=%s response=%s",
+            photo_response.status_code,
+            place_id,
+            photo_response.text[:2000],
         )
         photo_response.raise_for_status()
         photo = self._select_photo(photo_response.json())
@@ -111,7 +142,9 @@ class FoursquareImageProvider:
             )
             category_names = _fold(category_names)
             expected = _CATEGORY_TERMS.get(context.normalized_category, ())
-            category_match = not expected or any(term in category_names for term in expected)
+            category_match = not expected or any(
+                term in category_names for term in expected
+            )
             if expected and not category_match:
                 continue
             locality = _fold((item.get("location") or {}).get("locality", ""))
@@ -147,7 +180,10 @@ class FoursquareImageProvider:
             ).casefold()
             if any(value in classification for value in excluded):
                 continue
-            rank = next((i for i, value in enumerate(preferred) if value in classification), len(preferred))
+            rank = next(
+                (i for i, value in enumerate(preferred) if value in classification),
+                len(preferred),
+            )
             acceptable.append((rank, photo))
         return min(acceptable, key=lambda item: item[0])[1] if acceptable else None
 

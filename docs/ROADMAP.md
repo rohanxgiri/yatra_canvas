@@ -91,10 +91,12 @@ Acceptance criteria:
 
 ## Phase 5 — Wikimedia enrichment
 
-Status: `[PARTIAL]`. Provider-neutral place images, direct-identifier-first Wikimedia lookup,
-item attribution/license storage, durable TTL cache, and Flutter rendering/fallbacks are
-`[IMPLEMENTED]`. Descriptions, revision-aware refresh, operator batch controls, and media-removal
-reconciliation remain `[PLANNED]`.
+Status: `[PARTIAL]`. Provider-neutral place images, POI-specific cache identity, contextual
+provider queries, candidate URL validation, direct-identifier-first Wikimedia lookup, item
+attribution/license storage, durable TTL cache, client precaching, explicit Flutter image states,
+and neutral non-photographic failure presentation are `[IMPLEMENTED]`. Descriptions,
+revision-aware refresh, operator batch controls, and media-removal reconciliation remain
+`[PLANNED]`.
 
 Scope: enrich reviewed notable places with descriptions and images through a backend batch job.
 Store revision/source identifiers and item-level creator/license/attribution, not merely an image
@@ -166,7 +168,8 @@ and centralized trip purpose and interest weighting (`preference_model.py`) with
 dominance, secondary interest (1.0x) balancing, low-relevance cutoff filtering, explicit non-destructive
 category filtering, soft diversity interleaving, and truthful natural-language recommendation reasons.
 Core trip flow hardening is implemented with:
-- Multi-day day-sequence invariant: `RouteOptimizationRead.total_days` guarantees all logical days ($1 \dots N$) exist in models, map day filters, and itinerary views, rendering friendly empty day cards when a day has 0 stops.
+- Multi-day day-sequence invariant: `RouteOptimizationRead.total_days` guarantees all logical days ($1 \dots N$) exist in models, map day filters, and itinerary views. A soft visit-count span objective populates feasible non-REST days without overriding time windows or locks; genuinely empty active days render as light/flexible time, not user-selected REST.
+- Fetch-driven loading UX: recommendation loading uses responsive card-shaped skeletons, route generation uses a day/stop-shaped skeleton, and remote place photos resolve independently inside stable image regions with neutral non-photographic failure placeholders. No artificial delay is used.
 - Manual place search: 350ms debounced destination-scoped search (`GET /cities/{city_id}/places/search`) across Geoapify (50km radius) and local DB, canonical resolution (`POST /cities/{city_id}/places/resolve`) via `CanonicalPlaceService`, duplicate prevention, and route eligibility.
 - Progressive interactive map rendering: pre-passes trip state to `TripMapScreen`, rendering base map and markers on Frame 1 ($12-25\text{ ms}$) without blocking on route recalculation, with non-blocking asynchronous route polyline loading.
 Currency conversion has been removed from the active roadmap.
@@ -238,7 +241,7 @@ placed in scope.
 ## Day-aware planner slice — 2026-09-07
 
 `[IMPLEMENTED]` Verified actual TripDay routes, day locks, normalized
-split opening hours, capacity-based soft balancing, partial results and Flutter model support.
+split opening hours, capacity- and visit-count-based soft balancing, partial results and Flutter model support.
 This slice extends Phase 7/8 infrastructure only. No completed/missed/skipped states, missed-stop
 movement, partial/live replanning, map bottom sheet, deep links, automatic hours enrichment,
 recommendation changes or final day-planning UI are included. See

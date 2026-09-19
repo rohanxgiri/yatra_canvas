@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -55,5 +56,47 @@ def first_identifier(context: PlaceImageContext, key: str) -> str | None:
     return None
 
 
-def source_for(context: PlaceImageContext, provider: str) -> PlaceImageSourceContext | None:
-    return next((source for source in context.sources if source.source == provider), None)
+def source_for(
+    context: PlaceImageContext, provider: str
+) -> PlaceImageSourceContext | None:
+    return next(
+        (source for source in context.sources if source.source == provider), None
+    )
+
+
+def place_image_identity_key(context: PlaceImageContext) -> str:
+    """Return a deterministic POI-specific identity for diagnostics/provider work.
+
+    The durable database cache remains keyed by the canonical ``Place.id``. This
+    provider-aware key makes the underlying identity explicit and gives places
+    without provider provenance a stable, collision-resistant fallback.
+    """
+
+    identified_sources = sorted(
+        (
+            source.source.strip().casefold(),
+            source.external_place_id.strip(),
+        )
+        for source in context.sources
+        if source.source.strip() and source.external_place_id.strip()
+    )
+    if identified_sources:
+        source, external_place_id = identified_sources[0]
+        return f"provider:{source}:{external_place_id}"
+
+    normalized_name = re.sub(r"[^a-z0-9]+", "-", context.name.casefold()).strip("-")
+    normalized_city = re.sub(r"[^a-z0-9]+", "-", context.city.casefold()).strip("-")
+    return (
+        f"place:{normalized_name}:{normalized_city}:"
+        f"{context.latitude:.5f}:{context.longitude:.5f}"
+    )
+
+
+def place_image_search_query(context: PlaceImageContext) -> str:
+    """Build the exact contextual search phrase shared by search providers."""
+
+    return ", ".join(
+        part.strip()
+        for part in (context.name, context.city, context.state, context.country)
+        if part and part.strip()
+    )

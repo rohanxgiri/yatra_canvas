@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import logging
 import re
 from difflib import SequenceMatcher
 from urllib.parse import quote, unquote, urlparse
@@ -14,7 +15,10 @@ from app.services.place_image_provider import (
     PlaceImageCandidate,
     PlaceImageContext,
     first_identifier,
+    place_image_search_query,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _plain(value: object) -> str | None:
@@ -50,7 +54,12 @@ class WikimediaImageProvider:
                 },
             )
             response.raise_for_status()
-            claims = response.json().get("entities", {}).get(wikidata_id, {}).get("claims", {})
+            claims = (
+                response.json()
+                .get("entities", {})
+                .get(wikidata_id, {})
+                .get("claims", {})
+            )
             p18 = claims.get("P18", [])
             if p18:
                 filename = p18[0].get("mainsnak", {}).get("datavalue", {}).get("value")
@@ -68,19 +77,10 @@ class WikimediaImageProvider:
 
         return await self._fuzzy_wikipedia(context)
 
-    async def _fuzzy_wikipedia(self, context: PlaceImageContext) -> PlaceImageCandidate | None:
-        query = " ".join(
-            filter(
-                None,
-                (
-                    context.name,
-                    context.normalized_category.value.replace("_", " "),
-                    context.city,
-                    context.state,
-                    context.country,
-                ),
-            )
-        )
+    async def _fuzzy_wikipedia(
+        self, context: PlaceImageContext
+    ) -> PlaceImageCandidate | None:
+        query = place_image_search_query(context)
         response = await self._client.get(
             "https://en.wikipedia.org/w/api.php",
             params={
@@ -95,6 +95,13 @@ class WikimediaImageProvider:
                 "inprop": "url",
                 "format": "json",
             },
+        )
+        logger.debug(
+            "PLACE_IMAGE_HTTP provider=wikimedia operation=search status=%s "
+            "query=%r response=%s",
+            response.status_code,
+            query,
+            response.text[:2000],
         )
         response.raise_for_status()
         pages = response.json().get("query", {}).get("pages", {})

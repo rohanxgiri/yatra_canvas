@@ -42,6 +42,9 @@ class OpenStreetMapDiscoveryService:
     ) -> None:
         self._settings = settings
         self._cache_ttl = timedelta(hours=settings.place_discovery_cache_ttl_hours)
+        self._stale_usable_ttl = timedelta(
+            hours=settings.discovery_stale_usable_hours
+        )
         self._provider = provider
         self._audiala_provider = audiala_provider
         self._canonical_service = canonical_service or CanonicalPlaceService()
@@ -82,6 +85,7 @@ class OpenStreetMapDiscoveryService:
         categories: list[DiscoveryCategory],
         custom_category_limits: dict[DiscoveryCategory, int] | None = None,
         prefer_stale: bool = True,
+        force_refresh_categories: set[DiscoveryCategory] | None = None,
         include_overpass: bool = True,
     ) -> dict[DiscoveryCategory, list[Place]]:
         """Refresh uncached categories with 3-tier cache semantics, Geoapify fallback, and failure isolation."""
@@ -117,10 +121,22 @@ class OpenStreetMapDiscoveryService:
             cache = cache_by_key.get(cache_key)
             caches[category] = cache
             stored = stored_by_category.get(category, [])
+            force_refresh = (
+                force_refresh_categories is not None
+                and category in force_refresh_categories
+            )
+            stale_usable = cache is None or (
+                self._as_utc(cache.last_fetched_at) + self._stale_usable_ttl > now
+            )
 
             # 3-tier classification:
             # 1. FRESH: cache unexpired and has stored places
-            if cache is not None and self._as_utc(cache.expires_at) > now and stored:
+            if (
+                not force_refresh
+                and cache is not None
+                and self._as_utc(cache.expires_at) > now
+                and stored
+            ):
                 results[category] = stored
                 logger.info(
                     "PREFETCH_CACHE_HIT city_id=%s category=%s cache_key=%s",
@@ -129,8 +145,20 @@ class OpenStreetMapDiscoveryService:
                     cache_key,
                 )
             # 2. STALE_USABLE: expired cache or unverified, but stored places exist
-            elif stored and prefer_stale:
+            elif (
+                not force_refresh
+                and stored
+                and prefer_stale
+                and stale_usable
+            ):
                 results[category] = stored
+                logger.info(
+                    "PREFETCH_CACHE city_id=%s category=%s state=stale_usable "
+                    "count=%d",
+                    city.id,
+                    category.value,
+                    len(stored),
+                )
             # 3. MISSING: no stored places
             else:
                 pending.append(category)
@@ -420,6 +448,14 @@ class OpenStreetMapDiscoveryService:
         # Handle failed categories with stale DB fallback
         for category in failed_categories:
             stale_places = stored_after_refresh.get(category, [])
+            stale_cache = caches.get(category)
+            stale_is_usable = stale_cache is None or (
+                self._as_utc(stale_cache.last_fetched_at)
+                + self._stale_usable_ttl
+                > now
+            )
+            if not stale_is_usable:
+                stale_places = []
             results[category] = stale_places
             if stale_places:
                 logger.info(

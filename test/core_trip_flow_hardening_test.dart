@@ -413,7 +413,7 @@ void main() {
         // Check Day 2 shows empty state
         expect(
           find.text(
-            'No places scheduled yet. Add a place or optimize your itinerary.',
+            'Flexible time · No feasible saved place is scheduled here. This is not a rest day.',
           ),
           findsOneWidget,
         );
@@ -639,7 +639,10 @@ void main() {
         await tester.pumpAndSettle();
 
         // Verify Day 2 empty notice is shown and map remains functional
-        expect(find.text('Day 2 · No places scheduled yet.'), findsOneWidget);
+        expect(
+          find.text('Day 2 · Flexible time. This is not a rest day.'),
+          findsOneWidget,
+        );
         expect(find.byType(FlutterMap), findsOneWidget);
       },
     );

@@ -2,14 +2,21 @@
 
 import asyncio
 from collections.abc import Generator
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.core.config import Settings
-from app.models import City, Place, PlaceOpeningHours, PlaceSource, PlaceTag
+from app.models import (
+    City,
+    Place,
+    PlaceImageCache,
+    PlaceOpeningHours,
+    PlaceSource,
+    PlaceTag,
+)
 from app.schemas import DiscoveryCategory
 from app.services.canonical_place_service import (
     CanonicalNearbyCandidate,
@@ -194,6 +201,66 @@ def test_repeated_same_source_ingestion_is_idempotent_osm(
     assert len(session.exec(select(PlaceSource)).all()) == 1
 
 
+def test_new_image_identity_invalidates_older_negative_cache(
+    session: Session,
+    sample_city: City,
+) -> None:
+    service = CanonicalPlaceService()
+    now = datetime.now(timezone.utc)
+    initial = OpenStreetMapNearbyPlace(
+        external_place_id="node/1002",
+        source_url="https://www.openstreetmap.org/node/1002",
+        name="Don Bosco Square",
+        latitude=32.2482,
+        longitude=77.1805,
+        tags={"tourism": "attraction"},
+    )
+    place, _ = service.resolve_or_create_nearby_place(
+        session=session,
+        city=sample_city,
+        category=DiscoveryCategory.TOURISM,
+        nearby=initial,
+        source_name="openstreetmap",
+        licence_identifier="ODbL-1.0",
+        fetched_at=now,
+    )
+    session.add(
+        PlaceImageCache(
+            place_id=place.id,
+            normalized_category="landmark",
+            status="not_found",
+            expires_at=now + timedelta(hours=24),
+        )
+    )
+    session.commit()
+
+    enriched = OpenStreetMapNearbyPlace(
+        external_place_id="node/1002",
+        source_url="https://www.openstreetmap.org/node/1002",
+        name="Don Bosco Square",
+        latitude=32.2482,
+        longitude=77.1805,
+        tags={"tourism": "attraction", "wikidata": "Q12345"},
+    )
+    service.resolve_or_create_nearby_place(
+        session=session,
+        city=sample_city,
+        category=DiscoveryCategory.TOURISM,
+        nearby=enriched,
+        source_name="openstreetmap",
+        licence_identifier="ODbL-1.0",
+        fetched_at=now + timedelta(minutes=1),
+    )
+    session.commit()
+
+    assert (
+        session.exec(
+            select(PlaceImageCache).where(PlaceImageCache.place_id == place.id)
+        ).first()
+        is None
+    )
+
+
 def test_repeated_same_source_ingestion_is_idempotent_audiala(
     session: Session, sample_city: City
 ):
@@ -265,7 +332,7 @@ def test_shared_wikidata_id_across_osm_and_audiala_resolves_to_one_place(
         tags={"wikidata": "Q4285885", "audiala:category": "sight"},
     )
 
-    place_osm, source_osm = service.resolve_or_create_nearby_place(
+    place_osm, _ = service.resolve_or_create_nearby_place(
         session=session,
         city=sample_city,
         category=DiscoveryCategory.RELIGIOUS,
@@ -276,7 +343,7 @@ def test_shared_wikidata_id_across_osm_and_audiala_resolves_to_one_place(
     )
     session.commit()
 
-    place_aud, source_aud = service.resolve_or_create_nearby_place(
+    place_aud, _ = service.resolve_or_create_nearby_place(
         session=session,
         city=sample_city,
         category=DiscoveryCategory.HERITAGE,
@@ -406,7 +473,7 @@ def test_conservative_fallback_merges_matching_names_within_threshold(
     session.commit()
 
     # Provider B candidate 15m away with matching name and compatible category (heritage ~ tourism)
-    p2, s2 = service.resolve_or_create_place(
+    p2, _ = service.resolve_or_create_place(
         session=session,
         city=sample_city,
         category=DiscoveryCategory.HERITAGE,
@@ -547,7 +614,7 @@ def test_discovery_service_integration_osm_and_audiala_merge(
         canonical_service=canonical_service,
     )
 
-    results = asyncio.run(
+    asyncio.run(
         discovery_service.discover_many(
             session=session,
             city=sample_city,

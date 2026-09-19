@@ -41,13 +41,21 @@ async def test_exact_nearby_match_selects_exterior_photo_and_filters_logo() -> N
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer secret"
         if request.url.path.endswith("/places/search"):
+            assert (
+                request.url.params["query"] == "Tapri Central, Jaipur, Rajasthan, India"
+            )
+            assert request.url.params["ll"] == "26.9124,75.7873"
+            assert request.url.params["radius"] == "500"
             return httpx.Response(200, json={"results": [search_result()]})
         return httpx.Response(
             200,
             json=[
                 {"classification": "logos", "url": "https://img/logo.jpg"},
                 {"classification": "food_or_drink", "url": "https://img/food.jpg"},
-                {"classification": "outdoor_building", "url": "https://img/exterior.jpg"},
+                {
+                    "classification": "outdoor_building",
+                    "url": "https://img/exterior.jpg",
+                },
             ],
         )
 
@@ -107,6 +115,20 @@ async def test_wrong_branch_far_category_or_locality_is_rejected(candidate) -> N
 
 @pytest.mark.anyio
 async def test_missing_key_or_no_result_degrades_to_none() -> None:
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"results": []}))) as client:
-        assert await FoursquareImageProvider(None, base_url="https://example", client=client).resolve(context()) is None
-        assert await FoursquareImageProvider("key", base_url="https://example", client=client).resolve(context()) is None
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json={"results": []})
+        )
+    ) as client:
+        assert (
+            await FoursquareImageProvider(
+                None, base_url="https://example", client=client
+            ).resolve(context())
+            is None
+        )
+        assert (
+            await FoursquareImageProvider(
+                "key", base_url="https://example", client=client
+            ).resolve(context())
+            is None
+        )

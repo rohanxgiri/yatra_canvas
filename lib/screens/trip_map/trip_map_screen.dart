@@ -944,7 +944,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
                                   day.dayType == DayType.rest,
                             )
                             ? 'Day $_selectedDay · Rest day. Take it slow.'
-                            : 'Day $_selectedDay · No places scheduled yet.',
+                            : 'Day $_selectedDay · Flexible time. This is not a rest day.',
                         style: AppTextStyles.caption.copyWith(
                           color: AppColors.charcoal,
                           fontWeight: FontWeight.w600,

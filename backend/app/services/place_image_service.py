@@ -7,6 +7,7 @@ import logging
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse
 from uuid import UUID
 
 import httpx
@@ -30,6 +31,8 @@ from app.services.place_image_provider import (
     PlaceImageCandidate,
     PlaceImageContext,
     PlaceImageSourceContext,
+    place_image_identity_key,
+    place_image_search_query,
 )
 from app.services.wikimedia_image_provider import WikimediaImageProvider
 
@@ -111,7 +114,11 @@ def enrich_image_reads(
 ) -> set[UUID]:
     """Attach normalized category/image fields to API read models in two queries."""
 
-    ids = [getattr(item, id_attribute) for item in items if getattr(item, id_attribute, None)]
+    ids = [
+        getattr(item, id_attribute)
+        for item in items
+        if getattr(item, id_attribute, None)
+    ]
     if not ids:
         return set()
     places = {
@@ -140,6 +147,7 @@ class PlaceImageResolver:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
+        self._validation_client: httpx.AsyncClient | None = None
 
     async def resolve_many(
         self,
@@ -168,7 +176,12 @@ class PlaceImageResolver:
         headers = {"User-Agent": "YatraCanvas/0.1 (place-image attribution resolver)"}
         semaphore = asyncio.Semaphore(self._settings.place_image_concurrency)
         started = time.perf_counter()
-        async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
+        async with httpx.AsyncClient(
+            timeout=timeout,
+            headers=headers,
+            follow_redirects=True,
+        ) as client:
+            self._validation_client = client
             providers = {
                 "geoapify": GeoapifyImageProvider(
                     self._settings.geoapify_api_key_value,
@@ -198,21 +211,28 @@ class PlaceImageResolver:
                         candidate, had_error = None, True
                     return context, candidate, had_error
 
-            results = await asyncio.gather(
-                *(resolve_one(context) for context in contexts),
-                return_exceptions=True,
-            )
+            try:
+                results = await asyncio.gather(
+                    *(resolve_one(context) for context in contexts),
+                    return_exceptions=True,
+                )
+            finally:
+                self._validation_client = None
 
         now = datetime.now(timezone.utc)
         existing_rows = {
             row.place_id: row
             for row in session.exec(
-                select(PlaceImageCache).where(PlaceImageCache.place_id.in_(list(targets)))
+                select(PlaceImageCache).where(
+                    PlaceImageCache.place_id.in_(list(targets))
+                )
             ).all()
         }
         for result in results:
             if isinstance(result, BaseException):
-                logger.warning("PLACE_IMAGE_FAILED stage=resolve error=%s", type(result).__name__)
+                logger.warning(
+                    "PLACE_IMAGE_FAILED stage=resolve error=%s", type(result).__name__
+                )
                 continue
             context, candidate, had_error = result
             row = existing_rows.get(context.place_id)
@@ -230,7 +250,9 @@ class PlaceImageResolver:
                 self._apply_candidate(row, candidate)
                 row.status = "resolved"
                 row.failure_reason = None
-                row.expires_at = now + timedelta(hours=self._settings.place_image_cache_ttl_hours)
+                row.expires_at = now + timedelta(
+                    hours=self._settings.place_image_cache_ttl_hours
+                )
                 cached[context.place_id] = image_read_from_cache(row)
             else:
                 row.url = None
@@ -262,6 +284,18 @@ class PlaceImageResolver:
 
     async def _resolve_context(self, context, providers):
         had_error = False
+        logger.info(
+            "PLACE_IMAGE_LOOKUP place_id=%s cache_key=%s name=%r category=%s "
+            "city=%r latitude=%.5f longitude=%.5f provider_query=%r",
+            context.place_id,
+            place_image_identity_key(context),
+            context.name,
+            context.normalized_category.value,
+            context.city,
+            context.latitude,
+            context.longitude,
+            place_image_search_query(context),
+        )
         for name in self._provider_order(context.normalized_category):
             provider_started = time.perf_counter()
             for attempt in range(2):
@@ -275,13 +309,38 @@ class PlaceImageResolver:
                         round((time.perf_counter() - provider_started) * 1000),
                     )
                     if candidate is not None:
+                        validation_client = self._validation_client
+                        if (
+                            validation_client is not None
+                            and not await self._candidate_url_is_image(
+                                validation_client,
+                                context,
+                                candidate,
+                            )
+                        ):
+                            had_error = True
+                            logger.warning(
+                                "PLACE_IMAGE_PROVIDER_FAILED place_id=%s provider=%s "
+                                "error=invalid_image_response",
+                                context.place_id,
+                                name,
+                            )
+                            break
                         return candidate, had_error
                     break
                 except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
                     had_error = True
+                    status_code = (
+                        exc.response.status_code
+                        if isinstance(exc, httpx.HTTPStatusError)
+                        else None
+                    )
                     retryable = isinstance(exc, httpx.TimeoutException) or (
                         isinstance(exc, httpx.HTTPStatusError)
-                        and (exc.response.status_code == 429 or exc.response.status_code >= 500)
+                        and (
+                            exc.response.status_code == 429
+                            or exc.response.status_code >= 500
+                        )
                     )
                     if attempt == 0 and retryable:
                         logger.info(
@@ -292,13 +351,45 @@ class PlaceImageResolver:
                         await asyncio.sleep(0.1)
                         continue
                     logger.warning(
-                        "PLACE_IMAGE_PROVIDER_FAILED place_id=%s provider=%s error=%s",
+                        "PLACE_IMAGE_PROVIDER_FAILED place_id=%s provider=%s "
+                        "http_status=%s error=%s",
                         context.place_id,
                         name,
+                        status_code,
                         type(exc).__name__,
                     )
                     break
         return None, had_error
+
+    @staticmethod
+    async def _candidate_url_is_image(
+        client: httpx.AsyncClient,
+        context: PlaceImageContext,
+        candidate: PlaceImageCandidate,
+    ) -> bool:
+        display_url = candidate.thumbnail_url or candidate.url
+        parsed = urlparse(display_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return False
+        async with client.stream(
+            "GET",
+            display_url,
+            headers={"Range": "bytes=0-1023"},
+        ) as response:
+            content_type = response.headers.get("content-type", "")
+            logger.debug(
+                "PLACE_IMAGE_URL_CHECK place_id=%s provider=%s status=%s "
+                "content_type=%r host=%s",
+                context.place_id,
+                candidate.provider,
+                response.status_code,
+                content_type,
+                parsed.hostname,
+            )
+            return response.status_code in {
+                200,
+                206,
+            } and content_type.casefold().startswith("image/")
 
     @staticmethod
     def _provider_order(category: NormalizedPlaceCategory) -> tuple[str, ...]:
@@ -321,12 +412,18 @@ class PlaceImageResolver:
         row.license_url = candidate.license_url
 
     @staticmethod
-    def _load_contexts(session: Session, place_ids: set[UUID]) -> list[PlaceImageContext]:
-        places = list(session.exec(select(Place).where(Place.id.in_(list(place_ids)))).all())
+    def _load_contexts(
+        session: Session, place_ids: set[UUID]
+    ) -> list[PlaceImageContext]:
+        places = list(
+            session.exec(select(Place).where(Place.id.in_(list(place_ids)))).all()
+        )
         city_ids = {place.city_id for place in places}
         cities = {
             city.id: city
-            for city in session.exec(select(City).where(City.id.in_(list(city_ids)))).all()
+            for city in session.exec(
+                select(City).where(City.id.in_(list(city_ids)))
+            ).all()
         }
         sources_by_place: dict[UUID, list[PlaceSource]] = defaultdict(list)
         for source in session.exec(

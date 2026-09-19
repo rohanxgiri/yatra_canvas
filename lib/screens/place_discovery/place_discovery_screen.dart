@@ -1,6 +1,7 @@
 import '../../widgets/yc_scaffold.dart';
 
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 
@@ -11,6 +12,8 @@ import '../../models/recommendation.dart';
 import '../../models/saved_place.dart';
 import '../../models/trip_start_location.dart';
 import '../../services/place_service.dart';
+import '../../services/place_image_prefetch_service.dart';
+import '../../services/recommendation_cache.dart';
 import '../../services/recommendation_service.dart';
 import '../../services/route_optimization_service.dart';
 import '../../services/saved_place_service.dart';
@@ -28,6 +31,7 @@ import '../create_trip/plan_days_screen.dart';
 import '../../widgets/place_card.dart';
 import '../../widgets/place_image.dart';
 import '../../widgets/selection_chip.dart';
+import '../../widgets/yc_skeleton.dart';
 import '../trip_map/trip_map_screen.dart';
 import 'widgets/weather_advisory_card.dart';
 
@@ -45,6 +49,8 @@ class PlaceDiscoveryScreen extends StatefulWidget {
     this.weatherAdvisoryService,
     this.smartReplanningService,
     this.placeService,
+    this.placeImagePrefetchService,
+    this.recommendationCache,
     this.tripService,
     super.key,
   });
@@ -61,6 +67,8 @@ class PlaceDiscoveryScreen extends StatefulWidget {
   final WeatherAdvisoryService? weatherAdvisoryService;
   final SmartReplanningService? smartReplanningService;
   final PlaceService? placeService;
+  final PlaceImagePrefetchService? placeImagePrefetchService;
+  final RecommendationCache? recommendationCache;
   final TripService? tripService;
 
   @override
@@ -80,6 +88,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   late final bool _ownsSmartReplanningService;
   late final PlaceService _placeService;
   late final bool _ownsPlaceService;
+  late final PlaceImagePrefetchService _placeImagePrefetchService;
+  late final RecommendationCache _recommendationCache;
   late final TripService _tripService;
   late final bool _ownsTripService;
 
@@ -109,6 +119,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   bool _showRefinements = false;
   bool _refinementsDirty = false;
   int _requestGeneration = 0;
+  String? _activeRecommendationProfileKey;
 
   // Manual place search state
   final TextEditingController _searchController = TextEditingController();
@@ -140,6 +151,9 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         widget.smartReplanningService ?? SmartReplanningService();
     _ownsPlaceService = widget.placeService == null;
     _placeService = widget.placeService ?? PlaceService();
+    _placeImagePrefetchService =
+        widget.placeImagePrefetchService ?? PlaceImagePrefetchService();
+    _recommendationCache = widget.recommendationCache ?? RecommendationCache();
     _ownsTripService = widget.tripService == null;
     _tripService = widget.tripService ?? TripService();
     if (_tripId != null) {
@@ -235,30 +249,90 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       });
       return;
     }
+    final cacheKey = _recommendationCache.profileKey(
+      cityId: cityId,
+      purposes: widget.tripPurposes,
+      categories: categories,
+      categoryFilter: _activeCategoryFilter,
+    );
+    final sameProfile = _activeRecommendationProfileKey == cacheKey;
     setState(() {
       _isLoading = true;
       _hasRequested = true;
       _error = null;
     });
 
-    try {
-      final recommendations = await _recommendationService.getRecommendations(
-        cityId,
-        categories,
-        tripId: _tripId,
-        purposes: widget.tripPurposes,
-        interests: _refinementCategories.map((c) => c.apiValue),
-        categoryFilter: _activeCategoryFilter,
-      );
-      if (!mounted || requestGeneration != _requestGeneration) return;
+    final syncStopwatch = Stopwatch()..start();
+    final backendRequest = _recommendationService.getRecommendations(
+      cityId,
+      categories,
+      tripId: _tripId,
+      purposes: widget.tripPurposes,
+      interests: _refinementCategories.map((c) => c.apiValue),
+      categoryFilter: _activeCategoryFilter,
+    );
+
+    var renderedLocalSnapshot = false;
+    final localStopwatch = Stopwatch()..start();
+    final snapshot = await _recommendationCache.read(cacheKey);
+    if (!mounted || requestGeneration != _requestGeneration) return;
+    if (snapshot != null &&
+        snapshot.isUsable &&
+        snapshot.recommendations.isNotEmpty) {
+      renderedLocalSnapshot = true;
       setState(() {
-        _recommendations = recommendations;
+        _recommendations = snapshot.recommendations;
+        _activeRecommendationProfileKey = cacheKey;
+      });
+      developer.log(
+        '[DISCOVER LOCAL RENDER] count=${snapshot.recommendations.length} '
+        'elapsedMs=${localStopwatch.elapsedMilliseconds} '
+        'freshness=${snapshot.freshness.name}',
+        name: 'PlaceDiscoveryScreen',
+      );
+    }
+
+    try {
+      developer.log(
+        '[DISCOVER SYNC START] city=$cityId localCacheCount='
+        '${snapshot?.recommendations.length ?? 0}',
+        name: 'PlaceDiscoveryScreen',
+      );
+      final recommendations = await backendRequest;
+      if (!mounted || requestGeneration != _requestGeneration) return;
+      final visibleRecommendations = sameProfile || renderedLocalSnapshot
+          ? _mergeRecommendations(_recommendations, recommendations)
+          : recommendations;
+      setState(() {
+        _recommendations = visibleRecommendations;
+        _activeRecommendationProfileKey = cacheKey;
         _isLoading = false;
         _refinementsDirty = false;
         if (_purposeCategories.isNotEmpty) _showRefinements = false;
       });
+      unawaited(
+        _recommendationCache.write(cacheKey, cityId, visibleRecommendations),
+      );
+      developer.log(
+        '[DISCOVER SYNC SUCCESS] count=${recommendations.length} '
+        'elapsedMs=${syncStopwatch.elapsedMilliseconds}',
+        name: 'PlaceDiscoveryScreen',
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || requestGeneration != _requestGeneration) return;
+        unawaited(
+          _placeImagePrefetchService.prefetchRecommendations(
+            context,
+            recommendations,
+          ),
+        );
+      });
     } on Object catch (error) {
       if (!mounted || requestGeneration != _requestGeneration) return;
+      developer.log(
+        '[DISCOVER SYNC FAILED] runtimeType=${error.runtimeType}',
+        name: 'PlaceDiscoveryScreen',
+      );
       setState(() {
         final friendlyMsg = _friendlyError(error);
         if (_recommendations.isEmpty) {
@@ -269,6 +343,23 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  static List<Recommendation> _mergeRecommendations(
+    List<Recommendation> visible,
+    List<Recommendation> updated,
+  ) {
+    final updatedById = {for (final item in updated) item.id: item};
+    final merged = <Recommendation>[];
+    final seen = <String>{};
+    for (final item in visible) {
+      merged.add(updatedById[item.id] ?? item);
+      seen.add(item.id);
+    }
+    for (final item in updated) {
+      if (seen.add(item.id)) merged.add(item);
+    }
+    return merged;
   }
 
   void _setCategoryFilter(PlaceCategory? category) {
@@ -1886,13 +1977,18 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
                 ),
               ),
             ),
-            if (_isOptimizingRoute)
-              const Padding(
-                padding: EdgeInsets.only(top: 16),
-                child: YCStateCard(
-                  title: 'Putting your days together',
-                  message: 'Finding an order for your places within your available time. This may take a moment.',
-                  loading: true,
+            if (_isOptimizingRoute && _optimizedRoute == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: _ItinerarySkeleton(
+                  dayCount:
+                      (_tripDays.isNotEmpty
+                              ? _tripDays
+                                    .where((day) => day.dayType != DayType.rest)
+                                    .length
+                              : widget.durationDays ?? 2)
+                          .clamp(1, 3)
+                          .toInt(),
                 ),
               ),
             const SizedBox(height: 7),
@@ -1997,14 +2093,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   Widget _buildResults() {
     if (_isLoading && _recommendations.isEmpty) {
-      final categoryCount = _effectiveCategories.length;
-      return _DiscoveryStatus(
+      return _PlaceResultsSkeleton(
         key: const ValueKey('loading-recommendations'),
-        icon: Icons.radar_rounded,
-        title: 'Ranking places for your trip',
-        message:
-            'Checking $categoryCount ${categoryCount == 1 ? 'interest' : 'interests'}, saved results, and nearby places…',
-        showProgress: true,
       );
     }
     if (_error case final error?) {
@@ -2038,30 +2128,6 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       key: const ValueKey('ranked-recommendations'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_isLoading) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: AppColors.tealLight,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Row(
-              children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.teal,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Text('Updating nearby places…', style: AppTextStyles.caption),
-              ],
-            ),
-          ),
-        ],
         Row(
           children: [
             Expanded(
@@ -2164,6 +2230,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
             },
           ),
           if (index != _recommendations.length - 1) const SizedBox(height: 12),
+        ],
+        if (_isLoading) ...[
+          const SizedBox(height: 16),
+          const _AdditionalPlaceSkeletons(),
         ],
       ],
     );
@@ -2798,12 +2868,27 @@ class _OptimizedRouteCard extends StatelessWidget {
                   style: AppTextStyles.sectionTitle,
                 ),
                 subtitle: Text(
+                  key: ValueKey(
+                    tripDays.any(
+                          (day) =>
+                              day.dayNumber == displayDays[dayIndex] &&
+                              day.dayType == DayType.rest,
+                        )
+                        ? 'itinerary-rest-day-${displayDays[dayIndex]}'
+                        : (route.placesByDay[displayDays[dayIndex]]?.isEmpty ??
+                              true)
+                        ? 'itinerary-flexible-day-${displayDays[dayIndex]}'
+                        : 'itinerary-active-day-${displayDays[dayIndex]}',
+                  ),
                   tripDays.any(
-                        (d) =>
-                            d.dayNumber == displayDays[dayIndex] &&
-                            d.dayType == DayType.rest,
+                        (day) =>
+                            day.dayNumber == displayDays[dayIndex] &&
+                            day.dayType == DayType.rest,
                       )
                       ? 'Rest day · Take it slow'
+                      : (route.placesByDay[displayDays[dayIndex]]?.isEmpty ??
+                            true)
+                      ? 'Light day · Flexible time'
                       : '${route.placesByDay[displayDays[dayIndex]]?.length ?? 0} ${route.placesByDay[displayDays[dayIndex]]?.length == 1 ? 'place' : 'places'}',
                   style: AppTextStyles.bodyMuted,
                 ),
@@ -2871,7 +2956,11 @@ class _OptimizedRouteCard extends StatelessWidget {
               size: 16,
             ),
             Text(
-              '${dayPlaces.length} planned ${dayPlaces.length == 1 ? 'stop' : 'stops'}',
+              isRest
+                  ? 'Rest day'
+                  : dayPlaces.isEmpty
+                  ? 'Light day · flexible time'
+                  : '${dayPlaces.length} planned ${dayPlaces.length == 1 ? 'stop' : 'stops'}',
               style: AppTextStyles.label.copyWith(
                 color: isRest ? AppColors.terracotta : AppColors.tealDark,
                 fontWeight: FontWeight.w800,
@@ -2962,7 +3051,7 @@ class _OptimizedRouteCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'No places scheduled yet. Add a place or optimize your itinerary.',
+                    'Flexible time · No feasible saved place is scheduled here. This is not a rest day.',
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -3555,19 +3644,219 @@ class _InlineSavedError extends StatelessWidget {
   }
 }
 
+class _PlaceResultsSkeleton extends StatelessWidget {
+  const _PlaceResultsSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height;
+    final count = height < 700
+        ? 4
+        : height < 900
+        ? 5
+        : 6;
+    return YCSkeletonPulse(
+      label: 'Loading place recommendations',
+      child: Column(
+        key: const ValueKey('place-results-skeleton'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const YCSkeletonBlock(width: 190, height: 24),
+          const SizedBox(height: 14),
+          for (var index = 0; index < count; index++) ...[
+            const _PlaceCardSkeleton(),
+            if (index != count - 1) const SizedBox(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaceCardSkeleton extends StatelessWidget {
+  const _PlaceCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const AspectRatio(
+          aspectRatio: 4 / 3,
+          child: YCSkeletonBlock(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 14),
+        const YCSkeletonBlock(width: 92, height: 12),
+        const SizedBox(height: 8),
+        const FractionallySizedBox(
+          widthFactor: .68,
+          child: YCSkeletonBlock(height: 22),
+        ),
+        const SizedBox(height: 10),
+        const FractionallySizedBox(
+          widthFactor: .9,
+          child: YCSkeletonBlock(height: 14),
+        ),
+        const SizedBox(height: 7),
+        const FractionallySizedBox(
+          widthFactor: .58,
+          child: YCSkeletonBlock(height: 14),
+        ),
+        const SizedBox(height: 14),
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            YCSkeletonBlock(width: 84, height: 18),
+            YCSkeletonBlock(width: 72, height: 18),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _AdditionalPlaceSkeletons extends StatelessWidget {
+  const _AdditionalPlaceSkeletons();
+
+  @override
+  Widget build(BuildContext context) => const YCSkeletonPulse(
+    label: 'Finding more places',
+    child: Column(
+      key: ValueKey('additional-place-skeletons'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Finding a few more places for your trip…',
+          style: AppTextStyles.caption,
+        ),
+        SizedBox(height: 12),
+        _PlaceCardSkeleton(),
+        SizedBox(height: 12),
+        _PlaceCardSkeleton(),
+      ],
+    ),
+  );
+}
+
+class _ItinerarySkeleton extends StatelessWidget {
+  const _ItinerarySkeleton({required this.dayCount});
+
+  final int dayCount;
+
+  @override
+  Widget build(BuildContext context) => YCSkeletonPulse(
+    label: 'Building itinerary',
+    child: Container(
+      key: const ValueKey('itinerary-skeleton'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: AppColors.tealLight,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.teal.withValues(alpha: .2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              YCSkeletonBlock(width: 22, height: 22),
+              SizedBox(width: 9),
+              YCSkeletonBlock(width: 138, height: 18),
+            ],
+          ),
+          const SizedBox(height: 18),
+          for (var day = 0; day < dayCount; day++) ...[
+            const _ItineraryDaySkeleton(),
+            if (day != dayCount - 1) const SizedBox(height: 18),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+class _ItineraryDaySkeleton extends StatelessWidget {
+  const _ItineraryDaySkeleton();
+
+  @override
+  Widget build(BuildContext context) => const Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      YCSkeletonBlock(width: 76, height: 20),
+      SizedBox(height: 6),
+      YCSkeletonBlock(width: 118, height: 12),
+      SizedBox(height: 14),
+      _ItineraryStopSkeleton(),
+      SizedBox(height: 10),
+      Padding(
+        padding: EdgeInsets.only(left: 16),
+        child: YCSkeletonBlock(width: 2, height: 22),
+      ),
+      SizedBox(height: 10),
+      _ItineraryStopSkeleton(),
+    ],
+  );
+}
+
+class _ItineraryStopSkeleton extends StatelessWidget {
+  const _ItineraryStopSkeleton();
+
+  @override
+  Widget build(BuildContext context) => const Row(
+    children: [
+      YCSkeletonBlock(
+        width: 34,
+        height: 34,
+        borderRadius: BorderRadius.all(Radius.circular(17)),
+      ),
+      SizedBox(width: 11),
+      YCSkeletonBlock(
+        width: 52,
+        height: 52,
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+      ),
+      SizedBox(width: 11),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FractionallySizedBox(
+              widthFactor: .78,
+              child: YCSkeletonBlock(height: 15),
+            ),
+            SizedBox(height: 7),
+            FractionallySizedBox(
+              widthFactor: .55,
+              child: YCSkeletonBlock(height: 12),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
 class _DiscoveryStatus extends StatelessWidget {
   const _DiscoveryStatus({
     required this.icon,
     required this.title,
     required this.message,
-    this.showProgress = false,
     super.key,
   });
 
   final IconData icon;
   final String title;
   final String message;
-  final bool showProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -3594,10 +3883,6 @@ class _DiscoveryStatus extends StatelessWidget {
             textAlign: TextAlign.center,
             style: AppTextStyles.bodyMuted,
           ),
-          if (showProgress) ...[
-            const SizedBox(height: 16),
-            const LinearProgressIndicator(minHeight: 3),
-          ],
         ],
       ),
     );

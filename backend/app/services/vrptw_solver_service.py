@@ -7,6 +7,7 @@ Solves multi-day tourist itineraries with:
 - Lunch breaks (break intervals in midday window)
 - Native day assignment locks and legacy conditional order locks
 - Priority, must-visit and lock retention via optional-visit penalties
+- Visit-count balancing across feasible, non-rest trip days
 """
 
 from __future__ import annotations
@@ -211,6 +212,31 @@ class VrptwSolverService:
             transit_callback_index, 1440, max_day_capacity, False, "Time"
         )
         time_dimension = routing.GetDimensionOrDie("Time")
+
+        # Count arrivals at real POIs so the global objective can prefer an even
+        # distribution across available days.  This is deliberately a soft
+        # objective: time windows, opening hours, locks, and visit duration stay
+        # hard constraints and therefore always win over cosmetic balance.
+        def visit_count_evaluator(_from_index: int, to_index: int) -> int:
+            return 1 if manager.IndexToNode(to_index) > 0 else 0
+
+        visit_count_callback_index = routing.RegisterTransitCallback(
+            visit_count_evaluator
+        )
+        routing.AddDimension(
+            visit_count_callback_index,
+            0,
+            num_places,
+            True,
+            "VisitCount",
+        )
+        visit_count_dimension = routing.GetDimensionOrDie("VisitCount")
+        # Travel-time arc costs are measured in minutes.  A larger coefficient
+        # prevents a small distance saving from creating an obviously overloaded
+        # day beside an empty feasible day.  Optional-visit penalties remain
+        # higher, so the solver cannot improve balance by casually dropping POIs.
+        visit_count_dimension.SetGlobalSpanCostCoefficient(10_000)
+
         solver = routing.solver()
         conflicts: list[str] = []
         for v, (start, end) in enumerate(windows):
@@ -222,7 +248,6 @@ class VrptwSolverService:
                 pywrapcp.BoundCost(int(capacity * 0.75), max(1, round(600 / capacity))),
                 v,
             )
-            routing.SetFixedCostOfVehicle(100, v)
             routing.AddVariableMinimizedByFinalizer(
                 time_dimension.CumulVar(routing.Start(v))
             )

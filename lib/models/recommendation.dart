@@ -72,4 +72,26 @@ class Recommendation {
           : null,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'category': category,
+    'latitude': latitude,
+    'longitude': longitude,
+    'rating': rating,
+    'review_count': reviewCount,
+    'is_popular': isPopular,
+    'is_heritage': isHeritage,
+    'is_local_speciality': isLocalSpeciality,
+    'matched_categories': matchedCategories
+        .map((category) => category.name)
+        .toList(growable: false),
+    'recommendation_score': recommendationScore,
+    'recommendation_reason': recommendationReason,
+    'access_confidence': accessConfidence,
+    'is_saved': isSaved,
+    'normalized_category': normalizedCategory,
+    'image': image?.toJson(),
+  };
 }
