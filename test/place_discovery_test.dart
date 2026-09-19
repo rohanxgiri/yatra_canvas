@@ -117,6 +117,40 @@ void main() {
     },
   );
 
+  test('RecommendationService sends and captures pagination cursors', () async {
+    final client = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.path, '/cities/city-123/recommendations');
+      expect(jsonDecode(request.body), {
+        'categories': ['food'],
+        'limit': 10,
+        'cursor': 'MTA=',
+      });
+      return http.Response(
+        '[]',
+        200,
+        headers: {
+          'content-type': 'application/json',
+          'x-next-cursor': 'MjA=',
+        },
+      );
+    });
+    final service = RecommendationService(
+      client: client,
+      baseUrl: 'http://10.0.2.2:8001',
+    );
+
+    final recommendations = await service.getRecommendations(
+      'city-123',
+      [PlaceCategory.food],
+      limit: 10,
+      cursor: 'MTA=',
+    );
+
+    expect(recommendations, isEmpty);
+    expect(service.nextCursor, 'MjA=');
+  });
+
   testWidgets('places loading skeleton transitions directly to real cards', (
     tester,
   ) async {
@@ -942,6 +976,7 @@ class _ControlledRecommendationService extends RecommendationService {
     Iterable<String>? purposes,
     Iterable<String>? interests,
     PlaceCategory? categoryFilter,
+    String? cursor,
   }) => _completer.future;
 
   @override
@@ -1048,6 +1083,7 @@ class _FakeRecommendationService extends RecommendationService {
     Iterable<String>? purposes,
     Iterable<String>? interests,
     PlaceCategory? categoryFilter,
+    String? cursor,
   }) async {
     requests.add(categories.toList(growable: false));
     filterRequests.add(categoryFilter);

@@ -1,13 +1,12 @@
 """FastAPI application entry point."""
 
-from contextlib import asynccontextmanager
+import logging
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from pathlib import Path
-
 from fastapi.staticfiles import StaticFiles
 
 from app.database import create_db_and_tables
@@ -25,6 +24,12 @@ from app.routers import (
     weather_advisories,
 )
 
+# httpx's INFO message contains the complete outbound URL, including query
+# parameters. Provider credentials such as Geoapify's ``apiKey`` must never be
+# emitted by application logging even when the root logger is configured at
+# INFO for local diagnostics.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 @asynccontextmanager
@@ -74,8 +79,9 @@ app.include_router(smart_replanning.router)
 
 admin_static_dir = Path(__file__).resolve().parent / "static" / "admin"
 if admin_static_dir.exists():
-    app.mount("/admin", StaticFiles(directory=str(admin_static_dir), html=True), name="admin")
-
+    app.mount(
+        "/admin", StaticFiles(directory=str(admin_static_dir), html=True), name="admin"
+    )
 
 
 @app.get("/", tags=["status"])

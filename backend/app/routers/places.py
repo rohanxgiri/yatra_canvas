@@ -1,4 +1,5 @@
 import asyncio
+from base64 import urlsafe_b64encode
 import logging
 import threading
 import time
@@ -6,7 +7,7 @@ from functools import lru_cache
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
@@ -384,6 +385,7 @@ async def recommend_city_places(
     session: SessionDependency,
     recommendation: RecommendationDependency,
     coordinator: PrefetchCoordinatorDependency,
+    response: Response,
 ) -> list[RecommendationRead]:
     """Return cached/available places without joining background prefetch."""
 
@@ -457,6 +459,11 @@ async def recommend_city_places(
             len(result),
             (time.monotonic() - request_started) * 1000,
         )
+        if len(result) == recommendation_request.limit:
+            next_offset = recommendation_request.cursor_offset + len(result)
+            response.headers["X-Next-Cursor"] = urlsafe_b64encode(
+                str(next_offset).encode("ascii")
+            ).decode("ascii")
         return result
     except _CityNotFoundError as exc:
         raise HTTPException(

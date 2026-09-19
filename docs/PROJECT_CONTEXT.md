@@ -1,7 +1,13 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-09-18
-Last verified against repository: 2026-09-18
+Last reviewed: 2026-09-19
+Last verified against repository: 2026-09-19
+
+`[IMPLEMENTED]` Discover Places now uses a foreground/background split: recommendation reads never
+join provider prefetch tasks, Flutter renders a versioned SQLite city/profile snapshot first, and
+10-item cursor pages merge progressively. Configured-PostgreSQL and physical-device timing
+verification remains `[PARTIAL]`. See
+[Discover Places data loading](DISCOVER_PLACES_DATA_LOADING.md).
 
 This document is the concise, authoritative primary overview for humans and agents. Status labels mean:
 
@@ -36,7 +42,7 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
   - Multi-stage recommendation pipeline with canonical/spatial/brand deduplication, generalizable institutional/private suitability filtering, purpose/interest weighting, bounded Wikidata importance, and mixed-interest category balancing hardened across 7 benchmark cities and validated with 0 restricted POI leakage;
   - Provider-neutral, cache-first place imagery with background Geoapify/Wikimedia/optional Foursquare resolution, item attribution metadata, negative/failure TTLs, URL validation, and a neutral non-photographic Flutter fallback that never blocks place or itinerary responses;
   - Saved places management (`UserSavedPlace`) with custom ordering, locks, must-visit flags, priorities, notes, and authoritative backend reconciliation;
-  - Multi-day itinerary optimization powered by Google OR-Tools VRPTW solver with opening hours, category visit duration heuristics, midday lunch breaks, locked stops, and must-visit penalties;
+  - Multi-day itinerary optimization powered by Google OR-Tools VRPTW solver with opening hours, category visit duration heuristics, normalized day-load balancing, bounded empty/under-filled-day repair, midday lunch breaks, locked stops, and must-visit penalties;
   - Keyless road-following route geometry via OSRM (`GET /trips/{trip_id}/route-geometry`);
   - Interactive map in Flutter (`flutter_map` with OpenStreetMap tiles and day-filtered polylines);
   - Weather advisories via Open-Meteo with itinerary-aware threshold detection and indoor/outdoor place environment classification;
@@ -57,7 +63,7 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
 
 | Layer | Technologies | Role & Key Details |
 |---|---|---|
-| **Client (Flutter)** | Flutter SDK (Dart `^3.13.0`), Material 3, `http`, `flutter_map: ^8.3.2`, `geolocator`, `flutter_svg`, `cached_network_image` | Widget-local `StatefulWidget` state + shared in-memory `TripDraft`. No external state library (BLoC/Riverpod) or router package. |
+| **Client (Flutter)** | Flutter SDK (Dart `^3.13.0`), Material 3, `http`, `flutter_map: ^8.3.2`, `geolocator`, `flutter_svg`, `cached_network_image`, `sqflite` | Widget-local `StatefulWidget` state + shared in-memory `TripDraft`; durable versioned SQLite recommendation snapshots. No external state library (BLoC/Riverpod) or router package. |
 | **Admin Web App** | HTML5, Vanilla CSS, Vanilla JavaScript (ES6+), Fetch API | Responsive, information-dense operational dashboard served by FastAPI at `/admin` with JWT bearer authentication. |
 | **Backend (FastAPI)** | Python 3.12+, FastAPI, Pydantic v2, SQLModel, SQLAlchemy, psycopg 3, httpx, bcrypt, pyjwt | Async REST API, Pydantic settings, dependency injection, safe error translation, backend secret encapsulation, JWT auth, admin suite. |
 | **Database** | PostgreSQL (local or Supabase-hosted) | Canonical/supporting tables include places and provenance, `place_image_cache`, users/reports, trips/days/preferences/saved places, route/itinerary caches, and import reviews. Existing deployments require reviewed manual SQL because no ordered migration runner exists. |

@@ -1,6 +1,6 @@
 # Data model
 
-Last reviewed: 2026-09-18
+Last reviewed: 2026-09-19
 
 The source of truth for the current schema is `backend/app/models/entities.py`. This document
 describes those SQLModel tables and the tracked SQL scripts; it does not assert what exists in
@@ -118,6 +118,15 @@ provenance unless policy requires deletion and a reviewed migration defines it.
 | `PlaceImageCache.expires_at` | Refresh boundary: successful rows use the long TTL; not-found and failed rows use shorter configured TTLs. A stale resolved image may still be served while refresh is scheduled. |
 
 Geoapify's autocomplete cache is in memory and therefore has no table timestamp.
+
+## Flutter recommendation snapshot cache
+
+`[IMPLEMENTED]` This is device-local cache data, not canonical PostgreSQL schema. Flutter uses a
+SQLite `recommendation_snapshots` table keyed by a stable city/trip-profile hash. Each row stores a
+renderable recommendation JSON payload, `saved_at`, `last_validated_at`, and `schema_version`.
+Entries are fresh for 24 hours, stale-usable for seven days, and removed after 30 days; incompatible
+schema versions are discarded. Selected trip places remain authoritative backend records and are
+not owned by this snapshot.
 
 ## Current migration state
 

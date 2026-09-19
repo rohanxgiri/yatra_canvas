@@ -33,10 +33,12 @@ Dropped IDs were not exposed as structured API results.
 - Hard day and opening constraints always take precedence. Existing priority and must-visit
   retention penalties are reused, with a stronger lock penalty. Hard priority visit
   precedence was removed because it could make an otherwise feasible route impossible.
-- Daily balancing uses a soft route-span penalty beyond 75% of each day's capacity, weighted
-  inversely by capacity. Span includes travel, service and waiting within the route. A small
-  route activation cost avoids forcing sparse trips across all days. There are no place-count
-  quotas or hard equal-duration targets.
+- Daily balancing uses a soft route-span penalty beyond 75% of each day's capacity. A `DayLoad`
+  dimension normalizes service plus travel minutes by the usable day duration, while `VisitCount`
+  remains a secondary signal. There is no route activation cost. A bounded repair pass proposes
+  unlocked candidates for empty or heavily under-filled active days and accepts a fresh constrained
+  solve only when it preserves scheduled count and improves the capacity-weighted deficit. There
+  are no persisted place-count quotas or hard equal-duration targets.
 - Lunch is constrained to a complete midday interval inside that day's window, with service
   metadata preventing overlap with visits. No breaks are returned for empty routes.
 - Overpacked trips return partial results, including dropped must-visits. Each selected

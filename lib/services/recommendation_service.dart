@@ -18,6 +18,9 @@ class RecommendationService {
   final http.Client _client;
   final bool _ownsClient;
   final String _baseUrl;
+  String? _nextCursor;
+
+  String? get nextCursor => _nextCursor;
 
   Future<List<Recommendation>> getRecommendations(
     String cityId,
@@ -27,6 +30,7 @@ class RecommendationService {
     Iterable<String>? purposes,
     Iterable<String>? interests,
     PlaceCategory? categoryFilter,
+    String? cursor,
   }) async {
     final normalizedCityId = cityId.trim();
     final uniqueCategories = categories.toSet().toList(growable: false);
@@ -44,8 +48,8 @@ class RecommendationService {
       'categories': (uniqueCategories.isEmpty && categoryFilter != null)
           ? [categoryFilter.apiValue]
           : uniqueCategories
-              .map((category) => category.apiValue)
-              .toList(growable: false),
+                .map((category) => category.apiValue)
+                .toList(growable: false),
       'limit': limit,
     };
     if (tripId != null && tripId.isNotEmpty) {
@@ -60,6 +64,9 @@ class RecommendationService {
     if (categoryFilter != null) {
       payload['category_filter'] = categoryFilter.apiValue;
     }
+    if (cursor != null && cursor.isNotEmpty) {
+      payload['cursor'] = cursor;
+    }
 
     final response = await _client
         .post(
@@ -72,6 +79,7 @@ class RecommendationService {
     if (response.statusCode != 200) {
       throw RecommendationServiceException(_errorMessage(response));
     }
+    _nextCursor = response.headers['x-next-cursor'];
 
     try {
       final data = jsonDecode(response.body) as List<dynamic>;

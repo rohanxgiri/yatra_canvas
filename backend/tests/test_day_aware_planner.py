@@ -43,7 +43,8 @@ def solve(days, places, saved, weekly=None, seconds=0.15, lunch=0, travel=10):
     nodes = [RouteNode.for_place(p) for p in places]
     matrix = {
         (a.key, b.key): RouteMatrixLeg(
-            distance_meters=1000, static_duration_seconds=travel * 60
+            distance_meters=1000,
+            static_duration_seconds=(travel(a, b) if callable(travel) else travel) * 60,
         )
         for a in [start, *nodes]
         for b in nodes
@@ -250,6 +251,22 @@ def test_user_selected_rest_day_is_preserved_while_active_days_are_populated():
     check(r, days, p)
 
 
+def test_two_user_selected_rest_days_are_never_populated():
+    days = [day(1), day(2, "REST"), day(3), day(4, "REST"), day(5)]
+    p, s = fixture(["park"] * 6)
+    r = solve(days, p, s, seconds=1)
+
+    counts = {
+        trip_day.day_number: sum(
+            stop.day_number == trip_day.day_number for stop in r.optimized_places
+        )
+        for trip_day in days
+    }
+    assert counts[2] == counts[4] == 0
+    assert all(counts[n] > 0 for n in (1, 3, 5))
+    check(r, days, p)
+
+
 def test_balancing_repairs_an_overloaded_day_beside_an_empty_feasible_day():
     days = [day(1), day(2)]
     p, s = fixture(["bakery"] * 6)
@@ -274,6 +291,82 @@ def test_time_distribution_not_equal_counts():
     check(r, days, p)
 
 
+def test_arrival_and_departure_windows_reduce_day_load_targets():
+    days = [
+        day(1, start=time(15), end=time(19)),
+        day(2),
+        day(3),
+        day(4),
+        day(5, start=time(9), end=time(11)),
+    ]
+    p, s = fixture(["park"] * 10)
+    r = solve(days, p, s, seconds=2)
+    counts = [
+        sum(stop.day_number == trip_day.day_number for stop in r.optimized_places)
+        for trip_day in days
+    ]
+
+    assert len(r.optimized_places) == 10
+    assert all(count > 0 for count in counts)
+    assert counts[0] <= max(counts[1:4])
+    assert counts[4] <= counts[0]
+    check(r, days, p)
+
+
+def test_geographically_distant_place_keeps_route_quality_over_equal_counts():
+    days = [day(1, end=time(14)), day(2, end=time(14))]
+    p, s = fixture(["park"] * 5)
+    p[-1].name = "Distant Place"
+
+    def travel_minutes(a, b):
+        return 180 if "Distant Place" in (a.name, b.name) else 5
+
+    r = solve(days, p, s, seconds=2, travel=travel_minutes)
+    distant_day = next(
+        stop.day_number for stop in r.optimized_places if stop.place_id == p[-1].id
+    )
+    counts = [
+        sum(stop.day_number == trip_day.day_number for stop in r.optimized_places)
+        for trip_day in days
+    ]
+
+    assert len(r.optimized_places) == 5
+    assert sum(stop.day_number == distant_day for stop in r.optimized_places) == 1
+    assert sorted(counts) == [1, 4]
+    check(r, days, p)
+
+
+def test_clustered_places_balance_without_route_penalty():
+    days = [day(1), day(2)]
+    p, s = fixture(["park"] * 8)
+    r = solve(days, p, s, seconds=1, travel=5)
+    counts = [
+        sum(stop.day_number == trip_day.day_number for stop in r.optimized_places)
+        for trip_day in days
+    ]
+
+    assert counts == [4, 4]
+    check(r, days, p)
+
+
+def test_empty_day_debug_reason_is_not_reported_as_user_rest(caplog):
+    days = [day(i) for i in range(1, 6)]
+    p, s = fixture(["park"] * 2)
+
+    with caplog.at_level("DEBUG", logger="app.services.vrptw_solver_service"):
+        r = solve(days, p, s)
+
+    empty_logs = [
+        record.message
+        for record in caplog.records
+        if "ITINERARY_DAY" in record.message and "place_count=0" in record.message
+    ]
+    assert len(empty_logs) == 3
+    assert all("user_rest=False" in message for message in empty_logs)
+    assert all("empty_reason=INSUFFICIENT_PLACES" in message for message in empty_logs)
+    check(r, days, p)
+
+
 def test_locked_preserved_over_auto_under_capacity():
     days = [day(1, end=time(11)), day(2, end=time(11))]
     p, s = fixture(["museum"] * 3)
@@ -287,10 +380,12 @@ def test_locked_preserved_over_auto_under_capacity():
 def test_weekday_specific_intervals_do_not_leak_to_another_route():
     days = [day(1, start=time(14), end=time(18)), day(3, start=time(9), end=time(12))]
     p, s = fixture(["park"])
-    w = {p[0].id: {
-        0: hours(p[0], 0, intervals=[{"open": "09:00", "close": "11:00"}]),
-        2: hours(p[0], 2, intervals=[{"open": "14:00", "close": "18:00"}]),
-    }}
+    w = {
+        p[0].id: {
+            0: hours(p[0], 0, intervals=[{"open": "09:00", "close": "11:00"}]),
+            2: hours(p[0], 2, intervals=[{"open": "14:00", "close": "18:00"}]),
+        }
+    }
     r = solve(days, p, s, w)
     assert not r.optimized_places
     assert r.unscheduled_places[0].reason == "NO_FEASIBLE_DAY"
@@ -324,6 +419,23 @@ def test_realistic_sizes(count, total_days):
         f"BENCHMARK {total_days} days / {count} places: {elapsed:.3f}s, {len(r.optimized_places)} scheduled, {len(r.unscheduled_places)} unscheduled"
     )
     assert r.optimized_places
+    if (count, total_days) in {(15, 3), (20, 5)}:
+        counts = [
+            sum(stop.day_number == trip_day.day_number for stop in r.optimized_places)
+            for trip_day in days
+        ]
+        assert all(day_count > 0 for day_count in counts)
     if count == 30:
         assert r.unscheduled_places
+    check(r, days, p)
+
+
+def test_twenty_places_over_two_days_returns_explicit_overflow():
+    days = [day(1), day(2)]
+    p, s = fixture(["museum"] * 20)
+    r = solve(days, p, s, seconds=3, lunch=60, travel=20)
+
+    assert len(r.optimized_places) == 8
+    assert len(r.unscheduled_places) == 12
+    assert {item.reason for item in r.unscheduled_places} == {"DAILY_CAPACITY_EXCEEDED"}
     check(r, days, p)

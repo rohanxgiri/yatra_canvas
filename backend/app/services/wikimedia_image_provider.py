@@ -20,6 +20,44 @@ from app.services.place_image_provider import (
 
 logger = logging.getLogger(__name__)
 
+_GENERIC_PLACE_TOKENS = {
+    "cafe",
+    "castle",
+    "church",
+    "fort",
+    "garden",
+    "hotel",
+    "lake",
+    "mall",
+    "mandir",
+    "market",
+    "mosque",
+    "museum",
+    "palace",
+    "park",
+    "point",
+    "restaurant",
+    "road",
+    "temple",
+    "trail",
+    "view",
+    "viewpoint",
+    "waterfall",
+}
+
+
+def _tokens(value: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", value.casefold()))
+
+
+def _distinctive_place_tokens(context: PlaceImageContext) -> set[str]:
+    location_tokens = _tokens(
+        " ".join(
+            value for value in (context.city, context.state, context.country) if value
+        )
+    )
+    return _tokens(context.name) - location_tokens - _GENERIC_PLACE_TOKENS
+
 
 def _plain(value: object) -> str | None:
     if value is None:
@@ -106,12 +144,12 @@ class WikimediaImageProvider:
         response.raise_for_status()
         pages = response.json().get("query", {}).get("pages", {})
         expected = context.name.casefold()
+        distinctive_tokens = _distinctive_place_tokens(context)
         for page in sorted(pages.values(), key=lambda item: item.get("index", 999)):
             title = str(page.get("title", ""))
             similarity = SequenceMatcher(None, expected, title.casefold()).ratio()
-            if similarity < 0.76 and expected not in title.casefold():
-                continue
             coords = page.get("coordinates") or []
+            nearby_distinctive_match = False
             if coords:
                 distance = haversine_distance_meters(
                     context.latitude,
@@ -121,6 +159,17 @@ class WikimediaImageProvider:
                 )
                 if distance > 5000:
                     continue
+                nearby_distinctive_match = (
+                    distance <= 2000
+                    and bool(distinctive_tokens)
+                    and bool(distinctive_tokens & _tokens(title))
+                )
+            if (
+                similarity < 0.76
+                and expected not in title.casefold()
+                and not nearby_distinctive_match
+            ):
+                continue
             page_image = page.get("pageimage")
             if page_image:
                 candidate = await self._commons_image(f"File:{page_image}")

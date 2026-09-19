@@ -1,6 +1,25 @@
 # Architectural decisions
 
-Last reviewed: 2026-09-18
+Last reviewed: 2026-09-19
+
+## ADR-020 — Discover Places foreground reads are isolated from provider acquisition
+
+- **Status:** Accepted and `[IMPLEMENTED]` in repository; configured PostgreSQL/device timing is
+  `[PARTIAL]`.
+- **Date:** 2026-09-19.
+- **Decision:** Recommendation responses inspect but never join process-local prefetch tasks.
+  Return fresh, stale-usable, or partial canonical rows immediately and enqueue deepening
+  separately. Persist versioned Flutter city/profile snapshots in SQLite, render them before the
+  network completes, merge by canonical place ID, and request deterministic 10-item pages with an
+  opaque cursor. Keep external image providers outside the POI response and count outer-budget
+  Overpass cancellation as circuit-breaker failure.
+- **Consequences:** Repeat visits can paint without a network round trip; slow providers rarely
+  surface as page failures; selected-place and scroll state remain stable. Prefetch/job durability,
+  web-local storage, configured PostgreSQL plans/timings, and physical-device verification remain
+  open.
+- **Evidence:** `backend/app/routers/places.py`, recommendation/prefetch/provider services,
+  `lib/services/recommendation_cache.dart`, `lib/screens/place_discovery/place_discovery_screen.dart`,
+  targeted Flutter tests, and [the implementation report](DISCOVER_PLACES_DATA_LOADING.md).
 
 These records describe accepted direction without claiming all consequences are implemented.
 Changing an accepted decision requires a new or amended record plus updates to architecture,
@@ -474,18 +493,23 @@ provider, environment, and data-model documentation.
   cost but had no visit-count balancing term. It could therefore pack feasible saved POIs into
   fewer day vehicles, making an active `FULL_DAY` look like an implicit rest day. Place and route
   fetches also used generic progress treatments that did not resemble their final layouts.
-- **Decision:** Remove the route activation cost and add a soft OR-Tools `VisitCount` dimension
-  whose global span cost minimizes the maximum stops assigned to a feasible non-REST day. Keep
-  opening hours, day windows, visit durations, explicit assignments, and locks as hard constraints;
-  never invent or duplicate POIs. Preserve the existing `TripDay` model: only `day_type=REST`
-  is a rest day, while an empty active day is presented as light/flexible time. Flutter renders
+- **Decision:** Remove the route activation cost; retain `VisitCount` as a secondary signal; and
+  balance a `DayLoad` dimension containing service plus travel minutes normalized by usable day
+  duration. After the initial solve, a bounded repair pass first considers unscheduled feasible POIs,
+  then movable POIs from overloaded nearby days. Proposed moves are temporary assignment locks in a
+  fresh full constraint solve and are accepted only when scheduled count is preserved and utilization
+  improves. Keep opening hours, day windows, visit durations, explicit assignments, and locks as hard
+  constraints; never invent or duplicate POIs. Preserve the existing `TripDay` model: only
+  `day_type=REST` is a rest day, while an empty active day is presented as light/flexible time. Add
+  debug-only per-day capacity/load/empty-reason records. Flutter renders
   recommendation-card and itinerary-day skeletons only while their actual Futures are pending,
   uses one reduced-motion-aware pulse per composition, and resolves remote photos independently
   behind a stable image-region placeholder and bundled WebP fallback.
-- **Consequences:** Feasible 5/10/15-place, five-day inputs populate all active days with balanced
-  counts; two places across five days remain two unique visits with the other days truthfully
-  flexible. Constraints may still require uneven or empty days. No schema, provider, Home, or
-  Explore change is introduced.
+- **Consequences:** Feasible 5/10/15/20-place five-day inputs populate active days with reasonable
+  capacity-aware loads; two places across five days remain two unique visits with the other days
+  truthfully flexible. Route quality may legitimately produce unequal counts, and hard constraints
+  may still require empty days. No schema, provider, Discover Places, Home, or Explore architecture
+  change is introduced.
 - **Evidence:** `backend/app/services/vrptw_solver_service.py`,
   `backend/tests/test_day_aware_planner.py`,
   `lib/screens/place_discovery/place_discovery_screen.dart`,

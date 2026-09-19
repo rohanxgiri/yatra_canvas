@@ -1,6 +1,14 @@
 # YatraCanvas roadmap
 
-Last reviewed: 2026-09-18
+Last reviewed: 2026-09-19
+
+## Discover Places data-loading reliability — September 2026
+
+Status: `[IMPLEMENTED]` in repository and Flutter tests; configured-PostgreSQL/device performance
+verification is `[PARTIAL]`. Recommendation responses no longer join background prefetch, partial
+and stale-usable rows render immediately, Flutter uses versioned SQLite snapshots, and 10-place
+cursor pages append progressively. Provider/image failures remain non-blocking. See
+[the implementation report](DISCOVER_PLACES_DATA_LOADING.md).
 
 This roadmap is sequenced for reversible, testable changes. A phase is not complete until its
 acceptance criteria pass in a local/test environment and the source-of-truth documents are
@@ -168,7 +176,7 @@ and centralized trip purpose and interest weighting (`preference_model.py`) with
 dominance, secondary interest (1.0x) balancing, low-relevance cutoff filtering, explicit non-destructive
 category filtering, soft diversity interleaving, and truthful natural-language recommendation reasons.
 Core trip flow hardening is implemented with:
-- Multi-day day-sequence invariant: `RouteOptimizationRead.total_days` guarantees all logical days ($1 \dots N$) exist in models, map day filters, and itinerary views. A soft visit-count span objective populates feasible non-REST days without overriding time windows or locks; genuinely empty active days render as light/flexible time, not user-selected REST.
+- Multi-day day-sequence invariant: `RouteOptimizationRead.total_days` guarantees all logical days ($1 \dots N$) exist in models, map day filters, and itinerary views. Capacity-normalized service/travel load, a secondary visit-count signal, and bounded constraint-preserving repair populate feasible non-REST days without overriding time windows or locks; genuinely empty active days render as light/flexible time, not user-selected REST.
 - Fetch-driven loading UX: recommendation loading uses responsive card-shaped skeletons, route generation uses a day/stop-shaped skeleton, and remote place photos resolve independently inside stable image regions with neutral non-photographic failure placeholders. No artificial delay is used.
 - Manual place search: 350ms debounced destination-scoped search (`GET /cities/{city_id}/places/search`) across Geoapify (50km radius) and local DB, canonical resolution (`POST /cities/{city_id}/places/resolve`) via `CanonicalPlaceService`, duplicate prevention, and route eligibility.
 - Progressive interactive map rendering: pre-passes trip state to `TripMapScreen`, rendering base map and markers on Frame 1 ($12-25\text{ ms}$) without blocking on route recalculation, with non-blocking asynchronous route polyline loading.

@@ -1,5 +1,8 @@
 """Validation schemas for multi-category place recommendations."""
 
+from base64 import urlsafe_b64decode
+from binascii import Error as BinasciiError
+
 from enum import Enum
 from uuid import UUID
 
@@ -26,6 +29,7 @@ class RecommendationRequest(SQLModel):
     purposes: list[str] | None = None
     interests: list[str] | None = None
     category_filter: DiscoveryCategory | None = None
+    cursor: str | None = Field(default=None, max_length=32)
 
     @field_validator("categories")
     @classmethod
@@ -34,6 +38,25 @@ class RecommendationRequest(SQLModel):
         categories: list[DiscoveryCategory],
     ) -> list[DiscoveryCategory]:
         return list(dict.fromkeys(categories))
+
+    @field_validator("cursor")
+    @classmethod
+    def validate_cursor(cls, cursor: str | None) -> str | None:
+        if cursor is None:
+            return None
+        try:
+            decoded = urlsafe_b64decode(cursor.encode("ascii")).decode("ascii")
+            if int(decoded) < 0:
+                raise ValueError
+        except (BinasciiError, UnicodeError, ValueError) as exc:
+            raise ValueError("cursor is invalid") from exc
+        return cursor
+
+    @property
+    def cursor_offset(self) -> int:
+        if self.cursor is None:
+            return 0
+        return int(urlsafe_b64decode(self.cursor.encode("ascii")).decode("ascii"))
 
 
 class RecommendationRead(SQLModel):

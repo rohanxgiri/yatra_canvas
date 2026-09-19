@@ -57,7 +57,7 @@ class RecommendationCache {
       categoryValues.join(','),
       categoryFilter?.apiValue ?? '',
     ].join('|');
-    return '${cityId.trim()}:${_fnv1a64(canonical)}';
+    return '${cityId.trim()}:${_fnv1a32(canonical)}';
   }
 
   Future<RecommendationCacheSnapshot?> read(String key) async {
@@ -170,13 +170,19 @@ class RecommendationCache {
     return db;
   }
 
-  static String _fnv1a64(String input) {
-    var hash = 0xcbf29ce484222325;
+  /// Returns a deterministic FNV-1a digest using JavaScript-safe 32-bit math.
+  ///
+  /// Dart's web compiler rejects the 64-bit FNV constants because JavaScript
+  /// numbers cannot represent them exactly. A 32-bit digest is sufficient for
+  /// this local cache key because the normalized city id is also part of the
+  /// key and collisions only affect an optional, replaceable snapshot.
+  static String _fnv1a32(String input) {
+    var hash = 0x811c9dc5;
     for (final byte in utf8.encode(input)) {
       hash ^= byte;
-      hash = (hash * 0x100000001b3) & 0x7fffffffffffffff;
+      hash = (hash * 0x01000193) & 0xffffffff;
     }
-    return hash.toRadixString(16).padLeft(16, '0');
+    return hash.toRadixString(16).padLeft(8, '0');
   }
 
   static void _debugLog(String message) {

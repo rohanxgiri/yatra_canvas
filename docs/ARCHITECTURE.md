@@ -1,6 +1,18 @@
 # YatraCanvas architecture
 
-Last reviewed: 2026-09-18
+Last reviewed: 2026-09-19
+
+## Discover Places cache-first data loading — 2026-09-19
+
+`[IMPLEMENTED]` Foreground recommendations no longer join matching process-local prefetch tasks.
+The endpoint reads and ranks available PostgreSQL rows immediately, exposes privacy-safe timing and
+SQL-query-count logs, and enqueues stale/partial selected-category deepening independently. Fresh
+but low-count coverage is `PARTIAL`, not sufficient, while remaining usable for foreground cards.
+
+`[IMPLEMENTED]` Flutter stores versioned city/profile recommendation snapshots in SQLite via
+`sqflite`, renders usable snapshots before backend synchronization completes, merges refreshed
+metadata by canonical place ID, and appends 10-item cursor pages without clearing current cards or
+selection state. See [Discover Places data loading](DISCOVER_PLACES_DATA_LOADING.md).
 
 Status labels are defined in [Project context](PROJECT_CONTEXT.md). This document separates
 repository reality from the intended provider architecture.
@@ -204,7 +216,9 @@ provider boundary.
   Geoapify/Wikimedia/Foursquare for landmarks and nature, and
   Foursquare/Geoapify/Wikimedia for businesses. Geoapify imported media is reused before Place
   Details; Wikimedia direct Commons/Wikipedia/Wikidata identifiers precede conservative fuzzy
-  matching; optional Foursquare candidates must pass name, distance, category, and locality
+  matching. Contextual Wikimedia results require strong name similarity or an exact distinctive
+  name token within 2 km, and coordinates beyond 5 km are rejected. Optional Foursquare candidates
+  must pass name, distance, category, and locality
   checks. Search adapters use `exact name, city, state, country`, with coordinates/category sent
   separately where supported, and the resolver rejects candidate URLs that do not return an image
   media type. Positive, not-found, and failed outcomes are persisted with different TTLs and
@@ -299,18 +313,23 @@ TripDays
   100,000,000; locks add 1,000,000,000. These are retention preferences, not hard priority
   visit precedence. All visits remain optional to support feasible partial itineraries.
 - Travel/service cost plus a soft span penalty above 75% of each individual day's capacity
-  discourages heavily utilized days. A separate `VisitCount` dimension minimizes the largest
-  per-day stop count across feasible non-REST routes. There is no vehicle activation cost, so
-  a small distance saving no longer rewards leaving an otherwise feasible active day empty.
-  This is not a hard quota: opening intervals, touring windows, visit duration, explicit day
-  assignments, and locks remain hard constraints and may produce unequal counts.
+  discourages heavily utilized days. `VisitCount` is a secondary balance signal; the primary
+  `DayLoad` dimension normalizes visit plus travel minutes by each day's usable duration, so short
+  arrival/departure windows receive proportionally less work. There is no vehicle activation cost.
+  A bounded repair pass proposes unlocked feasible POIs for empty or heavily under-filled days and
+  accepts a fresh constrained solve only when it schedules at least as many POIs and reduces the
+  capacity-weighted deficit. This is not a hard quota: opening intervals, routing, touring windows,
+  explicit assignments, and locks remain hard constraints and may produce unequal counts.
 - Lunch uses the existing 60-minute duration and 12:30–14:00 start range only when a full
   break fits inside the day's window. Break transit metadata includes service times so
   lunch cannot overlap a visit. Empty routes do not emit breaks.
 - Existing start node and matrix cache are reused. As in the previous solver, the synthetic
   end-depot arc is zero cost/time: return-to-hotel travel is not charged.
 - PATH_CHEAPEST_ARC and GUIDED_LOCAL_SEARCH retain the five-second default solve budget;
-  fractional test limits are honored in milliseconds. No optimality proof is promised.
+  fractional test limits are honored in milliseconds. A repair solve is bounded to two seconds per
+  attempt and at most three improving attempts. No optimality proof is promised.
+- Debug-level `ITINERARY_DAY` records expose date, available/scheduled/travel minutes, stop count,
+  rest/lock state, feasible unscheduled candidates, and a reason when an active day remains empty.
 - Responses and replan previews add `unscheduled_places` with place ID/name, structured
   reason and optional assigned day ID. Scheduled rows retain times, leg metrics and known-hours
   state. `total_days=trip.days` preserves empty logical days. When fewer feasible saved places

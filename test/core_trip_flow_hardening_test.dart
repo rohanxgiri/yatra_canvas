@@ -174,6 +174,9 @@ class _FakeSavedPlaceService implements SavedPlaceService {
 
 class _FakeRecommendationService implements RecommendationService {
   @override
+  String? get nextCursor => null;
+
+  @override
   void close() {}
 
   @override
@@ -185,6 +188,7 @@ class _FakeRecommendationService implements RecommendationService {
     Iterable<String>? interests,
     PlaceCategory? categoryFilter,
     int limit = 30,
+    String? cursor,
   }) async => [];
 
   @override

@@ -106,3 +106,103 @@ async def test_weak_fuzzy_wikipedia_match_is_rejected() -> None:
             context(qid=None, name="Hawa Mahal")
         )
     assert image is None
+
+
+@pytest.mark.anyio
+async def test_nearby_page_with_distinctive_name_token_is_accepted() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.host == "en.wikipedia.org":
+            return httpx.Response(
+                200,
+                json={
+                    "query": {
+                        "pages": {
+                            "1": {
+                                "index": 1,
+                                "title": "Naggar, Himachal Pradesh",
+                                "pageimage": "NaggarCastleRainyDay.jpg",
+                                "coordinates": [{"lat": 32.1167, "lon": 77.1667}],
+                            }
+                        }
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "query": {
+                    "pages": {
+                        "2": {
+                            "title": "File:NaggarCastleRainyDay.jpg",
+                            "imageinfo": [
+                                {
+                                    "url": "https://upload.wikimedia.org/naggar.jpg",
+                                    "thumburl": "https://upload.wikimedia.org/naggar-thumb.jpg",
+                                    "descriptionurl": "https://commons.wikimedia.org/wiki/File:NaggarCastleRainyDay.jpg",
+                                    "extmetadata": {},
+                                }
+                            ],
+                        }
+                    }
+                }
+            },
+        )
+
+    naggar = PlaceImageContext(
+        place_id=uuid4(),
+        name="Naggar Castle",
+        raw_category="heritage",
+        normalized_category=NormalizedPlaceCategory.LANDMARK,
+        latitude=32.11199,
+        longitude=77.16464,
+        city="Manali",
+        state="Himachal Pradesh",
+        country="India",
+        wikidata_id=None,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        image = await WikimediaImageProvider(client=client).resolve(naggar)
+
+    assert image is not None
+    assert image.provider_place_id == "File:NaggarCastleRainyDay.jpg"
+    assert len(requests) == 2
+
+
+@pytest.mark.anyio
+async def test_distinctive_name_token_does_not_override_distance_guard() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "query": {
+                    "pages": {
+                        "1": {
+                            "index": 1,
+                            "title": "Naggar, Himachal Pradesh",
+                            "pageimage": "NaggarCastleRainyDay.jpg",
+                            "coordinates": [{"lat": 31.1048, "lon": 77.1734}],
+                        }
+                    }
+                }
+            },
+        )
+
+    naggar = PlaceImageContext(
+        place_id=uuid4(),
+        name="Naggar Castle",
+        raw_category="heritage",
+        normalized_category=NormalizedPlaceCategory.LANDMARK,
+        latitude=32.11199,
+        longitude=77.16464,
+        city="Manali",
+        state="Himachal Pradesh",
+        country="India",
+        wikidata_id=None,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        image = await WikimediaImageProvider(client=client).resolve(naggar)
+
+    assert image is None

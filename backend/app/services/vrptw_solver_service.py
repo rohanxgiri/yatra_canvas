@@ -7,11 +7,12 @@ Solves multi-day tourist itineraries with:
 - Lunch breaks (break intervals in midday window)
 - Native day assignment locks and legacy conditional order locks
 - Priority, must-visit and lock retention via optional-visit penalties
-- Visit-count balancing across feasible, non-rest trip days
+- Capacity-normalized load balancing and bounded repair across non-rest days
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import date, time, timedelta
 from itertools import pairwise
@@ -38,6 +39,8 @@ from app.schemas.route_optimization import (
 from app.services.google_routes_service import RouteMatrixLeg
 from app.services.itinerary_timing_service import PlaceOpeningHours
 from app.services.route_matrix_service import RouteNode
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +85,7 @@ class VrptwSolverService:
         opening_hours_map: dict[UUID, PlaceOpeningHours] | None = None,
         day_configs: list[TripDay] | None = None,
         weekly_hours_map: dict[UUID, dict[int, WeeklyHours]] | None = None,
+        _repair_depth: int = 0,
     ) -> VrptwSolution:
         num_places = len(places)
         if num_places == 0:
@@ -231,11 +235,40 @@ class VrptwSolverService:
             "VisitCount",
         )
         visit_count_dimension = routing.GetDimensionOrDie("VisitCount")
-        # Travel-time arc costs are measured in minutes.  A larger coefficient
-        # prevents a small distance saving from creating an obviously overloaded
-        # day beside an empty feasible day.  Optional-visit penalties remain
-        # higher, so the solver cannot improve balance by casually dropping POIs.
-        visit_count_dimension.SetGlobalSpanCostCoefficient(10_000)
+        # Count remains a light tie-breaker.  The primary balancing signal below
+        # is normalized service + travel load, because two long attractions can
+        # be a fuller day than four nearby short stops.
+        visit_count_dimension.SetGlobalSpanCostCoefficient(5_000)
+
+        # Normalize service + travel minutes by each day's usable duration.
+        # A 300-minute route on a 5-hour arrival day is therefore as loaded as a
+        # 600-minute route on a 10-hour full day. Opening-hour waiting remains a
+        # hard Time-dimension constraint rather than artificial productive load.
+        day_load_callbacks: list[int] = []
+        for start, end in windows:
+            capacity = max(1, end - start)
+
+            def normalized_load_evaluator(
+                from_index: int,
+                to_index: int,
+                *,
+                day_capacity: int = capacity,
+            ) -> int:
+                raw_minutes = time_evaluator(from_index, to_index)
+                return ceil(raw_minutes * 1_000 / day_capacity)
+
+            day_load_callbacks.append(
+                routing.RegisterTransitCallback(normalized_load_evaluator)
+            )
+        routing.AddDimensionWithVehicleTransitAndCapacity(
+            day_load_callbacks,
+            0,
+            [4_000] * num_vehicles,
+            True,
+            "DayLoad",
+        )
+        day_load_dimension = routing.GetDimensionOrDie("DayLoad")
+        day_load_dimension.SetGlobalSpanCostCoefficient(20)
 
         solver = routing.solver()
         conflicts: list[str] = []
@@ -257,6 +290,7 @@ class VrptwSolverService:
 
         reasons = {}
         verified = {}
+        eligible_by_vehicle: list[set[int]] = [set() for _ in active_days]
         for i, (place, saved) in enumerate(zip(places, saved_rows)):
             idx = manager.NodeToIndex(i + 1)
             duration = service_times[i + 1]
@@ -317,6 +351,7 @@ class VrptwSolverService:
                 valid = [(a, b) for a, b in candidates if a <= b]
                 if valid:
                     allowed.append(v)
+                    eligible_by_vehicle[v].add(i)
                     ranges.extend(valid)
             if not allowed:
                 routing.ActiveVar(idx).SetValue(0)
@@ -353,6 +388,20 @@ class VrptwSolverService:
             if saved.assignment_mode == "LOCKED" or saved.is_locked:
                 penalty += 1_000_000_000
             routing.AddDisjunction([idx], penalty)
+
+        schedulable_count = sum(
+            any(i in eligible for eligible in eligible_by_vehicle)
+            for i in range(num_places)
+        )
+        if schedulable_count >= num_vehicles:
+            for v, eligible in enumerate(eligible_by_vehicle):
+                if eligible:
+                    # Strongly discourage an implicit empty day without making
+                    # the model infeasible when individual feasibility does not
+                    # combine into one global schedule.
+                    visit_count_dimension.SetCumulVarSoftLowerBound(
+                        routing.End(v), 1, 100_000
+                    )
 
         # Preserve the legacy first-position lock, but make it conditional on being
         # scheduled. An explicit day assignment takes precedence over this old flag.
@@ -425,6 +474,174 @@ class VrptwSolverService:
         )
 
         solution = routing.SolveWithParameters(search_parameters)
+        scheduled_count = (
+            sum(
+                solution.Value(routing.ActiveVar(manager.NodeToIndex(i + 1)))
+                for i in range(num_places)
+            )
+            if solution is not None
+            else 0
+        )
+        eligible_vehicle_count = sum(bool(items) for items in eligible_by_vehicle)
+
+        # Empty/under-filled-day repair. Build a small set of proposed moves,
+        # preferring dropped feasible POIs and then overloaded nearby days. The
+        # proposals are temporary assignment locks in a fresh bounded solve, so
+        # every accepted move is revalidated against all routing constraints.
+        if (
+            solution is not None
+            and _repair_depth < 3
+            and scheduled_count >= eligible_vehicle_count
+        ):
+            vehicle_by_place = {
+                i: solution.Value(routing.VehicleVar(manager.NodeToIndex(i + 1)))
+                for i in range(num_places)
+            }
+            projected_counts = [
+                solution.Value(visit_count_dimension.CumulVar(routing.End(v)))
+                for v in range(num_vehicles)
+            ]
+            total_available = sum(end - start for start, end in windows)
+            minimum_counts = [
+                max(
+                    1,
+                    int(scheduled_count * (end - start) / max(1, total_available)) - 1,
+                )
+                if eligible_by_vehicle[v]
+                else 0
+                for v, (start, end) in enumerate(windows)
+            ]
+            targets = sorted(
+                (
+                    v
+                    for v in range(num_vehicles)
+                    if projected_counts[v] < minimum_counts[v]
+                ),
+                key=lambda v: (projected_counts[v] != 0, active_days[v].day_number),
+            )
+            repair_rows = [row.model_copy(deep=True) for row in saved_rows]
+            chosen: set[int] = set()
+            proposals: list[tuple[int, int]] = []
+
+            for target in targets:
+                while projected_counts[target] < minimum_counts[target]:
+                    candidates: list[tuple[tuple[int, int, int, int], int]] = []
+                    for i in eligible_by_vehicle[target]:
+                        saved = saved_rows[i]
+                        if (
+                            i in chosen
+                            or saved.is_locked
+                            or saved.assignment_mode == "LOCKED"
+                        ):
+                            continue
+                        source = vehicle_by_place[i]
+                        if source == target:
+                            continue
+                        if (
+                            source >= 0
+                            and projected_counts[source] <= minimum_counts[source]
+                        ):
+                            continue
+                        source_day = (
+                            active_days[source].day_number
+                            if source >= 0
+                            else active_days[target].day_number
+                        )
+                        candidates.append(
+                            (
+                                (
+                                    0 if source < 0 else 1,
+                                    abs(source_day - active_days[target].day_number),
+                                    -projected_counts[source] if source >= 0 else 0,
+                                    service_times[i + 1],
+                                ),
+                                i,
+                            )
+                        )
+                    if not candidates:
+                        break
+                    _, chosen_index = min(candidates)
+                    source = vehicle_by_place[chosen_index]
+                    chosen.add(chosen_index)
+                    repair_rows[chosen_index].assignment_mode = "LOCKED"
+                    repair_rows[chosen_index].assigned_day_id = active_days[target].id
+                    projected_counts[target] += 1
+                    if source >= 0:
+                        projected_counts[source] -= 1
+                    proposals.append((chosen_index, target))
+
+            if proposals:
+                logger.debug(
+                    "ITINERARY_REPAIR_START proposals=%s",
+                    [
+                        {
+                            "place": places[i].name,
+                            "target_day": active_days[v].day_number,
+                        }
+                        for i, v in proposals
+                    ],
+                )
+                repair_solver = VrptwSolverService(
+                    day_start_time=self.day_start_time,
+                    day_end_time=self.day_end_time,
+                    lunch_earliest_start=self.lunch_earliest_start,
+                    lunch_latest_start=self.lunch_latest_start,
+                    lunch_duration_minutes=self.lunch_duration_minutes,
+                    time_limit_seconds=min(
+                        2.0, max(1.0, self.time_limit_seconds * 0.5)
+                    ),
+                )
+                repaired = repair_solver.solve(
+                    start_node,
+                    place_nodes,
+                    places,
+                    repair_rows,
+                    matrix,
+                    trip_days,
+                    start_date=start_date,
+                    opening_hours_map=opening_hours_map,
+                    day_configs=day_configs,
+                    weekly_hours_map=weekly_hours_map,
+                    _repair_depth=_repair_depth + 1,
+                )
+                repaired_counts = [
+                    sum(
+                        stop.day_number == active_days[v].day_number
+                        for stop in repaired.optimized_places
+                    )
+                    for v in range(num_vehicles)
+                ]
+                before_deficit = sum(
+                    max(0, minimum_counts[v] - count)
+                    for v, count in enumerate(
+                        [
+                            solution.Value(
+                                visit_count_dimension.CumulVar(routing.End(v))
+                            )
+                            for v in range(num_vehicles)
+                        ]
+                    )
+                )
+                after_deficit = sum(
+                    max(0, minimum_counts[v] - count)
+                    for v, count in enumerate(repaired_counts)
+                )
+                repaired_place_ids = {
+                    stop.place_id for stop in repaired.optimized_places
+                }
+                proposed_place_ids = {places[i].id for i, _ in proposals}
+                if (
+                    len(repaired.optimized_places) >= scheduled_count
+                    and after_deficit < before_deficit
+                    and proposed_place_ids <= repaired_place_ids
+                ):
+                    logger.debug(
+                        "ITINERARY_REPAIR_SUCCESS before_deficit=%d after_deficit=%d",
+                        before_deficit,
+                        after_deficit,
+                    )
+                    return repaired
+                logger.debug("ITINERARY_REPAIR_SKIPPED reason=NO_SAFE_IMPROVEMENT")
 
         if solution is None:
             dropped = [
@@ -540,6 +757,77 @@ class VrptwSolverService:
                         duration_minutes=l_end - l_start,
                         label="Midday Break / Lunch",
                     )
+                )
+
+        if logger.isEnabledFor(logging.DEBUG):
+            stops_by_day = {
+                day.day_number: [
+                    stop
+                    for stop in scheduled_places
+                    if stop.day_number == day.day_number
+                ]
+                for day in active_days
+            }
+            dropped_indices = {
+                i for i in range(num_places) if places[i].id in set(unvisited_ids)
+            }
+            active_by_number = {day.day_number: v for v, day in enumerate(active_days)}
+            for day in sorted(days, key=lambda item: item.day_number):
+                user_rest = day.day_type == "REST"
+                vehicle = active_by_number.get(day.day_number)
+                day_stops = stops_by_day.get(day.day_number, [])
+                available_minutes = (
+                    minutes(day.end_time) - minutes(day.start_time)
+                    if day.start_time is not None
+                    and day.end_time is not None
+                    and day.end_time > day.start_time
+                    else 0
+                )
+                scheduled_minutes = sum(
+                    stop.visit_duration_minutes for stop in day_stops
+                )
+                travel_minutes = sum(stop.travel_time_minutes for stop in day_stops)
+                locked = any(
+                    saved.assignment_mode == "LOCKED"
+                    and saved.assigned_day_id == day.id
+                    for saved in saved_rows
+                )
+                unscheduled_candidates = (
+                    len(dropped_indices & eligible_by_vehicle[vehicle])
+                    if vehicle is not None
+                    else 0
+                )
+                empty_reason = None
+                if user_rest:
+                    empty_reason = "USER_REST"
+                elif vehicle is None:
+                    empty_reason = "NO_USABLE_DAY_WINDOW"
+                elif not day_stops:
+                    if locked:
+                        empty_reason = "DAY_LOCKED"
+                    elif not eligible_by_vehicle[vehicle]:
+                        empty_reason = "NO_FEASIBLE_OPEN_POI"
+                    elif scheduled_count < eligible_vehicle_count:
+                        empty_reason = "INSUFFICIENT_PLACES"
+                    elif unscheduled_candidates:
+                        empty_reason = "TIME_WINDOW_OR_TRAVEL_CONSTRAINT"
+                    else:
+                        empty_reason = "NO_GLOBALLY_FEASIBLE_REDISTRIBUTION"
+                logger.debug(
+                    "ITINERARY_DAY date=%s day=%d available_minutes=%d "
+                    "scheduled_minutes=%d travel_minutes=%d place_count=%d "
+                    "user_rest=%s locked=%s unscheduled_candidates=%d "
+                    "empty_reason=%s",
+                    day.date,
+                    day.day_number,
+                    available_minutes,
+                    scheduled_minutes,
+                    travel_minutes,
+                    len(day_stops),
+                    user_rest,
+                    locked,
+                    unscheduled_candidates,
+                    empty_reason,
                 )
 
         return VrptwSolution(

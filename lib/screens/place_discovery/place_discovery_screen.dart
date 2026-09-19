@@ -120,6 +120,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   bool _refinementsDirty = false;
   int _requestGeneration = 0;
   String? _activeRecommendationProfileKey;
+  String? _nextRecommendationCursor;
+  bool _isLoadingMore = false;
 
   // Manual place search state
   final TextEditingController _searchController = TextEditingController();
@@ -266,6 +268,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     final backendRequest = _recommendationService.getRecommendations(
       cityId,
       categories,
+      limit: 10,
       tripId: _tripId,
       purposes: widget.tripPurposes,
       interests: _refinementCategories.map((c) => c.apiValue),
@@ -306,6 +309,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       setState(() {
         _recommendations = visibleRecommendations;
         _activeRecommendationProfileKey = cacheKey;
+        _nextRecommendationCursor = _recommendationService.nextCursor;
         _isLoading = false;
         _refinementsDirty = false;
         if (_purposeCategories.isNotEmpty) _showRefinements = false;
@@ -342,6 +346,45 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         }
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadMoreRecommendations() async {
+    final cityId = widget.city.id;
+    final cursor = _nextRecommendationCursor;
+    if (cityId == null || cityId.isEmpty || cursor == null || _isLoadingMore) {
+      return;
+    }
+    final categories = PlaceCategory.values
+        .where(_effectiveCategories.contains)
+        .toList(growable: false);
+    final cacheKey = _activeRecommendationProfileKey;
+    setState(() => _isLoadingMore = true);
+    try {
+      final additional = await _recommendationService.getRecommendations(
+        cityId,
+        categories,
+        limit: 10,
+        cursor: cursor,
+        tripId: _tripId,
+        purposes: widget.tripPurposes,
+        interests: _refinementCategories.map((c) => c.apiValue),
+        categoryFilter: _activeCategoryFilter,
+      );
+      if (!mounted) return;
+      final merged = _mergeRecommendations(_recommendations, additional);
+      setState(() {
+        _recommendations = merged;
+        _nextRecommendationCursor = _recommendationService.nextCursor;
+        _isLoadingMore = false;
+      });
+      if (cacheKey != null) {
+        unawaited(_recommendationCache.write(cacheKey, cityId, merged));
+      }
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() => _isLoadingMore = false);
+      _showSavedMessage(_friendlyError(error), isError: true);
     }
   }
 
@@ -2231,9 +2274,19 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
           ),
           if (index != _recommendations.length - 1) const SizedBox(height: 12),
         ],
-        if (_isLoading) ...[
+        if (_isLoading || _isLoadingMore) ...[
           const SizedBox(height: 16),
           const _AdditionalPlaceSkeletons(),
+        ] else if (_nextRecommendationCursor != null) ...[
+          const SizedBox(height: 16),
+          Center(
+            child: OutlinedButton.icon(
+              key: const ValueKey('load-more-recommendations'),
+              onPressed: _loadMoreRecommendations,
+              icon: const Icon(Icons.expand_more_rounded),
+              label: const Text('Show more places'),
+            ),
+          ),
         ],
       ],
     );

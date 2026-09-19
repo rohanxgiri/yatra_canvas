@@ -648,6 +648,7 @@ class RecommendationService:
         # Stage 5: Final Deduplication & Multi-Outlet Brand Capping Safeguard
         final_results: list[RecommendationRead] = []
         seen_venue_names: set[str] = set()
+        page_end = request.cursor_offset + request.limit
 
         for item in ranked:
             name_norm = item.name.strip().casefold()
@@ -673,7 +674,7 @@ class RecommendationService:
             if not is_dup:
                 seen_venue_names.add(name_norm)
                 final_results.append(item)
-                if len(final_results) >= request.limit:
+                if len(final_results) >= page_end:
                     break
 
         total_rec_ms = (time.monotonic() - t_rec_start) * 1000
@@ -684,5 +685,6 @@ class RecommendationService:
             len(final_results),
             total_rec_ms,
         )
-        enrich_image_reads(session, final_results)
-        return final_results
+        page = final_results[request.cursor_offset:page_end]
+        enrich_image_reads(session, page)
+        return page
