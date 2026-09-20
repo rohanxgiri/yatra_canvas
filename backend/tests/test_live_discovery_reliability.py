@@ -413,7 +413,7 @@ async def test_sufficient_geoapify_coverage_skips_overpass(
 
 
 @pytest.mark.anyio
-async def test_partial_category_failure_still_returns_usable_recommendations(
+async def test_background_partial_category_refresh_feeds_persisted_recommendations(
     test_db: Session, sample_city: City
 ):
     settings = get_settings()
@@ -430,19 +430,28 @@ async def test_partial_category_failure_still_returns_usable_recommendations(
         limit=10,
     )
 
+    await discovery.discover_many(
+        session=test_db,
+        city=sample_city,
+        categories=request.categories,
+        prefer_stale=False,
+    )
+    provider_calls_after_refresh = list(fake_overpass.calls)
+
     recommendations = await rec_service.recommend(
         session=test_db,
         city=sample_city,
         request=request,
     )
 
-    # Request succeeds even though Food timed out in Overpass!
+    # The read succeeds from the partial persisted result and performs no new provider call.
     assert len(recommendations) > 0
     assert any(r.name == "Heritage Landmark" for r in recommendations)
+    assert fake_overpass.calls == provider_calls_after_refresh
 
 
 @pytest.mark.anyio
-async def test_overpass_timeout_uses_geoapify_fallback(
+async def test_background_geoapify_fallback_feeds_persisted_recommendations(
     test_db: Session, sample_city: City
 ):
     settings = get_settings()
@@ -462,6 +471,15 @@ async def test_overpass_timeout_uses_geoapify_fallback(
         limit=10,
     )
 
+    await discovery.discover_many(
+        session=test_db,
+        city=sample_city,
+        categories=request.categories,
+        prefer_stale=False,
+    )
+    geoapify_calls_after_refresh = list(fake_geoapify.calls)
+    overpass_calls_after_refresh = list(fake_overpass.calls)
+
     recommendations = await rec_service.recommend(
         session=test_db,
         city=sample_city,
@@ -471,6 +489,8 @@ async def test_overpass_timeout_uses_geoapify_fallback(
     # Successfully returned Geoapify fallback!
     assert len(recommendations) > 0
     assert any("Geoapify" in r.name for r in recommendations)
+    assert fake_geoapify.calls == geoapify_calls_after_refresh
+    assert fake_overpass.calls == overpass_calls_after_refresh
 
 
 @pytest.mark.anyio

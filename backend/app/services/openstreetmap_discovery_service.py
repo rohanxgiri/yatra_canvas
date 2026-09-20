@@ -42,9 +42,6 @@ class OpenStreetMapDiscoveryService:
     ) -> None:
         self._settings = settings
         self._cache_ttl = timedelta(hours=settings.place_discovery_cache_ttl_hours)
-        self._stale_usable_ttl = timedelta(
-            hours=settings.discovery_stale_usable_hours
-        )
         self._provider = provider
         self._audiala_provider = audiala_provider
         self._canonical_service = canonical_service or CanonicalPlaceService()
@@ -125,10 +122,6 @@ class OpenStreetMapDiscoveryService:
                 force_refresh_categories is not None
                 and category in force_refresh_categories
             )
-            stale_usable = cache is None or (
-                self._as_utc(cache.last_fetched_at) + self._stale_usable_ttl > now
-            )
-
             # 3-tier classification:
             # 1. FRESH: cache unexpired and has stored places
             if (
@@ -145,16 +138,10 @@ class OpenStreetMapDiscoveryService:
                     cache_key,
                 )
             # 2. STALE_USABLE: expired cache or unverified, but stored places exist
-            elif (
-                not force_refresh
-                and stored
-                and prefer_stale
-                and stale_usable
-            ):
+            elif not force_refresh and stored and prefer_stale:
                 results[category] = stored
                 logger.info(
-                    "PREFETCH_CACHE city_id=%s category=%s state=stale_usable "
-                    "count=%d",
+                    "PREFETCH_CACHE city_id=%s category=%s state=stale_usable count=%d",
                     city.id,
                     category.value,
                     len(stored),
@@ -448,14 +435,6 @@ class OpenStreetMapDiscoveryService:
         # Handle failed categories with stale DB fallback
         for category in failed_categories:
             stale_places = stored_after_refresh.get(category, [])
-            stale_cache = caches.get(category)
-            stale_is_usable = stale_cache is None or (
-                self._as_utc(stale_cache.last_fetched_at)
-                + self._stale_usable_ttl
-                > now
-            )
-            if not stale_is_usable:
-                stale_places = []
             results[category] = stale_places
             if stale_places:
                 logger.info(
@@ -517,9 +496,6 @@ class OpenStreetMapDiscoveryService:
         This method now expects that duplicate external IDs across different providers
         are filtered before calling, but also provides a helper to query existing external IDs.
         """
-        current_external_ids = [nearby.external_place_id for nearby in nearby_places]
-        current_external_ids_set = set(current_external_ids)
-
         old_memberships = session.exec(
             select(PlaceTag, PlaceSource)
             .join(Place, Place.id == PlaceTag.place_id)
@@ -541,24 +517,6 @@ class OpenStreetMapDiscoveryService:
                 select(Place).where(Place.id.in_(membership_place_ids))
             ).all()
             places_by_id = {place.id: place for place in existing_places}
-        other_sources_set = set()
-        if membership_place_ids:
-            other_sources = session.exec(
-                select(PlaceSource.place_id).where(
-                    PlaceSource.place_id.in_(membership_place_ids),  # type: ignore[union-attr]
-                    PlaceSource.source != source_name,
-                )
-            ).all()
-            other_sources_set.update(other_sources)
-
-        for membership, source in old_memberships:
-            if source.external_place_id in current_external_ids_set:
-                continue
-            if membership.place_id in other_sources_set:
-                continue
-            session.delete(membership)
-        session.flush()
-
         for nearby in nearby_places:
             source_hint = sources_by_external_id.get(nearby.external_place_id)
             place_hint = (

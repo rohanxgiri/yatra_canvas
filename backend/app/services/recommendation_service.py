@@ -38,6 +38,10 @@ from app.schemas.recommendation import (
     RecommendationRead,
     RecommendationRequest,
 )
+from app.services.persisted_place_reader import (
+    PersistedCandidateSnapshot,
+    PersistedPlaceReader,
+)
 from app.services.place_deduplication_service import (
     are_names_similar,
     deduplicate_places,
@@ -310,10 +314,12 @@ class RecommendationService:
         self,
         discovery: RecommendationDiscovery,
         *,
+        candidate_reader: PersistedPlaceReader | None = None,
         weights: RecommendationWeights = DEFAULT_RECOMMENDATION_WEIGHTS,
         preference_config: PreferenceWeightingConfig = DEFAULT_PREFERENCE_CONFIG,
     ) -> None:
         self._discovery = discovery
+        self._candidate_reader = candidate_reader or PersistedPlaceReader()
         self._weights = weights
         self._preference_config = preference_config
 
@@ -322,6 +328,27 @@ class RecommendationService:
         """Expose the provider-neutral discovery boundary for background refresh."""
 
         return self._discovery
+
+    def read_persisted_candidates(
+        self,
+        *,
+        session: Session,
+        city: City,
+        request: RecommendationRequest,
+    ) -> PersistedCandidateSnapshot:
+        """Return DB-owned candidates and freshness without provider I/O."""
+
+        categories = list(dict.fromkeys(request.categories))
+        if (
+            request.category_filter is not None
+            and request.category_filter not in categories
+        ):
+            categories.append(request.category_filter)
+        return self._candidate_reader.read(
+            session=session,
+            city_id=city.id,
+            categories=categories,
+        )
 
     async def recommend(
         self,
@@ -339,21 +366,11 @@ class RecommendationService:
         ):
             categories_to_retrieve.append(request.category_filter)
 
-        discover_many = getattr(self._discovery, "discover_many", None)
-        if callable(discover_many):
-            places_by_category = await discover_many(  # type: ignore[misc]
-                session=session,
-                city=city,
-                categories=categories_to_retrieve,
-            )
-        else:
-            places_by_category = {}
-            for category in categories_to_retrieve:
-                places_by_category[category] = await self._discovery.discover(
-                    session=session,
-                    city=city,
-                    category=category,
-                )
+        places_by_category = self._candidate_reader.read(
+            session=session,
+            city_id=city.id,
+            categories=categories_to_retrieve,
+        ).places_by_category
 
         raw_candidates: list[Place] = []
         for category in categories_to_retrieve:
@@ -361,7 +378,8 @@ class RecommendationService:
 
         # Filter by moderation status: only ACTIVE places are eligible for recommendations
         raw_candidates = [
-            p for p in raw_candidates
+            p
+            for p in raw_candidates
             if getattr(p, "moderation_status", "ACTIVE") == "ACTIVE"
         ]
 
@@ -685,6 +703,6 @@ class RecommendationService:
             len(final_results),
             total_rec_ms,
         )
-        page = final_results[request.cursor_offset:page_end]
+        page = final_results[request.cursor_offset : page_end]
         enrich_image_reads(session, page)
         return page

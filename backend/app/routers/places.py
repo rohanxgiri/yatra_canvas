@@ -1,8 +1,8 @@
 import asyncio
-from base64 import urlsafe_b64encode
 import logging
 import threading
 import time
+from base64 import urlsafe_b64encode
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID, uuid4
@@ -45,6 +45,10 @@ from app.services.openstreetmap_places_service import (
     OpenStreetMapPlacesTimeoutError,
     OpenStreetMapPlacesUnavailableError,
 )
+from app.services.persisted_place_reader import (
+    PersistedCandidateSnapshot,
+    PersistedPlaceReader,
+)
 from app.services.place_category_normalizer import normalize_place_category
 from app.services.place_deduplication_service import (
     haversine_distance_meters,
@@ -86,7 +90,7 @@ def _recommend_in_worker(
     city_id: UUID,
     request: RecommendationRequest,
     recommendation: RecommendationService,
-) -> tuple[str, list[RecommendationRead]]:
+) -> tuple[str, list[RecommendationRead], PersistedCandidateSnapshot]:
     query_count = 0
     worker_thread_id = threading.get_ident()
 
@@ -112,6 +116,20 @@ def _recommend_in_worker(
                     request=request,
                 )
             )
+            read_persisted = getattr(recommendation, "read_persisted_candidates", None)
+            snapshot = (
+                read_persisted(
+                    session=worker_session,
+                    city=city,
+                    request=request,
+                )
+                if callable(read_persisted)
+                else PersistedPlaceReader().read(
+                    session=worker_session,
+                    city_id=city.id,
+                    categories=list(request.categories),
+                )
+            )
             recommendation_ms = (time.monotonic() - recommendation_started) * 1000
             logger.info(
                 "RECOMMEND_DB city_id=%s query_count=%d city_lookup_ms=%.1f "
@@ -122,7 +140,7 @@ def _recommend_in_worker(
                 recommendation_ms,
                 (time.monotonic() - started) * 1000,
             )
-            return city.name, result
+            return city.name, result, snapshot
     finally:
         event.remove(engine, "before_cursor_execute", count_query)
 
@@ -415,7 +433,7 @@ async def recommend_city_places(
             prefetch_active,
             coordinator.active_categories(city_id),
         )
-        city_name, result = await asyncio.to_thread(
+        city_name, result, candidate_snapshot = await asyncio.to_thread(
             _recommend_in_worker,
             session.get_bind(),
             city_id,
@@ -425,8 +443,12 @@ async def recommend_city_places(
         schedule_place_image_enrichment(
             {item.id for item in result}, engine=session.get_bind()
         )
+        refresh_categories = candidate_snapshot.refresh_categories
         background_discovery = getattr(recommendation, "discovery", None)
-        if background_discovery is not None and not prefetch_active:
+        refresh_state = "idle"
+        if refresh_categories and prefetch_active:
+            refresh_state = "refreshing"
+        elif background_discovery is not None and refresh_categories:
             background_engine = session.get_bind()
 
             async def refresh_selected(categories: list[DiscoveryCategory]):
@@ -449,10 +471,17 @@ async def recommend_city_places(
                 city_id=city_id,
                 city_name=city_name,
                 stage=PrefetchStage.INTERESTS_CONFIRMED,
-                categories=requested_categories,
+                categories=refresh_categories,
                 runner=refresh_selected,
                 offload=True,
             )
+            refresh_state = "queued"
+        elif refresh_categories:
+            refresh_state = "unavailable"
+        response.headers["X-Refresh-State"] = refresh_state
+        response.headers["X-Stale-Categories"] = ",".join(
+            category.value for category in refresh_categories
+        )
         logger.info(
             "RECOMMEND_RESULT request_id=%s count=%d elapsed_ms=%.1f",
             request_id,

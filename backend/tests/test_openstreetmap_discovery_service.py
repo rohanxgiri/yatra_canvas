@@ -212,7 +212,9 @@ def test_cross_category_duplicate_merges_into_canonical_place(session: Session) 
     assert set(tags) == {"tourism", "heritage"}
 
 
-def test_partial_provider_failure_retains_successful_categories(session: Session) -> None:
+def test_partial_provider_failure_retains_successful_categories(
+    session: Session,
+) -> None:
     """Test F: When heritage query fails, food succeeds and discovery completes gracefully."""
 
     city = _city(session)
@@ -349,6 +351,15 @@ def test_large_candidate_pool_merge_dedup_and_recommendation(session: Session) -
         limit=30,
     )
 
+    asyncio.run(
+        discovery_service.discover_many(
+            session=session,
+            city=city,
+            categories=req.categories,
+            prefer_stale=False,
+        )
+    )
+
     recommendations = asyncio.run(
         rec_service.recommend(
             session=session,
@@ -381,7 +392,9 @@ def test_institutional_dining_regression_exclusion() -> None:
 
     for name, cat, tags in rejected_cases:
         suitable, _ = is_traveller_suitable(name=name, category=cat, tags=tags)
-        assert not suitable, f"Expected {name} to be excluded as non-suitable institutional dining"
+        assert not suitable, (
+            f"Expected {name} to be excluded as non-suitable institutional dining"
+        )
 
     # Legitimate public places must be accepted
     accepted_cases = [
@@ -394,4 +407,3 @@ def test_institutional_dining_regression_exclusion() -> None:
     for name, cat, tags in accepted_cases:
         suitable, _ = is_traveller_suitable(name=name, category=cat, tags=tags)
         assert suitable, f"Expected {name} to be accepted as suitable public dining"
-

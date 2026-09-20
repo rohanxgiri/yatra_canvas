@@ -196,7 +196,11 @@ async def test_partial_provider_failure_returns_usable_recommendations(
     session: Session, test_city: City
 ):
     class PartialFailureProvider:
+        def __init__(self) -> None:
+            self.call_count = 0
+
         async def search_nearby_places_for_categories(self, **kwargs):
+            self.call_count += 1
             # food succeeds, heritage fails
             return {
                 DiscoveryCategory.FOOD: [
@@ -216,11 +220,20 @@ async def test_partial_provider_failure_returns_usable_recommendations(
     discovery = OpenStreetMapDiscoveryService(settings, provider)  # type: ignore[arg-type]
     rec_service = RecommendationService(discovery)
 
+    categories = [DiscoveryCategory.FOOD, DiscoveryCategory.HERITAGE]
+    await discovery.discover_many(
+        session=session,
+        city=test_city,
+        categories=categories,
+        prefer_stale=False,
+    )
+    calls_after_refresh = provider.call_count
+
     recs = await rec_service.recommend(
         session=session,
         city=test_city,
         request=RecommendationRequest(
-            categories=[DiscoveryCategory.FOOD, DiscoveryCategory.HERITAGE],
+            categories=categories,
             limit=10,
         ),
     )
@@ -228,6 +241,7 @@ async def test_partial_provider_failure_returns_usable_recommendations(
     # Request MUST NOT fail with 500 or timeout: returns available food place!
     assert len(recs) == 1
     assert recs[0].name == "Kochi Seafood Haven"
+    assert provider.call_count == calls_after_refresh
 
 
 @pytest.mark.anyio
