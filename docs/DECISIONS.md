@@ -2,6 +2,29 @@
 
 Last reviewed: 2026-09-20
 
+## ADR-021 — Wikimedia enrichment uses shared cooldowns and bounded priority waves
+
+- **Status:** Accepted and `[IMPLEMENTED]` in repository; deployment migration remains
+  `[PARTIAL]`.
+- **Date:** 2026-09-20.
+- **Decision:** Keep images optional and outside foreground POI reads. Serialize Wikimedia Action
+  API requests across concurrent batches in one process and persist a provider-wide cooldown when
+  any worker observes HTTP 429, honoring `Retry-After` before later requests. Retry a transient
+  network/5xx failure at most once at the failed request stage. Preserve recommendation order,
+  warm images in 10-item waves, and cap one schedule at 20 IDs. Flutter tries a resolved network
+  image, then only a semantically valid bundled category asset, then a guaranteed neutral
+  gradient/icon.
+- **Consequences:** A large or repeated Discover load cannot amplify one Wikimedia 429 into dozens
+  of immediate retries, while missing images remain independent from POI availability. Existing
+  positive/negative/failure image TTLs remain authoritative. Cross-worker cooldown requires the
+  reviewed `provider_cooldowns` migration; process-local serialization still protects an
+  unmigrated single worker.
+- **Evidence:** `backend/app/services/provider_rate_control.py`, image provider/cache tests,
+  `lib/widgets/place_image.dart`, and `test/place_image_test.dart`. Wikimedia rate-limit and
+  Action API etiquette guidance verified 2026-09-20 at
+  <https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits> and
+  <https://www.mediawiki.org/wiki/API:Etiquette>.
+
 ## ADR-020 — Discover Places foreground reads are isolated from provider acquisition
 
 - **Status:** Accepted and `[IMPLEMENTED]` in repository; deployment migration, always-on job

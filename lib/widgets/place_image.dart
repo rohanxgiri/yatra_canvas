@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../models/place_image.dart';
+import '../utils/place_image_fallbacks.dart';
 import 'yc_skeleton.dart';
 
 class PlaceImage extends StatelessWidget {
@@ -34,6 +35,30 @@ class PlaceImage extends StatelessWidget {
     final state = image?.state ?? PlaceImageState.unknown;
     final attribution = image?.attribution;
 
+    Widget fallback({required Key key, required bool showUnavailableLabel}) {
+      final assetPath = placeFallbackAsset(
+        normalizedCategory: normalizedCategory,
+        rawCategory: rawCategory,
+        name: name,
+      );
+      if (assetPath == null) {
+        return _NeutralPlaceFallback(
+          key: key,
+          normalizedCategory: normalizedCategory,
+          rawCategory: rawCategory,
+          showUnavailableLabel: showUnavailableLabel,
+        );
+      }
+      return _LocalPlaceFallback(
+        key: key,
+        assetPath: assetPath,
+        fit: fit,
+        normalizedCategory: normalizedCategory,
+        rawCategory: rawCategory,
+        showUnavailableLabel: showUnavailableLabel,
+      );
+    }
+
     Widget content;
     if (testImageProvider != null) {
       content = Image(
@@ -65,15 +90,13 @@ class PlaceImage extends StatelessWidget {
               _ImageAttribution(attribution: attribution),
           ],
         ),
-        errorWidget: (_, _, _) => _NeutralPlaceFallback(
+        errorWidget: (_, _, _) => fallback(
           key: const Key('place_image_state_error'),
-          normalizedCategory: normalizedCategory,
-          rawCategory: rawCategory,
           showUnavailableLabel: true,
         ),
       );
     } else {
-      content = _NeutralPlaceFallback(
+      content = fallback(
         key: Key(
           state == PlaceImageState.notFound
               ? 'place_image_state_not_found'
@@ -81,8 +104,6 @@ class PlaceImage extends StatelessWidget {
               ? 'place_image_state_error'
               : 'place_image_state_unknown',
         ),
-        normalizedCategory: normalizedCategory,
-        rawCategory: rawCategory,
         showUnavailableLabel: state != PlaceImageState.unknown,
       );
     }
@@ -93,6 +114,35 @@ class PlaceImage extends StatelessWidget {
       child: ClipRRect(borderRadius: borderRadius, child: content),
     );
   }
+}
+
+class _LocalPlaceFallback extends StatelessWidget {
+  const _LocalPlaceFallback({
+    required this.assetPath,
+    required this.fit,
+    required this.normalizedCategory,
+    required this.rawCategory,
+    required this.showUnavailableLabel,
+    super.key,
+  });
+
+  final String assetPath;
+  final BoxFit fit;
+  final String? normalizedCategory;
+  final String? rawCategory;
+  final bool showUnavailableLabel;
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+    assetPath,
+    key: const Key('place_image_local_fallback'),
+    fit: fit,
+    errorBuilder: (_, _, _) => _NeutralPlaceFallback(
+      normalizedCategory: normalizedCategory,
+      rawCategory: rawCategory,
+      showUnavailableLabel: showUnavailableLabel,
+    ),
+  );
 }
 
 class _ImageLoadingPlaceholder extends StatelessWidget {

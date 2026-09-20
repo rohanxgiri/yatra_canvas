@@ -445,7 +445,7 @@ async def recommend_city_places(
             recommendation,
         )
         schedule_place_image_enrichment(
-            {item.id for item in result}, engine=session.get_bind()
+            [item.id for item in result], engine=session.get_bind()
         )
         refresh_categories = candidate_snapshot.refresh_categories
         refresh_state = "idle"

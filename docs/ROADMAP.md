@@ -103,8 +103,9 @@ Acceptance criteria:
 
 Status: `[PARTIAL]`. Provider-neutral place images, POI-specific cache identity, contextual
 provider queries, candidate URL validation, direct-identifier-first Wikimedia lookup, item
-attribution/license storage, durable TTL cache, client precaching, explicit Flutter image states,
-and neutral non-photographic failure presentation are `[IMPLEMENTED]`. Descriptions,
+attribution/license storage, durable TTL cache, shared/durable 429 cooldown, bounded priority
+batches, client precaching, explicit Flutter image states, semantically correct bundled category
+fallbacks, and neutral non-photographic failure presentation are `[IMPLEMENTED]`. Descriptions,
 revision-aware refresh, operator batch controls, and media-removal reconciliation remain
 `[PLANNED]`.
 

@@ -8,7 +8,6 @@ const Map<String, String> _fallbackByCategory = {
   'fort_palace': '$_fallbackRoot/fort_palace.webp',
   'lake_riverfront': '$_fallbackRoot/lake_riverfront.webp',
   'hill_viewpoint': '$_fallbackRoot/hill_viewpoint.webp',
-  'landmark': '$_fallbackRoot/mountain.webp',
   'market_shopping': '$_fallbackRoot/market.webp',
   'beach': '$_fallbackRoot/beach.webp',
   'desert': '$_fallbackRoot/desert.webp',
@@ -16,12 +15,10 @@ const Map<String, String> _fallbackByCategory = {
   'forest': '$_fallbackRoot/forest.webp',
   'restaurant': '$_fallbackRoot/restaurant.webp',
   'hotel': '$_fallbackRoot/hotel.webp',
-  'entertainment': '$_fallbackRoot/hotel.webp',
   'wildlife': '$_fallbackRoot/wildlife.webp',
-  'other': '$_fallbackRoot/generic_place.webp',
 };
 
-String placeFallbackAsset({
+String? placeFallbackAsset({
   String? normalizedCategory,
   String? rawCategory,
   String? name,
@@ -31,6 +28,11 @@ String placeFallbackAsset({
     return _fallbackByCategory[normalized]!;
   }
   final haystack = '${rawCategory ?? ''} ${name ?? ''}'.toLowerCase();
+  final tokens = RegExp(r'[a-z0-9]+')
+      .allMatches(haystack)
+      .map((match) => match.group(0))
+      .whereType<String>()
+      .toSet();
   const aliases = <String, String>{
     'temple': 'place_of_worship',
     'religious': 'place_of_worship',
@@ -55,11 +57,10 @@ String placeFallbackAsset({
     'waterfall': 'waterfall',
     'forest': 'forest',
     'wildlife': 'wildlife',
-    'heritage': 'landmark',
-    'tourism': 'landmark',
+    'nature': 'park_garden',
   };
   for (final entry in aliases.entries) {
-    if (haystack.contains(entry.key)) return _fallbackByCategory[entry.value]!;
+    if (tokens.contains(entry.key)) return _fallbackByCategory[entry.value]!;
   }
-  return _fallbackByCategory['other']!;
+  return null;
 }

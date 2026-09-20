@@ -21,9 +21,12 @@ from app.services.place_image_provider import (
     place_image_search_query,
 )
 from app.services.place_image_service import (
+    IMAGE_ENRICHMENT_BATCH_SIZE,
+    IMAGE_ENRICHMENT_MAX_PER_SCHEDULE,
     PlaceImageResolver,
     build_place_reads,
     get_cached_place_images,
+    schedule_place_image_enrichment,
 )
 
 
@@ -585,3 +588,33 @@ async def test_expired_entry_refreshes_and_jaipur_20_warm_cache_is_faster() -> N
         session.commit()
         await resolver.resolve_many(session, [row.place_id])
         assert resolver.calls == 21
+
+
+@pytest.mark.anyio
+async def test_background_image_schedule_prioritizes_and_caps_visible_pages(
+    monkeypatch,
+) -> None:
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    SQLModel.metadata.create_all(engine)
+    requested_ids = [uuid4() for _ in range(60)]
+    batches: list[list] = []
+
+    class RecordingResolver:
+        async def resolve_many(self, _session, place_ids):
+            batches.append(list(place_ids))
+            return {}
+
+    monkeypatch.setattr(
+        "app.services.place_image_service.PlaceImageResolver", RecordingResolver
+    )
+
+    schedule_place_image_enrichment(requested_ids, engine=engine)
+    from app.services import place_image_service
+
+    await asyncio.gather(*tuple(place_image_service._background_tasks))
+
+    assert IMAGE_ENRICHMENT_BATCH_SIZE == 10
+    assert IMAGE_ENRICHMENT_MAX_PER_SCHEDULE == 20
+    assert batches == [requested_ids[:10], requested_ids[10:20]]

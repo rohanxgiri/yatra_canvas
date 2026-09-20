@@ -213,8 +213,9 @@ provider boundary.
 - `[IMPLEMENTED]` Place Image Resolution (`PlaceImageResolver`, `PlaceImageCache`): a single
   category normalizer drives provider priority and the neutral Flutter fallback icon. API serializers
   batch-read cached image rows and never await a remote image provider. Missing/expired IDs are
-  scheduled after POI prefetch or recommendation work on a separate task. Each batch shares one
-  `httpx.AsyncClient`, uses bounded concurrency/timeouts, and tries category-aware chains:
+  scheduled after recommendation or other place reads on a separate task. Scheduling preserves
+  visible result order, runs 10-item waves, and caps one navigation-triggered schedule at 20 IDs.
+  Each batch shares one `httpx.AsyncClient`, uses bounded concurrency/timeouts, and tries category-aware chains:
   Geoapify/Wikimedia/Foursquare for landmarks and nature, and
   Foursquare/Geoapify/Wikimedia for businesses. Geoapify imported media is reused before Place
   Details; Wikimedia direct Commons/Wikipedia/Wikidata identifiers precede conservative fuzzy
@@ -228,7 +229,10 @@ provider boundary.
   identity is `provider_name + provider_place_id`, falling back to normalized name, city, and
   rounded coordinates when no provider identity exists. New image-capable provenance invalidates
   an older cache row so a valid negative result cannot mask later enrichment. Provider failure
-  therefore changes only imagery, not the place-list or itinerary response.
+  therefore changes only imagery, not the place-list or itinerary response. Wikimedia Action API
+  calls are serialized across concurrent batches in one process. HTTP 429 records a durable
+  provider-wide `Retry-After` cooldown that other workers check before I/O; transient network/5xx
+  failures retry only the failed request once with bounded exponential backoff and jitter.
 - `[IMPLEMENTED]` Progressive POI Prefetch & Cache-First Live Discovery Reliability (`DurablePlaceRefreshService`, `CityPlacePrefetchService`, `OpenStreetMapDiscoveryService`, `GeoapifyPlacesProvider`, `ProviderCircuitBreaker`):
   - **3-Tier Cache Semantics**: Queries evaluate category coverage into `FRESH` ($\le 24$h / `PLACE_DISCOVERY_CACHE_TTL_HOURS`), `STALE_USABLE` ($\le 168$h / `DISCOVERY_STALE_USABLE_HOURS`), and `MISSING`. A completed fresh destination query is authoritative even when a small city has fewer results than the request limit, preventing perpetual refetch. Cache keys are `(city_id, PLACE_DISCOVERY_CACHE_VERSION, category)`; incrementing the configured version invalidates an incompatible query strategy without deleting rows manually.
   - **Stale Cache Behavior**: Any otherwise eligible stored category rows remain displayable regardless of refresh age. `fresh`, `stale`, `expired`, and `missing` control only refresh scheduling.

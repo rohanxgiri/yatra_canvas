@@ -17,6 +17,7 @@ from app.services.place_image_provider import (
     first_identifier,
     place_image_search_query,
 )
+from app.services.provider_rate_control import WikimediaRateController
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +70,14 @@ def _plain(value: object) -> str | None:
 class WikimediaImageProvider:
     name = "wikimedia"
 
-    def __init__(self, *, client: httpx.AsyncClient) -> None:
+    def __init__(
+        self,
+        *,
+        client: httpx.AsyncClient,
+        rate_controller: WikimediaRateController | None = None,
+    ) -> None:
         self._client = client
+        self._rate_controller = rate_controller
 
     async def resolve(self, context: PlaceImageContext) -> PlaceImageCandidate | None:
         commons = first_identifier(context, "wikimedia_commons")
@@ -82,7 +89,7 @@ class WikimediaImageProvider:
 
         wikidata_id = context.wikidata_id or first_identifier(context, "wikidata")
         if wikidata_id:
-            response = await self._client.get(
+            response = await self._get(
                 "https://www.wikidata.org/w/api.php",
                 params={
                     "action": "wbgetentities",
@@ -119,7 +126,7 @@ class WikimediaImageProvider:
         self, context: PlaceImageContext
     ) -> PlaceImageCandidate | None:
         query = place_image_search_query(context)
-        response = await self._client.get(
+        response = await self._get(
             "https://en.wikipedia.org/w/api.php",
             params={
                 "action": "query",
@@ -180,7 +187,7 @@ class WikimediaImageProvider:
     async def _wikipedia_page_image(
         self, title: str, context: PlaceImageContext, *, direct: bool
     ) -> PlaceImageCandidate | None:
-        response = await self._client.get(
+        response = await self._get(
             "https://en.wikipedia.org/w/api.php",
             params={
                 "action": "query",
@@ -203,7 +210,7 @@ class WikimediaImageProvider:
             for excluded in (" logo", "flag of", " map", "seal of", "coat of arms")
         ):
             return None
-        response = await self._client.get(
+        response = await self._get(
             "https://commons.wikimedia.org/w/api.php",
             params={
                 "action": "query",
@@ -241,6 +248,11 @@ class WikimediaImageProvider:
             license=value("LicenseShortName") or value("UsageTerms"),
             license_url=value("LicenseUrl"),
         )
+
+    async def _get(self, url: str, **kwargs) -> httpx.Response:
+        if self._rate_controller is None:
+            return await self._client.get(url, **kwargs)
+        return await self._rate_controller.get(self._client, url, **kwargs)
 
     @staticmethod
     def _commons_title(value: str) -> str:

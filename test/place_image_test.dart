@@ -38,6 +38,17 @@ void main() {
       placeFallbackAsset(rawCategory: 'nature', name: 'Amber waterfall'),
       endsWith('/waterfall.webp'),
     );
+    expect(
+      placeFallbackAsset(rawCategory: 'nature'),
+      endsWith('/park_garden.webp'),
+    );
+    expect(
+      placeFallbackAsset(rawCategory: 'heritage', name: 'Amber Fort'),
+      endsWith('/fort_palace.webp'),
+    );
+    expect(placeFallbackAsset(rawCategory: 'heritage'), isNull);
+    expect(placeFallbackAsset(rawCategory: 'tourism'), isNull);
+    expect(placeFallbackAsset(normalizedCategory: 'entertainment'), isNull);
   });
 
   testWidgets('every mapped category resolves to a bundled WebP asset', (
@@ -51,7 +62,6 @@ void main() {
       'fort_palace',
       'lake_riverfront',
       'hill_viewpoint',
-      'landmark',
       'market_shopping',
       'beach',
       'desert',
@@ -59,24 +69,24 @@ void main() {
       'forest',
       'restaurant',
       'hotel',
-      'entertainment',
       'wildlife',
-      'other',
     ];
 
     for (final category in categories) {
       final path = placeFallbackAsset(normalizedCategory: category);
-      expect(path, endsWith('.webp'), reason: category);
+      expect(path, isNotNull, reason: category);
+      expect(path!, endsWith('.webp'), reason: category);
       final data = await rootBundle.load(path);
       expect(data.lengthInBytes, greaterThan(0), reason: category);
     }
 
-    final genericPath = placeFallbackAsset(normalizedCategory: 'unknown');
-    expect(genericPath, endsWith('/generic_place.webp'));
-    expect((await rootBundle.load(genericPath)).lengthInBytes, greaterThan(0));
+    expect(placeFallbackAsset(normalizedCategory: 'landmark'), isNull);
+    expect(placeFallbackAsset(normalizedCategory: 'entertainment'), isNull);
+    expect(placeFallbackAsset(normalizedCategory: 'other'), isNull);
+    expect(placeFallbackAsset(normalizedCategory: 'unknown'), isNull);
   });
 
-  testWidgets('missing metadata renders a neutral unknown state', (
+  testWidgets('missing metadata renders the local category asset', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -93,10 +103,7 @@ void main() {
     );
 
     expect(find.byKey(const Key('place_image_state_unknown')), findsOneWidget);
-    expect(
-      find.byKey(const Key('place_image_neutral_fallback')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('place_image_local_fallback')), findsOneWidget);
     expect(find.text('Photo unavailable'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -181,15 +188,12 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('place_image_state_error')), findsOneWidget);
-    expect(
-      find.byKey(const Key('place_image_neutral_fallback')),
-      findsOneWidget,
-    );
-    expect(find.text('Photo unavailable'), findsOneWidget);
+    expect(find.byKey(const Key('place_image_local_fallback')), findsOneWidget);
+    expect(find.byKey(const Key('place_image_neutral_fallback')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('not-found metadata shows the neutral unavailable state', (
+  testWidgets('not-found metadata uses a correct local category asset', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -199,7 +203,7 @@ void main() {
           height: 180,
           child: PlaceImage(
             name: 'No provider photo',
-            normalizedCategory: 'landmark',
+            normalizedCategory: 'museum',
             image: PlaceImageData(status: 'not_found'),
           ),
         ),
@@ -210,11 +214,61 @@ void main() {
       find.byKey(const Key('place_image_state_not_found')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('place_image_local_fallback')), findsOneWidget);
+  });
+
+  testWidgets('unknown category guarantees the neutral fallback', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 180,
+          child: PlaceImage(
+            name: 'Unknown place',
+            normalizedCategory: 'unknown',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('place_image_local_fallback')), findsNothing);
     expect(
       find.byKey(const Key('place_image_neutral_fallback')),
       findsOneWidget,
     );
-    expect(find.text('Photo unavailable'), findsOneWidget);
+  });
+
+  testWidgets('local asset failure falls through to the neutral fallback', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 180,
+          child: PlaceImage(name: 'Cafe', normalizedCategory: 'cafe'),
+        ),
+      ),
+    );
+
+    final localImage = tester.widget<Image>(
+      find.byKey(const Key('place_image_local_fallback')),
+    );
+    final neutral = localImage.errorBuilder!(
+      tester.element(find.byKey(const Key('place_image_local_fallback'))),
+      StateError('controlled asset failure'),
+      StackTrace.current,
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: SizedBox(width: 320, height: 180, child: neutral)),
+    );
+
+    expect(
+      find.byKey(const Key('place_image_neutral_fallback')),
+      findsOneWidget,
+    );
   });
 
   test('invalid resolved image URL maps to the error state', () {
@@ -330,7 +384,7 @@ void main() {
     final fallbackProvider = ResizeImage.resizeIfNeeded(
       900,
       null,
-      AssetImage(placeFallbackAsset(normalizedCategory: 'fort_palace')),
+      AssetImage(placeFallbackAsset(normalizedCategory: 'fort_palace')!),
     );
 
     await tester.pumpWidget(

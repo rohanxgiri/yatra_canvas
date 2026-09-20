@@ -34,9 +34,16 @@ from app.services.place_image_provider import (
     place_image_identity_key,
     place_image_search_query,
 )
+from app.services.provider_rate_control import (
+    WikimediaRateController,
+    WikimediaRateLimitedError,
+)
 from app.services.wikimedia_image_provider import WikimediaImageProvider
 
 logger = logging.getLogger(__name__)
+
+IMAGE_ENRICHMENT_BATCH_SIZE = 10
+IMAGE_ENRICHMENT_MAX_PER_SCHEDULE = 20
 
 
 def _aware(value: datetime) -> datetime:
@@ -173,7 +180,12 @@ class PlaceImageResolver:
             self._settings.place_image_timeout_seconds,
             connect=min(3.0, self._settings.place_image_timeout_seconds),
         )
-        headers = {"User-Agent": "YatraCanvas/0.1 (place-image attribution resolver)"}
+        headers = {
+            "User-Agent": (
+                "YatraCanvas/0.1 "
+                "(https://github.com/rohanxgiri/yatra_canvas; image resolver)"
+            )
+        }
         semaphore = asyncio.Semaphore(self._settings.place_image_concurrency)
         started = time.perf_counter()
         async with httpx.AsyncClient(
@@ -188,7 +200,10 @@ class PlaceImageResolver:
                     base_url=self._settings.geoapify_base_url,
                     client=client,
                 ),
-                "wikimedia": WikimediaImageProvider(client=client),
+                "wikimedia": WikimediaImageProvider(
+                    client=client,
+                    rate_controller=WikimediaRateController(session.get_bind()),
+                ),
                 "foursquare": FoursquareImageProvider(
                     self._settings.foursquare_api_key_value,
                     base_url=self._settings.foursquare_base_url,
@@ -298,7 +313,8 @@ class PlaceImageResolver:
         )
         for name in self._provider_order(context.normalized_category):
             provider_started = time.perf_counter()
-            for attempt in range(2):
+            attempts = 1 if name == "wikimedia" else 2
+            for attempt in range(attempts):
                 try:
                     candidate = await providers[name].resolve(context)
                     logger.info(
@@ -328,6 +344,16 @@ class PlaceImageResolver:
                             break
                         return candidate, had_error
                     break
+                except WikimediaRateLimitedError as exc:
+                    had_error = True
+                    logger.warning(
+                        "PLACE_IMAGE_PROVIDER_COOLDOWN place_id=%s provider=%s "
+                        "retry_after_seconds=%d",
+                        context.place_id,
+                        name,
+                        exc.retry_after_seconds,
+                    )
+                    break
                 except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
                     had_error = True
                     status_code = (
@@ -342,7 +368,7 @@ class PlaceImageResolver:
                             or exc.response.status_code >= 500
                         )
                     )
-                    if attempt == 0 and retryable:
+                    if attempt == 0 and retryable and attempts > 1:
                         logger.info(
                             "PLACE_IMAGE_PROVIDER_RETRY place_id=%s provider=%s",
                             context.place_id,
@@ -483,7 +509,7 @@ def schedule_place_image_enrichment(
         place_id
         for place_id in dict.fromkeys(place_ids)
         if place_id not in _background_place_ids
-    ]
+    ][:IMAGE_ENRICHMENT_MAX_PER_SCHEDULE]
     if not ids:
         return
     try:
@@ -502,7 +528,11 @@ def schedule_place_image_enrichment(
             else:
                 target_engine = engine
             with Session(target_engine) as session:
-                await PlaceImageResolver().resolve_many(session, ids)
+                for offset in range(0, len(ids), IMAGE_ENRICHMENT_BATCH_SIZE):
+                    await PlaceImageResolver().resolve_many(
+                        session,
+                        ids[offset : offset + IMAGE_ENRICHMENT_BATCH_SIZE],
+                    )
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - background enrichment must never escape

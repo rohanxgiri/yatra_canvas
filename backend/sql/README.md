@@ -38,6 +38,10 @@ Current-model migrations verified as applied on 2026-09-07:
 
 Pending deployment review:
 
+- `add_provider_cooldowns.sql` is `[IMPLEMENTED]` in repository models/tests and remains
+  unapplied by repository work. It adds shared provider backoff metadata only; it does not alter
+  canonical places or image cache rows. `rollback_provider_cooldowns.sql` drops cooldown history
+  only.
 - `add_place_refresh_jobs.sql` is `[IMPLEMENTED]` in repository models/tests and remains
   unapplied by repository work. It adds only durable refresh coordination state; it does not
   alter or delete `places`, `place_tags`, or `city_category_cache`. Apply it before deploying
@@ -77,6 +81,7 @@ the catalog before continuing.
 12. `add_admin_auth_and_moderation.sql`
 13. `add_place_image_cache.sql`
 14. `add_place_refresh_jobs.sql`
+15. `add_provider_cooldowns.sql`
 
 `repair_current_schema_parity.sql` is a convergence repair for the older provider and route
 scripts. On the currently configured database its effects are already present, so rerunning the
@@ -91,6 +96,7 @@ tables and columns, `rollback_trip_days_foundation.sql` drops configured trip da
 dependent assignment data, and `rollback_admin_auth_and_moderation.sql` drops place reports,
 users, and admin moderation/destination columns.
 `rollback_place_refresh_jobs.sql` drops only durable refresh coordination history.
+`rollback_provider_cooldowns.sql` drops only provider backoff history.
 
 ## Verification checklist
 

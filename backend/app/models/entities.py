@@ -309,6 +309,34 @@ class PlaceImageCache(SQLModel, table=True):
     failure_reason: str | None = Field(default=None, max_length=500)
 
 
+class ProviderCooldown(SQLModel, table=True):
+    """Shared provider backoff state observed by every backend worker."""
+
+    __tablename__ = "provider_cooldowns"
+    __table_args__ = (
+        CheckConstraint(
+            "retry_after_seconds IS NULL OR retry_after_seconds >= 0",
+            name="ck_provider_cooldowns_retry_after_seconds",
+        ),
+    )
+
+    provider_key: str = Field(primary_key=True, max_length=80)
+    host: str = Field(max_length=255, index=True)
+    cooldown_until: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False, index=True),
+    )
+    reason: str | None = Field(default=None, max_length=80)
+    retry_after_seconds: int | None = Field(default=None)
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+
+
 class PlaceSource(SQLModel, table=True):
     __tablename__ = "place_sources"
     __table_args__ = (
@@ -809,4 +837,3 @@ class PlaceReport(SQLModel, table=True):
         default=None,
         sa_column=created_at_column(),
     )
-
