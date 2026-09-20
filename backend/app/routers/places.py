@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 from base64 import urlsafe_b64encode
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID, uuid4
@@ -31,8 +32,11 @@ from app.services.audiala_places_provider import AudialaPlacesProvider
 from app.services.canonical_place_service import CanonicalPlaceService
 from app.services.city_place_prefetch_service import (
     SHALLOW_PREFETCH_CATEGORIES,
-    CityPlacePrefetchService,
     PrefetchStage,
+)
+from app.services.durable_place_refresh_service import (
+    DurablePlaceRefreshService,
+    RefreshJobState,
 )
 from app.services.geoapify_places_provider import GeoapifyPlacesProvider
 from app.services.geoapify_service import GeoapifyService
@@ -284,6 +288,22 @@ RecommendationDependency = Annotated[
 ]
 
 
+def get_durable_place_refresh_service(
+    session: SessionDependency,
+    discovery: OpenStreetMapDiscoveryDependency,
+) -> DurablePlaceRefreshService:
+    return DurablePlaceRefreshService(
+        engine=session.get_bind(),
+        discovery=discovery,
+    )
+
+
+PlaceRefreshDependency = Annotated[
+    DurablePlaceRefreshService,
+    Depends(get_durable_place_refresh_service),
+]
+
+
 @router.post("/places", response_model=PlaceRead, status_code=status.HTTP_201_CREATED)
 def create_place(place_data: PlaceCreate, session: SessionDependency) -> PlaceRead:
     """Create a place after verifying that its parent city exists."""
@@ -402,7 +422,7 @@ async def recommend_city_places(
     recommendation_request: RecommendationRequest,
     session: SessionDependency,
     recommendation: RecommendationDependency,
-    coordinator: PrefetchCoordinatorDependency,
+    refresh_service: PlaceRefreshDependency,
     response: Response,
 ) -> list[RecommendationRead]:
     """Return cached/available places without joining background prefetch."""
@@ -417,23 +437,7 @@ async def recommend_city_places(
         [category.value for category in recommendation_request.categories],
     )
     try:
-        requested_categories = list(recommendation_request.categories)
-        if (
-            recommendation_request.category_filter is not None
-            and recommendation_request.category_filter not in requested_categories
-        ):
-            requested_categories.append(recommendation_request.category_filter)
-        prefetch_active = coordinator.is_prefetch_active(
-            city_id,
-            requested_categories,
-        )
-        logger.info(
-            "RECOMMEND_BACKGROUND city_id=%s prefetch_active=%s active_categories=%s",
-            city_id,
-            prefetch_active,
-            coordinator.active_categories(city_id),
-        )
-        city_name, result, candidate_snapshot = await asyncio.to_thread(
+        _city_name, result, candidate_snapshot = await asyncio.to_thread(
             _recommend_in_worker,
             session.get_bind(),
             city_id,
@@ -444,40 +448,14 @@ async def recommend_city_places(
             {item.id for item in result}, engine=session.get_bind()
         )
         refresh_categories = candidate_snapshot.refresh_categories
-        background_discovery = getattr(recommendation, "discovery", None)
         refresh_state = "idle"
-        if refresh_categories and prefetch_active:
-            refresh_state = "refreshing"
-        elif background_discovery is not None and refresh_categories:
-            background_engine = session.get_bind()
-
-            async def refresh_selected(categories: list[DiscoveryCategory]):
-                with Session(background_engine) as background_session:
-                    background_city = background_session.get(City, city_id)
-                    if background_city is None:
-                        raise RuntimeError(
-                            "City was removed before recommendation refresh started."
-                        )
-                    return await CityPlacePrefetchService(
-                        background_discovery
-                    ).prefetch(
-                        session=background_session,
-                        city=background_city,
-                        stage=PrefetchStage.INTERESTS_CONFIRMED,
-                        categories=categories,
-                    )
-
-            coordinator.enqueue(
+        if refresh_categories:
+            refresh_request = refresh_service.request_refresh(
                 city_id=city_id,
-                city_name=city_name,
-                stage=PrefetchStage.INTERESTS_CONFIRMED,
                 categories=refresh_categories,
-                runner=refresh_selected,
-                offload=True,
+                stage=PrefetchStage.INTERESTS_CONFIRMED,
             )
-            refresh_state = "queued"
-        elif refresh_categories:
-            refresh_state = "unavailable"
+            refresh_state = refresh_request.state
         response.headers["X-Refresh-State"] = refresh_state
         response.headers["X-Stale-Categories"] = ",".join(
             category.value for category in refresh_categories
@@ -535,8 +513,7 @@ async def recommend_city_places(
 async def prefetch_city_places(
     prefetch_request: PlacePrefetchRequest,
     session: SessionDependency,
-    discovery: OpenStreetMapDiscoveryDependency,
-    coordinator: PrefetchCoordinatorDependency,
+    refresh_service: PlaceRefreshDependency,
 ) -> PlacePrefetchResponse:
     """Enqueue staged prefetch and return before provider work completes."""
 
@@ -572,45 +549,32 @@ async def prefetch_city_places(
     else:
         requested_categories = []
 
-    async def run_prefetch(categories: list[DiscoveryCategory]):
-        with Session(background_engine) as background_session:
-            background_city = background_session.get(City, city_id)
-            if background_city is None:
-                raise RuntimeError("City was removed before prefetch started.")
-            return await CityPlacePrefetchService(discovery).prefetch(
-                session=background_session,
-                city=background_city,
-                stage=stage,
-                categories=categories,
-            )
-
-    def schedule_images_after_prefetch(_summary) -> None:
-        with Session(background_engine) as image_session:
-            image_ids = list(
-                image_session.exec(
-                    select(Place.id)
-                    .where(Place.city_id == city_id)
-                    .order_by(Place.importance_score.desc().nullslast(), Place.name)
-                    .limit(60)
-                ).all()
-            )
-        schedule_place_image_enrichment(image_ids, engine=background_engine)
-
-    prefetch_state, enqueued, reused = coordinator.enqueue(
+    refresh_request = (
+        refresh_service.request_refresh(
+            city_id=city_id,
+            categories=requested_categories,
+            stage=stage,
+        )
+        if requested_categories
+        else None
+    )
+    poi_count = len(
+        session.exec(select(Place.id).where(Place.city_id == city_id)).all()
+    )
+    return PlacePrefetchResponse(
         city_id=city_id,
         city_name=city_name,
-        stage=stage,
-        categories=requested_categories,
-        runner=run_prefetch if requested_categories else None,
-        offload=bool(requested_categories),
-        on_complete=schedule_images_after_prefetch if requested_categories else None,
-    )
-    return _prefetch_response(
-        prefetch_state,
-        stage=stage,
-        requested=[category.value for category in requested_categories],
-        enqueued=enqueued,
-        reused=reused,
+        stage=stage.value,
+        categories_requested=[category.value for category in requested_categories],
+        status="fetching" if refresh_request else "partially_ready",
+        categories_enqueued=(
+            refresh_request.queued_categories if refresh_request else []
+        ),
+        categories_reused=(
+            refresh_request.reused_categories if refresh_request else []
+        ),
+        poi_count=poi_count,
+        last_updated=datetime.now(timezone.utc),
     )
 
 
@@ -621,20 +585,56 @@ async def prefetch_city_places(
 def get_prefetch_state(
     city_id: UUID,
     session: SessionDependency,
-    coordinator: PrefetchCoordinatorDependency,
+    refresh_service: PlaceRefreshDependency,
 ) -> PlacePrefetchResponse:
     city = session.get(City, city_id)
     if city is None:
         raise HTTPException(status_code=404, detail="City not found.")
-    prefetch_state = coordinator.get_state(city_id) or PrefetchState(
-        city_id=city.id, city_name=city.name
+    jobs = refresh_service.get_city_jobs(city_id)
+    active_jobs = [
+        job
+        for job in jobs
+        if job.state in {RefreshJobState.QUEUED.value, RefreshJobState.RUNNING.value}
+    ]
+    completed_jobs = [
+        job for job in jobs if job.state == RefreshJobState.COMPLETED.value
+    ]
+    failed_jobs = [job for job in jobs if job.state == RefreshJobState.FAILED.value]
+    if active_jobs:
+        current_status = "fetching"
+    elif completed_jobs and failed_jobs:
+        current_status = "partially_ready"
+    elif completed_jobs:
+        current_status = "ready"
+    elif failed_jobs:
+        current_status = "failed"
+    else:
+        current_status = "idle"
+    poi_count = len(
+        session.exec(select(Place.id).where(Place.city_id == city_id)).all()
     )
-    return _prefetch_response(
-        prefetch_state,
-        stage=PrefetchStage.DESTINATION_CONFIRMED,
-        requested=[],
-        enqueued=[],
-        reused=[],
+    return PlacePrefetchResponse(
+        city_id=city.id,
+        city_name=city.name,
+        stage=PrefetchStage.DESTINATION_CONFIRMED.value,
+        categories_requested=[],
+        status=current_status,
+        categories_enqueued=[
+            job.versioned_category.split(":")[-1] for job in active_jobs
+        ],
+        categories_loaded=[
+            job.versioned_category.split(":")[-1] for job in completed_jobs
+        ],
+        failed_stages=["provider_refresh"] if failed_jobs else [],
+        poi_count=poi_count,
+        started_at=min(
+            (job.last_started_at for job in jobs if job.last_started_at is not None),
+            default=None,
+        ),
+        last_updated=max(
+            (job.updated_at for job in jobs if job.updated_at is not None),
+            default=None,
+        ),
     )
 
 

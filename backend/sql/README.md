@@ -1,6 +1,6 @@
 # YatraCanvas manual database changes
 
-Last reviewed: 2026-09-14
+Last reviewed: 2026-09-20
 
 This directory contains upgrade scripts for databases created by older versions of
 YatraCanvas. It is not an ordered migration runner, and filenames must not be executed
@@ -38,6 +38,11 @@ Current-model migrations verified as applied on 2026-09-07:
 
 Pending deployment review:
 
+- `add_place_refresh_jobs.sql` is `[IMPLEMENTED]` in repository models/tests and remains
+  unapplied by repository work. It adds only durable refresh coordination state; it does not
+  alter or delete `places`, `place_tags`, or `city_category_cache`. Apply it before deploying
+  the cache-first recommendation route. `rollback_place_refresh_jobs.sql` drops job history
+  only and is a reviewed destructive recovery helper, not an installation step.
 - `add_place_image_cache.sql` is `[IMPLEMENTED]` in repository models/tests. A read-only catalog
   inspection found `place_image_cache` already present on the configured remote database with the
   expected columns, indexes, constraints, and no server default on `fetched_at`. Its creation
@@ -71,6 +76,7 @@ the catalog before continuing.
 11. `add_trip_itinerary_status.sql`
 12. `add_admin_auth_and_moderation.sql`
 13. `add_place_image_cache.sql`
+14. `add_place_refresh_jobs.sql`
 
 `repair_current_schema_parity.sql` is a convergence repair for the older provider and route
 scripts. On the currently configured database its effects are already present, so rerunning the
@@ -84,6 +90,7 @@ reviewed restore plan. In particular, `rollback_fsq_geoapify_foundation.sql` dro
 tables and columns, `rollback_trip_days_foundation.sql` drops configured trip days with
 dependent assignment data, and `rollback_admin_auth_and_moderation.sql` drops place reports,
 users, and admin moderation/destination columns.
+`rollback_place_refresh_jobs.sql` drops only durable refresh coordination history.
 
 ## Verification checklist
 

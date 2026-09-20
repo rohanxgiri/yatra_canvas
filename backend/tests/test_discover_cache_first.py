@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
@@ -17,7 +18,7 @@ from app.database import get_session
 from app.main import app
 from app.models import City, CityCategoryCache, Place, PlaceSource, PlaceTag
 from app.routers.places import (
-    get_progressive_prefetch_coordinator,
+    get_durable_place_refresh_service,
     get_recommendation_service,
 )
 from app.schemas import DiscoveryCategory
@@ -56,23 +57,21 @@ class _UnavailableGeoapify:
         )
 
 
-class _RecordingCoordinator:
+class _RecordingRefreshService:
     """Observe refresh requests without executing provider work in the request."""
 
     def __init__(self) -> None:
         self.enqueued: list[tuple[UUID, tuple[str, ...]]] = []
 
-    def is_prefetch_active(self, _city_id, _categories) -> bool:
-        return False
-
-    def active_categories(self, _city_id) -> list[str]:
-        return []
-
-    def enqueue(self, *, city_id, categories, **_kwargs):
+    def request_refresh(self, *, city_id, categories, **_kwargs):
         self.enqueued.append(
             (city_id, tuple(category.value for category in categories))
         )
-        return None, [category.value for category in categories], []
+        return SimpleNamespace(
+            state="queued",
+            queued_categories=[category.value for category in categories],
+            reused_categories=[],
+        )
 
 
 @pytest.fixture
@@ -107,7 +106,7 @@ def cache_first_api(monkeypatch):
         geoapify_provider=geoapify,  # type: ignore[arg-type]
     )
     recommendation = RecommendationService(discovery)
-    coordinator = _RecordingCoordinator()
+    refresh_service = _RecordingRefreshService()
 
     def override_session() -> Generator[Session, None, None]:
         with Session(engine) as session:
@@ -115,7 +114,9 @@ def cache_first_api(monkeypatch):
 
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_recommendation_service] = lambda: recommendation
-    app.dependency_overrides[get_progressive_prefetch_coordinator] = lambda: coordinator
+    app.dependency_overrides[get_durable_place_refresh_service] = lambda: (
+        refresh_service
+    )
 
     yield {
         "client": TestClient(app),
@@ -124,7 +125,7 @@ def cache_first_api(monkeypatch):
         "overpass": overpass,
         "audiala": audiala,
         "geoapify": geoapify,
-        "coordinator": coordinator,
+        "refresh_service": refresh_service,
     }
 
     app.dependency_overrides.clear()
@@ -235,7 +236,7 @@ def test_empty_city_returns_200_and_non_blocking_refresh_state(cache_first_api) 
         "refreshing",
         "unavailable",
     }
-    assert cache_first_api["coordinator"].enqueued
+    assert cache_first_api["refresh_service"].enqueued
     _assert_no_place_provider_calls(cache_first_api)
 
 

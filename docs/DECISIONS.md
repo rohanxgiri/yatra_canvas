@@ -1,22 +1,22 @@
 # Architectural decisions
 
-Last reviewed: 2026-09-19
+Last reviewed: 2026-09-20
 
 ## ADR-020 — Discover Places foreground reads are isolated from provider acquisition
 
-- **Status:** Accepted and `[IMPLEMENTED]` in repository; configured PostgreSQL/device timing is
-  `[PARTIAL]`.
+- **Status:** Accepted and `[IMPLEMENTED]` in repository; deployment migration, always-on job
+  delivery, and configured PostgreSQL/device timing are `[PARTIAL]`.
 - **Date:** 2026-09-19.
-- **Decision:** Recommendation responses inspect but never join process-local prefetch tasks.
-  Return fresh, stale-usable, or partial canonical rows immediately and enqueue deepening
-  separately. Persist versioned Flutter city/profile snapshots in SQLite, render them before the
+- **Decision:** Recommendation responses read eligible persisted rows only and never call or join
+  provider discovery. Cache freshness controls durable per-category refresh scheduling, never POI
+  display eligibility. Prefetch and Discover share an atomic expiring database lease keyed by
+  `(city_id, versioned_category)`. Persist versioned Flutter city/profile snapshots in SQLite, render them before the
   network completes, merge by canonical place ID, and request deterministic 10-item pages with an
   opaque cursor. Keep external image providers outside the POI response and count outer-budget
   Overpass cancellation as circuit-breaker failure.
-- **Consequences:** Repeat visits can paint without a network round trip; slow providers rarely
-  surface as page failures; selected-place and scroll state remain stable. Prefetch/job durability,
-  web-local storage, configured PostgreSQL plans/timings, and physical-device verification remain
-  open.
+- **Consequences:** Repeat visits can paint without a provider round trip; old and partial rows
+  survive refresh failure; separate workers coalesce category work. External queue delivery,
+  web-local storage, configured PostgreSQL plans/timings, and physical-device verification remain open.
 - **Evidence:** `backend/app/routers/places.py`, recommendation/prefetch/provider services,
   `lib/services/recommendation_cache.dart`, `lib/screens/place_discovery/place_discovery_screen.dart`,
   targeted Flutter tests, and [the implementation report](DISCOVER_PLACES_DATA_LOADING.md).
@@ -301,15 +301,19 @@ provider, environment, and data-model documentation.
 
 ## ADR-013 — POI Prefetch and Cache-First Live Discovery Reliability
 
-- **Status:** Accepted and `[IMPLEMENTED]` with `[PARTIAL]` worker durability.
+- **Status:** Accepted historically; foreground joining, process-local ownership, and the
+  seven-day display cutoff are superseded by ADR-020.
 - **Date:** 2026-09-04.
 - **Context:** Live Overpass/OSM queries on the critical discovery path frequently timed out or returned HTTP 504
   gateway errors, causing blocking error screens for users.
 - **Decision:** Implement 3-tier cache semantics (`FRESH` $\le 24$h, `STALE_USABLE` $\le 168$h, `MISSING`) with versioned `(city_id, category)` keys. A process-wide `ProgressivePrefetchCoordinator` accepts destination, dates, interests, and start-location stages. `POST /places/prefetch` returns HTTP 202 before provider work, workers run outside the request event loop with independent database sessions, active `(city_id, category)` work is reused, and foreground recommendation requests join matching work. Flutter fires these requests without awaiting navigation. Dates/start stages make no speculative weather, image, route, or matrix calls; destination prefetch avoids Overpass; interest enrichment reuses fresh coverage and refreshes only missing/stale categories.
   Implement a provider hierarchy: Cached DB $\to$ `GeoapifyPlacesProvider` $\to$ `AudialaPlacesProvider` $\to$ `OpenStreetMapPlacesService`.
   Protect Overpass with an in-memory circuit breaker (`OVERPASS_CIRCUIT_BREAKER_THRESHOLD=3`, `OVERPASS_CIRCUIT_BREAKER_COOLDOWN_SECONDS=60s`). Run category-specific calls in waves no larger than the default breaker threshold and cap the complete Overpass phase with `DISCOVERY_INTERACTIVE_TIMEOUT_SECONDS` (default 12 seconds), allowing queued categories to be skipped once the circuit opens.
-- **Consequences:** Provider and remote-database latency overlaps with form completion while the API remains responsive. Cache and normalization reads are batched, fresh low-result categories do not refetch forever, and final recommendations read the normalized persisted pool rather than restarting discovery. Queue/progress state is process-local; durable multi-worker dispatch remains `[PLANNED]`.
-  External provider failures degrade gracefully to fallback providers or stale usable cache without breaking user journeys.
+- **Consequences:** The original process-local coordinator established non-blocking staged prefetch
+  but did not provide cross-worker ownership. ADR-020 now keeps all eligible persisted rows
+  displayable and gives refresh ownership to a durable per-versioned-category lease; external
+  provider failures cannot remove persisted recommendation rows. Always-on external delivery
+  remains `[PARTIAL]`.
 - **Evidence:** `backend/app/services/city_place_prefetch_service.py`, `backend/app/services/provider_circuit_breaker.py`,
   `backend/app/services/geoapify_places_provider.py`, `backend/tests/test_live_discovery_reliability.py`,
   `backend/tests/test_openstreetmap_places_service.py`, `backend/tests/test_live_discovery_resilience.py`,

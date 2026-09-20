@@ -1,6 +1,6 @@
 # Data model
 
-Last reviewed: 2026-09-19
+Last reviewed: 2026-09-20
 
 The source of truth for the current schema is `backend/app/models/entities.py`. This document
 describes those SQLModel tables and the tracked SQL scripts; it does not assert what exists in
@@ -12,6 +12,7 @@ an uninspected production database.
 erDiagram
     CITY ||--o{ PLACE : contains
     CITY ||--o{ CITY_CATEGORY_CACHE : caches
+    CITY ||--o{ PLACE_REFRESH_JOB : coordinates
     CITY ||--o{ TRIP : destination
     CITY ||--o{ PLACE_IMPORT_REVIEW : scopes
     PLACE ||--o{ PLACE_SOURCE : has
@@ -42,6 +43,7 @@ Deletion behavior must not be assumed except where an `ondelete` action is expli
 | `place_reports` / `PlaceReport` | `[IMPLEMENTED]` | User/traveler place issue reports tied to `places.id` and optional `users.id`. Stores issue `reason` (`permanently_closed`, `restricted_facility`, `duplicate`, `wrong_category`, etc.), optional `details`, workflow `status` (`OPEN`, `REVIEWING`, `RESOLVED`, `REJECTED` with check constraint `ck_place_reports_status`), optional `admin_notes`, `created_at`, and `updated_at`. |
 | `place_opening_hours` / `PlaceOpeningHours` | `[IMPLEMENTED]` | Normalized daily opening hours tied to `places.id` with `ondelete="CASCADE"`. Stores `day_of_week` (0=Monday .. 6=Sunday), `status` (`KNOWN`, `CLOSED`, `UNKNOWN`), and `intervals` JSON array (`[{"open": "HH:MM", "close": "HH:MM"}]`). Check constraints enforce `0 <= day_of_week <= 6` (`ck_place_opening_hours_day`) and valid status (`ck_place_opening_hours_status`). Unique constraint `uq_place_opening_hours_place_day` guarantees one schedule row per day per canonical place. Feeds exact weekday interval domains in the day-aware optimizer. |
 | `city_category_cache` / `CityCategoryCache` | `[IMPLEMENTED]` | One row per city/category with `last_fetched_at` and required `expires_at`; prevents unnecessary nearby refresh. |
+| `place_refresh_jobs` / `PlaceRefreshJob` | `[IMPLEMENTED]` in model/tests; deployment application `[PARTIAL]` | One durable row per `(city_id, versioned_category)`. `queued`/`running`/`completed`/`failed` state, an expiring owner lease, attempts, completion/error timestamps, and a unique constraint provide atomic multi-worker refresh ownership and crash recovery without changing POI display eligibility. |
 | `place_tags` / `PlaceTag` | `[IMPLEMENTED]` | Application tags unique per place/tag pair. |
 | `place_sources` / `PlaceSource` | `[IMPLEMENTED]` | Provider provenance and external identity. Unique per place/source and globally per source/external ID. Stores `wikidata_id`, source URL, licence identifier, address/contact/social fields, preserved `raw_opening_hours`, provider lifecycle dates, unresolved flags, fetch/import timestamps. |
 | `place_image_cache` / `PlaceImageCache` | `[IMPLEMENTED]` schema and service; migration not applied by repository work | One durable normalized image-resolution row per canonical place, keyed by unique `place_id`. Stores provider/place ID, normalized category, URL/thumbnail, source/attribution/author/license metadata, `resolved`/`not_found`/`failed` status, fetch/expiry timestamps, and bounded failure reason. Provider/status checks and unique `place_id` prevent ambiguous active cache rows. New provider/media identity on `PlaceSource` invalidates the row so an earlier negative result can be retried. UI fallback graphics are never stored as authentic URLs. |
@@ -156,6 +158,8 @@ The authoritative dependency order and the latest configured-database audit are 
 | `backend/sql/rollback_admin_auth_and_moderation.sql` | Reviewed rollback paired with admin auth, moderation, and destination management |
 | `backend/sql/add_place_image_cache.sql` | Forward; adds the durable normalized positive/negative/failure image cache and indexes |
 | `backend/sql/rollback_place_image_cache.sql` | Destructive reviewed rollback paired with the image cache; drops cached metadata only, not canonical places |
+| `backend/sql/add_place_refresh_jobs.sql` | Additive forward change; creates only durable city/category refresh job and lease state |
+| `backend/sql/rollback_place_refresh_jobs.sql` | Destructive reviewed rollback paired with refresh coordination; drops job history only, not POIs or cache rows |
 
 No ordered/versioned runner records which scripts ran. A read-only 2026-09-01 audit found the
 configured remote catalog compatible with current model metadata, but its environment

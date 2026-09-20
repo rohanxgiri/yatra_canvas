@@ -17,9 +17,9 @@ from app.database import get_session
 from app.main import app
 from app.models.entities import City, CityCategoryCache, Place, PlaceTag
 from app.routers.places import (
+    get_durable_place_refresh_service,
     get_geoapify_places_provider,
     get_openstreetmap_places_service,
-    get_progressive_prefetch_coordinator,
     get_recommendation_service,
 )
 from app.schemas import DiscoveryCategory, RecommendationRequest
@@ -689,6 +689,76 @@ async def test_fresh_low_coverage_destination_cache_is_usable_but_deepened(
 
 
 @pytest.mark.anyio
+async def test_destination_prefetch_uses_overpass_when_fast_provider_has_no_coverage(
+    test_db: Session,
+    sample_city: City,
+) -> None:
+    class EmptyAudialaProvider:
+        async def search_nearby_places_for_categories(self, **_kwargs):
+            return {}
+
+    overpass = FakeOverpassPlacesService()
+    discovery = OpenStreetMapDiscoveryService(
+        settings=get_settings(),
+        provider=overpass,  # type: ignore[arg-type]
+        audiala_provider=EmptyAudialaProvider(),  # type: ignore[arg-type]
+    )
+
+    summary = await CityPlacePrefetchService(discovery).prefetch(
+        session=test_db,
+        city=sample_city,
+        stage=PrefetchStage.DESTINATION_CONFIRMED,
+        categories=[DiscoveryCategory.NATURE],
+    )
+
+    assert summary.categories_enriched == ["nature"]
+    assert overpass.calls == [DiscoveryCategory.NATURE]
+
+
+def test_prefetch_coverage_counts_only_recommendation_eligible_places(
+    test_db: Session,
+    sample_city: City,
+) -> None:
+    active = Place(
+        city_id=sample_city.id,
+        name="Public market",
+        category="markets",
+        latitude=9.93,
+        longitude=76.26,
+        moderation_status="ACTIVE",
+    )
+    hidden = Place(
+        city_id=sample_city.id,
+        name="Hidden market",
+        category="markets",
+        latitude=9.94,
+        longitude=76.27,
+        moderation_status="HIDDEN",
+    )
+    test_db.add_all([active, hidden])
+    test_db.flush()
+    test_db.add_all(
+        [
+            PlaceTag(place_id=active.id, tag="markets"),
+            PlaceTag(place_id=hidden.id, tag="markets"),
+        ]
+    )
+    test_db.commit()
+    discovery = OpenStreetMapDiscoveryService(
+        settings=get_settings(),
+        provider=FakeOverpassPlacesService(),  # type: ignore[arg-type]
+    )
+
+    coverage = CityPlacePrefetchService(discovery).get_category_coverage(
+        test_db,
+        sample_city.id,
+        DiscoveryCategory.MARKETS,
+    )
+
+    assert coverage == 1
+
+
+@pytest.mark.anyio
 async def test_canonical_identity_remains_idempotent(
     test_db: Session, sample_city: City
 ):
@@ -807,7 +877,7 @@ def test_prefetch_api_endpoint(sample_city: City):
         app.dependency_overrides.clear()
 
 
-def test_recommendation_endpoint_does_not_join_active_prefetch(
+def test_recommendation_endpoint_observes_durable_active_refresh_without_waiting(
     sample_city: City,
 ) -> None:
     engine = create_engine(
@@ -833,28 +903,31 @@ def test_recommendation_endpoint_does_not_join_active_prefetch(
         with Session(engine) as session:
             yield session
 
-    class RecordingCoordinator:
+    class RecordingRefreshService:
         def __init__(self) -> None:
-            self.inspected: tuple[object, list[DiscoveryCategory]] | None = None
+            self.requested: tuple[object, list[DiscoveryCategory]] | None = None
 
-        def is_prefetch_active(self, city_id, categories):
-            self.inspected = (city_id, categories)
-            return True
-
-        def active_categories(self, city_id):
-            assert city_id == sample_city.id
-            return [DiscoveryCategory.FOOD.value]
-
-        async def join_active(self, city_id, categories):
-            raise AssertionError("foreground recommendations must not join prefetch")
+        def request_refresh(self, *, city_id, categories, **_kwargs):
+            self.requested = (city_id, categories)
+            return type(
+                "RefreshResult",
+                (),
+                {
+                    "state": "refreshing",
+                    "queued_categories": [],
+                    "reused_categories": [category.value for category in categories],
+                },
+            )()
 
     class EmptyRecommendationService:
         async def recommend(self, **_kwargs):
             return []
 
-    coordinator = RecordingCoordinator()
+    refresh_service = RecordingRefreshService()
     app.dependency_overrides[get_session] = override_session
-    app.dependency_overrides[get_progressive_prefetch_coordinator] = lambda: coordinator
+    app.dependency_overrides[get_durable_place_refresh_service] = lambda: (
+        refresh_service
+    )
     app.dependency_overrides[get_recommendation_service] = EmptyRecommendationService
     try:
         with TestClient(app) as client:
@@ -864,7 +937,8 @@ def test_recommendation_endpoint_does_not_join_active_prefetch(
             )
         assert response.status_code == 200
         assert response.json() == []
-        assert coordinator.inspected == (
+        assert response.headers["x-refresh-state"] == "refreshing"
+        assert refresh_service.requested == (
             sample_city.id,
             [DiscoveryCategory.FOOD],
         )

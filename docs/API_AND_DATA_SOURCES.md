@@ -1,6 +1,6 @@
 # APIs and data sources
 
-Last reviewed: 2026-09-19
+Last reviewed: 2026-09-20
 
 Last verified: 2026-09-18 for Geoapify Place Details, Wikimedia Action API, and Foursquare
 Place Search/Photos; 2026-09-06 for Geoapify autocomplete/places, Audiala, and
@@ -54,10 +54,10 @@ provider change. `[PLANNED]` entries are not configured or callable in this repo
 
 `[IMPLEMENTED]` `POST /places/prefetch` accepts canonical `city_id` plus one of
 `destination_confirmed`, `dates_confirmed`, `interests_confirmed`, or
-`start_location_confirmed`, and returns HTTP 202 after process-local enqueue. Destination and
-destination prefetch uses the adopted Audiala and Geoapify Places adapters through the existing
-discovery service; Overpass remains a bounded foreground fallback for categories that still lack
-usable coverage. Interest enrichment may use that fallback after interests are known. Dates and
+`start_location_confirmed`, and returns HTTP 202 after durable per-category enqueue. Destination
+and interest prefetch use Audiala and Geoapify through the background discovery service; actual
+per-category coverage, rather than provider-object presence, decides whether bounded Overpass
+fallback is needed. Overpass is never a foreground recommendation fallback. Dates and
 start stages make no provider call. `GET
 /places/prefetch/{city_id}` returns coarse state and never exposes credentials. POI freshness uses
 `PLACE_DISCOVERY_CACHE_TTL_HOURS` (24 hours by default); stale stored data remains usable for an
@@ -66,10 +66,11 @@ canonical city ID, category, and `PLACE_DISCOVERY_CACHE_VERSION`. Weather retain
 separate 60-minute default in-memory TTL, Geoapify autocomplete its 300-second default TTL, route
 geometry its 60-minute default TTL, and traffic-backed matrices their 30-minute default TTL.
 
-`[IMPLEMENTED]` `POST /cities/{city_id}/recommendations` never awaits coordinator completion.
-It accepts optional opaque `cursor` plus `limit`; a full page returns `X-Next-Cursor`. Stored fresh,
-stale-usable, or partial candidates can be returned while selected-category refresh continues in
-the background. Provider/image work is not required when usable stored candidates exist.
+`[IMPLEMENTED]` `POST /cities/{city_id}/recommendations` performs a persisted DB-only candidate
+read and never awaits provider or refresh completion. It accepts optional opaque `cursor` plus
+`limit`; a full page returns `X-Next-Cursor`, and additive `X-Refresh-State` /
+`X-Stale-Categories` headers describe background work. All eligible stored rows remain usable
+regardless of refresh age; partial and empty results return HTTP 200.
 
 ## Place image response contract
 

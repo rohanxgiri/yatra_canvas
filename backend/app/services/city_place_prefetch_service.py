@@ -9,12 +9,12 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID
 
-from sqlalchemy import func
 from sqlmodel import Session, select
 
-from app.models.entities import City, CityCategoryCache, Place, PlaceTag
+from app.models.entities import City, CityCategoryCache, Place
 from app.schemas import DiscoveryCategory
 from app.services.openstreetmap_discovery_service import OpenStreetMapDiscoveryService
+from app.services.persisted_place_reader import PersistedPlaceReader
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,13 @@ class PrefetchSummary:
 class CityPlacePrefetchService:
     """Manages progressive POI prefetch without blocking user navigation."""
 
-    def __init__(self, discovery_service: OpenStreetMapDiscoveryService) -> None:
+    def __init__(
+        self,
+        discovery_service: OpenStreetMapDiscoveryService,
+        candidate_reader: PersistedPlaceReader | None = None,
+    ) -> None:
         self._discovery = discovery_service
+        self._candidate_reader = candidate_reader or PersistedPlaceReader()
         # In-flight lock map: (city_id, category_value) -> asyncio.Task
         self._in_flight: dict[tuple[UUID, str], asyncio.Future[None]] = {}
         self._lock = asyncio.Lock()
@@ -79,16 +84,12 @@ class CityPlacePrefetchService:
         category: DiscoveryCategory,
     ) -> int:
         """Count existing stored places for this city and category."""
-        return len(
-            session.exec(
-                select(Place.id)
-                .join(PlaceTag, PlaceTag.place_id == Place.id)
-                .where(
-                    Place.city_id == city_id,
-                    PlaceTag.tag == category.value,
-                )
-            ).all()
+        snapshot = self._candidate_reader.read(
+            session=session,
+            city_id=city_id,
+            categories=[category],
         )
+        return len({place.id for place in snapshot.places_by_category[category]})
 
     async def prefetch(
         self,
@@ -111,17 +112,17 @@ class CityPlacePrefetchService:
         needed_categories: list[DiscoveryCategory] = []
         duplicate_prevented = 0
 
-        category_values = [category.value for category in unique_categories]
-        coverage_rows = session.exec(
-            select(PlaceTag.tag, func.count(func.distinct(Place.id)))
-            .join(Place, Place.id == PlaceTag.place_id)
-            .where(
-                Place.city_id == city.id,
-                PlaceTag.tag.in_(category_values),
+        candidate_snapshot = self._candidate_reader.read(
+            session=session,
+            city_id=city.id,
+            categories=unique_categories,
+        )
+        coverage_by_category = {
+            category.value: len(
+                {place.id for place in candidate_snapshot.places_by_category[category]}
             )
-            .group_by(PlaceTag.tag)
-        ).all()
-        coverage_by_category = {tag: int(count) for tag, count in coverage_rows}
+            for category in unique_categories
+        }
         cache_keys = {
             category: self._discovery.cache_key(category)
             for category in unique_categories
@@ -133,6 +134,9 @@ class CityPlacePrefetchService:
             )
         ).all()
         cache_by_key = {cache.category: cache for cache in cache_rows}
+        cache_fetched_before = {
+            cache.category: cache.last_fetched_at for cache in cache_rows
+        }
 
         # Step 1: Coverage & In-flight check
         for category in unique_categories:
@@ -243,12 +247,34 @@ class CityPlacePrefetchService:
                 custom_category_limits=custom_limits,
                 prefer_stale=False,
                 force_refresh_categories=set(needed_categories),
-                include_overpass=(
-                    stage != PrefetchStage.DESTINATION_CONFIRMED
-                    or not self._discovery.has_fast_prefetch_provider
-                ),
+                include_overpass=True,
             )
-            enriched = [c.value for c in needed_categories]
+            refreshed_rows = session.exec(
+                select(CityCategoryCache).where(
+                    CityCategoryCache.city_id == city.id,
+                    CityCategoryCache.category.in_(
+                        [cache_keys[category] for category in needed_categories]
+                    ),
+                )
+            ).all()
+            refreshed_by_key = {row.category: row for row in refreshed_rows}
+            for category in needed_categories:
+                refreshed = refreshed_by_key.get(cache_keys[category])
+                if refreshed is None:
+                    continue
+                previous_fetched = cache_fetched_before.get(cache_keys[category])
+                if (
+                    previous_fetched is None
+                    or refreshed.last_fetched_at > previous_fetched
+                ):
+                    enriched.append(category.value)
+            not_updated = [
+                category.value
+                for category in needed_categories
+                if category.value not in enriched
+            ]
+            if not_updated:
+                error = "Provider refresh did not update: " + ", ".join(not_updated)
         except Exception as exc:
             error = str(exc)
             logger.warning(

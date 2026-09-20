@@ -4,10 +4,12 @@ Last reviewed: 2026-09-19
 
 ## Discover Places data-loading reliability — September 2026
 
-Status: `[IMPLEMENTED]` in repository and Flutter tests; configured-PostgreSQL/device performance
-verification is `[PARTIAL]`. Recommendation responses no longer join background prefetch, partial
-and stale-usable rows render immediately, Flutter uses versioned SQLite snapshots, and 10-place
-cursor pages append progressively. Provider/image failures remain non-blocking. See
+Status: `[IMPLEMENTED]` in repository and Flutter tests; migration deployment, always-on job
+delivery, and configured-PostgreSQL/device performance verification are `[PARTIAL]`.
+Recommendation responses no longer join background prefetch, partial and stale-usable rows render
+immediately, and prefetch/Discover share durable per-category leases across workers. Flutter uses
+versioned SQLite snapshots and 10-place cursor pages append progressively. Provider/image failures
+remain non-blocking. See
 [the implementation report](DISCOVER_PLACES_DATA_LOADING.md).
 
 This roadmap is sequenced for reversible, testable changes. A phase is not complete until its

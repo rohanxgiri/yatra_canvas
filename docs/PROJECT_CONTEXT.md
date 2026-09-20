@@ -1,7 +1,7 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-09-19
-Last verified against repository: 2026-09-19
+Last reviewed: 2026-09-20
+Last verified against repository: 2026-09-20
 
 `[IMPLEMENTED]` Discover Places now uses a foreground/background split: recommendation reads never
 join provider prefetch tasks, Flutter renders a versioned SQLite city/profile snapshot first, and
@@ -66,7 +66,7 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
 | **Client (Flutter)** | Flutter SDK (Dart `^3.13.0`), Material 3, `http`, `flutter_map: ^8.3.2`, `geolocator`, `flutter_svg`, `cached_network_image`, `sqflite` | Widget-local `StatefulWidget` state + shared in-memory `TripDraft`; durable versioned SQLite recommendation snapshots. No external state library (BLoC/Riverpod) or router package. |
 | **Admin Web App** | HTML5, Vanilla CSS, Vanilla JavaScript (ES6+), Fetch API | Responsive, information-dense operational dashboard served by FastAPI at `/admin` with JWT bearer authentication. |
 | **Backend (FastAPI)** | Python 3.12+, FastAPI, Pydantic v2, SQLModel, SQLAlchemy, psycopg 3, httpx, bcrypt, pyjwt | Async REST API, Pydantic settings, dependency injection, safe error translation, backend secret encapsulation, JWT auth, admin suite. |
-| **Database** | PostgreSQL (local or Supabase-hosted) | Canonical/supporting tables include places and provenance, `place_image_cache`, users/reports, trips/days/preferences/saved places, route/itinerary caches, and import reviews. Existing deployments require reviewed manual SQL because no ordered migration runner exists. |
+| **Database** | PostgreSQL (local or Supabase-hosted) | Canonical/supporting tables include places and provenance, `place_refresh_jobs`, `place_image_cache`, users/reports, trips/days/preferences/saved places, route/itinerary caches, and import reviews. Existing deployments require reviewed manual SQL because no ordered migration runner exists. |
 | **Optimization** | Google OR-Tools (`>=9.9.0`) | Multi-day Vehicle Routing Problem with Time Windows (VRPTW) solver (`VrptwSolverService`). |
 | **Routing & Matrix** | Local coordinate estimates (default matrix), OSRM / openrouteservice (geometry) | Keyless Haversine distance/duration calculations for matrices; OSRM public demo / ORS for road geometry polylines. |
 | **Weather** | Open-Meteo | Hourly/daily weather forecasts with in-memory TTL caching and deterministic exposure classification. |
@@ -155,11 +155,11 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
   - Deterministic Rule 2: Shared strong global identifier (Wikidata QID) cross-provider matching.
   - Conservative Rule 3: Geographic ($\le 100$m), category-compatible, and strict name variant matching fallback.
   - Rule 4: Canonical Place creation with full `PlaceSource` provenance and licensing (CC BY 4.0 and ODbL-1.0).
-- **Progressive POI Prefetch & Cache-First Live Discovery Reliability** is `[IMPLEMENTED]` with `[PARTIAL]` task durability:
+- **Progressive POI Prefetch & Cache-First Live Discovery Reliability** is `[IMPLEMENTED]` with `[PARTIAL]` deployment/job delivery:
   - 3-tier cache semantics (`FRESH` $\le 24$h, `STALE_USABLE` $\le 168$h, `MISSING`) with `DISCOVERY_MIN_USABLE_CANDIDATES_PER_CATEGORY=6`.
   - Destination, dates, interests, and start-location stages enqueue or record work without blocking Flutter navigation. HTTP 202 is returned before provider work; `GET /places/prefetch/{city_id}` exposes coarse state.
-  - Background workers use independent database sessions and process-wide `(city_id, category)` request deduplication. Persisted POIs remain reusable across trips; in-flight state is not durable across restarts.
-  - In-memory concurrency deduplication for `(city_id, category)` background refreshes.
+  - Foreground recommendations read persisted eligible POIs only; cache age schedules refresh but never removes otherwise displayable rows.
+  - Prefetch and Discover persist one `place_refresh_jobs` lease per `(city_id, versioned_category)`. Atomic acquisition, lease expiry, and recorded outcomes coalesce provider execution across backend workers. Local task delivery still depends on a live process; a later request recovers queued or expired work.
   - Multi-provider fallback hierarchy: Cached DB places $\to$ `GeoapifyPlacesProvider` $\to$ `AudialaPlacesProvider` $\to$ `OpenStreetMapPlacesService`.
   - Circuit breaker for Overpass OSM with consecutive failure threshold (3) and cooldown (60s).
   - Partial category provider failure tolerance returning scored usable recommendations.

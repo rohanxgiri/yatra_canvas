@@ -71,6 +71,7 @@ class User(SQLModel, table=True):
 
 
 
+
 class City(SQLModel, table=True):
     __tablename__ = "cities"
     __table_args__ = (
@@ -194,6 +195,63 @@ class CityCategoryCache(SQLModel, table=True):
     )
     expires_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False, index=True)
+    )
+
+
+class PlaceRefreshJob(SQLModel, table=True):
+    """Durable lease and outcome for one versioned city/category refresh."""
+
+    __tablename__ = "place_refresh_jobs"
+    __table_args__ = (
+        UniqueConstraint(
+            "city_id",
+            "versioned_category",
+            name="uq_place_refresh_jobs_city_category",
+        ),
+        CheckConstraint(
+            "state IN ('queued', 'running', 'completed', 'failed')",
+            name="ck_place_refresh_jobs_state",
+        ),
+        CheckConstraint(
+            "attempt_count >= 0",
+            name="ck_place_refresh_jobs_attempt_count",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    city_id: UUID = Field(foreign_key="cities.id", index=True)
+    versioned_category: str = Field(max_length=80, index=True)
+    state: str = Field(
+        default="queued",
+        max_length=20,
+        index=True,
+        sa_column_kwargs={"server_default": text("'queued'")},
+    )
+    lease_owner: str | None = Field(default=None, max_length=160, index=True)
+    lease_expires_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True, index=True),
+    )
+    last_started_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
+    last_completed_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+    )
+    last_error: str | None = Field(default=None, max_length=160)
+    attempt_count: int = Field(
+        default=0,
+        sa_column_kwargs={"server_default": text("0")},
+    )
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+    updated_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
     )
 
 
@@ -751,5 +809,4 @@ class PlaceReport(SQLModel, table=True):
         default=None,
         sa_column=created_at_column(),
     )
-
 

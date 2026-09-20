@@ -8,6 +8,7 @@ from app.models.entities import (
     PlaceImageCache,
     PlaceImportReview,
     PlaceOpeningHours,
+    PlaceRefreshJob,
     PlaceReport,
     PlaceSource,
     PlaceTag,
@@ -29,6 +30,7 @@ __all__ = [
     "PlaceImageCache",
     "PlaceImportReview",
     "PlaceOpeningHours",
+    "PlaceRefreshJob",
     "PlaceReport",
     "PlaceSource",
     "PlaceTag",
@@ -41,4 +43,3 @@ __all__ = [
     "UserRole",
     "UserSavedPlace",
 ]
-
