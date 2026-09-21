@@ -11,8 +11,10 @@ any non-empty snapshot exits the full skeleton and refresh failure cannot remove
 empty response with active refresh work uses bounded, lifecycle-aware polling and an explicit retry
 instead of a false terminal timeout. Pixel 10 emulator verification covered the Jaipur trip flow
 from the initial skeleton to 10 rendered cards; configured-PostgreSQL timings and physical-device
-verification remain `[PARTIAL]`. See
-[Discover Places data loading](DISCOVER_PLACES_DATA_LOADING.md).
+verification remain `[PARTIAL]`. A validated/generated `X-Request-ID` now follows the non-identifying
+trip/Discover flow through request logs, durable refresh execution, provider categories, image
+enrichment, and cooldown events without logging secrets or full request headers. See the
+[Discover pipeline implementation report](DISCOVER_PIPELINE_IMPLEMENTATION_REPORT.md).
 
 This document is the concise, authoritative primary overview for humans and agents. Status labels mean:
 

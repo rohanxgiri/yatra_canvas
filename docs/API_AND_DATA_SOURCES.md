@@ -1,6 +1,6 @@
 # APIs and data sources
 
-Last reviewed: 2026-09-20
+Last reviewed: 2026-09-21
 
 Last verified: 2026-09-20 for Wikimedia Action API rate limits/etiquette; 2026-09-18 for
 Geoapify Place Details, Wikimedia image metadata, and Foursquare
@@ -45,7 +45,7 @@ provider change. `[PLANNED]` entries are not configured or callable in this repo
 | OSRM | Real road-route geometry coordinates and leg summaries | In-memory TTL cache (`ROUTE_GEOMETRY_CACHE_TTL_MINUTES`, default 60 min) | Routing based on OSM; OSM attribution required | [OSRM project](https://project-osrm.org/) | 2026-09-02 | Safe map degradation without road polyline | Public demo router has no production SLA; self-host for production |
 | Open-Meteo | In-memory cached forecasts (`WEATHER_CACHE_TTL_MINUTES`, default 60 min) | TTL in memory | Weather data is CC BY 4.0 and requires attribution; free endpoint is non-commercial | [Forecast docs](https://open-meteo.com/en/docs), [pricing](https://open-meteo.com/en/pricing), [terms](https://open-meteo.com/en/terms) | 2026-09-02 | Hide advisory or show status `weather_unavailable`; trips/maps continue unaffected | Free hosted API restricted to non-commercial use; horizon limited to 16 days; self-host or commercial key needed for production |
 | Frankfurter | None | `[PLANNED]`; rates should be date/provider keyed with a daily refresh policy | Public API is open source; underlying provider terms still apply and provider attribution can be requested | [Frankfurter v2](https://frankfurter.dev/) | 2026-08-31 | Hide conversion or show last dated rate with timestamp | Daily reference rates are not payment/settlement quotes; v2 has no amount-conversion endpoint, so the app multiplies a fetched rate |
-| Google Places API (New) | Legacy city IDs and legacy Google-sourced POIs/source IDs | Legacy city/category cache remains | Google Maps Platform terms/policies and required attribution apply to retained legacy data | [Overview](https://developers.google.com/maps/documentation/places/web-service/overview), [Autocomplete](https://developers.google.com/maps/documentation/places/web-service/place-autocomplete), [Nearby Search](https://developers.google.com/maps/documentation/places/web-service/nearby-search) | 2026-08-31 | Normal destination uses Geoapify; normal recommendations use OSM/Overpass | Retained legacy endpoints can still fail without a Google key; Flutter does not call them in the normal journey |
+| Google Places API (New) | Legacy city IDs and legacy Google-sourced POIs/source IDs | Legacy city/category cache remains | Google Maps Platform terms/policies and required attribution apply to retained legacy data | [Overview](https://developers.google.com/maps/documentation/places/web-service/overview), [Autocomplete](https://developers.google.com/maps/documentation/places/web-service/place-autocomplete), [Nearby Search](https://developers.google.com/maps/documentation/places/web-service/nearby-search) | 2026-08-31 | Normal destination uses Geoapify; normal recommendations read persisted POIs populated by background refresh | Retained legacy endpoints can still fail without a Google key; Flutter does not call them in the normal journey |
 | Local coordinate estimator | `RouteMatrixCache` approximate distances/durations under travel mode `local_estimate` | Complete static matrices are reused until targeted trip/place invalidation; traffic TTL applies only to volatile traffic values | No external-provider terms; calculation is labelled approximate in the UI | Repository implementation and tests | 2026-09-01 | Recompute from stored coordinates | Straight-line distance with a road factor and average speed is not turn-by-turn routing or live traffic |
 | Google Routes API | Legacy Google route-matrix cache rows, where present | Legacy traffic/static expiry behavior remains | Google Maps Platform terms/attribution apply to retained legacy data | [Compute Route Matrix](https://developers.google.com/maps/documentation/routes/compute_route_matrix) | 2026-08-31 | Normal optimizer uses local estimates | Adapter is retained but is not injected into the normal route-optimization endpoint |
 | Google Maps SDK | Nothing | None | Would require separate Maps SDK terms, key restrictions, and attribution if adopted | [Google Maps Platform documentation](https://developers.google.com/maps/documentation) | 2026-08-31 | No current map exists | Places/Routes keys do not prove an SDK is configured; map renderer/tiles decision remains open |
@@ -72,6 +72,20 @@ read and never awaits provider or refresh completion. It accepts optional opaque
 `limit`; a full page returns `X-Next-Cursor`, and additive `X-Refresh-State` /
 `X-Stale-Categories` headers describe background work. All eligible stored rows remain usable
 regardless of refresh age; partial and empty results return HTTP 200.
+
+## Request correlation contract
+
+`[IMPLEMENTED]` FastAPI accepts an optional `X-Request-ID` on every HTTP request and returns the
+resolved value in the response. A supplied value is retained only when it is 1–128 characters,
+starts with an ASCII letter or digit, and otherwise contains only ASCII letters, digits, `.`, `_`,
+`:`, or `-`; absent/unsafe values are replaced with a generated UUID. The value is diagnostic, not
+an authentication or idempotency credential.
+
+Flutter reuses the trip draft's random creation request UUID across trip creation, Discover
+prefetch, recommendation synchronization, and image warming so related foreground and background
+events can be correlated. The backend copies this value into durable refresh/image task context.
+Logs may contain the correlation value and bounded operational fields, but not request headers,
+authorization values, provider keys, or full personal payloads.
 
 ## Place image response contract
 
@@ -105,8 +119,9 @@ not marked successful.
 ## Current Google dependency assessment
 
 - **Places API (New): `[DEPRECATED]` for normal flows.** The backend retains legacy Autocomplete,
-  Place Details, and discovery routes. Normal Flutter destinations use Geoapify and normal
-  recommendations use OpenStreetMap/Overpass.
+  Place Details, and discovery routes. Normal Flutter destinations use Geoapify; normal
+  recommendations read persisted POIs that background Audiala/Geoapify/Overpass refresh may
+  populate.
 - **Routes API: `[DEPRECATED]` for normal flows.** Its adapter is retained, but the normal
   optimizer uses application-owned coordinate estimates and makes no Google request.
 - **Places SDK, Maps SDK for Android/iOS/JavaScript, Geocoding API, Directions API, and legacy

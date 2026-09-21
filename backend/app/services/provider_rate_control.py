@@ -18,6 +18,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
 
+from app.core.request_context import get_request_id
 from app.models import ProviderCooldown
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,8 @@ class WikimediaRateController:
                 return self._as_utc(row.cooldown_until) if row is not None else None
         except SQLAlchemyError as exc:
             logger.warning(
-                "PROVIDER_COOLDOWN_READ_FAILED provider=%s error=%s",
+                "PROVIDER_COOLDOWN_READ_FAILED request_id=%s provider=%s error=%s",
+                get_request_id(),
                 WIKIMEDIA_PROVIDER_KEY,
                 type(exc).__name__,
             )
@@ -174,13 +176,15 @@ class WikimediaRateController:
                     session.commit()
         except SQLAlchemyError as exc:
             logger.warning(
-                "PROVIDER_COOLDOWN_WRITE_FAILED provider=%s host=%s error=%s",
+                "PROVIDER_COOLDOWN_WRITE_FAILED request_id=%s provider=%s host=%s error=%s",
+                get_request_id(),
                 WIKIMEDIA_PROVIDER_KEY,
                 host,
                 type(exc).__name__,
             )
         logger.warning(
-            "PROVIDER_COOLDOWN_SET provider=%s host=%s retry_after_seconds=%d",
+            "PROVIDER_COOLDOWN_SET request_id=%s provider=%s host=%s retry_after_seconds=%d",
+            get_request_id(),
             WIKIMEDIA_PROVIDER_KEY,
             host,
             retry_after_seconds,

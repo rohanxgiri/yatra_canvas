@@ -413,6 +413,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
         (widget.prefetchService ?? PlacePrefetchService.shared).prefetchCity(
           cityId,
           stage: PrefetchStage.startLocationConfirmed,
+          requestId: widget.draft.creationRequestId,
           startLatitude: _startLatitude,
           startLongitude: _startLongitude,
         ),

@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from app.core.config import Settings, get_settings
+from app.core.request_context import request_id_scope, resolve_request_id
 from app.models import City, Place, PlaceImageCache, PlaceSource
 from app.schemas.place import PlaceRead
 from app.schemas.place_image import PlaceImageRead
@@ -502,6 +503,7 @@ def schedule_place_image_enrichment(
     place_ids: list[UUID] | set[UUID],
     *,
     engine: Engine | None = None,
+    correlation_id: str | None = None,
 ) -> None:
     """Schedule best-effort enrichment on the current server loop and return now."""
 
@@ -512,33 +514,44 @@ def schedule_place_image_enrichment(
     ][:IMAGE_ENRICHMENT_MAX_PER_SCHEDULE]
     if not ids:
         return
+    request_id = resolve_request_id(correlation_id)
     try:
         asyncio.get_running_loop()
     except RuntimeError:
         return
 
     _background_place_ids.update(ids)
+    logger.info(
+        "PLACE_IMAGE_SCHEDULE request_id=%s stored_count=%d provider=background_image",
+        request_id,
+        len(ids),
+    )
 
     async def run() -> None:
-        try:
-            if engine is None:
-                from app.database import get_engine
+        with request_id_scope(request_id):
+            try:
+                if engine is None:
+                    from app.database import get_engine
 
-                target_engine = get_engine()
-            else:
-                target_engine = engine
-            with Session(target_engine) as session:
-                for offset in range(0, len(ids), IMAGE_ENRICHMENT_BATCH_SIZE):
-                    await PlaceImageResolver().resolve_many(
-                        session,
-                        ids[offset : offset + IMAGE_ENRICHMENT_BATCH_SIZE],
-                    )
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - background enrichment must never escape
-            logger.warning("PLACE_IMAGE_BACKGROUND_FAILED error=%s", type(exc).__name__)
-        finally:
-            _background_place_ids.difference_update(ids)
+                    target_engine = get_engine()
+                else:
+                    target_engine = engine
+                with Session(target_engine) as session:
+                    for offset in range(0, len(ids), IMAGE_ENRICHMENT_BATCH_SIZE):
+                        await PlaceImageResolver().resolve_many(
+                            session,
+                            ids[offset : offset + IMAGE_ENRICHMENT_BATCH_SIZE],
+                        )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - background work must not escape
+                logger.warning(
+                    "PLACE_IMAGE_BACKGROUND_FAILED request_id=%s error_type=%s",
+                    request_id,
+                    type(exc).__name__,
+                )
+            finally:
+                _background_place_ids.difference_update(ids)
 
     task = asyncio.create_task(run())
     _background_tasks.add(task)

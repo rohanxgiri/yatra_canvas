@@ -65,6 +65,7 @@ class _TripPurposeScreenState extends State<TripPurposeScreen> {
         (widget.prefetchService ?? PlacePrefetchService.shared).prefetchCity(
           cityId,
           stage: PrefetchStage.interestsConfirmed,
+          requestId: widget.draft.creationRequestId,
           categories: PlaceCategoryLabel.categoriesForPurposes(_selected),
         ),
       );

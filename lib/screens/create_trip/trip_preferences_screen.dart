@@ -112,6 +112,7 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
         YCRoutes.journey<void>(
           builder: (_) => PlaceDiscoveryScreen(
             city: city,
+            requestId: widget.draft.creationRequestId,
             tripId: effectiveTripId,
             tripPurposes: {...widget.draft.purposes},
             routeStartReady: hasRouteStart,

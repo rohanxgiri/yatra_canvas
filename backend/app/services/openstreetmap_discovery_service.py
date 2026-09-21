@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlmodel import Session, select
 
 from app.core.config import Settings
+from app.core.request_context import get_request_id
 from app.models import City, CityCategoryCache, Place, PlaceSource, PlaceTag
 from app.schemas import DiscoveryCategory
 from app.services.audiala_places_provider import AudialaPlacesProvider
@@ -91,6 +92,7 @@ class OpenStreetMapDiscoveryService:
         if not unique_categories:
             return {}
 
+        request_id = get_request_id() or "unscoped"
         now = datetime.now(timezone.utc)
         results: dict[DiscoveryCategory, list[Place]] = {}
         pending: list[DiscoveryCategory] = []
@@ -132,7 +134,8 @@ class OpenStreetMapDiscoveryService:
             ):
                 results[category] = stored
                 logger.info(
-                    "PREFETCH_CACHE_HIT city_id=%s category=%s cache_key=%s",
+                    "PREFETCH_CACHE_HIT request_id=%s city_id=%s category=%s cache_key=%s",
+                    request_id,
                     city.id,
                     category.value,
                     cache_key,
@@ -141,7 +144,9 @@ class OpenStreetMapDiscoveryService:
             elif not force_refresh and stored and prefer_stale:
                 results[category] = stored
                 logger.info(
-                    "PREFETCH_CACHE city_id=%s category=%s state=stale_usable count=%d",
+                    "PREFETCH_CACHE request_id=%s city_id=%s category=%s "
+                    "state=stale_usable count=%d",
+                    request_id,
                     city.id,
                     category.value,
                     len(stored),
@@ -150,7 +155,8 @@ class OpenStreetMapDiscoveryService:
             else:
                 pending.append(category)
                 logger.info(
-                    "PREFETCH_CACHE_MISS city_id=%s category=%s cache_key=%s",
+                    "PREFETCH_CACHE_MISS request_id=%s city_id=%s category=%s cache_key=%s",
+                    request_id,
                     city.id,
                     category.value,
                     cache_key,
@@ -160,8 +166,10 @@ class OpenStreetMapDiscoveryService:
 
         if not pending:
             logger.info(
-                "Discovery cache-hit for city=%s (%d categories): cache_lookup=%.1fms",
-                city.name,
+                "PLACE_DISCOVERY_CACHE_HIT request_id=%s city_id=%s categories=%d "
+                "elapsed_ms=%.1f",
+                request_id,
+                city.id,
                 len(unique_categories),
                 cache_lookup_ms,
             )
@@ -181,10 +189,9 @@ class OpenStreetMapDiscoveryService:
         }
 
         logger.info(
-            "Starting discovery for city=%s (lat=%.4f, lon=%.4f): pending_categories=%s limits=%s",
-            city.name,
-            city.latitude,
-            city.longitude,
+            "PLACE_DISCOVERY_START request_id=%s city_id=%s categories=%s limits=%s",
+            request_id,
+            city.id,
             [c.value for c in pending],
             {c.value: category_limits[c] for c in pending},
         )
@@ -198,6 +205,13 @@ class OpenStreetMapDiscoveryService:
         t_aud = time.monotonic()
         if self._audiala_provider is not None:
             try:
+                logger.info(
+                    "PLACE_PROVIDER_CATEGORY_START request_id=%s city_id=%s "
+                    "provider=audiala categories=%s",
+                    request_id,
+                    city.id,
+                    [category.value for category in pending],
+                )
                 audiala_by_category = (
                     await self._audiala_provider.search_nearby_places_for_categories(
                         latitude=city.latitude,
@@ -211,9 +225,13 @@ class OpenStreetMapDiscoveryService:
                     f"success ({sum(len(p) for p in audiala_by_category.values())} places)"
                 )
             except Exception as exc:
-                provider_outcomes["audiala"] = f"failed ({exc})"
+                provider_outcomes["audiala"] = f"failed ({type(exc).__name__})"
                 logger.warning(
-                    "Audiala provider discovery failed for city=%s: %s", city.name, exc
+                    "PLACE_PROVIDER_CATEGORY_FAILED request_id=%s city_id=%s "
+                    "provider=audiala error_type=%s",
+                    request_id,
+                    city.id,
+                    type(exc).__name__,
                 )
         else:
             provider_outcomes["audiala"] = "skipped (none)"
@@ -229,6 +247,13 @@ class OpenStreetMapDiscoveryService:
             and self._geoapify_provider.is_configured
         ):
             try:
+                logger.info(
+                    "PLACE_PROVIDER_CATEGORY_START request_id=%s city_id=%s "
+                    "provider=geoapify categories=%s",
+                    request_id,
+                    city.id,
+                    [category.value for category in pending],
+                )
                 geoapify_by_category = (
                     await self._geoapify_provider.search_nearby_places_for_categories(
                         latitude=city.latitude,
@@ -242,9 +267,13 @@ class OpenStreetMapDiscoveryService:
                     f"success ({sum(len(p) for p in geoapify_by_category.values())} places)"
                 )
             except Exception as exc:
-                provider_outcomes["geoapify"] = f"failed ({exc})"
+                provider_outcomes["geoapify"] = f"failed ({type(exc).__name__})"
                 logger.warning(
-                    "Geoapify provider discovery failed for city=%s: %s", city.name, exc
+                    "PLACE_PROVIDER_CATEGORY_FAILED request_id=%s city_id=%s "
+                    "provider=geoapify error_type=%s",
+                    request_id,
+                    city.id,
+                    type(exc).__name__,
                 )
         else:
             provider_outcomes["geoapify"] = "skipped (unconfigured)"
@@ -276,6 +305,13 @@ class OpenStreetMapDiscoveryService:
                 None,
             )
             if callable(search_many):
+                logger.info(
+                    "PLACE_PROVIDER_CATEGORY_START request_id=%s city_id=%s "
+                    "provider=overpass categories=%s",
+                    request_id,
+                    city.id,
+                    [category.value for category in overpass_pending],
+                )
                 nearby_by_category = await asyncio.wait_for(
                     search_many(  # type: ignore[misc]
                         latitude=city.latitude,
@@ -292,6 +328,13 @@ class OpenStreetMapDiscoveryService:
             else:
                 for category in overpass_pending:
                     try:
+                        logger.info(
+                            "PLACE_PROVIDER_CATEGORY_START request_id=%s city_id=%s "
+                            "provider=overpass categories=%s",
+                            request_id,
+                            city.id,
+                            [category.value],
+                        )
                         try:
                             nearby_by_category[
                                 category
@@ -312,10 +355,12 @@ class OpenStreetMapDiscoveryService:
                             )
                     except OpenStreetMapPlacesError as exc:
                         logger.warning(
-                            "Provider discovery failed for category=%s in city=%s: %s",
+                            "PLACE_PROVIDER_CATEGORY_FAILED request_id=%s city_id=%s "
+                            "provider=overpass category=%s error_type=%s",
+                            request_id,
+                            city.id,
                             category.value,
-                            city.name,
-                            exc,
+                            type(exc).__name__,
                         )
                 provider_outcomes["overpass"] = (
                     f"partial/success ({sum(len(p) for p in nearby_by_category.values())} places)"
@@ -328,17 +373,20 @@ class OpenStreetMapDiscoveryService:
                 f"{self._settings.discovery_interactive_timeout_seconds:.1f}s"
             )
             logger.warning(
-                "Overpass provider discovery exceeded %.1fs budget for city=%s; "
-                "using available cached/provider results",
+                "PLACE_PROVIDER_CATEGORY_FAILED request_id=%s city_id=%s "
+                "provider=overpass error_type=TimeoutError budget_seconds=%.1f",
+                request_id,
+                city.id,
                 self._settings.discovery_interactive_timeout_seconds,
-                city.name,
             )
         except OpenStreetMapPlacesError as exc:
-            provider_outcomes["overpass"] = f"failed ({exc})"
+            provider_outcomes["overpass"] = f"failed ({type(exc).__name__})"
             logger.warning(
-                "Overpass provider discovery batch failed for city=%s: %s",
-                city.name,
-                exc,
+                "PLACE_PROVIDER_CATEGORY_FAILED request_id=%s city_id=%s "
+                "provider=overpass error_type=%s",
+                request_id,
+                city.id,
+                type(exc).__name__,
             )
         overpass_ms = (time.monotonic() - t_osm) * 1000
 
@@ -450,8 +498,11 @@ class OpenStreetMapDiscoveryService:
 
         total_ms = (time.monotonic() - t_start) * 1000
         logger.info(
-            "Discovery completed for city=%s: cache_lookup=%.1fms audiala=%.1fms geoapify=%.1fms overpass=%.1fms persist=%.1fms total=%.1fms outcomes=%s",
-            city.name,
+            "PLACE_DISCOVERY_COMPLETE request_id=%s city_id=%s cache_lookup_ms=%.1f "
+            "audiala_ms=%.1f geoapify_ms=%.1f overpass_ms=%.1f persist_ms=%.1f "
+            "elapsed_ms=%.1f outcomes=%s",
+            request_id,
+            city.id,
             cache_lookup_ms,
             audiala_ms,
             geoapify_ms,
@@ -461,7 +512,9 @@ class OpenStreetMapDiscoveryService:
             provider_outcomes,
         )
         logger.info(
-            "PREFETCH_COMPLETE city_id=%s categories=%s places=%d duration_ms=%.1f",
+            "PREFETCH_COMPLETE request_id=%s city_id=%s categories=%s places=%d "
+            "duration_ms=%.1f",
+            request_id,
             city.id,
             [category.value for category in pending],
             sum(len(places) for places in results.values()),

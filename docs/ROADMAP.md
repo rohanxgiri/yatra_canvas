@@ -13,7 +13,9 @@ remain non-blocking. The client now treats data completeness separately from ref
 exits the full skeleton as soon as any cards exist, and uses bounded lifecycle-aware polling only
 for empty queued/refreshing responses. Pixel 10 emulator verification covered skeleton-to-card
 transition for a Jaipur trip; physical-device and configured-PostgreSQL timing runs remain open. See
-[the implementation report](DISCOVER_PLACES_DATA_LOADING.md).
+[the implementation report](DISCOVER_PIPELINE_IMPLEMENTATION_REPORT.md). `[IMPLEMENTED]` Request
+correlation now preserves or generates a bounded `X-Request-ID`, reuses one Flutter trip-flow ID,
+and follows refresh/provider/image work without logging authorization or provider secrets.
 
 This roadmap is sequenced for reversible, testable changes. A phase is not complete until its
 acceptance criteria pass in a local/test environment and the source-of-truth documents are

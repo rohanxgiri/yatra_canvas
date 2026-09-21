@@ -125,6 +125,7 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
         (widget.prefetchService ?? PlacePrefetchService.shared).prefetchCity(
           cityId,
           stage: PrefetchStage.datesConfirmed,
+          requestId: widget.draft.creationRequestId,
           startDate: widget.draft.startDate,
           endDate: widget.draft.endDate,
         ),

@@ -281,6 +281,7 @@ class _DestinationSelectionScreenState
         (widget.prefetchService ?? PlacePrefetchService.shared).prefetchCity(
           cityId,
           stage: PrefetchStage.destinationConfirmed,
+          requestId: _draft.creationRequestId,
         ),
       );
     }
@@ -324,10 +325,7 @@ class _DestinationSelectionScreenState
             switchOutCurve: YCMotion.exit,
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
-              child: SizeTransition(
-                sizeFactor: animation,
-                child: child,
-              ),
+              child: SizeTransition(sizeFactor: animation, child: child),
             ),
             child: selectedCity != null
                 ? Column(
@@ -351,6 +349,7 @@ class _DestinationSelectionScreenState
                                           _draft.startLongitude != null;
                                       return PlaceDiscoveryScreen(
                                         city: selectedCity,
+                                        requestId: _draft.creationRequestId,
                                         tripId: _draft.tripId,
                                         tripPurposes: {..._draft.purposes},
                                         routeStartReady: hasStart,

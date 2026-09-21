@@ -2,6 +2,27 @@
 
 Last reviewed: 2026-09-21
 
+## ADR-023 — One bounded correlation ID follows the trip/Discover flow
+
+- **Status:** Accepted and `[IMPLEMENTED]` for the trip creation, Discover recommendation,
+  category refresh, and image-enrichment paths. Centralized log aggregation/retention remains
+  `[UNKNOWN]`.
+- **Date:** 2026-09-21.
+- **Decision:** Flutter creates a random, non-identifying request UUID for a trip draft and reuses
+  that flow ID for trip creation, staged prefetch, recommendation synchronization, and client image
+  warming. Each backend request accepts `X-Request-ID` only when it is 1–128 characters and matches
+  the restricted alphanumeric/`._:-` format; absent or unsafe values are replaced by a UUID. Bind
+  the resolved value in request context, return it as `X-Request-ID`, and explicitly copy it into
+  refresh and image background tasks. Log request IDs with operational fields, but never log
+  authorization headers, provider keys, raw request headers, or full user payloads.
+- **Consequences:** A trip-to-Discover incident can be followed across the foreground response and
+  background work without embedding identity in the correlation token. Concurrent requests and
+  background tasks have isolated context. Operators still need a deployment-level retention,
+  sampling, and access policy before treating logs as a production observability system.
+- **Evidence:** `backend/app/core/request_context.py`, `backend/app/main.py`, refresh/image/provider
+  services, `lib/services/request_correlation.dart`, the trip/Discover Flutter services, and
+  `backend/tests/test_request_correlation.py`.
+
 ## ADR-022 — Discover data completeness and refresh activity are independent UI state
 
 - **Status:** Accepted and `[IMPLEMENTED]` in Flutter; physical-device verification remains
@@ -62,7 +83,8 @@ Last reviewed: 2026-09-21
   web-local storage, configured PostgreSQL plans/timings, and physical-device verification remain open.
 - **Evidence:** `backend/app/routers/places.py`, recommendation/prefetch/provider services,
   `lib/services/recommendation_cache.dart`, `lib/screens/place_discovery/place_discovery_screen.dart`,
-  targeted Flutter tests, and [the implementation report](DISCOVER_PLACES_DATA_LOADING.md).
+  targeted Flutter tests, the 73-row/229-hour Shillong fixture with zero foreground provider
+  calls, and [the implementation report](DISCOVER_PIPELINE_IMPLEMENTATION_REPORT.md).
 
 These records describe accepted direction without claiming all consequences are implemented.
 Changing an accepted decision requires a new or amended record plus updates to architecture,

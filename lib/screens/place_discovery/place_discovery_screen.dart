@@ -15,6 +15,7 @@ import '../../services/place_service.dart';
 import '../../services/place_image_prefetch_service.dart';
 import '../../services/recommendation_cache.dart';
 import '../../services/recommendation_service.dart';
+import '../../services/request_correlation.dart';
 import '../../services/route_optimization_service.dart';
 import '../../services/saved_place_service.dart';
 import '../../theme/app_colors.dart';
@@ -53,6 +54,7 @@ class _RecommendationRequestOutcome {
 class PlaceDiscoveryScreen extends StatefulWidget {
   const PlaceDiscoveryScreen({
     required this.city,
+    this.requestId,
     this.tripId,
     this.tripPurposes = const <String>{},
     this.routeStartReady,
@@ -73,6 +75,7 @@ class PlaceDiscoveryScreen extends StatefulWidget {
   }) : assert(maxEmptyRefreshPollAttempts >= 0);
 
   final City city;
+  final String? requestId;
   final String? tripId;
   final Set<String> tripPurposes;
   final bool? routeStartReady;
@@ -97,6 +100,7 @@ class PlaceDiscoveryScreen extends StatefulWidget {
 class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
     with WidgetsBindingObserver {
   late final RecommendationService _recommendationService;
+  late final String _requestId;
   late final bool _ownsRecommendationService;
   late final SavedPlaceService _savedPlaceService;
   late final bool _ownsSavedPlaceService;
@@ -166,8 +170,10 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
     _purposeCategories = _categoriesForPurposes(widget.tripPurposes);
     _showRefinements = _purposeCategories.isEmpty;
     _ownsRecommendationService = widget.recommendationService == null;
+    _requestId = RequestCorrelation.resolve(widget.requestId ?? widget.tripId);
     _recommendationService =
-        widget.recommendationService ?? RecommendationService();
+        widget.recommendationService ??
+        RecommendationService(requestId: _requestId);
     _ownsSavedPlaceService = widget.savedPlaceService == null;
     _savedPlaceService = widget.savedPlaceService ?? SavedPlaceService();
     _ownsRouteOptimizationService = widget.routeOptimizationService == null;
@@ -346,7 +352,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
         _recommendationRefreshState = RecommendationRefreshState.refreshing;
       });
       developer.log(
-        '[DISCOVER LOCAL RENDER] count=${snapshot.recommendations.length} '
+        '[DISCOVER LOCAL RENDER] requestId=$_requestId '
+        'count=${snapshot.recommendations.length} '
         'elapsedMs=${localStopwatch.elapsedMilliseconds} '
         'freshness=${snapshot.freshness.name}',
         name: 'PlaceDiscoveryScreen',
@@ -355,7 +362,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
 
     try {
       developer.log(
-        '[DISCOVER SYNC START] city=$cityId localCacheCount='
+        '[DISCOVER SYNC START] requestId=$_requestId city=$cityId '
+        'localCacheCount='
         '${snapshot?.recommendations.length ?? 0}',
         name: 'PlaceDiscoveryScreen',
       );
@@ -402,7 +410,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
         _emptyRefreshTimer?.cancel();
       }
       developer.log(
-        '[DISCOVER SYNC SUCCESS] count=${recommendations.length} '
+        '[DISCOVER SYNC SUCCESS] requestId=$_requestId '
+        'count=${recommendations.length} '
         'elapsedMs=${syncStopwatch.elapsedMilliseconds}',
         name: 'PlaceDiscoveryScreen',
       );
@@ -412,13 +421,15 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
           _placeImagePrefetchService.prefetchRecommendations(
             context,
             recommendations,
+            requestId: _requestId,
           ),
         );
       });
     } on Object catch (error) {
       if (!mounted || requestGeneration != _requestGeneration) return;
       developer.log(
-        '[DISCOVER SYNC FAILED] runtimeType=${error.runtimeType}',
+        '[DISCOVER SYNC FAILED] requestId=$_requestId '
+        'runtimeType=${error.runtimeType}',
         name: 'PlaceDiscoveryScreen',
       );
       final friendlyMsg = _friendlyError(error);

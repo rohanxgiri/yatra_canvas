@@ -8,6 +8,7 @@ import '../models/created_trip.dart';
 import '../models/trip_day.dart';
 import '../models/trip_draft.dart';
 import '../models/trip_start_location.dart';
+import 'request_correlation.dart';
 
 class TripService {
   TripService({http.Client? client, String? baseUrl})
@@ -33,7 +34,12 @@ class TripService {
       response = await _client
           .post(
             Uri.parse('$_baseUrl/trips'),
-            headers: const {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Request-ID': RequestCorrelation.resolve(
+                draft.creationRequestId,
+              ),
+            },
             body: jsonEncode({
               'request_id': draft.creationRequestId,
               'city_id': cityId,

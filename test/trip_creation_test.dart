@@ -19,11 +19,13 @@ void main() {
     'TripService sends the existing draft and returns a real trip id',
     () async {
       late Map<String, dynamic> requestBody;
+      String? requestId;
       final service = TripService(
         baseUrl: 'http://api.test',
         client: MockClient((request) async {
           expect(request.method, 'POST');
           expect(request.url.path, '/trips');
+          requestId = request.headers['x-request-id'];
           requestBody = jsonDecode(request.body) as Map<String, dynamic>;
           return http.Response(
             '{"trip_id":"22222222-2222-4222-8222-222222222222"}',
@@ -36,6 +38,7 @@ void main() {
       final created = await service.createTrip(draft);
 
       expect(created.tripId, '22222222-2222-4222-8222-222222222222');
+      expect(requestId, draft.creationRequestId);
       expect(requestBody, {
         'request_id': draft.creationRequestId,
         'city_id': '11111111-1111-4111-8111-111111111111',

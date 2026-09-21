@@ -18,6 +18,7 @@ class PlaceService {
   final bool _ownsClient;
   final String _baseUrl;
 
+  @Deprecated('Use RecommendationService for Discover Places.')
   Future<List<Place>> discoverPlaces(
     String cityId,
     PlaceCategory category,

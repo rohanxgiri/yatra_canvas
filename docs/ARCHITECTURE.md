@@ -25,6 +25,34 @@ failures with a non-blocking notice, and only non-empty server results replace t
 The cache read and backend request still start together; backend failures are captured immediately
 so a fast failure cannot escape while the local snapshot is being read.
 
+`[IMPLEMENTED]` A non-identifying flow correlation ID links trip creation, staged prefetch,
+recommendation reads, durable refresh dispatch, provider work, and image enrichment. Flutter keeps
+one safe `X-Request-ID` for the trip/Discover flow. FastAPI retains an incoming ID only when it
+matches the bounded application format, otherwise generates a UUID, binds it through a
+`ContextVar`, and returns it in every response. Background refresh and image tasks explicitly copy
+the correlation into their own context. Request logging records method, path, status, elapsed time,
+and pipeline fields; it never records request headers, tokens, API keys, or user payloads.
+
+The production Discover call graphs are:
+
+```mermaid
+flowchart LR
+    F[Flutter Discover] --> LC[(SQLite snapshot)]
+    F -->|X-Request-ID| API[Recommendation API]
+    API --> DB[(Persisted eligible POIs)]
+    DB --> R[Rank, filter, cached-image read]
+    R -->|HTTP 200 + refresh headers| F
+```
+
+```mermaid
+flowchart LR
+    D[Stale, thin, or missing detection] --> J[(Durable category refresh job)]
+    J -->|atomic lease| W[Background worker]
+    W --> P[Audiala / Geoapify / Overpass]
+    P --> C[Canonical DB update]
+    C --> J
+```
+
 Status labels are defined in [Project context](PROJECT_CONTEXT.md). This document separates
 repository reality from the intended provider architecture.
 
@@ -157,7 +185,7 @@ Explore are unchanged by this slice.
 | Admin Web App | `GET /admin` (responsive single-page administrative dashboard served statically) |
 | Cities | create/list/get/search; Google autocomplete, details, and resolve |
 | Locations | Geoapify-backed `GET /locations/autocomplete` |
-| Places | create/list; legacy Google discovery; OpenStreetMap recommendations; staged background prefetch (`POST /places/prefetch`, `GET /places/prefetch/{city_id}`); destination-scoped search (`GET /cities/{city_id}/places/search`); canonical resolution (`POST /cities/{city_id}/places/resolve`) |
+| Places | create/list; `[DEPRECATED]` legacy `/discover-places`; persisted-only recommendations; staged background prefetch (`POST /places/prefetch`, `GET /places/prefetch/{city_id}`); destination-scoped search (`GET /cities/{city_id}/places/search`); canonical resolution (`POST /cities/{city_id}/places/resolve`) |
 | Saved places | list/create/update/reorder/delete under a trip |
 | Trips | create a trip; get/update start location; list trip days (`GET /trips/{trip_id}/days`); configure individual trip day (`PATCH /trips/{trip_id}/days/{day_number}`) |
 | Routing | optimize an existing trip using cached travel-time matrix and Google OR-Tools VRPTW solver with opening hours, visit durations, multi-day vehicle partitioning, lunch breaks, locked places, and priority/must-visit rules; returns `total_days` and attaches final route geometry |
@@ -438,7 +466,7 @@ flowchart LR
     B --> DB[(PostgreSQL)]
     B -->|legacy endpoints only| GP[Google Places API New]
     B -->|destination and arrival\nautocomplete| GA[Geoapify]
-    B -->|bounded POI discovery| OSM[OpenStreetMap / Overpass]
+    B -->|background bounded POI refresh only| OSM[OpenStreetMap / Overpass]
     B -->|offline distance estimates| LR[Local route estimator]
     DB -->|canonical cities, places,\ntrips, saved places, cache| B
 ```
@@ -485,15 +513,17 @@ environment variable.
 - `[IMPLEMENTED]` Route geometry is served through a provider-neutral abstraction
   (`RouteGeometryProvider`) supporting both the target openrouteservice directions API
   (`OpenRouteServiceGeometryProvider`) and keyless open-data OSRM (`OSRMGeometryProvider`).
-- `[IMPLEMENTED]` OpenStreetMap discovery serves previously persisted category results when an
-  expired/missing cache refresh is temporarily unavailable. A category with no stored results
-  still returns the provider's explicit retryable failure.
-- `[IMPLEMENTED]` A multi-category recommendation refresh keeps category-specific radii and quotas
+- `[IMPLEMENTED]` Background OpenStreetMap discovery preserves previously persisted category rows
+  when refresh is unavailable. Provider failure is recorded on the durable refresh job; it cannot
+  change foreground display eligibility or turn a successful persisted read into HTTP 5xx.
+- `[IMPLEMENTED]` A multi-category background refresh keeps category-specific radii and quotas
   through independent Overpass queries, launched in waves of at most three. The shared circuit
   breaker stops later waves after repeated failure, and a 12-second default phase budget cancels
-  outstanding work before fallback results are returned.
-- `[PARTIAL]` Place freshness is represented at city/category and source levels, but there is no
-  general refresh queue, purge policy, or source deletion/tombstone workflow.
+  outstanding work while the foreground recommendation response remains independent.
+- `[IMPLEMENTED]` Place freshness is represented at city/category and source levels, and
+  `place_refresh_jobs` supplies durable per-category intent, state, lease, and outcome. `[PARTIAL]`
+  delivery is still process-local rather than an always-on external queue; a general source
+  deletion/tombstone workflow is also absent.
 - `[PLANNED]` Target adapters must define timeout, retry/backoff, cache TTL, stale-data behavior,
   and user-visible degradation consistently. No silent cross-provider substitution is allowed.
 
@@ -564,10 +594,16 @@ Changing the selected provider must not silently change a REST contract or canon
 
 ## Observability expectations
 
-`[PLANNED]` Add structured logs and metrics for endpoint latency, provider latency/status,
-cache hit/miss/stale use, import counts/rejections/reviews, and itinerary outcomes. Correlation IDs
-must not expose tokens, precise private trip data, or provider keys. Define alerting and retention
-only with the deployment architecture; both are currently `[UNKNOWN]`.
+`[IMPLEMENTED]` FastAPI request middleware validates or generates `X-Request-ID`, binds it per
+request, returns it in the response, and resets the context after completion. Discover-specific
+logs carry correlation through recommendation DB/result events, durable enqueue/lease/provider
+category/completion events, image scheduling, and provider cooldowns. Flutter sends the same safe
+trip-flow identifier and includes it in cache/synchronization diagnostics. Header values and full
+personal payloads are deliberately not logged.
+
+`[PARTIAL]` The log schema covers the repaired Discover pipeline, not every endpoint or batch CLI.
+Provider and endpoint metrics, alerting, centralized collection, sampling, and retention policy are
+`[UNKNOWN]` until deployment architecture is selected.
 
 ## Major gaps between current and target
 
@@ -575,7 +611,7 @@ only with the deployment architecture; both are currently `[UNKNOWN]`.
 | --- | --- | --- |
 | Identity/authorization | `[IMPLEMENTED]` backend JWT auth (`USER`, `ADMIN` roles), bcrypt hashing, `require_admin` guard; `[PARTIAL]` traveler account binding in Flutter | account registration/trip ownership binding in Flutter |
 | Trip lifecycle | `[PARTIAL]` create flow and downstream single-session ID handoff; no read/edit/resume/auth | persisted creation through multi-day itinerary lifecycle |
-| Place acquisition | Google runtime refresh plus local FSQ importer | reviewed FSQ/OSM ingestion and optional Wikimedia enrichment |
+| Place acquisition | `[IMPLEMENTED]` durable background Audiala/Geoapify/OSM refresh plus local FSQ importer; `[PARTIAL]` external delivery/deletion lifecycle | reviewed extract ingestion, always-on workers, and optional Wikimedia enrichment |
 | Routing | `[IMPLEMENTED]` pairwise matrix estimates, constraint-aware optimizer; real road geometry via openrouteservice/OSRM | provider-neutral openrouteservice directions/matrix and multi-day planning |
 | Map | `[IMPLEMENTED]` FlutterMap with OpenStreetMap tiles, markers, and real road-route PolylineLayer | explicit renderer/tiles decision with attribution and offline policy |
 | Admin | `[IMPLEMENTED]` authorized admin suite (`/api/admin/*`), POI moderation lifecycle (`ACTIVE`, `HIDDEN`, `RESTRICTED`, `DUPLICATE`, `INVALID`), destination management, trip inspector, report triage, and responsive web dashboard at `/admin` | expanded bulk-moderation tools and offline dataset export |

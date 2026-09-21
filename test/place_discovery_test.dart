@@ -72,6 +72,7 @@ void main() {
       final client = MockClient((request) async {
         expect(request.method, 'POST');
         expect(request.url.path, '/cities/city-123/recommendations');
+        expect(request.headers['x-request-id'], 'trip-flow-123');
         expect(jsonDecode(request.body), {
           'categories': ['religious', 'food', 'heritage'],
           'limit': 30,
@@ -104,6 +105,7 @@ void main() {
       final service = RecommendationService(
         client: client,
         baseUrl: 'http://10.0.2.2:8001',
+        requestId: 'trip-flow-123',
       );
 
       final recommendations = await service.getRecommendations('city-123', [
@@ -1029,6 +1031,7 @@ class _RecordingPlaceImagePrefetchService extends PlaceImagePrefetchService {
     int concurrency = 4,
     int firstScreenful = 8,
     int nextScreenful = 8,
+    String? requestId,
   }) async {
     placeIds.addAll(recommendations.map((place) => place.id));
   }

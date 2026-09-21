@@ -247,26 +247,3 @@ class ProgressivePrefetchCoordinator:
         }
         if tasks:
             await asyncio.gather(*tasks)
-
-    async def join_active(
-        self,
-        city_id: UUID,
-        categories: list[DiscoveryCategory],
-    ) -> list[str]:
-        """Await matching active work and return the categories that were joined."""
-
-        joined: list[str] = []
-        tasks: set[asyncio.Task[None]] = set()
-        for category in dict.fromkeys(categories):
-            task = self._tasks.get((city_id, category.value))
-            if task is not None and not task.done():
-                joined.append(category.value)
-                tasks.add(task)
-        if tasks:
-            logger.info(
-                "PREFETCH_JOINED_INFLIGHT city_id=%s categories=%s",
-                city_id,
-                joined,
-            )
-            await asyncio.gather(*tasks)
-        return joined

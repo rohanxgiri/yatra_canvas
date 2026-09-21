@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from app.core.config import Settings, get_settings
+from app.core.request_context import get_request_id, resolve_request_id
 from app.database import get_session
 from app.models import City, Place
 from app.schemas import (
@@ -62,10 +63,6 @@ from app.services.place_image_service import (
     build_place_reads,
     get_cached_place_images,
     schedule_place_image_enrichment,
-)
-from app.services.progressive_prefetch_coordinator import (
-    PrefetchState,
-    ProgressivePrefetchCoordinator,
 )
 from app.services.provider_circuit_breaker import ProviderCircuitBreaker
 from app.services.recommendation_service import RecommendationService
@@ -136,8 +133,9 @@ def _recommend_in_worker(
             )
             recommendation_ms = (time.monotonic() - recommendation_started) * 1000
             logger.info(
-                "RECOMMEND_DB city_id=%s query_count=%d city_lookup_ms=%.1f "
-                "recommendation_ms=%.1f elapsed_ms=%.1f",
+                "RECOMMEND_DB request_id=%s city_id=%s query_count=%d "
+                "city_lookup_ms=%.1f recommendation_ms=%.1f elapsed_ms=%.1f",
+                get_request_id(),
                 city_id,
                 query_count,
                 city_lookup_ms,
@@ -264,16 +262,6 @@ def get_openstreetmap_discovery_service(
 OpenStreetMapDiscoveryDependency = Annotated[
     OpenStreetMapDiscoveryService,
     Depends(get_openstreetmap_discovery_service),
-]
-
-
-@lru_cache(maxsize=1)
-def get_progressive_prefetch_coordinator() -> ProgressivePrefetchCoordinator:
-    return ProgressivePrefetchCoordinator()
-
-
-PrefetchCoordinatorDependency = Annotated[
-    ProgressivePrefetchCoordinator, Depends(get_progressive_prefetch_coordinator)
 ]
 
 
@@ -427,7 +415,7 @@ async def recommend_city_places(
 ) -> list[RecommendationRead]:
     """Return cached/available places without joining background prefetch."""
 
-    request_id = uuid4()
+    request_id = resolve_request_id()
     request_started = time.monotonic()
     logger.info(
         "RECOMMEND_START request_id=%s city_id=%s trip_id=%s categories=%s",
@@ -445,7 +433,9 @@ async def recommend_city_places(
             recommendation,
         )
         schedule_place_image_enrichment(
-            [item.id for item in result], engine=session.get_bind()
+            [item.id for item in result],
+            engine=session.get_bind(),
+            correlation_id=request_id,
         )
         refresh_categories = candidate_snapshot.refresh_categories
         refresh_state = "idle"
@@ -454,6 +444,7 @@ async def recommend_city_places(
                 city_id=city_id,
                 categories=refresh_categories,
                 stage=PrefetchStage.INTERESTS_CONFIRMED,
+                correlation_id=request_id,
             )
             refresh_state = refresh_request.state
         response.headers["X-Refresh-State"] = refresh_state
@@ -461,9 +452,13 @@ async def recommend_city_places(
             category.value for category in refresh_categories
         )
         logger.info(
-            "RECOMMEND_RESULT request_id=%s count=%d elapsed_ms=%.1f",
+            "RECOMMEND_RESULT request_id=%s city_id=%s stored_count=%d "
+            "returned_count=%d refresh_state=%s elapsed_ms=%.1f",
             request_id,
+            city_id,
+            candidate_snapshot.stored_count,
             len(result),
+            refresh_state,
             (time.monotonic() - request_started) * 1000,
         )
         if len(result) == recommendation_request.limit:
@@ -554,6 +549,7 @@ async def prefetch_city_places(
             city_id=city_id,
             categories=requested_categories,
             stage=stage,
+            correlation_id=get_request_id(),
         )
         if requested_categories
         else None
@@ -635,31 +631,6 @@ def get_prefetch_state(
             (job.updated_at for job in jobs if job.updated_at is not None),
             default=None,
         ),
-    )
-
-
-def _prefetch_response(
-    prefetch_state: PrefetchState,
-    *,
-    stage: PrefetchStage,
-    requested: list[str],
-    enqueued: list[str],
-    reused: list[str],
-) -> PlacePrefetchResponse:
-    return PlacePrefetchResponse(
-        city_id=prefetch_state.city_id,
-        city_name=prefetch_state.city_name,
-        stage=stage.value,
-        categories_requested=requested,
-        status=prefetch_state.status.value,
-        categories_enqueued=enqueued,
-        categories_reused=reused,
-        categories_loaded=sorted(prefetch_state.categories_loaded),
-        completed_stages=sorted(prefetch_state.completed_stages),
-        failed_stages=sorted(prefetch_state.failed_stages),
-        poi_count=prefetch_state.poi_count,
-        started_at=prefetch_state.started_at,
-        last_updated=prefetch_state.last_updated,
     )
 
 

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/place.dart';
+import 'request_correlation.dart';
 
 enum PrefetchStage {
   destinationConfirmed('destination_confirmed'),
@@ -42,6 +43,7 @@ class PlacePrefetchService {
     DateTime? endDate,
     double? startLatitude,
     double? startLongitude,
+    String? requestId,
   }) async {
     final normalizedCityId = cityId.trim();
     if (normalizedCityId.isEmpty) return;
@@ -69,16 +71,17 @@ class PlacePrefetchService {
         '$normalizedCityId:${stage.apiValue}:${categoryKey.join(',')}:'
         '${payload['start_date'] ?? ''}:${payload['end_date'] ?? ''}:'
         '${startLatitude ?? ''}:${startLongitude ?? ''}';
+    final correlationId = RequestCorrelation.resolve(requestId);
     final existing = _inFlight[requestKey];
     if (existing != null) {
       developer.log(
-        '[PREFETCH] reused $requestKey',
+        '[PREFETCH] requestId=$correlationId reused $requestKey',
         name: 'PlacePrefetchService',
       );
       return existing;
     }
 
-    final request = _send(payload, normalizedCityId, stage);
+    final request = _send(payload, normalizedCityId, stage, correlationId);
     _inFlight[requestKey] = request;
     try {
       await request;
@@ -93,31 +96,38 @@ class PlacePrefetchService {
     Map<String, dynamic> payload,
     String cityId,
     PrefetchStage stage,
+    String requestId,
   ) async {
     try {
       final response = await _client
           .post(
             Uri.parse('$_baseUrl/places/prefetch'),
-            headers: const {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Request-ID': requestId,
+            },
             body: jsonEncode(payload),
           )
           .timeout(_timeout);
 
       if (response.statusCode == 200 || response.statusCode == 202) {
         developer.log(
-          '[PREFETCH] accepted city=$cityId stage=${stage.apiValue}',
+          '[PREFETCH] requestId=$requestId accepted city=$cityId '
+          'stage=${stage.apiValue}',
           name: 'PlacePrefetchService',
         );
       } else {
         developer.log(
-          '[PREFETCH] status=${response.statusCode} city=$cityId',
+          '[PREFETCH] requestId=$requestId status=${response.statusCode} '
+          'city=$cityId',
           name: 'PlacePrefetchService',
         );
       }
     } on Object catch (error) {
       // Fire-and-forget: background prefetch failure must never block trip creation.
       developer.log(
-        'Prefetch ignored transient failure: $error',
+        '[PREFETCH] requestId=$requestId ignored transient failure: '
+        '${error.runtimeType}',
         name: 'PlacePrefetchService',
       );
     }

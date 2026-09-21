@@ -31,7 +31,7 @@ flowchart LR
     R -->|10-place page + cursor| LC[(Flutter SQLite cache)]
     LC --> UI[Discover Places]
     UI -->|background sync / next page| R
-    R -.->|enqueue only; never join| P[Progressive prefetch]
+    R -.->|enqueue only; never join| P[Durable category refresh]
     P --> DB
     R -.-> IC[(Batched image cache)]
     IC -.-> UI
@@ -44,7 +44,7 @@ flowchart LR
   awaiting it, runs database/ranking work in a worker thread, returns the available page, and
   separately enqueues selected-category deepening.
 - `CURRENT_CACHE_LAYERS`: `[IMPLEMENTED]` PostgreSQL canonical places,
-  `CityCategoryCache`, `PlaceImageCache`, process-local coordinator/circuit state,
+  `CityCategoryCache`, `PlaceRefreshJob`, `PlaceImageCache`, provider circuit state,
   `cached_network_image`, and a versioned Flutter SQLite recommendation snapshot.
 - `CURRENT_PREFETCH_FLOW`: `[IMPLEMENTED]` destination confirmation starts a seven-category
   shallow pass; interest confirmation deepens selected categories. Fresh but thin categories are
@@ -59,10 +59,11 @@ flowchart LR
 
 ## Foreground and background isolation
 
-`[IMPLEMENTED]` The route does not call `join_active`. It calls the coordinator's non-blocking
-`is_prefetch_active`/`active_categories` inspection, reads/ranks what is available, and returns it.
-If matching work is already active, that work continues independently. If no matching work is
-active, the response path enqueues an interest-stage coverage check/deepening job after the read.
+`[IMPLEMENTED]` The production recommendation route has no dependency on the process-local
+`ProgressivePrefetchCoordinator` and does not call `join_active`. It reads/ranks what is persisted,
+then calls `DurablePlaceRefreshService.request_refresh` with stale/missing categories. The service
+atomically enqueues or observes each `(city_id, versioned_category)` job and returns immediately.
+Only a lease owner executes providers; matching work continues independently of the HTTP response.
 
 ## Cache states
 
@@ -71,11 +72,11 @@ The following logical states are derived rather than stored as one database enum
 | State | Foreground use | Background behavior |
 | --- | --- | --- |
 | `FRESH` | Return immediately | Skip when target coverage is met |
-| `STALE_USABLE` | Return immediately within the seven-day stale policy | Refresh |
+| `STALE_USABLE` | Return immediately; age never removes otherwise eligible rows | Refresh |
 | `PARTIAL` | Return the available rows | Deepen toward the stage target |
 | `INSUFFICIENT` | Do not block on completion | Acquire/deepen |
-| `MISSING` | Run bounded provider acquisition | Persist any partial success |
-| `REFRESHING` | Return current rows | Reuse existing task |
+| `MISSING` | Return any other stored categories, or `[]` with HTTP 200 | Enqueue provider acquisition |
+| `REFRESHING` | Return current rows, including over-age rows | Observe/reuse the durable job |
 
 Foreground usability and prefetch sufficiency are separate. A category with five usable places can
 render those five while remaining below its 15-place shallow or 35-place deep target.
@@ -85,8 +86,8 @@ render those five while remaining below its 15-place shallow or 35-place deep ta
 - Destination confirmation starts a shallow pass across all seven discovery categories, targeting
   15 usable rows per category.
 - Interest confirmation prioritizes the selected categories and deepens them toward 35 usable rows.
-- Existing matching work is reused. The recommendation route only observes active work and never
-  joins it; refresh/deepening continues after the foreground response.
+- Existing matching work is reused by the durable job identity and lease. The recommendation route
+  never joins provider execution; refresh/deepening continues after the foreground response.
 - Provider failure preserves the previous usable snapshot. A thin fresh snapshot remains usable but
   is still scheduled for deepening.
 
@@ -175,8 +176,9 @@ non-empty durable snapshot, and any non-empty card set exits the full skeleton.
   static analysis reported no issues. A Pixel 10 Android 17 emulator completed trip setup and
   showed the initial Discover skeleton transition to 10 Jaipur cards at 1080 x 2424. The broader
   repository suite still has unrelated account, onboarding/route, and golden-baseline failures.
-- Backend: Python syntax compilation passed for all changed application/tests files. Runtime pytest
-  is `[PARTIAL]`/blocked by the host workspace spend cap, not by an observed test failure.
+- Backend: the Discover/provider/image/correlation regression set passed 68 tests. The complete
+  suite result, including unrelated failures when present, is recorded in
+  [the final implementation report](DISCOVER_PIPELINE_IMPLEMENTATION_REPORT.md).
 - Real Manali scenarios A-F: `[UNKNOWN]` / not run against configured PostgreSQL. The repository
   now emits the measurements needed for that run.
 
@@ -203,10 +205,11 @@ already present in the working tree are not attributed to this work.
 - `backend/app/schemas/recommendation.py` — validate/decode the optional opaque cursor.
 - `backend/app/services/recommendation_service.py` — rank enough candidates for the requested page,
   then slice and batch-enrich only that page.
-- `backend/app/services/progressive_prefetch_coordinator.py` — expose non-blocking active-work state.
+- `backend/app/services/progressive_prefetch_coordinator.py` — retain historical staged test utility
+  while removing the unused foreground join API; production uses durable refresh jobs.
 - `backend/app/services/city_place_prefetch_service.py` — formalize cache states and coverage targets.
-- `backend/app/services/openstreetmap_discovery_service.py` — support forced deepening and enforce the
-  seven-day stale-use policy.
+- `backend/app/services/openstreetmap_discovery_service.py` — support forced background deepening and
+  use the seven-day threshold only to schedule refresh, never to remove display eligibility.
 - `backend/app/services/openstreetmap_places_service.py` — count outer-time-budget cancellation as a
   circuit-breaker failure.
 - `backend/tests/test_openstreetmap_places_service.py` — cover cancellation/circuit behavior.
@@ -232,10 +235,18 @@ already present in the working tree are not attributed to this work.
   contracts, schema, roadmap, and ADRs.
 - `docs/DISCOVER_PLACES_DATA_LOADING.md` — record this audit, implementation, evidence, unknowns, and
   remaining bottlenecks.
+- `backend/app/core/request_context.py` and `backend/app/main.py` — validate/generate/return request
+  IDs and bind isolated request logging context.
+- Trip/Discover Flutter services and backend refresh/image/provider services — propagate one safe
+  flow correlation through background completion/failure.
+- `backend/tests/test_request_correlation.py` — verify retention, generation, response headers,
+  concurrent isolation, background propagation, and secret-header omission.
 
 ## Remaining bottlenecks
 
-- Process-local prefetch and image jobs are lost on backend restart and are not shared across workers.
+- Refresh intent, outcome, and leases are durable and shared across workers, but local task delivery
+  is lost on total process restart; a later request recovers queued or expired work. Image task
+  delivery remains process-local.
 - SQLite caching is implemented for Flutter mobile; a web-specific durable adapter is not included.
 - Cursor pagination is offset-backed and opaque. It preserves deterministic page ordering for one
   snapshot but is not a durable server-side snapshot token if ranking data changes between pages.
@@ -243,3 +254,8 @@ already present in the working tree are not attributed to this work.
 - Manali and Shillong have thin bundled Audiala baselines.
 - Configured PostgreSQL query plans, after timings, physical-device offline behavior, and full-motion
   simulator recording remain to be verified.
+
+`[DEPRECATED]` `GET /discover-places` remains for backward compatibility and can still perform live
+provider discovery. It is not called by Flutter's normal Discover flow. The removed
+`RecommendationService.prefetchCityPlaces` and `ProgressivePrefetchCoordinator.join_active` had no
+non-test production callers; production prefetch uses `PlacePrefetchService` and durable refresh.

@@ -17,6 +17,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from app.core.request_context import request_id_scope, resolve_request_id
 from app.models import City, PlaceRefreshJob
 from app.schemas import DiscoveryCategory
 from app.services.city_place_prefetch_service import (
@@ -79,9 +80,11 @@ class DurablePlaceRefreshService:
         categories: list[DiscoveryCategory],
         stage: PrefetchStage,
         schedule: bool = True,
+        correlation_id: str | None = None,
     ) -> RefreshEnqueueResult:
         """Persist refresh intent and optionally dispatch non-blocking workers."""
 
+        request_id = resolve_request_id(correlation_id)
         queued: list[str] = []
         reused: list[str] = []
         schedule_categories: list[DiscoveryCategory] = []
@@ -145,16 +148,27 @@ class DurablePlaceRefreshService:
                         city_id,
                         category,
                         stage,
+                        request_id,
                     )
                 )
                 _background_tasks.add(task)
                 task.add_done_callback(_background_tasks.discard)
 
-        return RefreshEnqueueResult(
+        result = RefreshEnqueueResult(
             state="refreshing" if any_active and not queued else "queued",
             queued_categories=queued,
             reused_categories=reused,
         )
+        logger.info(
+            "PLACE_REFRESH_ENQUEUE request_id=%s city_id=%s refresh_state=%s "
+            "queued=%s reused=%s",
+            request_id,
+            city_id,
+            result.state,
+            queued,
+            reused,
+        )
+        return result
 
     def get_city_jobs(self, city_id: UUID) -> list[PlaceRefreshJob]:
         """Return detached durable refresh state for API observation."""
@@ -177,34 +191,63 @@ class DurablePlaceRefreshService:
         city_id: UUID,
         category: DiscoveryCategory,
         stage: PrefetchStage,
+        correlation_id: str | None = None,
     ) -> bool:
         """Acquire one durable lease and run its provider refresh if owned."""
 
-        if not self._acquire(city_id, category):
-            return False
+        with request_id_scope(correlation_id) as request_id:
+            if not self._acquire(city_id, category, request_id=request_id):
+                return False
 
-        try:
-            with Session(self._engine) as session:
-                city = session.get(City, city_id)
-                if city is None:
-                    raise RuntimeError("refresh city no longer exists")
-                await self._category_refresher(session, city, category, stage)
-            self._finish(city_id, category, RefreshJobState.COMPLETED)
-        except Exception as exc:
-            self._finish(
-                city_id,
-                category,
-                RefreshJobState.FAILED,
-                error_type=type(exc).__name__,
-            )
-            logger.warning(
-                "PLACE_REFRESH_FAILED city_id=%s category=%s worker_id=%s error_type=%s",
+            final_state = RefreshJobState.COMPLETED
+            try:
+                logger.info(
+                    "PLACE_REFRESH_PROVIDER_START request_id=%s city_id=%s "
+                    "category=%s worker_id=%s provider=place_discovery",
+                    request_id,
+                    city_id,
+                    category.value,
+                    self._worker_id,
+                )
+                with Session(self._engine) as session:
+                    city = session.get(City, city_id)
+                    if city is None:
+                        raise RuntimeError("refresh city no longer exists")
+                    await self._category_refresher(session, city, category, stage)
+                self._finish(
+                    city_id,
+                    category,
+                    RefreshJobState.COMPLETED,
+                    request_id=request_id,
+                )
+            except Exception as exc:  # noqa: BLE001 - job failure must be recorded
+                final_state = RefreshJobState.FAILED
+                self._finish(
+                    city_id,
+                    category,
+                    RefreshJobState.FAILED,
+                    error_type=type(exc).__name__,
+                    request_id=request_id,
+                )
+                logger.warning(
+                    "PLACE_REFRESH_FAILED request_id=%s city_id=%s category=%s "
+                    "worker_id=%s error_type=%s",
+                    request_id,
+                    city_id,
+                    category.value,
+                    self._worker_id,
+                    type(exc).__name__,
+                )
+            logger.info(
+                "PLACE_REFRESH_FINISHED request_id=%s city_id=%s category=%s "
+                "worker_id=%s refresh_state=%s",
+                request_id,
                 city_id,
                 category.value,
                 self._worker_id,
-                type(exc).__name__,
+                final_state.value,
             )
-        return True
+            return True
 
     async def _refresh_category(
         self,
@@ -224,7 +267,13 @@ class DurablePlaceRefreshService:
         if summary.error or category.value not in summary.categories_enriched:
             raise RuntimeError(summary.error or "provider refresh produced no update")
 
-    def _acquire(self, city_id: UUID, category: DiscoveryCategory) -> bool:
+    def _acquire(
+        self,
+        city_id: UUID,
+        category: DiscoveryCategory,
+        *,
+        request_id: str,
+    ) -> bool:
         now = datetime.now(timezone.utc)
         key = self._category_key(category)
         statement = (
@@ -259,7 +308,8 @@ class DurablePlaceRefreshService:
             acquired = result.rowcount == 1
         if acquired:
             logger.info(
-                "PLACE_REFRESH_LEASE city_id=%s category=%s worker_id=%s",
+                "PLACE_REFRESH_LEASE request_id=%s city_id=%s category=%s worker_id=%s",
+                request_id,
                 city_id,
                 category.value,
                 self._worker_id,
@@ -273,6 +323,7 @@ class DurablePlaceRefreshService:
         state: RefreshJobState,
         *,
         error_type: str | None = None,
+        request_id: str,
     ) -> None:
         now = datetime.now(timezone.utc)
         values: dict[str, object] = {
@@ -303,9 +354,15 @@ class DurablePlaceRefreshService:
         city_id: UUID,
         category: DiscoveryCategory,
         stage: PrefetchStage,
+        correlation_id: str,
     ) -> bool:
         return asyncio.run(
-            self.execute_job(city_id=city_id, category=category, stage=stage)
+            self.execute_job(
+                city_id=city_id,
+                category=category,
+                stage=stage,
+                correlation_id=correlation_id,
+            )
         )
 
     def _category_key(self, category: DiscoveryCategory) -> str:

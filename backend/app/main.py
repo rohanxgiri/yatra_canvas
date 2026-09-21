@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.core.request_context import RequestIdMiddleware
 from app.database import create_db_and_tables
 from app.routers import (
     admin,
@@ -64,6 +65,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIdMiddleware)
 
 app.include_router(auth.router)
 app.include_router(admin.router)

@@ -143,7 +143,7 @@ async def test_offloaded_prefetch_does_not_block_request_event_loop() -> None:
 
 
 @pytest.mark.anyio
-async def test_foreground_joins_matching_in_flight_prefetch() -> None:
+async def test_active_state_inspection_never_joins_in_flight_prefetch() -> None:
     coordinator = ProgressivePrefetchCoordinator()
     city_id = uuid4()
     release = asyncio.Event()
@@ -168,11 +168,11 @@ async def test_foreground_joins_matching_in_flight_prefetch() -> None:
         runner=runner,
     )
     await asyncio.sleep(0)
-    joined_task = asyncio.create_task(
-        coordinator.join_active(city_id, [DiscoveryCategory.FOOD])
+    assert coordinator.active_categories(city_id) == ["food", "tourism"]
+    assert coordinator.is_prefetch_active(
+        city_id,
+        [DiscoveryCategory.FOOD],
     )
-    await asyncio.sleep(0)
-    assert not joined_task.done()
 
     release.set()
-    assert await joined_task == ["food"]
+    await coordinator.wait_for_city(city_id)

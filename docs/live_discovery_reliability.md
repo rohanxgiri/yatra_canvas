@@ -1,6 +1,11 @@
 # Live POI Discovery Reliability & Progressive Prefetch Architecture
 
-Last updated: 2026-09-05
+Last updated: 2026-09-21
+
+Status: `[IMPLEMENTED]` for the cache-first foreground and durable refresh architecture. This
+document originally described the 2026-09-05 process-local design; the superseded join and
+foreground-provider behavior is corrected below. Always-on external task delivery remains
+`[PARTIAL]`.
 
 ## 1. Executive Summary & Problem Diagnosis
 
@@ -34,18 +39,16 @@ flowchart TD
 
     subgraph Backend ["FastAPI Discovery & Prefetch Engine"]
         F --> G[POST /cities/city_id/recommendations]
-        G --> H{Check Stored Places in DB}
-        H -->|Fresh & Sufficient| I[Serve From Batched DB Cache]
-        H -->|Stale but Usable| J[Serve Stale From DB Cache]
-        J -->|Background Revalidation| K[Async Refresh missing/stale]
-        H -->|Cold Cache / Missing| L[Interactive Budget Discovery max 12s]
+        G --> H[Read Eligible Persisted Places]
+        H --> I[Rank and Return Available Page]
+        H -.->|stale, thin, or missing| K[Request Durable Category Refresh]
 
         P1 --> K
         P2 --> K
 
-        K --> M{Refresher In-Flight for Key?}
-        M -->|Yes| N[Deduplicate: Observe Running Task]
-        M -->|No| O[Coverage Assessment]
+        K --> M{Acquire Durable Category Lease?}
+        M -->|No| N[Observe Existing Job]
+        M -->|Yes| O[Coverage Assessment]
         O -->|Category Sufficient >= threshold| S[Skip Network Call 0 req]
         O -->|Category Under-Covered| P[Resilient Provider Cascading]
 
@@ -60,10 +63,7 @@ flowchart TD
         T --> U
     end
 
-    I --> V[Canonical Deduplication & Balanced Ranking]
-    J --> V
-    L --> V
-    V --> W[Render Usable Recommendations]
+    I --> W[Render Usable Recommendations]
 ```
 
 ---
@@ -83,31 +83,42 @@ flowchart TD
 ### 3.3 Cache-First & Stale-While-Revalidate Semantics
 1. **Fresh (`cache.expires_at > now`)**: Zero provider network calls. Cache metadata and category places are fetched in two batched database queries rather than two queries per category.
 2. **Stale-but-Usable (`now >= cache.expires_at`, but places exist in DB)**: Returns existing stored places without a foreground provider call. Speculative prefetch may refresh it separately.
-3. **Cold / Missing**: Evaluates providers within an interactive time budget (`discovery_interactive_timeout_seconds = 12.0s`). A first full-city load canonicalizes the complete provider result in memory and persists places, provenance, tags, opening hours, and cache rows as a batch; later partial refreshes reuse preloaded identity hints.
+3. **Cold / Missing**: The recommendation read returns HTTP 200 with any other eligible rows, or
+   `[]`, and enqueues durable refresh without waiting. The background worker applies the 12-second
+   provider phase budget. A first full-city refresh canonicalizes provider results in memory and
+   persists places, provenance, tags, opening hours, and cache rows as a batch.
 
-### 3.4 In-Memory Concurrency Deduplication
-- Overlapping endpoint requests for the same `(city_id, category)` key reuse the active task held by the process-wide `ProgressivePrefetchCoordinator`.
-- Secondary prefetch calls report the reused categories and do not start another provider pipeline.
-- Foreground recommendation requests join matching active prefetch work, then read the normalized cache instead of launching a duplicate provider pipeline.
+### 3.4 Durable Concurrency Deduplication
+- Prefetch and Discover persist one `PlaceRefreshJob` per `(city_id, versioned_category)`.
+- Atomic expiring leases coalesce overlapping requests across backend workers; only the lease owner
+  executes providers, and expired work is recoverable.
+- Foreground recommendation requests never join the worker. They observe/request refresh and return
+  the persisted result immediately.
 
 ### 3.5 Provider Priority & Overpass Demotion
 - **Tier 1 (Stored DB / Cache)**: Always consulted first.
 - **Tier 2 (Audiala Local Dataset)**: Offline JSON dataset (`backend/app/data/audiala_places.json`).
 - **Tier 3 (Geoapify Places API)**: Hosted POI discovery provider (`/v2/places`) using `GEOAPIFY_API_KEY` when configured.
-- **Tier 4 (OpenStreetMap / Overpass)**: Foreground fallback only for categories still below usable fast-provider coverage. Category-specific queries run in waves of at most three under one 12-second default phase budget. Later waves are skipped after the shared circuit opens.
+- **Tier 4 (OpenStreetMap / Overpass)**: Background fallback only for categories still below usable
+  fast-provider coverage. Category-specific queries run in waves of at most three under one
+  12-second default phase budget. Later waves are skipped after the shared circuit opens.
 
 ### 3.6 Provider Health & Circuit Breaker
 - `ProviderCircuitBreaker` tracks consecutive failures and timeouts.
-- If 3 consecutive failures occur, the circuit trips to `OPEN` for a 60s cooldown, skipping synchronous calls and falling back immediately to cache or alternate providers.
+- If 3 consecutive failures occur, the circuit trips to `OPEN` for a 60s cooldown, skipping later
+  background calls while persisted foreground reads continue.
 - Bounded waves prevent categories queued behind the first three failures from reaching the provider after the circuit opens.
 
 ### 3.7 Partial Provider Success
-- If 1 or 2 categories fail (e.g. food query times out), available categories are returned and ranked. The UI never receives a fatal 504/503 if any usable candidates exist.
+- If one or more background categories fail, available persisted categories remain eligible and
+  ranked. Provider failure alone does not turn a successful recommendation read into 503/504.
 
 ### 3.8 Flutter Non-Blocking Presentation
-- If recommendations are already in memory or returned from cache, they render immediately.
-- If a background refresh is underway, a subtle non-blocking indicator ("Updating nearby places…") is displayed.
-- A full-screen error state is shown only when recommendations are genuinely empty ($0$ usable results) and all fallbacks failed.
+- A versioned SQLite snapshot renders while backend synchronization is pending.
+- Any non-empty cached/partial/server result exits the full skeleton and remains visible during
+  queued, refreshing, failed, or network-failed states.
+- An empty active refresh shows preparation and polls at most three times while mounted/resumed;
+  terminal empty/network failure exposes explicit retry.
 
 ---
 

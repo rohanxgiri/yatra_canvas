@@ -27,11 +27,12 @@ void main() {
   );
 
   test(
-    'RecommendationService prefetchCityPlaces issues POST /places/prefetch',
+    'PlacePrefetchService issues correlated POST /places/prefetch',
     () async {
       Map<String, dynamic>? capturedBody;
       final client = MockClient((request) async {
         if (request.url.path == '/places/prefetch') {
+          expect(request.headers['x-request-id'], 'trip-flow-123');
           capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
           return http.Response(
             jsonEncode({
@@ -50,14 +51,15 @@ void main() {
         return http.Response('Not found', 404);
       });
 
-      final service = RecommendationService(
+      final service = PlacePrefetchService(
         client: client,
         baseUrl: 'http://10.0.2.2:8001',
       );
 
-      await service.prefetchCityPlaces(
+      await service.prefetchCity(
         'kochi-123',
-        stage: 'destination_confirmed',
+        stage: PrefetchStage.destinationConfirmed,
+        requestId: 'trip-flow-123',
         categories: [PlaceCategory.tourism, PlaceCategory.heritage],
       );
 
@@ -130,7 +132,9 @@ void main() {
     tester,
   ) async {
     Map<String, dynamic>? payload;
+    String? requestId;
     final client = MockClient((request) async {
+      requestId = request.headers['x-request-id'];
       payload = jsonDecode(request.body) as Map<String, dynamic>;
       return http.Response('{}', 202);
     });
@@ -164,6 +168,7 @@ void main() {
 
     expect(payload?['stage'], 'interests_confirmed');
     expect(payload?['categories'], containsAll(<String>['food', 'heritage']));
+    expect(requestId, draft.creationRequestId);
   });
 
   test(
@@ -198,9 +203,11 @@ void main() {
 
   test('PlacePrefetchService sends date and start-location stages', () async {
     final payloads = <Map<String, dynamic>>[];
+    final requestIds = <String?>[];
     final service = PlacePrefetchService(
       baseUrl: 'http://api.test',
       client: MockClient((request) async {
+        requestIds.add(request.headers['x-request-id']);
         payloads.add(jsonDecode(request.body) as Map<String, dynamic>);
         return http.Response('{}', 202);
       }),
@@ -209,12 +216,14 @@ void main() {
     await service.prefetchCity(
       'kochi-123',
       stage: PrefetchStage.datesConfirmed,
+      requestId: 'trip-flow-123',
       startDate: DateTime(2026, 9, 10),
       endDate: DateTime(2026, 9, 12),
     );
     await service.prefetchCity(
       'kochi-123',
       stage: PrefetchStage.startLocationConfirmed,
+      requestId: 'trip-flow-123',
       startLatitude: 9.93,
       startLongitude: 76.26,
     );
@@ -223,6 +232,7 @@ void main() {
     expect(payloads[0]['start_date'], '2026-09-10');
     expect(payloads[1]['stage'], 'start_location_confirmed');
     expect(payloads[1]['start_latitude'], 9.93);
+    expect(requestIds, ['trip-flow-123', 'trip-flow-123']);
   });
 
   testWidgets(
@@ -311,4 +321,3 @@ void main() {
     },
   );
 }
-

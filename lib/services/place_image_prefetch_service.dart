@@ -28,6 +28,7 @@ class PlaceImagePrefetchService {
     int concurrency = 4,
     int firstScreenful = 8,
     int nextScreenful = 8,
+    String? requestId,
   }) async {
     final candidates = recommendations
         .where((place) => place.image?.bestUrl != null)
@@ -39,18 +40,24 @@ class PlaceImagePrefetchService {
       await Future.wait(
         candidates
             .sublist(offset, end)
-            .map((place) => prefetchPlace(context, place)),
+            .map(
+              (place) => prefetchPlace(context, place, requestId: requestId),
+            ),
       );
     }
   }
 
-  Future<bool> prefetchPlace(BuildContext context, Recommendation place) async {
+  Future<bool> prefetchPlace(
+    BuildContext context,
+    Recommendation place, {
+    String? requestId,
+  }) async {
     if (_successfulPlaceIds.contains(place.id)) return true;
     final url = place.image?.bestUrl;
     if (url == null) return false;
 
     final stopwatch = Stopwatch()..start();
-    _log('[IMAGE PREFETCH START] placeId=${place.id} url=$url');
+    _log('[IMAGE PREFETCH START] requestId=$requestId placeId=${place.id}');
     Object? failure;
     try {
       await _precacheRunner(
@@ -64,7 +71,7 @@ class PlaceImagePrefetchService {
 
     if (failure != null) {
       _log(
-        '[IMAGE PREFETCH FAILED] placeId=${place.id} url=$url '
+        '[IMAGE PREFETCH FAILED] requestId=$requestId placeId=${place.id} '
         'runtimeType=${failure.runtimeType} elapsedMs=${stopwatch.elapsedMilliseconds}',
       );
       return false;
@@ -72,7 +79,7 @@ class PlaceImagePrefetchService {
 
     _successfulPlaceIds.add(place.id);
     _log(
-      '[IMAGE PREFETCH SUCCESS] placeId=${place.id} '
+      '[IMAGE PREFETCH SUCCESS] requestId=$requestId placeId=${place.id} '
       'elapsedMs=${stopwatch.elapsedMilliseconds}',
     );
     return true;

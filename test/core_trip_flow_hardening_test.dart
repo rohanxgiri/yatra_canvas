@@ -197,13 +197,6 @@ class _FakeRecommendationService implements RecommendationService {
     int limit = 30,
     String? cursor,
   }) async => [];
-
-  @override
-  Future<void> prefetchCityPlaces(
-    String cityId, {
-    required String stage,
-    Iterable<PlaceCategory>? categories,
-  }) async {}
 }
 
 class _FakeRouteOptimizationService implements RouteOptimizationService {

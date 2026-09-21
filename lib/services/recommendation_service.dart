@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/place.dart';
 import '../models/recommendation.dart';
+import 'request_correlation.dart';
 
 enum RecommendationRefreshState {
   idle,
@@ -32,16 +33,24 @@ enum RecommendationRefreshState {
 }
 
 class RecommendationService {
-  RecommendationService({http.Client? client, String? baseUrl})
-    : _client = client ?? http.Client(),
-      _ownsClient = client == null,
-      _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
+  RecommendationService({
+    http.Client? client,
+    String? baseUrl,
+    String? requestId,
+  }) : _client = client ?? http.Client(),
+       _ownsClient = client == null,
+       _requestId = RequestCorrelation.resolve(requestId),
+       _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(
+         RegExp(r'/$'),
+         '',
+       );
 
   static const Duration _requestTimeout = Duration(seconds: 45);
 
   final http.Client _client;
   final bool _ownsClient;
   final String _baseUrl;
+  final String _requestId;
   String? _nextCursor;
   RecommendationRefreshState _lastRefreshState =
       RecommendationRefreshState.idle;
@@ -100,7 +109,10 @@ class RecommendationService {
     final response = await _client
         .post(
           Uri.parse('$_baseUrl/cities/$encodedCityId/recommendations'),
-          headers: const {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Request-ID': _requestId,
+          },
           body: jsonEncode(payload),
         )
         .timeout(_requestTimeout);
@@ -145,37 +157,6 @@ class RecommendationService {
       // Fall through to a stable user-facing message.
     }
     return 'Recommendations failed (${response.statusCode}). Please try again.';
-  }
-
-  Future<void> prefetchCityPlaces(
-    String cityId, {
-    required String stage,
-    Iterable<PlaceCategory>? categories,
-  }) async {
-    final normalizedCityId = cityId.trim();
-    if (normalizedCityId.isEmpty) return;
-
-    final payload = <String, dynamic>{
-      'city_id': normalizedCityId,
-      'stage': stage,
-    };
-    if (categories != null && categories.isNotEmpty) {
-      payload['categories'] = categories
-          .map((c) => c.apiValue)
-          .toList(growable: false);
-    }
-
-    try {
-      await _client
-          .post(
-            Uri.parse('$_baseUrl/places/prefetch'),
-            headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode(payload),
-          )
-          .timeout(const Duration(seconds: 10));
-    } on Object {
-      // Background prefetch is non-blocking and fails silently
-    }
   }
 
   void close() {

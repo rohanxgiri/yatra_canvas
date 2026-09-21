@@ -489,7 +489,7 @@ def test_discover_places_validates_city_and_category(client: TestClient) -> None
     assert invalid.status_code == 422
 
 
-def test_recommendations_reuse_each_category_cache_deduplicate_and_rank(
+def test_recommendations_reuse_persisted_categories_deduplicate_and_rank(
     client: TestClient,
 ) -> None:
     fake_osm = FakeOpenStreetMapPlacesService()
@@ -511,6 +511,14 @@ def test_recommendations_reuse_each_category_cache_deduplicate_and_rank(
         "categories": ["religious", "food", "heritage"],
         "limit": 30,
     }
+    for category in payload["categories"]:
+        seeded = client.get(
+            f"/cities/{city['id']}/discover-places",
+            params={"category": category},
+        )
+        assert seeded.status_code == 200
+
+    calls_after_background_seed = dict(fake_osm.call_counts)
     first = client.post(recommendation_path, json=payload)
     assert first.status_code == 200
     assert [item["name"] for item in first.json()] == [
@@ -525,20 +533,17 @@ def test_recommendations_reuse_each_category_cache_deduplicate_and_rank(
         first.json()[0]["recommendation_score"]
         > first.json()[1]["recommendation_score"]
     )
-    assert fake_osm.call_counts == {
+    assert calls_after_background_seed == {
         "religious": 1,
         "food": 1,
         "heritage": 1,
     }
+    assert fake_osm.call_counts == calls_after_background_seed
 
     second = client.post(recommendation_path, json=payload)
     assert second.status_code == 200
     assert second.json() == first.json()
-    assert fake_osm.call_counts == {
-        "religious": 1,
-        "food": 1,
-        "heritage": 1,
-    }
+    assert fake_osm.call_counts == calls_after_background_seed
 
 
 @pytest.mark.parametrize(
