@@ -1,6 +1,26 @@
 # Architectural decisions
 
-Last reviewed: 2026-09-20
+Last reviewed: 2026-09-21
+
+## ADR-022 — Discover data completeness and refresh activity are independent UI state
+
+- **Status:** Accepted and `[IMPLEMENTED]` in Flutter; physical-device verification remains
+  `[PARTIAL]`.
+- **Date:** 2026-09-21.
+- **Decision:** Model recommendation data as `cold`, `cached`, `partial`, or `complete`, separately
+  from refresh activity as `idle`, `queued`, `refreshing`, or `refreshFailed`. Parse the existing
+  additive refresh headers, leave the full skeleton once any usable cards exist, and never replace a
+  non-empty local snapshot with an empty server response. When data is empty but refresh is active,
+  show an honest preparation state and poll at most three times; cancel polling when the app leaves
+  the resumed lifecycle and expose explicit retry after the bound. Keep cards visible with a
+  non-blocking notice after refresh/network failure.
+- **Consequences:** Users can distinguish preparation from a terminal empty result, cached and
+  partial content stays interactive during background work, and an immediate backend failure cannot
+  race an in-progress local-cache read. Polling is neither infinite nor navigation/lifecycle blind.
+- **Evidence:** `lib/services/recommendation_service.dart`,
+  `lib/screens/place_discovery/place_discovery_screen.dart`,
+  `test/place_discovery_progressive_state_test.dart`, the Discover regression suite, and a Pixel 10
+  emulator run that transitioned from the initial skeleton to 10 Jaipur cards.
 
 ## ADR-021 — Wikimedia enrichment uses shared cooldowns and bounded priority waves
 

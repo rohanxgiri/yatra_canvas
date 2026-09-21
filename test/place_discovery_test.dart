@@ -94,7 +94,11 @@ void main() {
             },
           ]),
           200,
-          headers: {'content-type': 'application/json'},
+          headers: {
+            'content-type': 'application/json',
+            'x-refresh-state': 'queued',
+            'x-stale-categories': 'religious,heritage',
+          },
         );
       });
       final service = RecommendationService(
@@ -114,6 +118,8 @@ void main() {
         PlaceCategory.religious,
         PlaceCategory.heritage,
       ]);
+      expect(service.lastRefreshState, RecommendationRefreshState.queued);
+      expect(service.lastStaleCategories, {'religious', 'heritage'});
     },
   );
 
@@ -129,10 +135,7 @@ void main() {
       return http.Response(
         '[]',
         200,
-        headers: {
-          'content-type': 'application/json',
-          'x-next-cursor': 'MjA=',
-        },
+        headers: {'content-type': 'application/json', 'x-next-cursor': 'MjA='},
       );
     });
     final service = RecommendationService(

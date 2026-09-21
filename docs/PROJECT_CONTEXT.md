@@ -1,12 +1,17 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-09-20
-Last verified against repository: 2026-09-20
+Last reviewed: 2026-09-21
+Last verified against repository: 2026-09-21
 
 `[IMPLEMENTED]` Discover Places now uses a foreground/background split: recommendation reads never
 join provider prefetch tasks, Flutter renders a versioned SQLite city/profile snapshot first, and
-10-item cursor pages merge progressively. Configured-PostgreSQL and physical-device timing
-verification remains `[PARTIAL]`. See
+10-item cursor pages merge progressively. Flutter models usable data (`cold`, `cached`, `partial`,
+`complete`) independently from refresh work (`idle`, `queued`, `refreshing`, `refreshFailed`), so
+any non-empty snapshot exits the full skeleton and refresh failure cannot remove visible cards. An
+empty response with active refresh work uses bounded, lifecycle-aware polling and an explicit retry
+instead of a false terminal timeout. Pixel 10 emulator verification covered the Jaipur trip flow
+from the initial skeleton to 10 rendered cards; configured-PostgreSQL timings and physical-device
+verification remain `[PARTIAL]`. See
 [Discover Places data loading](DISCOVER_PLACES_DATA_LOADING.md).
 
 This document is the concise, authoritative primary overview for humans and agents. Status labels mean:
@@ -163,6 +168,9 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
   - Multi-provider fallback hierarchy: Cached DB places $\to$ `GeoapifyPlacesProvider` $\to$ `AudialaPlacesProvider` $\to$ `OpenStreetMapPlacesService`.
   - Circuit breaker for Overpass OSM with consecutive failure threshold (3) and cooldown (60s).
   - Partial category provider failure tolerance returning scored usable recommendations.
+  - Flutter consumes the additive refresh-state headers independently from data availability,
+    retains non-empty local/server cards during refresh or failure, writes snapshots only for
+    non-empty server results, and bounds empty-active polling to three lifecycle-aware attempts.
 - **Experiment-First Wikidata/Audiala Prominence Scoring (`PlaceImportanceScorer`)** is `[IMPLEMENTED]`:
   - Log-normalized bounded sitelinks ($\le 100$) and PageRank ($\le 25.0$).
   - Composite prominence in $[0.0, 1.0]$ blended at $60\%$ sitelinks consensus and $40\%$ PageRank network centrality.

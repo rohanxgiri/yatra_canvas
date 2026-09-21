@@ -1,6 +1,6 @@
 # YatraCanvas roadmap
 
-Last reviewed: 2026-09-19
+Last reviewed: 2026-09-21
 
 ## Discover Places data-loading reliability — September 2026
 
@@ -9,7 +9,10 @@ delivery, and configured-PostgreSQL/device performance verification are `[PARTIA
 Recommendation responses no longer join background prefetch, partial and stale-usable rows render
 immediately, and prefetch/Discover share durable per-category leases across workers. Flutter uses
 versioned SQLite snapshots and 10-place cursor pages append progressively. Provider/image failures
-remain non-blocking. See
+remain non-blocking. The client now treats data completeness separately from refresh activity,
+exits the full skeleton as soon as any cards exist, and uses bounded lifecycle-aware polling only
+for empty queued/refreshing responses. Pixel 10 emulator verification covered skeleton-to-card
+transition for a Jaipur trip; physical-device and configured-PostgreSQL timing runs remain open. See
 [the implementation report](DISCOVER_PLACES_DATA_LOADING.md).
 
 This roadmap is sequenced for reversible, testable changes. A phase is not complete until its

@@ -7,6 +7,30 @@ import '../config/api_config.dart';
 import '../models/place.dart';
 import '../models/recommendation.dart';
 
+enum RecommendationRefreshState {
+  idle,
+  queued,
+  refreshing,
+  refreshFailed;
+
+  bool get isActive => this == queued || this == refreshing;
+
+  static RecommendationRefreshState fromHeader(String? value) {
+    switch (value?.trim().toLowerCase()) {
+      case 'queued':
+        return queued;
+      case 'refreshing':
+        return refreshing;
+      case 'failed':
+      case 'refresh_failed':
+      case 'unavailable':
+        return refreshFailed;
+      default:
+        return idle;
+    }
+  }
+}
+
 class RecommendationService {
   RecommendationService({http.Client? client, String? baseUrl})
     : _client = client ?? http.Client(),
@@ -19,8 +43,13 @@ class RecommendationService {
   final bool _ownsClient;
   final String _baseUrl;
   String? _nextCursor;
+  RecommendationRefreshState _lastRefreshState =
+      RecommendationRefreshState.idle;
+  Set<String> _lastStaleCategories = const {};
 
   String? get nextCursor => _nextCursor;
+  RecommendationRefreshState get lastRefreshState => _lastRefreshState;
+  Set<String> get lastStaleCategories => _lastStaleCategories;
 
   Future<List<Recommendation>> getRecommendations(
     String cityId,
@@ -80,6 +109,14 @@ class RecommendationService {
       throw RecommendationServiceException(_errorMessage(response));
     }
     _nextCursor = response.headers['x-next-cursor'];
+    _lastRefreshState = RecommendationRefreshState.fromHeader(
+      response.headers['x-refresh-state'],
+    );
+    _lastStaleCategories = (response.headers['x-stale-categories'] ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
 
     try {
       final data = jsonDecode(response.body) as List<dynamic>;

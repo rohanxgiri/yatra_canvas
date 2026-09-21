@@ -174,6 +174,13 @@ class _FakeSavedPlaceService implements SavedPlaceService {
 
 class _FakeRecommendationService implements RecommendationService {
   @override
+  RecommendationRefreshState get lastRefreshState =>
+      RecommendationRefreshState.idle;
+
+  @override
+  Set<String> get lastStaleCategories => const {};
+
+  @override
   String? get nextCursor => null;
 
   @override

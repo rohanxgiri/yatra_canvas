@@ -35,6 +35,21 @@ import '../../widgets/yc_skeleton.dart';
 import '../trip_map/trip_map_screen.dart';
 import 'widgets/weather_advisory_card.dart';
 
+enum _RecommendationDataState { cold, cached, partial, complete }
+
+class _RecommendationRequestOutcome {
+  const _RecommendationRequestOutcome.success(this.recommendations)
+    : error = null,
+      stackTrace = null;
+
+  const _RecommendationRequestOutcome.failure(this.error, this.stackTrace)
+    : recommendations = null;
+
+  final List<Recommendation>? recommendations;
+  final Object? error;
+  final StackTrace? stackTrace;
+}
+
 class PlaceDiscoveryScreen extends StatefulWidget {
   const PlaceDiscoveryScreen({
     required this.city,
@@ -52,8 +67,10 @@ class PlaceDiscoveryScreen extends StatefulWidget {
     this.placeImagePrefetchService,
     this.recommendationCache,
     this.tripService,
+    this.emptyRefreshPollDelay = const Duration(seconds: 2),
+    this.maxEmptyRefreshPollAttempts = 3,
     super.key,
-  });
+  }) : assert(maxEmptyRefreshPollAttempts >= 0);
 
   final City city;
   final String? tripId;
@@ -70,12 +87,15 @@ class PlaceDiscoveryScreen extends StatefulWidget {
   final PlaceImagePrefetchService? placeImagePrefetchService;
   final RecommendationCache? recommendationCache;
   final TripService? tripService;
+  final Duration emptyRefreshPollDelay;
+  final int maxEmptyRefreshPollAttempts;
 
   @override
   State<PlaceDiscoveryScreen> createState() => _PlaceDiscoveryScreenState();
 }
 
-class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
+class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
+    with WidgetsBindingObserver {
   late final RecommendationService _recommendationService;
   late final bool _ownsRecommendationService;
   late final SavedPlaceService _savedPlaceService;
@@ -122,6 +142,13 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   String? _activeRecommendationProfileKey;
   String? _nextRecommendationCursor;
   bool _isLoadingMore = false;
+  _RecommendationDataState _recommendationDataState =
+      _RecommendationDataState.cold;
+  RecommendationRefreshState _recommendationRefreshState =
+      RecommendationRefreshState.idle;
+  Timer? _emptyRefreshTimer;
+  int _emptyRefreshPollCount = 0;
+  bool _appIsActive = true;
 
   // Manual place search state
   final TextEditingController _searchController = TextEditingController();
@@ -135,6 +162,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _purposeCategories = _categoriesForPurposes(widget.tripPurposes);
     _showRefinements = _purposeCategories.isEmpty;
     _ownsRecommendationService = widget.recommendationService == null;
@@ -212,6 +240,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _emptyRefreshTimer?.cancel();
     _searchDebounceTimer?.cancel();
     _searchController.dispose();
     if (_ownsPlaceService) _placeService.close();
@@ -224,16 +254,34 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appIsActive = state == AppLifecycleState.resumed;
+    if (!_appIsActive) {
+      _emptyRefreshTimer?.cancel();
+      return;
+    }
+    if (_recommendations.isEmpty && _recommendationRefreshState.isActive) {
+      _scheduleEmptyRefreshPoll(_requestGeneration);
+    }
+  }
+
   String? get _tripId {
     final value = widget.tripId?.trim();
     return value == null || value.isEmpty ? null : value;
   }
 
-  Future<void> _loadRecommendations() async {
+  Future<void> _loadRecommendations({bool fromRefreshPoll = false}) async {
+    if (!fromRefreshPoll) {
+      _emptyRefreshTimer?.cancel();
+      _emptyRefreshPollCount = 0;
+    }
     final cityId = widget.city.id;
     if (cityId == null || cityId.isEmpty) {
       setState(() {
         _isLoading = false;
+        _recommendationDataState = _RecommendationDataState.cold;
+        _recommendationRefreshState = RecommendationRefreshState.refreshFailed;
         _error = 'Resolve this city before discovering nearby places.';
       });
       return;
@@ -247,6 +295,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       setState(() {
         _isLoading = false;
         _hasRequested = false;
+        _recommendationDataState = _RecommendationDataState.cold;
+        _recommendationRefreshState = RecommendationRefreshState.idle;
         _error = 'Choose at least one interest to discover places.';
       });
       return;
@@ -265,15 +315,21 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
     });
 
     final syncStopwatch = Stopwatch()..start();
-    final backendRequest = _recommendationService.getRecommendations(
-      cityId,
-      categories,
-      limit: 10,
-      tripId: _tripId,
-      purposes: widget.tripPurposes,
-      interests: _refinementCategories.map((c) => c.apiValue),
-      categoryFilter: _activeCategoryFilter,
-    );
+    final backendRequest = _recommendationService
+        .getRecommendations(
+          cityId,
+          categories,
+          limit: 10,
+          tripId: _tripId,
+          purposes: widget.tripPurposes,
+          interests: _refinementCategories.map((c) => c.apiValue),
+          categoryFilter: _activeCategoryFilter,
+        )
+        .then(
+          _RecommendationRequestOutcome.success,
+          onError: (Object error, StackTrace stackTrace) =>
+              _RecommendationRequestOutcome.failure(error, stackTrace),
+        );
 
     var renderedLocalSnapshot = false;
     final localStopwatch = Stopwatch()..start();
@@ -286,6 +342,8 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       setState(() {
         _recommendations = snapshot.recommendations;
         _activeRecommendationProfileKey = cacheKey;
+        _recommendationDataState = _RecommendationDataState.cached;
+        _recommendationRefreshState = RecommendationRefreshState.refreshing;
       });
       developer.log(
         '[DISCOVER LOCAL RENDER] count=${snapshot.recommendations.length} '
@@ -301,22 +359,48 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         '${snapshot?.recommendations.length ?? 0}',
         name: 'PlaceDiscoveryScreen',
       );
-      final recommendations = await backendRequest;
+      final backendOutcome = await backendRequest;
+      if (backendOutcome.error case final error?) {
+        Error.throwWithStackTrace(error, backendOutcome.stackTrace!);
+      }
+      final recommendations = backendOutcome.recommendations!;
       if (!mounted || requestGeneration != _requestGeneration) return;
+      final refreshState = _recommendationService.lastRefreshState;
       final visibleRecommendations = sameProfile || renderedLocalSnapshot
           ? _mergeRecommendations(_recommendations, recommendations)
           : recommendations;
+      final nextCursor = _recommendationService.nextCursor;
+      final retainedCachedOnly =
+          renderedLocalSnapshot && recommendations.isEmpty;
+      final dataState = visibleRecommendations.isEmpty
+          ? _RecommendationDataState.cold
+          : retainedCachedOnly
+          ? _RecommendationDataState.cached
+          : refreshState.isActive ||
+                refreshState == RecommendationRefreshState.refreshFailed ||
+                nextCursor != null
+          ? _RecommendationDataState.partial
+          : _RecommendationDataState.complete;
       setState(() {
         _recommendations = visibleRecommendations;
         _activeRecommendationProfileKey = cacheKey;
-        _nextRecommendationCursor = _recommendationService.nextCursor;
+        _nextRecommendationCursor = nextCursor;
+        _recommendationDataState = dataState;
+        _recommendationRefreshState = refreshState;
         _isLoading = false;
         _refinementsDirty = false;
         if (_purposeCategories.isNotEmpty) _showRefinements = false;
       });
-      unawaited(
-        _recommendationCache.write(cacheKey, cityId, visibleRecommendations),
-      );
+      if (recommendations.isNotEmpty) {
+        unawaited(
+          _recommendationCache.write(cacheKey, cityId, visibleRecommendations),
+        );
+      }
+      if (visibleRecommendations.isEmpty && refreshState.isActive) {
+        _scheduleEmptyRefreshPoll(requestGeneration);
+      } else {
+        _emptyRefreshTimer?.cancel();
+      }
       developer.log(
         '[DISCOVER SYNC SUCCESS] count=${recommendations.length} '
         'elapsedMs=${syncStopwatch.elapsedMilliseconds}',
@@ -337,16 +421,42 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
         '[DISCOVER SYNC FAILED] runtimeType=${error.runtimeType}',
         name: 'PlaceDiscoveryScreen',
       );
+      final friendlyMsg = _friendlyError(error);
+      final hasVisibleRecommendations = _recommendations.isNotEmpty;
       setState(() {
-        final friendlyMsg = _friendlyError(error);
+        _recommendationRefreshState = RecommendationRefreshState.refreshFailed;
         if (_recommendations.isEmpty) {
+          _recommendationDataState = _RecommendationDataState.cold;
           _error = friendlyMsg;
-        } else {
-          _showSavedMessage(friendlyMsg, isError: true);
         }
         _isLoading = false;
       });
+      if (hasVisibleRecommendations) {
+        _showSavedMessage(friendlyMsg, isError: true);
+      }
     }
+  }
+
+  void _scheduleEmptyRefreshPoll(int requestGeneration) {
+    if (!mounted ||
+        !_appIsActive ||
+        _recommendations.isNotEmpty ||
+        !_recommendationRefreshState.isActive ||
+        _emptyRefreshPollCount >= widget.maxEmptyRefreshPollAttempts ||
+        (_emptyRefreshTimer?.isActive ?? false)) {
+      return;
+    }
+    _emptyRefreshTimer = Timer(widget.emptyRefreshPollDelay, () {
+      if (!mounted ||
+          !_appIsActive ||
+          requestGeneration != _requestGeneration ||
+          _recommendations.isNotEmpty ||
+          !_recommendationRefreshState.isActive) {
+        return;
+      }
+      _emptyRefreshPollCount++;
+      unawaited(_loadRecommendations(fromRefreshPoll: true));
+    });
   }
 
   Future<void> _loadMoreRecommendations() async {
@@ -376,6 +486,14 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       setState(() {
         _recommendations = merged;
         _nextRecommendationCursor = _recommendationService.nextCursor;
+        _recommendationRefreshState = _recommendationService.lastRefreshState;
+        _recommendationDataState =
+            _nextRecommendationCursor != null ||
+                _recommendationRefreshState.isActive ||
+                _recommendationRefreshState ==
+                    RecommendationRefreshState.refreshFailed
+            ? _RecommendationDataState.partial
+            : _RecommendationDataState.complete;
         _isLoadingMore = false;
       });
       if (cacheKey != null) {
@@ -2135,6 +2253,16 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
   }
 
   Widget _buildResults() {
+    if (_recommendations.isEmpty &&
+        _hasRequested &&
+        _recommendationRefreshState.isActive) {
+      return _PlacePreparationState(
+        key: const ValueKey('place-preparation-state'),
+        cityName: widget.city.name,
+        showRetry: _emptyRefreshPollCount >= widget.maxEmptyRefreshPollAttempts,
+        onRetry: _loadRecommendations,
+      );
+    }
     if (_isLoading && _recommendations.isEmpty) {
       return _PlaceResultsSkeleton(
         key: const ValueKey('loading-recommendations'),
@@ -2167,128 +2295,138 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen> {
       );
     }
 
-    return Column(
-      key: const ValueKey('ranked-recommendations'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '${_recommendations.length} ranked ${_recommendations.length == 1 ? 'place' : 'places'}',
-                style: AppTextStyles.sectionTitle,
-              ),
-            ),
-            const Icon(
-              Icons.swipe_down_rounded,
-              size: 18,
-              color: AppColors.textTertiary,
-            ),
+    return KeyedSubtree(
+      key: ValueKey('recommendation-data-${_recommendationDataState.name}'),
+      child: Column(
+        key: const ValueKey('ranked-recommendations'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_recommendationRefreshState.isActive ||
+              _recommendationRefreshState ==
+                  RecommendationRefreshState.refreshFailed) ...[
+            _RecommendationRefreshNotice(state: _recommendationRefreshState),
+            const SizedBox(height: 12),
           ],
-        ),
-        const SizedBox(height: 14),
-        for (var index = 0; index < _recommendations.length; index++) ...[
-          Builder(
-            builder: (context) {
-              final recommendation = _recommendations[index];
-              final selected =
-                  recommendation.isSaved ||
-                  _savedPlaceFor(recommendation.id) != null;
-              final busy = _mutatingPlaceIds.contains(recommendation.id);
-              return PlaceCard(
-                onTap: () => showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  showDragHandle: true,
-                  builder: (sheetContext) => SafeArea(
-                    top: false,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AspectRatio(
-                            aspectRatio: 4 / 3,
-                            child: PlaceImage(
-                              name: recommendation.name,
-                              image: recommendation.image,
-                              normalizedCategory:
-                                  recommendation.normalizedCategory,
-                              rawCategory: recommendation.category,
-                              borderRadius: BorderRadius.circular(18),
-                              showAttribution: true,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${_recommendations.length} ranked ${_recommendations.length == 1 ? 'place' : 'places'}',
+                  style: AppTextStyles.sectionTitle,
+                ),
+              ),
+              const Icon(
+                Icons.swipe_down_rounded,
+                size: 18,
+                color: AppColors.textTertiary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (var index = 0; index < _recommendations.length; index++) ...[
+            Builder(
+              builder: (context) {
+                final recommendation = _recommendations[index];
+                final selected =
+                    recommendation.isSaved ||
+                    _savedPlaceFor(recommendation.id) != null;
+                final busy = _mutatingPlaceIds.contains(recommendation.id);
+                return PlaceCard(
+                  onTap: () => showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    showDragHandle: true,
+                    builder: (sheetContext) => SafeArea(
+                      top: false,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AspectRatio(
+                              aspectRatio: 4 / 3,
+                              child: PlaceImage(
+                                name: recommendation.name,
+                                image: recommendation.image,
+                                normalizedCategory:
+                                    recommendation.normalizedCategory,
+                                rawCategory: recommendation.category,
+                                borderRadius: BorderRadius.circular(18),
+                                showAttribution: true,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 18),
-                          Text(
-                            recommendation.name,
-                            style: AppTextStyles.pageTitle,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _categoryLabel(recommendation.category),
-                            style: AppTextStyles.label,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _matchDescription(recommendation),
-                            style: AppTextStyles.bodyLarge,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _recommendationMeta(recommendation),
-                            style: AppTextStyles.bodyMuted,
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Opening hours have not been provided for this recommendation.',
-                            style: AppTextStyles.bodyMuted,
-                          ),
-                        ],
+                            const SizedBox(height: 18),
+                            Text(
+                              recommendation.name,
+                              style: AppTextStyles.pageTitle,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _categoryLabel(recommendation.category),
+                              style: AppTextStyles.label,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _matchDescription(recommendation),
+                              style: AppTextStyles.bodyLarge,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _recommendationMeta(recommendation),
+                              style: AppTextStyles.bodyMuted,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Opening hours have not been provided for this recommendation.',
+                              style: AppTextStyles.bodyMuted,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                name: recommendation.name,
-                category: _categoryLabel(recommendation.category),
-                normalizedCategory: recommendation.normalizedCategory,
-                imageData: recommendation.image,
-                description: _matchDescription(recommendation),
-                meta: _recommendationMeta(recommendation),
-                selected: selected,
-                actionLabel: _tripId == null
-                    ? 'Save trip first'
-                    : selected
-                    ? 'Remove'
-                    : 'Add',
-                actionIcon: selected
-                    ? Icons.remove_circle_outline_rounded
-                    : Icons.add_circle_outline_rounded,
-                actionBusy: busy,
-                onAction: _tripId == null || busy
-                    ? null
-                    : () => _toggleSavedPlace(recommendation),
-              );
-            },
-          ),
-          if (index != _recommendations.length - 1) const SizedBox(height: 12),
-        ],
-        if (_isLoading || _isLoadingMore) ...[
-          const SizedBox(height: 16),
-          const _AdditionalPlaceSkeletons(),
-        ] else if (_nextRecommendationCursor != null) ...[
-          const SizedBox(height: 16),
-          Center(
-            child: OutlinedButton.icon(
-              key: const ValueKey('load-more-recommendations'),
-              onPressed: _loadMoreRecommendations,
-              icon: const Icon(Icons.expand_more_rounded),
-              label: const Text('Show more places'),
+                  name: recommendation.name,
+                  category: _categoryLabel(recommendation.category),
+                  normalizedCategory: recommendation.normalizedCategory,
+                  imageData: recommendation.image,
+                  description: _matchDescription(recommendation),
+                  meta: _recommendationMeta(recommendation),
+                  selected: selected,
+                  actionLabel: _tripId == null
+                      ? 'Save trip first'
+                      : selected
+                      ? 'Remove'
+                      : 'Add',
+                  actionIcon: selected
+                      ? Icons.remove_circle_outline_rounded
+                      : Icons.add_circle_outline_rounded,
+                  actionBusy: busy,
+                  onAction: _tripId == null || busy
+                      ? null
+                      : () => _toggleSavedPlace(recommendation),
+                );
+              },
             ),
-          ),
+            if (index != _recommendations.length - 1)
+              const SizedBox(height: 12),
+          ],
+          if (_isLoading || _isLoadingMore) ...[
+            const SizedBox(height: 16),
+            const _AdditionalPlaceSkeletons(),
+          ] else if (_nextRecommendationCursor != null) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: OutlinedButton.icon(
+                key: const ValueKey('load-more-recommendations'),
+                onPressed: _loadMoreRecommendations,
+                icon: const Icon(Icons.expand_more_rounded),
+                label: const Text('Show more places'),
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -3897,6 +4035,117 @@ class _ItineraryStopSkeleton extends StatelessWidget {
       ),
     ],
   );
+}
+
+class _PlacePreparationState extends StatelessWidget {
+  const _PlacePreparationState({
+    required this.cityName,
+    required this.showRetry,
+    required this.onRetry,
+    super.key,
+  });
+
+  final String cityName;
+  final bool showRetry;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Column(
+      children: [
+        const SizedBox(
+          width: 26,
+          height: 26,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: AppColors.teal,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Preparing places for $cityName',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.cardTitle,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          showRetry
+              ? 'A few sources are taking longer than usual.'
+              : 'Available places will appear here as soon as they are ready.',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.bodyMuted,
+        ),
+        if (showRetry) ...[
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Try again'),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _RecommendationRefreshNotice extends StatelessWidget {
+  const _RecommendationRefreshNotice({required this.state});
+
+  final RecommendationRefreshState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final failed = state == RecommendationRefreshState.refreshFailed;
+    return Container(
+      key: ValueKey('recommendation-refresh-${state.name}'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: failed
+              ? AppColors.error.withValues(alpha: .24)
+              : AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          if (failed)
+            const Icon(
+              Icons.info_outline_rounded,
+              color: AppColors.error,
+              size: 18,
+            )
+          else
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.teal,
+              ),
+            ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              failed
+                  ? 'Some place updates could not finish. Showing available places.'
+                  : 'Updating available places…',
+              style: AppTextStyles.caption,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DiscoveryStatus extends StatelessWidget {

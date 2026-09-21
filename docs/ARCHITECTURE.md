@@ -1,6 +1,6 @@
 # YatraCanvas architecture
 
-Last reviewed: 2026-09-20
+Last reviewed: 2026-09-21
 
 ## Discover Places cache-first data loading — 2026-09-19
 
@@ -15,6 +15,15 @@ queued jobs and expired leases are recovered when another refresh request observ
 `sqflite`, renders usable snapshots before backend synchronization completes, merges refreshed
 metadata by canonical place ID, and appends 10-item cursor pages without clearing current cards or
 selection state. See [Discover Places data loading](DISCOVER_PLACES_DATA_LOADING.md).
+
+`[IMPLEMENTED]` Discover presentation has two independent state axes. Data is `cold`, `cached`,
+`partial`, or `complete`; background work is `idle`, `queued`, `refreshing`, or `refreshFailed`,
+parsed from additive recommendation response headers. Any non-empty data ends the full-card
+skeleton. Empty responses with queued/refreshing work show a preparation state and poll at most
+three times, pausing outside the resumed app lifecycle. Existing cards survive refresh and network
+failures with a non-blocking notice, and only non-empty server results replace the durable snapshot.
+The cache read and backend request still start together; backend failures are captured immediately
+so a fast failure cannot escape while the local snapshot is being read.
 
 Status labels are defined in [Project context](PROJECT_CONTEXT.md). This document separates
 repository reality from the intended provider architecture.

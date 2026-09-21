@@ -1,11 +1,10 @@
 # Discover Places data-loading architecture
 
-Last verified against repository: 2026-09-19
+Last verified against repository: 2026-09-21
 
-Status: `[IMPLEMENTED]` in repository and Flutter tests; backend runtime-test execution is
-`[PARTIAL]` because the local Python test process was blocked by the host workspace spend cap.
-Python syntax compilation passed. Real-device and configured-PostgreSQL Manali timings remain
-`[UNKNOWN]` and must not be inferred from unit tests.
+Status: `[IMPLEMENTED]` in repository and targeted backend/Flutter tests. Reviewed migration
+deployment, always-on external job delivery, physical-device validation, and configured-PostgreSQL
+Manali timings remain `[PARTIAL]` or `[UNKNOWN]` and must not be inferred from unit tests.
 
 ## Architecture before
 
@@ -139,14 +138,24 @@ show that more results are being fetched.
 
 ## UI states
 
-| State | Rendering behavior |
+`[IMPLEMENTED]` Data availability and refresh activity are separate axes rather than one mutually
+exclusive loading enum.
+
+| Data state | Rendering behavior |
 | --- | --- |
-| Fresh | Render cached or returned cards immediately |
-| Stale | Keep stale cards visible and revalidate in the background |
-| Partial | Render available cards; allow deepening/next-page loading |
-| Loading | Show dimension-matched pulse cards only when no usable cards exist |
-| Refreshing | Keep cards and selections; show additional card-shaped pulse placeholders |
-| Error | Keep usable cards with a non-blocking failure; otherwise show the retry state |
+| `cold` | No usable cards; show the full skeleton only while the first response is unresolved |
+| `cached` | Render the local SQLite snapshot immediately without clearing selection state |
+| `partial` | Render every available card while refresh/deepening or another page may still follow |
+| `complete` | Render the returned cards with no active refresh or next page |
+
+| Refresh state | Rendering behavior |
+| --- | --- |
+| `idle` | No refresh notice or automatic polling |
+| `queued` / `refreshing` | Keep cards visible; if empty, show preparation and poll at most three times |
+| `refreshFailed` | Keep cards with a non-blocking warning; show full retry only when no cards exist |
+
+Polling is cancelled outside the resumed app lifecycle. Empty backend responses never overwrite a
+non-empty durable snapshot, and any non-empty card set exits the full skeleton.
 
 ## Database performance and index audit
 
@@ -161,13 +170,15 @@ show that more results are being fetched.
 
 ## Verification
 
-- Flutter: 43 distinct tests across discovery, core flow, pagination, image prefetch, image states,
-  and skeleton motion passed. The discovery plus core-flow regression run passed 26 tests;
-  targeted static analysis reported no issues.
+- Flutter: the Phase 3 Discover/core-flow regression run passed 49 tests, including the cold,
+  cached, partial, complete, refresh-failed, network-failed, and bounded-polling matrix. Targeted
+  static analysis reported no issues. A Pixel 10 Android 17 emulator completed trip setup and
+  showed the initial Discover skeleton transition to 10 Jaipur cards at 1080 x 2424. The broader
+  repository suite still has unrelated account, onboarding/route, and golden-baseline failures.
 - Backend: Python syntax compilation passed for all changed application/tests files. Runtime pytest
   is `[PARTIAL]`/blocked by the host workspace spend cap, not by an observed test failure.
-- Real Manali scenarios A-F: `[UNKNOWN]` / not run because no approved configured backend/device run
-  was available. The repository now emits the measurements needed for that run.
+- Real Manali scenarios A-F: `[UNKNOWN]` / not run against configured PostgreSQL. The repository
+  now emits the measurements needed for that run.
 
 ## Real Manali timings
 
@@ -201,16 +212,19 @@ already present in the working tree are not attributed to this work.
 - `backend/tests/test_openstreetmap_places_service.py` — cover cancellation/circuit behavior.
 - `lib/models/recommendation.dart` — serialize recommendations for durable snapshots.
 - `lib/services/recommendation_cache.dart` — add the versioned SQLite recommendation cache.
-- `lib/services/recommendation_service.dart` — send cursors and capture `X-Next-Cursor`.
+- `lib/services/recommendation_service.dart` — send cursors and capture pagination plus refresh
+  metadata headers.
 - `lib/services/place_image_prefetch_service.dart` — bound eager image warming to two screenfuls and
   log completion-aware timings.
-- `lib/screens/place_discovery/place_discovery_screen.dart` — cache-first rendering, stable-ID merges,
-  non-destructive refresh, mixed skeletons, and next-page loading.
+- `lib/screens/place_discovery/place_discovery_screen.dart` — cache-first rendering, independent
+  data/refresh states, bounded lifecycle-aware polling, non-destructive refresh, mixed skeletons,
+  and next-page loading.
 - `lib/models/place_image.dart`, `lib/widgets/place_image.dart`, and `lib/widgets/yc_skeleton.dart` —
   explicit image/loading states, neutral fallbacks, pulse motion, and fades.
 - `pubspec.yaml` and `pubspec.lock` — declare and resolve `sqflite` directly.
-- `test/place_discovery_test.dart` and `test/core_trip_flow_hardening_test.dart` — update service fakes
-  and cover the recommendation cursor contract without regressing trip flow.
+- `test/place_discovery_test.dart`, `test/place_discovery_progressive_state_test.dart`, and
+  `test/core_trip_flow_hardening_test.dart` — cover pagination/refresh metadata, the progressive
+  state matrix, bounded polling, and trip-flow compatibility.
 - `test/place_image_prefetch_service_test.dart`, `test/place_image_test.dart`, and
   `test/yc_skeleton_test.dart` — verify bounded prefetch, image states, and skeleton behavior.
 - `docs/PROJECT_CONTEXT.md`, `docs/ARCHITECTURE.md`, `docs/API_AND_DATA_SOURCES.md`,
