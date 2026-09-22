@@ -27,3 +27,26 @@ significantly redesigning a screen.
 
 Maintain YatraCanvas's own identity. Do not copy Wanderlog branding, logo, exact colors,
 marketing content, or screens pixel-for-pixel.
+
+## Agent workflow skills
+
+The project-local workflow pack in `.agents/skills/` provides `scope`, `audit`, `architect`,
+`develop`, `check`, `test`, `document`, `sync`, and `debug`. Read
+[Agent workflow](docs/AGENT_WORKFLOW.md) before using one of these skills.
+
+These repository instructions and the seven source-of-truth documents listed above take
+precedence over generic skill defaults. In particular:
+
+- `docs/ROADMAP.md` remains the product roadmap. `docs/scope/` may track the active delivery
+  slice, but must not replace or contradict it.
+- `docs/DECISIONS.md` remains the record of accepted architectural decisions. Specs in
+  `docs/specs/` are pre-implementation design artifacts; copy accepted decisions into the
+  decision record when they become authoritative.
+- Preserve the architectural status labels in every generated or reconciled document. Status
+  changes must be supported by code, migration, and test evidence.
+- A skill may create or review a migration, but must never apply a migration to production as
+  part of repository work.
+- Never install another skill, connect an MCP server, or perform an external write without the
+  user's explicit approval.
+- `/audit` and `/sync` must preserve curated prose and make surgical additions only. They must
+  not replace this file or weaken its project-specific safeguards.
