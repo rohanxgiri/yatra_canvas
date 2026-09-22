@@ -357,6 +357,20 @@ class RecommendationService:
         city: City,
         request: RecommendationRequest,
     ) -> list[RecommendationRead]:
+        page, _ = await self.recommend_with_snapshot(
+            session=session,
+            city=city,
+            request=request,
+        )
+        return page
+
+    async def recommend_with_snapshot(
+        self,
+        *,
+        session: Session,
+        city: City,
+        request: RecommendationRequest,
+    ) -> tuple[list[RecommendationRead], PersistedCandidateSnapshot]:
         t_rec_start = time.monotonic()
         # Stage 1: Candidate Retrieval
         categories_to_retrieve = list(dict.fromkeys(request.categories))
@@ -366,11 +380,12 @@ class RecommendationService:
         ):
             categories_to_retrieve.append(request.category_filter)
 
-        places_by_category = self._candidate_reader.read(
+        snapshot = self._candidate_reader.read(
             session=session,
             city_id=city.id,
             categories=categories_to_retrieve,
-        ).places_by_category
+        )
+        places_by_category = snapshot.places_by_category
 
         raw_candidates: list[Place] = []
         for category in categories_to_retrieve:
@@ -390,7 +405,7 @@ class RecommendationService:
                 city.name,
                 t_retrieval_ms,
             )
-            return []
+            return [], snapshot
 
         logger.info(
             "Recommendation candidate retrieval for city=%s: %d raw candidates across %d categories in %.1fms",
@@ -705,4 +720,4 @@ class RecommendationService:
         )
         page = final_results[request.cursor_offset : page_end]
         enrich_image_reads(session, page)
-        return page
+        return page, snapshot

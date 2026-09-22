@@ -51,7 +51,6 @@ class TripDayService:
             )
             session.add(day)
             days.append(day)
-        session.flush()
         return days
 
     def get_trip_days(self, session: Session, trip_id: UUID) -> list[TripDayRead]:

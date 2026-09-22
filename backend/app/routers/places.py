@@ -110,27 +110,36 @@ def _recommend_in_worker(
             if city is None:
                 raise _CityNotFoundError
             recommendation_started = time.monotonic()
-            result = asyncio.run(
-                recommendation.recommend(
-                    session=worker_session,
-                    city=city,
-                    request=request,
+            if hasattr(recommendation, "recommend_with_snapshot"):
+                result, snapshot = asyncio.run(
+                    recommendation.recommend_with_snapshot(
+                        session=worker_session,
+                        city=city,
+                        request=request,
+                    )
                 )
-            )
-            read_persisted = getattr(recommendation, "read_persisted_candidates", None)
-            snapshot = (
-                read_persisted(
-                    session=worker_session,
-                    city=city,
-                    request=request,
+            else:
+                result = asyncio.run(
+                    recommendation.recommend(
+                        session=worker_session,
+                        city=city,
+                        request=request,
+                    )
                 )
-                if callable(read_persisted)
-                else PersistedPlaceReader().read(
-                    session=worker_session,
-                    city_id=city.id,
-                    categories=list(request.categories),
+                read_persisted = getattr(recommendation, "read_persisted_candidates", None)
+                snapshot = (
+                    read_persisted(
+                        session=worker_session,
+                        city=city,
+                        request=request,
+                    )
+                    if callable(read_persisted)
+                    else PersistedPlaceReader().read(
+                        session=worker_session,
+                        city_id=city.id,
+                        categories=list(request.categories),
+                    )
                 )
-            )
             recommendation_ms = (time.monotonic() - recommendation_started) * 1000
             logger.info(
                 "RECOMMEND_DB request_id=%s city_id=%s query_count=%d "

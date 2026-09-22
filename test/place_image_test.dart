@@ -46,8 +46,14 @@ void main() {
       placeFallbackAsset(rawCategory: 'heritage', name: 'Amber Fort'),
       endsWith('/fort_palace.webp'),
     );
-    expect(placeFallbackAsset(rawCategory: 'heritage'), isNull);
-    expect(placeFallbackAsset(rawCategory: 'tourism'), isNull);
+    expect(
+      placeFallbackAsset(rawCategory: 'heritage'),
+      endsWith('/fort_palace.webp'),
+    );
+    expect(
+      placeFallbackAsset(rawCategory: 'tourism'),
+      endsWith('/viewpoint.webp'),
+    );
     expect(placeFallbackAsset(normalizedCategory: 'entertainment'), isNull);
   });
 
@@ -80,9 +86,15 @@ void main() {
       expect(data.lengthInBytes, greaterThan(0), reason: category);
     }
 
-    expect(placeFallbackAsset(normalizedCategory: 'landmark'), isNull);
+    expect(
+      placeFallbackAsset(normalizedCategory: 'landmark'),
+      endsWith('/fort_palace.webp'),
+    );
     expect(placeFallbackAsset(normalizedCategory: 'entertainment'), isNull);
-    expect(placeFallbackAsset(normalizedCategory: 'other'), isNull);
+    expect(
+      placeFallbackAsset(normalizedCategory: 'other'),
+      endsWith('/generic_place.webp'),
+    );
     expect(placeFallbackAsset(normalizedCategory: 'unknown'), isNull);
   });
 

@@ -177,6 +177,12 @@ class PlaceImageResolver:
         )
 
         contexts = self._load_contexts(session, targets)
+        # Invariant 1: Release checked-out DB connection back to pool before starting external image provider HTTP I/O
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+
         timeout = httpx.Timeout(
             self._settings.place_image_timeout_seconds,
             connect=min(3.0, self._settings.place_image_timeout_seconds),
@@ -215,14 +221,18 @@ class PlaceImageResolver:
             async def resolve_one(context: PlaceImageContext):
                 async with semaphore:
                     try:
-                        candidate, had_error = await asyncio.wait_for(
-                            self._resolve_context(context, providers),
-                            timeout=self._settings.place_image_timeout_seconds * 2,
-                        )
+                        candidate, had_error = await self._resolve_context(context, providers)
                     except TimeoutError:
                         logger.warning(
-                            "PLACE_IMAGE_FAILED place_id=%s stage=total_budget",
+                            "PLACE_IMAGE_FAILED place_id=%s stage=network_timeout",
                             context.place_id,
+                        )
+                        candidate, had_error = None, True
+                    except Exception as exc:
+                        logger.warning(
+                            "PLACE_IMAGE_FAILED place_id=%s stage=resolve error=%s",
+                            context.place_id,
+                            type(exc).__name__,
                         )
                         candidate, had_error = None, True
                     return context, candidate, had_error
@@ -536,8 +546,8 @@ def schedule_place_image_enrichment(
                     target_engine = get_engine()
                 else:
                     target_engine = engine
-                with Session(target_engine) as session:
-                    for offset in range(0, len(ids), IMAGE_ENRICHMENT_BATCH_SIZE):
+                for offset in range(0, len(ids), IMAGE_ENRICHMENT_BATCH_SIZE):
+                    with Session(target_engine) as session:
                         await PlaceImageResolver().resolve_many(
                             session,
                             ids[offset : offset + IMAGE_ENRICHMENT_BATCH_SIZE],
@@ -556,3 +566,32 @@ def schedule_place_image_enrichment(
     task = asyncio.create_task(run())
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
+
+
+def cleanup_poisoned_image_cache(
+    session: Session,
+    city_id: UUID | None = None,
+) -> int:
+    """Safely clear poisoned provider_error cache entries without touching valid resolved or negative entries."""
+    from sqlmodel import delete
+
+    if city_id is not None:
+        place_ids = list(session.exec(select(Place.id).where(Place.city_id == city_id)).all())
+        if not place_ids:
+            return 0
+        statement = delete(PlaceImageCache).where(
+            PlaceImageCache.place_id.in_(place_ids),
+            PlaceImageCache.status == "failed",
+            PlaceImageCache.failure_reason == "provider_error",
+        )
+    else:
+        statement = delete(PlaceImageCache).where(
+            PlaceImageCache.status == "failed",
+            PlaceImageCache.failure_reason == "provider_error",
+        )
+    result = session.exec(statement)
+    session.commit()
+    count = result.rowcount
+    logger.info("CLEANUP_POISONED_IMAGE_CACHE deleted=%d city_id=%s", count, city_id)
+    return count
+

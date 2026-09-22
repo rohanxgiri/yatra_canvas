@@ -103,7 +103,6 @@ class TripService:
         purpose_set = {p.casefold() for p in request.purposes}
         try:
             session.add(trip)
-            session.flush()
             session.add_all(
                 TripPreference(
                     trip_id=trip.id,
@@ -116,7 +115,6 @@ class TripService:
                 session, trip.id, trip.start_date, trip.days
             )
             session.commit()
-            session.refresh(trip)
         except IntegrityError:
             session.rollback()
             if request.request_id is not None:

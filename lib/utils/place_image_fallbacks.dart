@@ -16,6 +16,14 @@ const Map<String, String> _fallbackByCategory = {
   'restaurant': '$_fallbackRoot/restaurant.webp',
   'hotel': '$_fallbackRoot/hotel.webp',
   'wildlife': '$_fallbackRoot/wildlife.webp',
+  'landmark': '$_fallbackRoot/fort_palace.webp',
+  'heritage': '$_fallbackRoot/fort_palace.webp',
+  'tourism': '$_fallbackRoot/viewpoint.webp',
+  'art_gallery': '$_fallbackRoot/art_gallery.webp',
+  'shopping': '$_fallbackRoot/shopping.webp',
+  'mountain': '$_fallbackRoot/mountain.webp',
+  'viewpoint': '$_fallbackRoot/viewpoint.webp',
+  'other': '$_fallbackRoot/generic_place.webp',
 };
 
 String? placeFallbackAsset({
@@ -40,15 +48,21 @@ String? placeFallbackAsset({
     'museum': 'museum',
     'fort': 'fort_palace',
     'palace': 'fort_palace',
+    'landmark': 'landmark',
+    'heritage': 'heritage',
+    'tourism': 'tourism',
     'park': 'park_garden',
     'garden': 'park_garden',
     'lake': 'lake_riverfront',
     'river': 'lake_riverfront',
     'hill': 'hill_viewpoint',
     'viewpoint': 'hill_viewpoint',
+    'mountain': 'mountain',
     'market': 'market_shopping',
-    'shopping': 'market_shopping',
+    'markets': 'market_shopping',
+    'shopping': 'shopping',
     'cafe': 'cafe',
+    'cafes': 'cafe',
     'food': 'restaurant',
     'restaurant': 'restaurant',
     'hotel': 'hotel',
@@ -58,6 +72,9 @@ String? placeFallbackAsset({
     'forest': 'forest',
     'wildlife': 'wildlife',
     'nature': 'park_garden',
+    'art': 'art_gallery',
+    'gallery': 'art_gallery',
+    'other': 'other',
   };
   for (final entry in aliases.entries) {
     if (tokens.contains(entry.key)) return _fallbackByCategory[entry.value]!;

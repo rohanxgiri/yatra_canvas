@@ -49,6 +49,14 @@ class RefreshEnqueueResult:
 
 
 _background_tasks: set[asyncio.Task[bool]] = set()
+_refresh_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_refresh_semaphore() -> asyncio.Semaphore:
+    global _refresh_semaphore
+    if _refresh_semaphore is None:
+        _refresh_semaphore = asyncio.Semaphore(3)
+    return _refresh_semaphore
 
 
 class DurablePlaceRefreshService:
@@ -91,15 +99,23 @@ class DurablePlaceRefreshService:
         any_active = False
         now = datetime.now(timezone.utc)
 
-        for category in dict.fromkeys(categories):
-            key = self._category_key(category)
-            with Session(self._engine) as session:
-                job = session.exec(
+        category_list = list(dict.fromkeys(categories))
+        category_keys = {cat: self._category_key(cat) for cat in category_list}
+        key_to_cat = {key: cat for cat, key in category_keys.items()}
+
+        with Session(self._engine) as session:
+            existing_jobs = {
+                job.versioned_category: job
+                for job in session.exec(
                     select(PlaceRefreshJob).where(
                         PlaceRefreshJob.city_id == city_id,
-                        PlaceRefreshJob.versioned_category == key,
+                        PlaceRefreshJob.versioned_category.in_(list(category_keys.values())),
                     )
-                ).first()
+                ).all()
+            }
+            for category in category_list:
+                key = category_keys[category]
+                job = existing_jobs.get(key)
                 if job is None:
                     job = PlaceRefreshJob(
                         city_id=city_id,
@@ -108,12 +124,7 @@ class DurablePlaceRefreshService:
                         updated_at=now,
                     )
                     session.add(job)
-                    try:
-                        session.commit()
-                        queued.append(category.value)
-                    except IntegrityError:
-                        session.rollback()
-                        reused.append(category.value)
+                    queued.append(category.value)
                     schedule_categories.append(category)
                     continue
 
@@ -136,21 +147,45 @@ class DurablePlaceRefreshService:
                 job.last_error = None
                 job.updated_at = now
                 session.add(job)
-                session.commit()
                 queued.append(category.value)
                 schedule_categories.append(category)
 
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                # On concurrent insert race, mark as reused
+                for cat in schedule_categories:
+                    if cat.value in queued:
+                        queued.remove(cat.value)
+                        reused.append(cat.value)
+
         if schedule:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
             for category in schedule_categories:
-                task = asyncio.create_task(
-                    asyncio.to_thread(
-                        self._execute_job_in_thread,
-                        city_id,
-                        category,
-                        stage,
-                        request_id,
+                if loop is not None and loop.is_running():
+                    task = loop.create_task(
+                        self._scheduled_execute_job(
+                            city_id,
+                            category,
+                            stage,
+                            request_id,
+                        )
                     )
-                )
+                else:
+                    task = asyncio.create_task(
+                        asyncio.to_thread(
+                            self._execute_job_in_thread,
+                            city_id,
+                            category,
+                            stage,
+                            request_id,
+                        )
+                    )
                 _background_tasks.add(task)
                 task.add_done_callback(_background_tasks.discard)
 
@@ -348,6 +383,22 @@ class DurablePlaceRefreshService:
         with Session(self._engine) as session:
             session.exec(statement)
             session.commit()
+
+    async def _scheduled_execute_job(
+        self,
+        city_id: UUID,
+        category: DiscoveryCategory,
+        stage: PrefetchStage,
+        correlation_id: str,
+    ) -> bool:
+        sem = _get_refresh_semaphore()
+        async with sem:
+            return await self.execute_job(
+                city_id=city_id,
+                category=category,
+                stage=stage,
+                correlation_id=correlation_id,
+            )
 
     def _execute_job_in_thread(
         self,

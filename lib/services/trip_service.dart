@@ -16,7 +16,7 @@ class TripService {
       _ownsClient = client == null,
       _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
-  static const _timeout = Duration(seconds: 15);
+  static const _timeout = Duration(seconds: 30);
   final http.Client _client;
   final bool _ownsClient;
   final String _baseUrl;

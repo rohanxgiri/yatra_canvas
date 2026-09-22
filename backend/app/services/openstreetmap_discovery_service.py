@@ -175,6 +175,12 @@ class OpenStreetMapDiscoveryService:
             )
             return results
 
+        # Invariant 1: Release checked-out DB connection to pool before starting slow external provider I/O
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+
         category_radii = {
             category: self._settings.overpass_radius_for_category(category)
             for category in pending

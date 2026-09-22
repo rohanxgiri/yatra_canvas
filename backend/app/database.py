@@ -17,6 +17,9 @@ def get_engine() -> Engine:
     return create_engine(
         settings.sqlalchemy_database_url,
         pool_pre_ping=True,
+        pool_size=15,
+        max_overflow=15,
+        pool_timeout=30.0,
     )
 
 

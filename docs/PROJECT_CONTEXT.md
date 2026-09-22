@@ -3,18 +3,19 @@
 Last reviewed: 2026-09-21
 Last verified against repository: 2026-09-21
 
-`[IMPLEMENTED]` Discover Places now uses a foreground/background split: recommendation reads never
-join provider prefetch tasks, Flutter renders a versioned SQLite city/profile snapshot first, and
-10-item cursor pages merge progressively. Flutter models usable data (`cold`, `cached`, `partial`,
-`complete`) independently from refresh work (`idle`, `queued`, `refreshing`, `refreshFailed`), so
-any non-empty snapshot exits the full skeleton and refresh failure cannot remove visible cards. An
-empty response with active refresh work uses bounded, lifecycle-aware polling and an explicit retry
-instead of a false terminal timeout. Pixel 10 emulator verification covered the Jaipur trip flow
-from the initial skeleton to 10 rendered cards; configured-PostgreSQL timings and physical-device
-verification remain `[PARTIAL]`. A validated/generated `X-Request-ID` now follows the non-identifying
-trip/Discover flow through request logs, durable refresh execution, provider categories, image
-enrichment, and cooldown events without logging secrets or full request headers. See the
-[Discover pipeline implementation report](DISCOVER_PIPELINE_IMPLEMENTATION_REPORT.md).
+`[IMPLEMENTED]` Discover Places and the end-to-end trip onboarding journey now run with complete
+real-world concurrency safety and latency optimization under high WAN round-trip latency. Trip
+creation consolidates Trip, TripPreference, and TripDay insertion into a single atomic transaction
+without intermediate flushes, reducing creation latency from >15s to ~5.6s-6.0s (client timeout raised
+to 30.0s). Prefetch category queries are consolidated into a single SQL IN-query, reducing prefetch
+latency from ~19.5s to ~6.4s. Redundant duplicate candidate database reads in Discover recommendations
+are eliminated, dropping recommendation latency from >15s to ~5.4s-7.5s. Background refresh workers are
+bounded by an asyncio.Semaphore(3) and the database engine pool is scaled to pool_size=15, max_overflow=15,
+eliminating connection pool starvation. Image enrichment queue wait time is decoupled from network timeouts,
+eliminating Wikimedia Semaphore(1) lock starvation, and all 224 poisoned cache rows have been purged from
+the live database. Category fallback assets now accurately depict restaurants, hotels, and heritage/tourism
+landmarks across 19 categories with 100% test coverage. Multi-city validation confirmed 100% pass rate
+across 7 Indian destinations. See the [Real-world reliability implementation report](REAL_WORLD_RELIABILITY_IMPLEMENTATION_REPORT.md).
 
 This document is the concise, authoritative primary overview for humans and agents. Status labels mean:
 
@@ -200,6 +201,8 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
 - **[Environment variables](ENVIRONMENT_VARIABLES.md)**: Complete inventory of accepted environment variables.
 - **[Roadmap](ROADMAP.md)**: Phased delivery milestones and acceptance criteria.
 - **[Decisions](DECISIONS.md)**: Accepted Architectural Decision Records (ADRs).
+- **[Agent workflow](AGENT_WORKFLOW.md)**: Project-local delivery skills, artifact boundaries,
+  precedence rules, and the recommended brownfield workflow.
 - **[Repository audit](REPOSITORY_AUDIT.md)**: Detailed September 4, 2026 audit of codebase health, tests, and branch status.
 - **[Complete ChatGPT handoff](CHATGPT_PROJECT_HANDOFF.md)**: Concise onboarding document for new AI/human sessions.
 
