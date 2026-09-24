@@ -214,7 +214,11 @@ Acceptance criteria:
 
 ## Phase 9 — Authorized admin verification tools
 
-Status: `[PARTIAL]` schema and mock UI only.
+Status: `[PARTIAL]`. Role based local JWT authentication, the protected `/api/admin/*` suite,
+destination management, POI moderation, read only trip inspection, report triage, provider
+diagnostics, and the FastAPI served web dashboard are `[IMPLEMENTED]`. Durable actor and
+before or after correction history, merge or unmerge recovery, and broader bulk moderation tools
+remain `[PLANNED]`. The separate Flutter admin shell remains presentation only.
 
 Scope: replace hard-coded admin data with authenticated, role-authorized APIs for import review,
 dedupe, corrections, source-quality decisions, and audit history.

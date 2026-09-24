@@ -1,8 +1,9 @@
 # YatraCanvas Backend
 
 This folder contains the FastAPI and PostgreSQL backend for YatraCanvas. It
-provides city and place storage, server-side city discovery, runtime location
-autocomplete, recommendations, saved places, and route optimization.
+provides city and place storage, runtime location autocomplete, cache first
+recommendations, saved places, route optimization, weather assistance, JWT
+authentication, protected admin APIs, and the web admin dashboard.
 
 At startup, SQLModel creates missing tables defined in `app/models`. It does
 not alter an existing database to match changed models. Existing schema changes
@@ -48,13 +49,15 @@ Copy the example file:
 Copy-Item .env.example .env
 ```
 
-`DATABASE_URL` is the only setting required for the backend to start. Paste a
+`DATABASE_URL` is the only setting required for normal backend startup. Paste a
 PostgreSQL connection string after `DATABASE_URL=`; a Supabase PostgreSQL URL is
 supported, but the repository does not currently use the Supabase client SDK or
 Supabase Auth.
 
 ```dotenv
 DATABASE_URL=postgresql://YOUR_DATABASE_USER:YOUR_URL_ENCODED_PASSWORD@YOUR_DATABASE_HOST:5432/postgres
+APP_ENV=development
+JWT_SECRET_KEY=REPLACE_WITH_A_LONG_RANDOM_DEVELOPMENT_SECRET
 ```
 
 Do not add quotes and do not commit `.env`. The repository's root `.gitignore`
@@ -62,33 +65,37 @@ already excludes it. If the database password contains URL-reserved characters
 such as `@`, `:`, `/`, `#`, or `%`, URL-encode the password before using it in
 the connection string.
 
+`APP_ENV=development` is recommended for local work and is required before a
+guarded diagnostic write test can run. `JWT_SECRET_KEY` has an insecure
+development fallback for compatibility, but shared and deployed environments
+must provide a strong secret.
+
 No Google key is required for normal recommendations or route optimization. The
 following keys are optional and should be added only for the flows that need them:
 
 ```dotenv
-GOOGLE_PLACES_API_KEY=
 GOOGLE_ROUTES_API_KEY=
 GEOAPIFY_API_KEY=
+FOURSQUARE_API_KEY=
 ```
 
-- `GOOGLE_PLACES_API_KEY` enables legacy Places API (New) city
-  autocomplete/details and the legacy discovery endpoint. Normal Flutter
-  recommendations do not use it. It is not a Google Maps SDK key; this project
-  has no Google Maps SDK or Android maps metadata.
 - `GOOGLE_ROUTES_API_KEY` is retained for the legacy Google Routes adapter.
   Normal itinerary optimization uses local coordinate estimates and does not
   call Google.
-- `GEOAPIFY_API_KEY` enables destination and arrival autocomplete/geocoding.
+- `GEOAPIFY_API_KEY` enables destination and arrival autocomplete, geocoding,
+  destination scoped manual search, and configured background fallback.
+- `FOURSQUARE_API_KEY` enables optional, conservative place photo enrichment.
+  It never creates or ranks canonical places.
 
 Keep keys only in `backend/.env`; they must never be added to Flutter or
 committed. OpenStreetMap recommendations use the keyless, configurable Overpass
 endpoint shown in `.env.example`; public endpoints are best-effort services.
 
-The backend keeps `trips.user_id` as a UUID but does not create or reference
-Supabase's `auth.users` table. Authentication is **not implemented**. `POST /trips`
-temporarily assigns a fixed, server-owned development identity and rejects a
-client-provided `user_id`; replace that isolated dependency with authenticated
-identity before multi-user deployment.
+The backend implements local role based authentication through `users`, bcrypt,
+and signed JWT bearer tokens. Admin routes require an active `ADMIN` user.
+Traveller ownership is still `[PARTIAL]`: `POST /trips` uses a fixed server owned
+development identity and rejects a client supplied `user_id`. Supabase Auth and
+authenticated traveller trip ownership remain `[PLANNED]`.
 
 ## 4. Run the API
 
@@ -105,22 +112,53 @@ Swagger documentation at:
 http://127.0.0.1:8000/docs
 ```
 
-## Initial endpoints
+The web admin dashboard is available at `http://127.0.0.1:8000/admin/`.
+
+## 5. Create an administrator
+
+With the virtual environment active, run this command from `backend/`:
+
+```powershell
+python -m app.scripts.create_admin --email admin@yatracanvas.com
+```
+
+The command prompts for a password and stores only its bcrypt hash. You may use
+the untracked `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables for a
+noninteractive local bootstrap. Reset an existing password with:
+
+```powershell
+python -m app.scripts.create_admin --email admin@yatracanvas.com --update-password
+```
+
+Sign in through `/admin/`, or call `POST /api/auth/login` and send the returned
+bearer token to the protected `/api/admin/*` endpoints. Never commit an admin
+password or JWT secret.
+
+## Representative endpoints
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/` | Backend status |
+| `POST` | `/api/auth/login` | Authenticate a local user and return a JWT |
+| `GET` | `/api/auth/me` | Read the authenticated local user |
+| `GET` | `/api/admin/*` | Protected administration and provider diagnostics |
+| `GET` | `/admin/` | Serve the web admin dashboard |
 | `POST` | `/cities` | Create a city |
 | `GET` | `/cities` | List cities |
 | `POST` | `/cities/resolve` | Return or create a normalized provider city |
 | `GET` | `/cities/search?query=` | Search stored cities by name or state |
-| `GET` | `/cities/autocomplete?query=` | Search Google for India city predictions |
-| `GET` | `/cities/place-details/{google_place_id}` | Normalize Google city details |
+| `GET` | `/cities/autocomplete?query=` | Search Geoapify for India city predictions |
+| `GET` | `/cities/place-details/{provider_place_id}` | Normalize provider city details |
 | `GET` | `/locations/autocomplete?query=` | Search Geoapify for normalized India destinations and arrival locations |
 | `GET` | `/cities/{city_id}` | Get a city |
 | `POST` | `/trips` | Create a trip and its preferences; return a real `trip_id` |
 | `POST` | `/places` | Create a place |
 | `GET` | `/cities/{city_id}/places` | List a city's places |
+| `POST` | `/places/prefetch` | Queue staged place refresh work and return HTTP 202 |
+| `GET` | `/cities/{city_id}/places/search` | Search stored and configured provider candidates |
+| `POST` | `/trips/{trip_id}/optimize-route` | Generate a constrained multi day itinerary |
+| `GET` | `/trips/{trip_id}/route-geometry` | Read road following route geometry |
+| `GET` | `/trips/{trip_id}/weather-advisories` | Read itinerary aware weather advisories |
 
 List endpoints accept optional `offset` and `limit` query parameters. `limit`
 defaults to 100 and cannot exceed 500.
@@ -160,15 +198,13 @@ identity separately. Provider responsibilities are intentionally narrow:
 | Provider | Responsibility |
 | --- | --- |
 | FSQ Open Source Places and existing OSM sources | Offline candidate POI import |
-| Wikidata/Wikipedia | Future notable-place enrichment |
+| Wikidata/Wikipedia/Wikimedia | Importance metadata and optional image enrichment; descriptions remain planned |
 | PostgreSQL/Supabase | Canonical verified place storage |
-| Geoapify | User-driven runtime autocomplete and geocoding only |
+| Geoapify | Runtime autocomplete, geocoding, manual place search, and configured place fallback |
 | OpenStreetMap/Overpass | Normal bounded, cached POI recommendations; no key required |
 | Local coordinate estimator | Normal approximate route ordering; no key required |
-| Google Places | Retained legacy city and discovery endpoints only |
 | Google Routes | Retained legacy matrix adapter only |
-| Open-Meteo | Intended weather provider; not implemented |
-| Frankfurter | Intended currency provider; not implemented |
+| Open-Meteo | Implemented weather forecast and itinerary advisory provider |
 
 The Flutter client reads POIs from YatraCanvas; the backend refreshes a bounded
 city/category cache from Overpass when needed. Flutter does not query Overpass,
@@ -212,8 +248,8 @@ bias. Results use an application-owned schema and include the provider ID,
 formatted label, and coordinates. The key is never returned to Flutter.
 
 To disable Geoapify, leave `GEOAPIFY_API_KEY` empty and restart the backend.
-The endpoint will return a safe `503`; stored places, Google city discovery,
-and routing remain available when separately configured. The UI shows a
+The endpoint will return a safe `503`; stored places, cache first recommendations,
+and routing remain available. The UI shows a
 recoverable error instead of exposing provider details.
 
 Geoapify uses a freemium credit model; plans, quotas, and terms are volatile and

@@ -438,9 +438,11 @@ Save updated itinerary
 provider-neutral protocols. Normal recommendations use bounded OpenStreetMap/Overpass discovery,
 road geometry uses keyless OSRM (or openrouteservice), and weather advisories use Open-Meteo with
 in-memory caching and deterministic indoor/outdoor place environment classification.
-Legacy Google-specific city/discovery and route client code remains but is not called by the normal Flutter flow.
-There are no auth, user-profile, trip read/update/list/delete, admin,
-ingestion-job, or observability endpoints.
+Legacy Google route client code remains but is not called by the normal Flutter flow.
+`[IMPLEMENTED]` Local JWT authentication, role protected admin endpoints, the web admin dashboard,
+trip get and update paths, durable place refresh coordination, and Discover request correlation
+exist. `[PARTIAL]` Traveller account binding, authenticated trip ownership, complete trip list and
+delete lifecycle, always on external job delivery, and deployment level observability remain absent.
 
 ### Database and schema changes
 
@@ -582,8 +584,9 @@ Changing the selected provider must not silently change a REST contract or canon
 
 - Flutter's `API_BASE_URL` is public configuration. Database and provider credentials are
   backend secrets. No real value belongs in source control, docs, URLs in logs, or test fixtures.
-- `[PLANNED]` Authenticate users and derive ownership from verified tokens. Current trip creation
-  rejects client-supplied user identity and assigns a server-owned development-only placeholder UUID.
+- `[PARTIAL]` Local JWT authentication and admin authorization are implemented. Traveller requests
+  do not yet derive ownership from verified tokens. Current trip creation rejects client-supplied
+  user identity and assigns a server-owned development-only placeholder UUID.
   It accepts a client-generated `request_id` solely as the new trip primary key for idempotent retries;
   this is isolated scaffolding, not an implemented authorization boundary.
 - `[UNKNOWN]` RLS status cannot be inferred from SQLModel. Before any Supabase client accesses
