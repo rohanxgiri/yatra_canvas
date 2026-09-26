@@ -29,7 +29,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    expect(find.text('Find somewhere\nworth going.'), findsOneWidget);
+    expect(find.text('Find the place\nthat stays with you.'), findsOneWidget);
     expect(find.text('Continue as Guest'), findsNothing);
   });
 
@@ -331,7 +331,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Where are you going?'), findsOneWidget);
 
-    await tester.tap(find.byWidgetPredicate((w) => w is HomeAction && w.label == 'Back'));
+    await tester.tap(
+      find.byWidgetPredicate((w) => w is HomeAction && w.label == 'Back'),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(HomeScreen), findsOneWidget);
 
@@ -386,4 +388,3 @@ const _ujjainResponse = '''
   "created_at": "2026-08-30T12:00:00Z"
 }
 ''';
-

@@ -32,7 +32,9 @@ String? placeFallbackAsset({
   String? name,
 }) {
   final normalized = normalizedCategory?.trim().toLowerCase();
-  if (normalized != null && _fallbackByCategory.containsKey(normalized)) {
+  if (normalized != null &&
+      normalized != 'other' &&
+      _fallbackByCategory.containsKey(normalized)) {
     return _fallbackByCategory[normalized]!;
   }
   final haystack = '${rawCategory ?? ''} ${name ?? ''}'.toLowerCase();
@@ -79,5 +81,6 @@ String? placeFallbackAsset({
   for (final entry in aliases.entries) {
     if (tokens.contains(entry.key)) return _fallbackByCategory[entry.value]!;
   }
+  if (normalized == 'other') return _fallbackByCategory['other'];
   return null;
 }

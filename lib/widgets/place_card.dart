@@ -43,17 +43,24 @@ class PlaceCard extends StatelessWidget {
     enabled: onTap != null,
     semanticLabel: name,
     selected: selected,
-    borderRadius: BorderRadius.circular(18),
+    borderRadius: BorderRadius.circular(24),
     child: AnimatedContainer(
       duration: YCMotion.duration(context, YCMotion.component),
       curve: YCMotion.standard,
       decoration: BoxDecoration(
         color: selected ? AppColors.tealLight : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: selected ? AppColors.teal : AppColors.border,
           width: selected ? 1.5 : 1,
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x10142C53),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Padding(
@@ -63,17 +70,67 @@ class PlaceCard extends StatelessWidget {
           children: [
             if (image != null || imageData != null || category != null) ...[
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(18),
                 child: AspectRatio(
-                  aspectRatio: 4 / 3,
-                  child: image != null
-                      ? Image(image: image!, fit: BoxFit.cover)
-                      : PlaceImage(
-                          name: name,
-                          image: imageData,
-                          normalizedCategory: normalizedCategory,
-                          rawCategory: category,
+                  aspectRatio: 16 / 10,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      image != null
+                          ? Image(image: image!, fit: BoxFit.cover)
+                          : PlaceImage(
+                              name: name,
+                              image: imageData,
+                              normalizedCategory: normalizedCategory,
+                              rawCategory: category,
+                            ),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0x00000000), Color(0x52000000)],
+                            stops: [.55, 1],
+                          ),
                         ),
+                      ),
+                      if (category != null)
+                        Positioned(
+                          left: 12,
+                          bottom: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: .9),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              category!,
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.tealDark,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (selected)
+                        const Positioned(
+                          right: 12,
+                          top: 12,
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: AppColors.teal,
+                            child: Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -85,25 +142,16 @@ class PlaceCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (category != null) ...[
-                        Text(
-                          category!,
-                          style: AppTextStyles.caption.copyWith(
-                            color: AppColors.tealDark,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                      ],
                       Text(
                         name,
                         style: AppTextStyles.sectionTitle.copyWith(
-                          fontSize: 19,
+                          fontSize: 21,
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (selected)
+                if (selected && image == null && imageData == null)
                   const Padding(
                     padding: EdgeInsets.only(left: 12),
                     child: Icon(

@@ -13,7 +13,7 @@ void main() {
     await tester.pumpWidget(const YatraCanvasApp());
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
-    expect(find.text('Find somewhere\nworth going.'), findsOneWidget);
+    expect(find.text('Find the place\nthat stays with you.'), findsOneWidget);
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
     expect(find.byType(HomeScreen), findsOneWidget);

@@ -2,10 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../models/yatra_session.dart';
 import '../../theme/yc_motion.dart';
 import '../../widgets/yatra_brand.dart';
-import '../auth/account_entry_screen.dart';
+import '../home/home_screen.dart';
 import '../home/widgets/yatra_refractive_glass.dart';
+import '../auth/account_entry_screen.dart';
 import 'widgets/onboarding_button.dart';
 import 'widgets/onboarding_figma_first_screen.dart';
 import 'widgets/onboarding_progress_indicator.dart';
@@ -16,8 +18,9 @@ import 'widgets/onboarding_styles.dart';
 /// Introduces travellers to the core value proposition:
 /// Discover places -> personalise -> connect the route -> plan your days.
 ///
-/// After the visual pages the user is routed to [AccountEntryScreen] where
-/// they choose between Google, Sign Up, Sign In, or Guest mode.
+/// Finishing or skipping is a one-way guest entry into the product. Traveller
+/// account binding remains partial, so onboarding never blocks planning behind
+/// account controls that cannot complete yet.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -64,22 +67,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         curve: Curves.easeOutCubic,
       );
     } else {
-      _enterAuth();
+      _enterApp();
     }
   }
 
-  /// Navigate to the auth entry screen.
-  /// From there the traveller chooses Google, Sign Up, Sign In, or Guest.
-  void _enterAuth() {
-    Navigator.of(context).pushReplacement(
-      YCRoutes.journey<void>(builder: (_) => const AccountEntryScreen()),
+  void _enterApp() {
+    YatraSession.instance.enterAsGuest();
+    Navigator.of(context).pushAndRemoveUntil(
+      YCRoutes.journey<void>(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
+  }
+
+  void _openAccountOptions() {
+    Navigator.of(context).push(
+      YCRoutes.standard<void>(builder: (_) => const AccountEntryScreen()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: DecoratedBox(
+      body: AnimatedContainer(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           gradient: _currentPage == 2
               ? OnboardingStyle.journeyBackgroundGradient
@@ -116,7 +129,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               ),
                               OnboardingSkipButton(
                                 label: 'Skip',
-                                onTap: _enterAuth,
+                                onTap: _enterApp,
                               ),
                             ],
                           ),
@@ -180,16 +193,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                     horizontal: 11,
                                     vertical: 7,
                                   ),
-                                  child: OnboardingProgressIndicator(
+                              child: OnboardingProgressIndicator(
                                     currentPage: _currentPage,
                                     pageCount: _stepCount,
                                   ),
                                 ),
                               ),
+                              if (_currentPage == _stepCount - 1) ...[
+                                const SizedBox(height: 4),
+                                TextButton(
+                                  onPressed: _openAccountOptions,
+                                  child: const Text(
+                                    'Sign in or save trips to an account',
+                                  ),
+                                ),
+                              ],
                               SizedBox(height: 14 * scale),
                               OnboardingPrimaryButton(
                                 label: _currentPage == _stepCount - 1
-                                    ? 'Get Started'
+                                    ? 'Start Planning'
                                     : 'Continue',
                                 isProminent: _currentPage == _stepCount - 1,
                                 icon: Icons.arrow_forward_rounded,

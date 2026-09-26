@@ -2603,46 +2603,79 @@ class _CityContext extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const bundledCities = <String>{
+      'Jaipur',
+      'Varanasi',
+      'Ujjain',
+      'Udaipur',
+      'Manali',
+      'Goa',
+      'Rishikesh',
+    };
+    final hasImage = bundledCities.contains(city.name);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      constraints: const BoxConstraints(minHeight: 210),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
+        color: AppColors.tealDark,
+        borderRadius: BorderRadius.circular(28),
+        image: hasImage
+            ? DecorationImage(
+                image: AssetImage(
+                  'lib/assets/home/${city.name.toLowerCase()}.png',
+                ),
+                fit: BoxFit.cover,
+              )
+            : null,
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: const BoxDecoration(
-              color: AppColors.tealLight,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.explore_rounded, color: AppColors.teal),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0x10000000), Color(0xD9141B34)],
+            stops: [.3, 1],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'EXPLORING',
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .9),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  'DISCOVER PLACES',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.tealDark,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .7,
+                    letterSpacing: .8,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(city.name, style: AppTextStyles.sectionTitle),
-                const SizedBox(height: 2),
-                Text(city.locationLabel, style: AppTextStyles.bodyMuted),
-              ],
-            ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Find your ${city.name}.',
+                style: AppTextStyles.display.copyWith(
+                  color: Colors.white,
+                  fontSize: 36,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                city.locationLabel,
+                style: AppTextStyles.body.copyWith(color: Colors.white70),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2907,23 +2940,53 @@ class _OptimizedRouteCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.tealLight,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.teal.withValues(alpha: .2)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12142C53),
+            blurRadius: 28,
+            offset: Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Text(
+            'YOUR ITINERARY',
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.teal,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'A few good days, thoughtfully ordered.',
+            style: AppTextStyles.sectionTitle,
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              const Icon(Icons.route_rounded, color: AppColors.teal, size: 22),
-              const SizedBox(width: 9),
-              Expanded(
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.tealLight,
+                  borderRadius: BorderRadius.circular(99),
+                ),
                 child: Text(
                   'Optimized route',
-                  style: AppTextStyles.label.copyWith(
+                  style: AppTextStyles.caption.copyWith(
                     color: AppColors.tealDark,
                   ),
                 ),
@@ -3057,56 +3120,14 @@ class _OptimizedRouteCard extends StatelessWidget {
               ),
             ),
           ],
-          for (var dayIndex = 0; dayIndex < displayDays.length; dayIndex++) ...[
-            if (dayIndex > 0) const SizedBox(height: 12),
-            Material(
-              color: Colors.transparent,
-              child: ExpansionTile(
-                key: PageStorageKey('itinerary-day-${displayDays[dayIndex]}'),
-                initiallyExpanded: dayIndex == 0,
-                tilePadding: EdgeInsets.zero,
-                title: Text(
-                  'Day ${displayDays[dayIndex]}',
-                  style: AppTextStyles.sectionTitle,
-                ),
-                subtitle: Text(
-                  key: ValueKey(
-                    tripDays.any(
-                          (day) =>
-                              day.dayNumber == displayDays[dayIndex] &&
-                              day.dayType == DayType.rest,
-                        )
-                        ? 'itinerary-rest-day-${displayDays[dayIndex]}'
-                        : (route.placesByDay[displayDays[dayIndex]]?.isEmpty ??
-                              true)
-                        ? 'itinerary-flexible-day-${displayDays[dayIndex]}'
-                        : 'itinerary-active-day-${displayDays[dayIndex]}',
-                  ),
-                  tripDays.any(
-                        (day) =>
-                            day.dayNumber == displayDays[dayIndex] &&
-                            day.dayType == DayType.rest,
-                      )
-                      ? 'Rest day · Take it slow'
-                      : (route.placesByDay[displayDays[dayIndex]]?.isEmpty ??
-                            true)
-                      ? 'Light day · Flexible time'
-                      : '${route.placesByDay[displayDays[dayIndex]]?.length ?? 0} ${route.placesByDay[displayDays[dayIndex]]?.length == 1 ? 'place' : 'places'}',
-                  style: AppTextStyles.bodyMuted,
-                ),
-                children: [
-                  _buildDaySchedule(
-                    displayDays[dayIndex],
-                    route.placesByDay[displayDays[dayIndex]] ??
-                        const <OptimizedRoutePlace>[],
-                    tripDay: tripDays
-                        .where((d) => d.dayNumber == displayDays[dayIndex])
-                        .firstOrNull,
-                  ),
-                ],
-              ),
-            ),
-          ],
+          const SizedBox(height: 20),
+          _ItineraryDaySwitcher(
+            displayDays: displayDays,
+            route: route,
+            tripDays: tripDays,
+            dayBuilder: (day, places, tripDay) =>
+                _buildDaySchedule(day, places, tripDay: tripDay),
+          ),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -3296,6 +3317,146 @@ class _OptimizedRouteCard extends StatelessWidget {
             ))
               _MiddayBreakCard(breakItem: b),
           ],
+      ],
+    );
+  }
+}
+
+class _ItineraryDaySwitcher extends StatefulWidget {
+  const _ItineraryDaySwitcher({
+    required this.displayDays,
+    required this.route,
+    required this.tripDays,
+    required this.dayBuilder,
+  });
+
+  final List<int> displayDays;
+  final OptimizedRoute route;
+  final List<TripDay> tripDays;
+  final Widget Function(int, List<OptimizedRoutePlace>, TripDay?) dayBuilder;
+
+  @override
+  State<_ItineraryDaySwitcher> createState() => _ItineraryDaySwitcherState();
+}
+
+class _ItineraryDaySwitcherState extends State<_ItineraryDaySwitcher> {
+  late int _selectedDay;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDay = widget.displayDays.first;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ItineraryDaySwitcher oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.displayDays.contains(_selectedDay)) {
+      _selectedDay = widget.displayDays.first;
+    }
+  }
+
+  TripDay? _tripDay(int day) =>
+      widget.tripDays.where((item) => item.dayNumber == day).firstOrNull;
+
+  String _summary(int day) {
+    if (_tripDay(day)?.dayType == DayType.rest) {
+      return 'Rest day · Take it slow';
+    }
+    final count = widget.route.placesByDay[day]?.length ?? 0;
+    if (count == 0) return 'Light day · Flexible time';
+    return '$count ${count == 1 ? 'place' : 'places'}';
+  }
+
+  Key _summaryKey(int day) {
+    if (_tripDay(day)?.dayType == DayType.rest) {
+      return ValueKey('itinerary-rest-day-$day');
+    }
+    if ((widget.route.placesByDay[day]?.isEmpty ?? true)) {
+      return ValueKey('itinerary-flexible-day-$day');
+    }
+    return ValueKey('itinerary-active-day-$day');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final places =
+        widget.route.placesByDay[_selectedDay] ?? const <OptimizedRoutePlace>[];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final day in widget.displayDays) ...[
+                Semantics(
+                  selected: day == _selectedDay,
+                  button: true,
+                  child: InkWell(
+                    onTap: () => setState(() => _selectedDay = day),
+                    borderRadius: BorderRadius.circular(18),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      width: 138,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: day == _selectedDay
+                            ? AppColors.tealDark
+                            : AppColors.surfaceSoft,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: day == _selectedDay
+                              ? AppColors.tealDark
+                              : AppColors.border,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Day $day',
+                            style: AppTextStyles.cardTitle.copyWith(
+                              color: day == _selectedDay
+                                  ? Colors.white
+                                  : AppColors.charcoal,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            _summary(day),
+                            key: _summaryKey(day),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.caption.copyWith(
+                              color: day == _selectedDay
+                                  ? Colors.white70
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (day != widget.displayDays.last) const SizedBox(width: 10),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOutCubic,
+          child: KeyedSubtree(
+            key: ValueKey(_selectedDay),
+            child: widget.dayBuilder(
+              _selectedDay,
+              places,
+              _tripDay(_selectedDay),
+            ),
+          ),
+        ),
       ],
     );
   }

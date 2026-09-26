@@ -24,12 +24,15 @@ class YCGoogleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final expandsForText =
+        MediaQuery.textScalerOf(context).scale(16) / 16 > 1.3;
     return OnboardingAction(
       label: 'Continue with Google',
       onTap: onTap,
-      child: SizedBox(
+      child: Container(
         width: double.infinity,
-        height: height,
+        height: expandsForText ? null : height,
+        constraints: expandsForText ? BoxConstraints(minHeight: height) : null,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(height / 2),
           child: BackdropFilter(
@@ -38,31 +41,36 @@ class YCGoogleButton extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.72),
                 borderRadius: BorderRadius.circular(height / 2),
-                border: Border.all(
-                  color: const Color(0xFFD7E2EF),
-                  width: 1.0,
-                ),
+                border: Border.all(color: const Color(0xFFD7E2EF), width: 1.0),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CustomPaint(painter: _GoogleGPainter()),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Continue with Google',
-                    style: TextStyle(
-                      fontFamily: 'HomeInter',
-                      color: Color(0xFF1A1A2E),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.05,
+              child: Padding(
+                padding: expandsForText
+                    ? const EdgeInsets.symmetric(horizontal: 18, vertical: 12)
+                    : EdgeInsets.zero,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CustomPaint(painter: _GoogleGPainter()),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    const Flexible(
+                      child: Text(
+                        'Continue with Google',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'HomeInter',
+                          color: Color(0xFF1A1A2E),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.05,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -89,10 +97,7 @@ class _GoogleGPainter extends CustomPainter {
 
     final sw = r * 0.38;
     final outerR = r - sw / 2;
-    final outerRect = Rect.fromCircle(
-      center: Offset(cx, cy),
-      radius: outerR,
-    );
+    final outerRect = Rect.fromCircle(center: Offset(cx, cy), radius: outerR);
 
     // Sweep helper (degrees → radians, 0° = 3 o'clock)
     double deg(double d) => d * math.pi / 180;
@@ -172,18 +177,21 @@ class YCGhostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final expandsForText =
+        MediaQuery.textScalerOf(context).scale(15) / 15 > 1.3;
     return OnboardingAction(
       label: label,
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        height: height,
+        height: expandsForText ? null : height,
+        constraints: expandsForText ? BoxConstraints(minHeight: height) : null,
+        padding: expandsForText
+            ? const EdgeInsets.symmetric(horizontal: 18, vertical: 12)
+            : null,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(height / 2),
-          border: Border.all(
-            color: const Color(0xFFB8CCE8),
-            width: 1.2,
-          ),
+          border: Border.all(color: const Color(0xFFB8CCE8), width: 1.2),
           color: Colors.white.withValues(alpha: 0.35),
         ),
         child: Row(
@@ -193,14 +201,17 @@ class YCGhostButton extends StatelessWidget {
               Icon(icon, color: OnboardingStyle.mutedSlate, size: 18),
               const SizedBox(width: 8),
             ],
-            Text(
-              label,
-              style: const TextStyle(
-                fontFamily: 'HomeInter',
-                color: OnboardingStyle.mutedSlate,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.1,
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'HomeInter',
+                  color: OnboardingStyle.mutedSlate,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
           ],

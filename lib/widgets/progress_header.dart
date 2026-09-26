@@ -24,7 +24,7 @@ class ProgressHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final step = currentStep.clamp(1, totalSteps);
     final content = Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 24, 4),
+      padding: const EdgeInsets.fromLTRB(12, 8, 24, 8),
       child: Row(
         children: [
           if (onBack != null)
@@ -38,8 +38,22 @@ class ProgressHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Your journey', style: YCStyle.caption),
-                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 2,
+                  alignment: WrapAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'PLAN A TRIP',
+                      style: YCStyle.caption.copyWith(
+                        color: YCStyle.blue,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    Text('STEP $step OF $totalSteps', style: YCStyle.caption),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 Semantics(
                   label: 'Step $step of $totalSteps',
                   child: Row(
@@ -54,7 +68,7 @@ class ProgressHeader extends StatelessWidget {
                               duration: MediaQuery.disableAnimationsOf(context)
                                   ? Duration.zero
                                   : const Duration(milliseconds: 180),
-                              height: 3,
+                              height: 4,
                               decoration: BoxDecoration(
                                 color: i < step ? YCStyle.blue : YCStyle.border,
                                 borderRadius: BorderRadius.circular(8),

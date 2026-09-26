@@ -62,7 +62,12 @@ void main() {
       await tester.tap(action('Profile'));
       await tester.pumpAndSettle();
       expect(find.byType(ProfileScreen), findsOneWidget);
-      expect(find.text('0 destinations to dream about'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('profile-saved-count')))
+            .data,
+        '0',
+      );
       expect(tester.takeException(), isNull);
       YatraSession.instance.setName('Ananya');
       await tester.pumpAndSettle();

@@ -45,32 +45,53 @@ class CreateTripScaffold extends StatelessWidget {
                 child: SingleChildScrollView(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title.replaceAll('\n', ' '), style: YCStyle.title),
-                      const SizedBox(height: 12),
-                      Text(
-                        subtitle,
-                        style: YCStyle.body.copyWith(color: YCStyle.muted),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: YCStyle.title),
+                          const SizedBox(height: 14),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 460),
+                            child: Text(
+                              subtitle,
+                              style: YCStyle.body.copyWith(
+                                color: YCStyle.muted,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          child,
+                        ],
                       ),
-                      const SizedBox(height: 28),
-                      child,
-                    ],
+                    ),
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 decoration: const BoxDecoration(
-                  color: Color(0xF7F6F9FF),
-                  border: Border(top: BorderSide(color: YCStyle.border)),
+                  color: Color(0xF8FFFFFF),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x14142C53),
+                      blurRadius: 24,
+                      offset: Offset(0, -8),
+                    ),
+                  ],
                 ),
-                child: PrimaryButton(
-                  label: continueLabel,
-                  icon: continueIcon,
-                  onPressed: continueEnabled ? onContinue : null,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: PrimaryButton(
+                      label: continueLabel,
+                      icon: continueIcon,
+                      onPressed: continueEnabled ? onContinue : null,
+                    ),
+                  ),
                 ),
               ),
             ],

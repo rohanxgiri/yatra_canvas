@@ -627,13 +627,8 @@ void main() {
         expect(find.byType(FlutterMap), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsNothing);
 
-        // Day filter popup menu shows all logical days
-        final dayFilterBtn = find.byType(PopupMenuButton<int>);
-        expect(dayFilterBtn, findsOneWidget);
-        await tester.tap(dayFilterBtn);
-        await tester.pumpAndSettle();
-
-        // Verify all logical days are present in filter menu
+        // Floating day controls show every logical day without covering the map.
+        expect(find.text('All days'), findsOneWidget);
         expect(find.text('Day 1'), findsOneWidget);
         expect(find.text('Day 2'), findsOneWidget);
         expect(find.text('Day 3'), findsOneWidget);

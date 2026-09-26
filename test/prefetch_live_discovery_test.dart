@@ -153,7 +153,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // Select 'Food Exploration' and 'Culture & Heritage'
+    await tester.ensureVisible(find.text('Food Exploration'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Food Exploration'));
+    await tester.ensureVisible(find.text('Culture & Heritage'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Culture & Heritage'));
     await tester.pump();
 

@@ -10,6 +10,11 @@ abstract final class YCStyle {
   static const blue = Color(0xFF055EC8);
   static const muted = Color(0xFF526077);
   static const background = Color(0xFFF6F8FC);
+  static const warmCanvas = Color(0xFFFFFCF5);
+  static const surface = Color(0xFFFFFFFF);
+  static const surfaceBlue = Color(0xFFF0F6FF);
+  static const saffron = Color(0xFFF4B94F);
+  static const terracotta = Color(0xFFE86F51);
   static const border = Color(0xFFD7E2EF);
   static const selected = Color(0xFFE7F0FF);
   static const xs = 4.0;
@@ -21,6 +26,7 @@ abstract final class YCStyle {
   static const cardRadius = 18.0;
   static const sheetRadius = 28.0;
   static const controlHeight = 52.0;
+  static const heroRadius = 28.0;
 
   static const pressDuration = YCMotion.press;
   static const componentDuration = YCMotion.component;
@@ -33,17 +39,30 @@ abstract final class YCStyle {
     stops: [0, .38, 1],
   );
 
-  static TextStyle get title => HomeStyle.text(
-    32,
+  static TextStyle get display => HomeStyle.text(
+    40,
     color: ink,
-    weight: FontWeight.w300,
-  ).copyWith(height: 1.16);
+    weight: FontWeight.w400,
+  ).copyWith(height: 1.06, letterSpacing: -1.15);
+  static TextStyle get title => HomeStyle.text(
+    34,
+    color: ink,
+    weight: FontWeight.w400,
+  ).copyWith(height: 1.1, letterSpacing: -.9);
   static TextStyle get sectionTitle =>
-      HomeStyle.text(20, color: ink, weight: FontWeight.w500);
+      HomeStyle.text(22, color: ink, weight: FontWeight.w600)
+          .copyWith(height: 1.18, letterSpacing: -.45);
+  static TextStyle get cardTitle =>
+      HomeStyle.text(18, color: ink, weight: FontWeight.w600)
+          .copyWith(height: 1.25, letterSpacing: -.25);
   static TextStyle get body =>
-      HomeStyle.text(16, color: ink).copyWith(height: 1.45);
+      HomeStyle.text(16, color: ink).copyWith(height: 1.5);
   static TextStyle get secondary => body.copyWith(color: muted, fontSize: 14);
-  static TextStyle get caption => secondary.copyWith(fontSize: 12);
+  static TextStyle get caption => secondary.copyWith(
+    fontSize: 12,
+    height: 1.35,
+    fontWeight: FontWeight.w600,
+  );
 
   static ThemeData theme(BuildContext context) {
     final base = Theme.of(context);

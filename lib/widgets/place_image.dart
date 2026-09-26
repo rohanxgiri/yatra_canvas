@@ -110,7 +110,7 @@ class PlaceImage extends StatelessWidget {
 
     return Semantics(
       image: true,
-      label: '$name place photo',
+      label: '$name place image',
       child: ClipRRect(borderRadius: borderRadius, child: content),
     );
   }
@@ -137,6 +137,14 @@ class _LocalPlaceFallback extends StatelessWidget {
     assetPath,
     key: const Key('place_image_local_fallback'),
     fit: fit,
+    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+      if (wasSynchronouslyLoaded || frame != null) return child;
+      return _NeutralPlaceFallback(
+        normalizedCategory: normalizedCategory,
+        rawCategory: rawCategory,
+        showUnavailableLabel: false,
+      );
+    },
     errorBuilder: (_, _, _) => _NeutralPlaceFallback(
       normalizedCategory: normalizedCategory,
       rawCategory: rawCategory,

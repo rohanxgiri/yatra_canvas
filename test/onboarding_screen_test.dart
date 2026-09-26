@@ -52,6 +52,20 @@ Future<void> pumpStory(
       tester.element(find.byType(OnboardingScreen)),
     );
     await precacheImage(
+      const ResizeImage(
+        AssetImage('lib/assets/home/jaipur.png'),
+        width: 720,
+      ),
+      tester.element(find.byType(OnboardingScreen)),
+    );
+    await precacheImage(
+      const ResizeImage(
+        AssetImage('lib/assets/home/varanasi.png'),
+        width: 480,
+      ),
+      tester.element(find.byType(OnboardingScreen)),
+    );
+    await precacheImage(
       const AssetImage('lib/assets/home/amber_fort.png'),
       tester.element(find.byType(OnboardingScreen)),
     );

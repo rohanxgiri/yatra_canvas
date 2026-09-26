@@ -201,6 +201,17 @@ void main() {
 
     expect(find.byKey(const Key('place_image_state_error')), findsOneWidget);
     expect(find.byKey(const Key('place_image_local_fallback')), findsOneWidget);
+    expect(
+      find.byKey(const Key('place_image_neutral_fallback')),
+      findsOneWidget,
+    );
+    await tester.runAsync(() async {
+      await precacheImage(
+        const AssetImage('assets/images/place_fallbacks/cafe.webp'),
+        tester.element(find.byKey(const Key('place_image_local_fallback'))),
+      );
+    });
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('place_image_neutral_fallback')), findsNothing);
     expect(tester.takeException(), isNull);
   });

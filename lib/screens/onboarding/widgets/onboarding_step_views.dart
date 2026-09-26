@@ -7,38 +7,109 @@ import 'onboarding_styles.dart';
 class DiscoverStepView extends StatelessWidget {
   const DiscoverStepView({super.key});
   @override
-  Widget build(BuildContext context) => const _Story(
-    title: 'Find somewhere\nworth going.',
-    description: 'Discover places and experiences made for your next journey.',
-    child: OnboardingJourneyImage(),
-  );
+  Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: LayoutBuilder(
+        builder: (context, constraints) => SizedBox(
+          height:
+              (constraints.maxWidth / .72).clamp(360, 520) +
+              ((textScale - 1).clamp(0, 1) * 550),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const OnboardingJourneyImage(
+                  aspectRatio: .72,
+                  detailScale: 1.08,
+                  alignment: Alignment.centerRight,
+                ),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x08000000), Color(0xD9141B34)],
+                      stops: [.28, 1],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: .86),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          'YOUR JOURNEY, THOUGHTFULLY MADE',
+                          style: YCStyle.caption.copyWith(
+                            color: YCStyle.ink,
+                            letterSpacing: .8,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Find the place\nthat stays with you.',
+                        style: YCStyle.display.copyWith(
+                          color: Colors.white,
+                          fontSize: 38,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Begin with a city. Shape every day around what you love.',
+                        style: YCStyle.body.copyWith(
+                          color: Colors.white.withValues(alpha: .86),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class PersonaliseStepView extends StatelessWidget {
   const PersonaliseStepView({super.key});
   @override
   Widget build(BuildContext context) => _Story(
-    title: 'A trip made\naround you.',
+    title: 'More of what\nyou travel for.',
     description:
-        'Choose your places. We’ll connect them into days that make sense.',
+        'Tell us what draws you in. We’ll shape the journey around you.',
     child: Column(
       children: [
-        const OnboardingJourneyImage(aspectRatio: 2),
+        const _DestinationCollage(),
         const SizedBox(height: 16),
         _PreviewSurface(
           children: [
-            Text('YOUR KIND OF JOURNEY', style: YCStyle.caption),
+            Text('YOUR TRAVEL SIGNALS', style: YCStyle.caption),
             const SizedBox(height: 14),
             const _PreviewRow(
               icon: Icons.temple_hindu_outlined,
-              title: 'Culture & architecture',
-              detail: 'Places with a story to tell',
+              title: 'Heritage & local stories',
+              detail: 'The places that give a city its character',
             ),
             const Divider(height: 24),
             const _PreviewRow(
               icon: Icons.restaurant_outlined,
-              title: 'Local food',
-              detail: 'A little room for new flavours',
+              title: 'Food worth a detour',
+              detail: 'Markets, cafés and regional favourites',
             ),
           ],
         ),
@@ -51,11 +122,11 @@ class ItineraryStepView extends StatelessWidget {
   const ItineraryStepView({super.key});
   @override
   Widget build(BuildContext context) => _Story(
-    title: 'Your trip,\nat your pace.',
-    description: 'Start where you arrive. Make room for exploring, and time to take it slow.',
+    title: 'A plan with\nroom to breathe.',
+    description: 'Arrive, explore and pause. A useful plan that still moves at your pace.',
     child: _PreviewSurface(
       children: [
-        Text('A FEW DAYS AWAY', style: YCStyle.caption),
+        Text('THREE MOMENTS, ONE EASY FLOW', style: YCStyle.caption),
         const SizedBox(height: 20),
         const _PreviewRow(
           icon: Icons.train_outlined,
@@ -90,6 +161,68 @@ class ItineraryStepView extends StatelessWidget {
         Text(
           'Adjust your days as your plans change.',
           style: YCStyle.secondary,
+        ),
+      ],
+    ),
+  );
+}
+
+class _DestinationCollage extends StatelessWidget {
+  const _DestinationCollage();
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 214,
+    child: Stack(
+      children: [
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 28,
+          right: 86,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Image.asset(
+              'lib/assets/home/jaipur.png',
+              fit: BoxFit.cover,
+              cacheWidth: 720,
+              excludeFromSemantics: true,
+            ),
+          ),
+        ),
+        Positioned(
+          right: 0,
+          top: 54,
+          width: 126,
+          height: 160,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white, width: 4),
+              image: const DecorationImage(
+                image: ResizeImage(
+                  AssetImage('lib/assets/home/varanasi.png'),
+                  width: 480,
+                ),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 18,
+          bottom: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: YCStyle.ink,
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(
+              'Heritage  •  Food  •  Slow days',
+              style: YCStyle.caption.copyWith(color: Colors.white),
+            ),
+          ),
         ),
       ],
     ),

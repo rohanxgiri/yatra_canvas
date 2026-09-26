@@ -39,7 +39,7 @@ void main() {
         home: ProfileScreen(favorites: favorites, onFavorite: favorites.remove),
       ),
     );
-    await tester.tap(find.text('Saved destinations'));
+    await tester.tap(find.text('Saved Destinations'));
     await tester.pumpAndSettle();
     await tester.tap(
       find.byWidgetPredicate(
@@ -49,7 +49,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.text('0 destinations to dream about'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('profile-saved-count')))
+          .data,
+      '0',
+    );
   });
 
   testWidgets('history opens the ongoing category when a trip is active', (
@@ -199,7 +204,7 @@ void main() {
             matchesGoldenFile('goldens/account_${entry.key}.png'),
           );
         }
-        await tester.drag(find.byType(ListView).first, const Offset(0, -1400));
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, -1400));
         await tester.pumpAndSettle();
         expect(
           tester.takeException(),

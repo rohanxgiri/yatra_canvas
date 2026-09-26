@@ -9,52 +9,52 @@ class AppTextStyles {
   static const TextStyle display = TextStyle(
     fontFamily: 'HomeInter',
     color: AppColors.charcoal,
-    fontSize: 34,
-    height: 1.08,
-    fontWeight: FontWeight.w300,
-    letterSpacing: -0.4,
+    fontSize: 40,
+    height: 1.06,
+    fontWeight: FontWeight.w400,
+    letterSpacing: -1.15,
   );
 
   static const TextStyle pageTitle = TextStyle(
     fontFamily: 'HomeInter',
     color: AppColors.charcoal,
-    fontSize: 32,
-    height: 1.12,
-    fontWeight: FontWeight.w300,
-    letterSpacing: -0.3,
+    fontSize: 34,
+    height: 1.1,
+    fontWeight: FontWeight.w400,
+    letterSpacing: -0.9,
   );
 
   static const TextStyle sectionTitle = TextStyle(
     fontFamily: 'HomeInter',
     color: AppColors.charcoal,
-    fontSize: 21,
-    height: 1.22,
-    fontWeight: FontWeight.w500,
+    fontSize: 22,
+    height: 1.18,
+    fontWeight: FontWeight.w600,
     letterSpacing: -0.45,
   );
 
   static const TextStyle cardTitle = TextStyle(
     fontFamily: 'HomeInter',
     color: AppColors.charcoal,
-    fontSize: 16,
-    height: 1.3,
-    fontWeight: FontWeight.w500,
-    letterSpacing: -0.15,
+    fontSize: 18,
+    height: 1.25,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.25,
   );
 
   static const TextStyle bodyLarge = TextStyle(
     fontFamily: 'HomeInter',
     color: AppColors.charcoal,
     fontSize: 16,
-    height: 1.55,
+    height: 1.5,
     fontWeight: FontWeight.w400,
   );
 
   static const TextStyle body = TextStyle(
     fontFamily: 'HomeInter',
     color: AppColors.charcoal,
-    fontSize: 14,
-    height: 1.55,
+    fontSize: 15,
+    height: 1.5,
     fontWeight: FontWeight.w400,
   );
 
@@ -62,17 +62,17 @@ class AppTextStyles {
     fontFamily: 'HomeInter',
     color: AppColors.textSecondary,
     fontSize: 14,
-    height: 1.5,
+    height: 1.45,
     fontWeight: FontWeight.w400,
   );
 
   static const TextStyle label = TextStyle(
     fontFamily: 'HomeInter',
     color: AppColors.charcoal,
-    fontSize: 14,
+    fontSize: 13,
     height: 1.3,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 0,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.05,
   );
 
   static const TextStyle caption = TextStyle(
@@ -80,14 +80,14 @@ class AppTextStyles {
     color: AppColors.textSecondary,
     fontSize: 12,
     height: 1.35,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
   );
 
   static const TextStyle button = TextStyle(
     fontFamily: 'HomeInter',
-    fontSize: 15,
+    fontSize: 16,
     height: 1.2,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w700,
     letterSpacing: -0.05,
   );
 }

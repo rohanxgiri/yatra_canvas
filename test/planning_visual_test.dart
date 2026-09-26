@@ -28,8 +28,28 @@ void main() {
       await (FontLoader('MaterialIcons')..addFont(
             Future.value(ByteData.view(icons.readAsBytesSync().buffer)),
           ))
-          .load();
+        .load();
     }
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(key: ValueKey('asset-precache-context')),
+      ),
+    );
+    await tester.runAsync(() async {
+      final context = tester.element(
+        find.byKey(const ValueKey('asset-precache-context')),
+      );
+      for (final name in ['jaipur', 'varanasi', 'udaipur']) {
+        await precacheImage(
+          ResizeImage(
+            AssetImage('lib/assets/home/$name.png'),
+            width: 520,
+          ),
+          context,
+        );
+      }
+    });
+    await tester.pumpAndSettle();
     final draft = TripDraft(
       destination: const City(
         id: 'visual-only',
@@ -70,16 +90,6 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
-        await tester.runAsync(() async {
-          final context = tester.element(find.byKey(const ValueKey('review')));
-          for (final name in ['jaipur', 'varanasi']) {
-            await precacheImage(
-              AssetImage('lib/assets/home/$name.png'),
-              context,
-            );
-          }
-        });
         await tester.pumpAndSettle();
         expect(
           tester.takeException(),

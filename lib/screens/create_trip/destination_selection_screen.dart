@@ -301,7 +301,7 @@ class _DestinationSelectionScreenState
     final selectedCity = _draft.destination;
     return CreateTripScaffold(
       step: 1,
-      title: 'Where are you\ngoing?',
+      title: 'Where are you going?',
       subtitle: 'Choose a city. Your journey starts here.',
       continueEnabled: _draft.destination != null && !_isResolving,
       onContinue: _continue,
@@ -411,7 +411,11 @@ class _DestinationSelectionScreenState
       };
       final suggestions = recent.isNotEmpty
           ? recent
-          : {'Jaipur': 'Rajasthan', 'Varanasi': 'Uttar Pradesh'};
+          : {
+              'Jaipur': 'Rajasthan',
+              'Varanasi': 'Uttar Pradesh',
+              'Udaipur': 'Rajasthan',
+            };
       return Column(
         key: ValueKey('hint'),
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -421,39 +425,32 @@ class _DestinationSelectionScreenState
             recent.isNotEmpty ? 'Recent destinations' : 'A little inspiration',
             style: AppTextStyles.sectionTitle,
           ),
-          const SizedBox(height: 12),
-          for (final city in suggestions.entries.take(4))
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading:
-                  [
-                    'Jaipur',
-                    'Varanasi',
-                    'Ujjain',
-                    'Udaipur',
-                    'Manali',
-                    'Goa',
-                    'Rishikesh',
-                  ].contains(city.key)
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        'lib/assets/home/${city.key.toLowerCase()}.png',
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.cover,
-                        excludeFromSemantics: true,
-                      ),
-                    )
-                  : const Icon(Icons.location_on_outlined),
-              title: Text(city.key),
-              subtitle: Text(city.value),
-              trailing: const Icon(Icons.north_west_rounded, size: 20),
-              onTap: () {
-                _searchController.text = city.key;
-                _onSearchChanged(city.key);
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 188,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: suggestions.entries.take(4).length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final city = suggestions.entries.elementAt(index);
+                return _InspirationDestination(
+                  name: city.key,
+                  state: city.value,
+                  onTap: () {
+                    _searchController.text = city.key;
+                    _onSearchChanged(city.key);
+                  },
+                );
               },
             ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Search any Indian city to begin. You can choose your arrival point and pace next.',
+            style: AppTextStyles.bodyMuted,
+          ),
         ],
       );
     }
@@ -488,6 +485,103 @@ class _DestinationSelectionScreenState
       onSelected: _selectSuggestion,
     );
   }
+}
+
+class _InspirationDestination extends StatelessWidget {
+  const _InspirationDestination({
+    required this.name,
+    required this.state,
+    required this.onTap,
+  });
+
+  final String name;
+  final String state;
+  final VoidCallback onTap;
+
+  static const _bundled = <String>{
+    'Jaipur',
+    'Varanasi',
+    'Ujjain',
+    'Udaipur',
+    'Manali',
+    'Goa',
+    'Rishikesh',
+  };
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: '$name, $state',
+    child: Material(
+      color: AppColors.tealDark,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 164,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_bundled.contains(name))
+                Image.asset(
+                  'lib/assets/home/${name.toLowerCase()}.png',
+                  cacheWidth: 520,
+                  fit: BoxFit.cover,
+                  excludeFromSemantics: true,
+                  errorBuilder: (_, _, _) => const ColoredBox(
+                    color: AppColors.tealDark,
+                  ),
+                ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x08000000), Color(0xB8141B34)],
+                    stops: [.35, 1],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Align(
+                      alignment: Alignment.topRight,
+                      child: Icon(
+                        Icons.north_east_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      name,
+                      style: AppTextStyles.cardTitle.copyWith(
+                        color: Colors.white,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      state,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption.copyWith(
+                        color: Colors.white.withValues(alpha: .82),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _SuggestionsPanel extends StatelessWidget {

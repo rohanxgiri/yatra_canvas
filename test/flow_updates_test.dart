@@ -18,7 +18,7 @@ void main() {
       MaterialApp(theme: AppTheme.light, home: const PersonalInterestsScreen()),
     );
 
-    expect(find.text('Find somewhere\nworth going.'), findsOneWidget);
+    expect(find.text('Find the place\nthat stays with you.'), findsOneWidget);
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
     expect(find.text('Let’s Personalise'), findsNothing);

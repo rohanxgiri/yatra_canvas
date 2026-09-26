@@ -44,15 +44,13 @@ class AccountEntryScreen extends StatelessWidget {
   }
 
   void _openSignUp(BuildContext context) {
-    Navigator.of(context).push(
-      YCRoutes.standard<void>(builder: (_) => const SignUpScreen()),
-    );
+    Navigator.of(context)
+        .push(YCRoutes.standard<void>(builder: (_) => const SignUpScreen()));
   }
 
   void _openSignIn(BuildContext context) {
-    Navigator.of(context).push(
-      YCRoutes.standard<void>(builder: (_) => const SignInScreen()),
-    );
+    Navigator.of(context)
+        .push(YCRoutes.standard<void>(builder: (_) => const SignInScreen()));
   }
 
   @override
@@ -66,9 +64,7 @@ class AccountEntryScreen extends StatelessWidget {
           gradient: OnboardingStyle.backgroundGradient,
         ),
         child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: OnboardingStyle.radialGlow,
-          ),
+          decoration: const BoxDecoration(gradient: OnboardingStyle.radialGlow),
           child: SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -104,7 +100,8 @@ class AccountEntryScreen extends StatelessWidget {
                       // ── Supporting copy ─────────────────────────────────
                       Text(
                         'Sign in to keep your trips and preferences '
-                        'wherever you travel.',
+                        'wherever you travel. Account access is still being '
+                        'prepared, so guest planning is available now.',
                         style: OnboardingStyle.text(
                           15 * scale,
                           color: OnboardingStyle.mutedSlate,
@@ -155,12 +152,13 @@ class AccountEntryScreen extends StatelessWidget {
 
                       Center(
                         child: Text(
-                          'Trips stay on this device until you create an account.',
+                          'Trips stay in this app session while you continue as a guest.',
                           textAlign: TextAlign.center,
                           style: OnboardingStyle.text(
                             12 * scale,
-                            color: OnboardingStyle.mutedSlate
-                                .withValues(alpha: 0.75),
+                            color: OnboardingStyle.mutedSlate.withValues(
+                              alpha: 0.75,
+                            ),
                             height: 1.5,
                           ),
                         ),

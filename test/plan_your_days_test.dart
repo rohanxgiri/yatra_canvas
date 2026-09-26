@@ -378,6 +378,16 @@ void main() {
             ),
           ),
         );
+        if (entry.key == 'poi') {
+          await tester.runAsync(() async {
+            await precacheImage(
+              const AssetImage(
+                'assets/images/place_fallbacks/fort_palace.webp',
+              ),
+              tester.element(find.byType(PoiBottomSheet)),
+            );
+          });
+        }
         await tester.pumpAndSettle();
         if (entry.key == 'itinerary') {
           await _tapVisible(
@@ -876,6 +886,11 @@ void main() {
 
       // Day 2 (REST Day) MUST remain visible even with 0 stops
       expect(find.text('Day 2'), findsOneWidget);
+      expect(find.text('Rest day · Take it slow'), findsOneWidget);
+      await tester.ensureVisible(find.text('Day 2'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Day 2'));
+      await tester.pumpAndSettle();
       expect(
         find.text(
           'Rest Day · Take it slow today. Your time is intentionally unplanned.',

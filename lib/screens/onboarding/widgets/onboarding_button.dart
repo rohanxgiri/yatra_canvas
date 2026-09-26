@@ -28,12 +28,18 @@ class OnboardingPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final expandsForText =
+        MediaQuery.textScalerOf(context).scale(17) / 17 > 1.3;
     return OnboardingAction(
       label: label,
       onTap: onTap,
       child: Container(
         width: width ?? double.infinity,
-        height: height,
+        height: expandsForText ? null : height,
+        constraints: expandsForText ? BoxConstraints(minHeight: height) : null,
+        padding: expandsForText
+            ? const EdgeInsets.symmetric(horizontal: 20, vertical: 12)
+            : null,
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(height / 2),
@@ -50,14 +56,17 @@ class OnboardingPrimaryButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontFamily: 'HomeInter',
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.1,
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'HomeInter',
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
             if (icon != null) ...[

@@ -1,5 +1,3 @@
-import '../../widgets/selection_chip.dart';
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -73,6 +71,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   bool _suppressArrivalSearch = false;
   int _searchRevision = 0;
   int _arrivalSearchRevision = 0;
+  String? _lastArrivalQuery;
 
   static const _methods = <(String, IconData)>[
     ('Train', Icons.train_rounded),
@@ -166,6 +165,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   }
 
   Future<void> _searchArrivalPoint(String query, int revision) async {
+    _lastArrivalQuery = query;
     setState(() {
       _isSearchingArrival = true;
       _arrivalError = null;
@@ -194,6 +194,13 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
         setState(() => _isSearchingArrival = false);
       }
     }
+  }
+
+  void _retryArrivalSearch() {
+    final query = _lastArrivalQuery ?? _pointController.text.trim();
+    if (query.length < 3) return;
+    final revision = ++_arrivalSearchRevision;
+    _searchArrivalPoint(query, revision);
   }
 
   void _selectMethod(String method) {
@@ -386,7 +393,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   String _locationError(Object error) {
     if (error is DeviceLocationException) return error.message;
     if (error is LocationServiceException) return error.message;
-    if (error is TimeoutException) return 'Location lookup took too long.';
+    if (error is TimeoutException) return 'Location lookup timed out. Try again.';
     return 'Could not select this start location.';
   }
 
@@ -593,7 +600,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     final city = widget.draft.destination?.name ?? 'Ujjain';
     return CreateTripScaffold(
       step: 3,
-      title: 'How are you\nreaching $city?',
+      title: 'How are you reaching $city?',
       subtitle: 'Set your arrival, then choose where sightseeing begins.',
       continueEnabled: _canContinue,
       onContinue: _continue,
@@ -685,9 +692,9 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
             ),
           ] else if (_arrivalError != null) ...[
             const SizedBox(height: 8),
-            Text(
-              _arrivalError!,
-              style: AppTextStyles.caption.copyWith(color: AppColors.error),
+            _StartLocationError(
+              message: _arrivalError!,
+              onRetry: _retryArrivalSearch,
             ),
           ] else if (_hasSearchedArrival &&
               !_isSearchingArrival &&
@@ -798,11 +805,52 @@ class _TransportCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => SelectionChip(
-    label: label,
-    icon: icon,
+  Widget build(BuildContext context) => YCPressable(
+    onTap: onTap,
+    semanticLabel: label,
     selected: selected,
-    onSelected: (_) => onTap(),
+    borderRadius: BorderRadius.circular(20),
+    child: AnimatedContainer(
+      duration: YCMotion.duration(context, YCMotion.component),
+      width: 104,
+      height: 92,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: selected ? AppColors.tealDark : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: selected ? AppColors.tealDark : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                color: selected ? Colors.white : AppColors.teal,
+                size: 22,
+              ),
+              const Spacer(),
+              if (selected)
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: AppColors.marigold,
+                  size: 18,
+                ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            label,
+            style: AppTextStyles.label.copyWith(
+              color: selected ? Colors.white : AppColors.charcoal,
+            ),
+          ),
+        ],
+      ),
+    ),
   );
 }
 

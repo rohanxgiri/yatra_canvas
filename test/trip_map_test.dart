@@ -459,10 +459,6 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Open day filter menu
-    await tester.tap(find.byIcon(Icons.filter_list_rounded));
-    await tester.pumpAndSettle();
-
     // Select Day 1
     await tester.tap(find.text('Day 1'));
     await tester.pumpAndSettle();
@@ -476,9 +472,7 @@ void main() {
       polylineLayer.polylines[0].points.last,
       const LatLng(28.6129, 77.2295),
     );
-    await tester.tap(find.byIcon(Icons.filter_list_rounded));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('All Days'));
+    await tester.tap(find.text('All days'));
     await tester.pumpAndSettle();
     expect(
       tester.widget<PolylineLayer>(find.byType(PolylineLayer)).polylines.length,

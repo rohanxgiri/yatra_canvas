@@ -61,9 +61,12 @@ repository reality from the intended provider architecture.
 ### Flutter
 
 `[IMPLEMENTED]` The September 2026 UI redesign adds locally scoped `YCStyle`,
-`YCScaffold`, a unified three-page onboarding story, responsive trip-creation
-surfaces, and refined discovery/day/map/POI presentations. Home and Explore retain
-their approved layouts and glass components. See [UI redesign](UI_REDESIGN.md).
+`YCScaffold`, a unified four-moment onboarding story, responsive trip-creation
+surfaces, and refined discovery/day/map/POI presentations. Completing or skipping
+onboarding enters the in-memory guest session and clears the route stack to Home;
+it does not gate planning behind the `[PARTIAL]` traveler-account surfaces. Home
+and Explore retain their approved layouts and glass components. See
+[UI redesign](UI_REDESIGN.md) and [UX/UI polish](YATRACANVAS_UX_UI_POLISH.md).
 
 `[IMPLEMENTED]` The interaction layer centralizes durations, easing, reduced-motion
 handling, and page-transition patterns in `YCMotion`. Ripple-free `YCPressable`

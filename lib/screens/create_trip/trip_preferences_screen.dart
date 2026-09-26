@@ -148,7 +148,7 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
       children: [
         CreateTripScaffold(
           step: 5,
-          title: 'How do you like\nto travel?',
+          title: 'How do you like to travel?',
           subtitle: 'Tell us what feels right and we will tune the flow and pace of the trip.',
           continueLabel: _isCreating
               ? (isEditing ? 'Saving Trip…' : 'Creating Trip…')
@@ -159,6 +159,8 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _TripSummary(draft: widget.draft, pace: _pace, budget: _budget),
+              const SizedBox(height: 30),
               const _SectionTitle('Travel pace'),
               const SizedBox(height: 12),
               ..._paces.map(
@@ -229,18 +231,6 @@ class _TripPreferencesScreenState extends State<TripPreferencesScreen> {
                       ),
                     )
                     .toList(growable: false),
-              ),
-              const SizedBox(height: 30),
-              ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: const Text('Your trip at a glance'),
-                children: [
-                  _TripSummary(
-                    draft: widget.draft,
-                    pace: _pace,
-                    budget: _budget,
-                  ),
-                ],
               ),
               if (_creationError case final error?) ...[
                 const SizedBox(height: 14),

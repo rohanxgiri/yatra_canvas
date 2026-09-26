@@ -146,7 +146,7 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
   Widget build(BuildContext context) {
     return CreateTripScaffold(
       step: 2,
-      title: 'When are you\ntravelling?',
+      title: 'When are you travelling?',
       subtitle:
           "Choose your trip dates and we'll plan around the time you have.",
       onContinue: _continue,
@@ -157,7 +157,15 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
             selected: _datesFlexible,
             onTap: () => setState(() => _datesFlexible = !_datesFlexible),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
+          _DateSummary(
+            destination: widget.draft.destination?.name ?? 'Your trip',
+            flexible: _datesFlexible,
+            startDate: _startDate,
+            endDate: _endDate,
+            durationDays: _datesFlexible ? _durationDays : _selectedDays,
+          ),
+          const SizedBox(height: 28),
           if (!_datesFlexible) ...[
             Text(
               _selectingEnd
@@ -186,13 +194,6 @@ class _SelectDatesScreenState extends State<SelectDatesScreen> {
                     onNextMonth: _nextMonth,
                     onSelected: _selectDate,
                   ),
-          ),
-          const SizedBox(height: 22),
-          _DateSummary(
-            flexible: _datesFlexible,
-            startDate: _startDate,
-            endDate: _endDate,
-            durationDays: _datesFlexible ? _durationDays : _selectedDays,
           ),
         ],
       ),
@@ -454,12 +455,14 @@ class _CalendarCard extends StatelessWidget {
 
 class _DateSummary extends StatelessWidget {
   const _DateSummary({
+    required this.destination,
     required this.flexible,
     required this.startDate,
     required this.endDate,
     required this.durationDays,
   });
 
+  final String destination;
   final bool flexible;
   final DateTime startDate;
   final DateTime? endDate;
@@ -498,43 +501,62 @@ class _DateSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.tealDark,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(26),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.event_available_rounded,
-              color: Colors.white,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  destination.toUpperCase(),
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.marigold,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.event_available_rounded,
+                color: Colors.white70,
+                size: 20,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$durationDays',
+                style: AppTextStyles.display.copyWith(
+                  color: Colors.white,
+                  height: .92,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(
+                  durationDays == 1 ? 'day' : 'days',
+                  style: AppTextStyles.cardTitle.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            flexible ? 'Dates can stay flexible for now' : _formatDateRange(),
+            style: AppTextStyles.body.copyWith(
+              color: Colors.white.withValues(alpha: .88),
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  flexible ? 'Flexible dates' : _formatDateRange(),
-                  style: AppTextStyles.cardTitle.copyWith(color: Colors.white),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$durationDays ${durationDays == 1 ? 'Day' : 'Days'}',
-                  style: AppTextStyles.body.copyWith(color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.check_circle_rounded, color: AppColors.marigold),
         ],
       ),
     );

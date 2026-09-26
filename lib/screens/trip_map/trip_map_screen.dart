@@ -747,28 +747,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
   Widget build(BuildContext context) {
     return YCScaffold(
       appBar: AppBar(
-        title: const Text('Trip Map'),
-        actions: [
-          if (_logicalDays.isNotEmpty)
-            PopupMenuButton<int>(
-              tooltip: _selectedDay == null ? 'All days' : 'Day $_selectedDay',
-              icon: const Icon(Icons.filter_list_rounded),
-              onSelected: (day) {
-                setState(() {
-                  _selectedDay = day == 0 ? null : day;
-                });
-                _fitMapBounds();
-              },
-              itemBuilder: (context) {
-                final days = _logicalDays;
-                return [
-                  const PopupMenuItem(value: 0, child: Text('All Days')),
-                  for (final day in days)
-                    PopupMenuItem(value: day, child: Text('Day $day')),
-                ];
-              },
-            ),
-        ],
+        title: const Text('Your trip map'),
       ),
       body: _buildBody(),
     );
@@ -871,6 +850,48 @@ class _TripMapScreenState extends State<TripMapScreen> {
             ),
           ],
         ),
+        if (_logicalDays.isNotEmpty)
+          Positioned(
+            top: 14,
+            left: 14,
+            right: 14,
+            child: YatraRefractiveGlass(
+              radius: 22,
+              blur: 6,
+              fill: const Color(0xE8FFFFFF),
+              borderColor: const Color(0xF2FFFFFF),
+              shadow: true,
+              shadowColor: const Color(0x14142C53),
+              shadowBlur: 18,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  children: [
+                    _MapDayChip(
+                      label: 'All days',
+                      selected: _selectedDay == null,
+                      onTap: () {
+                        setState(() => _selectedDay = null);
+                        _fitMapBounds();
+                      },
+                    ),
+                    for (final day in _logicalDays) ...[
+                      const SizedBox(width: 6),
+                      _MapDayChip(
+                        label: 'Day $day',
+                        selected: _selectedDay == day,
+                        onTap: () {
+                          setState(() => _selectedDay = day);
+                          _fitMapBounds();
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
         Positioned(
           right: 16,
           bottom: 48,
@@ -916,7 +937,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
             _optimizedRoute != null &&
             !_optimizedRoute!.places.any((p) => p.dayNumber == _selectedDay))
           Positioned(
-            top: 16,
+            top: 90,
             left: 16,
             right: 16,
             child: Material(
@@ -1026,4 +1047,40 @@ class _TripMapScreenState extends State<TripMapScreen> {
       ],
     );
   }
+}
+
+class _MapDayChip extends StatelessWidget {
+  const _MapDayChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(99),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.tealDark : Colors.transparent,
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.label.copyWith(
+            color: selected ? Colors.white : AppColors.charcoal,
+          ),
+        ),
+      ),
+    ),
+  );
 }

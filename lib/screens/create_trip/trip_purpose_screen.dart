@@ -85,28 +85,38 @@ class _TripPurposeScreenState extends State<TripPurposeScreen> {
     final city = widget.draft.destination?.name ?? 'Ujjain';
     return CreateTripScaffold(
       step: 4,
-      title: 'What brings you\nto $city?',
+      title: 'What brings you to $city?',
       subtitle: "We'll prioritize places that match the purpose of this trip.",
       continueEnabled: _selected.isNotEmpty,
       onContinue: _continue,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Choose one or more',
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.teal,
-              fontWeight: FontWeight.w800,
-              letterSpacing: .7,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Choose what matters most',
+                  style: AppTextStyles.sectionTitle,
+                ),
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: Text(
+                  '${_selected.length} selected',
+                  key: ValueKey(_selected.length),
+                  style: AppTextStyles.caption.copyWith(color: AppColors.teal),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth;
+              final itemWidth = (constraints.maxWidth - 12) / 2;
               return Wrap(
-                spacing: 10,
-                runSpacing: 10,
+                spacing: 12,
+                runSpacing: 12,
                 children: _purposes
                     .map(
                       (purpose) => SizedBox(
@@ -176,26 +186,58 @@ class _PurposeCard extends StatelessWidget {
     child: AnimatedContainer(
       duration: YCMotion.duration(context, YCMotion.component),
       curve: YCMotion.standard,
+      height: MediaQuery.textScalerOf(context).scale(1) > 1.3 ? 188 : 148,
       decoration: BoxDecoration(
         color: selected ? AppColors.tealLight : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: selected ? AppColors.teal : AppColors.border,
           width: selected ? 1.5 : 1,
         ),
+        boxShadow: selected
+            ? const [
+                BoxShadow(
+                  color: Color(0x14055EC8),
+                  blurRadius: 20,
+                  offset: Offset(0, 8),
+                ),
+              ]
+            : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: Row(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 22, color: AppColors.teal),
-            const SizedBox(width: 14),
-            Expanded(child: Text(label, style: AppTextStyles.bodyLarge)),
-            const SizedBox(width: 12),
-            Icon(
-              selected ? Icons.check_circle : Icons.circle_outlined,
-              size: 22,
-              color: selected ? AppColors.teal : AppColors.borderStrong,
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.teal : AppColors.surfaceSoft,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 23,
+                    color: selected ? Colors.white : AppColors.teal,
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  selected ? Icons.check_circle : Icons.circle_outlined,
+                  size: 22,
+                  color: selected ? AppColors.teal : AppColors.borderStrong,
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.cardTitle,
             ),
           ],
         ),
