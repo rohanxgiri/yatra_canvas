@@ -1,0 +1,103 @@
+{
+  "schema_version": "3.0",
+  "city_pack_version": "v3",
+  "city_id": "jaipur",
+  "city_name": "Jaipur",
+  "state": "Rajasthan",
+  "country": "India",
+  "generated_at": "2026-09-19T16:09:59.354338+00:00",
+  "pipeline_health": "PASS",
+  "data_quality": "WARN",
+  "source_coverage": "PASS",
+  "source_versions": {
+    "wikivoyage": "135",
+    "wikidata": "52",
+    "openstreetmap": "1092",
+    "overture": "64832"
+  },
+  "counts": {
+    "total_raw_candidates": 66111,
+    "accepted": 10060,
+    "rejected": 37024,
+    "quarantined": 17972,
+    "duplicate_merges": 1054,
+    "with_images": 53,
+    "with_opening_hours": 125,
+    "with_wikidata": 93,
+    "category_conflicts": 135912,
+    "entity_conflicts": 1,
+    "alias_conflicts": 0,
+    "image_conflicts": 0,
+    "coordinate_conflicts": 2027,
+    "by_tier": {
+      "core_destination": 80,
+      "support": 2078,
+      "discovery": 6122,
+      "recommended": 1780
+    },
+    "by_tier_stats": {
+      "core_destination": {
+        "count": 80,
+        "with_wikidata": 47,
+        "with_wikipedia": 24,
+        "with_image": 47,
+        "with_hours": 17,
+        "with_website": 30,
+        "multi_source": 41
+      },
+      "recommended": {
+        "count": 1780,
+        "with_wikidata": 1,
+        "with_wikipedia": 1,
+        "with_image": 1,
+        "with_hours": 90,
+        "with_website": 1543,
+        "multi_source": 391
+      },
+      "discovery": {
+        "count": 6122,
+        "with_wikidata": 5,
+        "with_wikipedia": 4,
+        "with_image": 2,
+        "with_hours": 7,
+        "with_website": 6104,
+        "multi_source": 18
+      },
+      "support": {
+        "count": 2078,
+        "with_wikidata": 40,
+        "with_wikipedia": 4,
+        "with_image": 3,
+        "with_hours": 11,
+        "with_website": 2008,
+        "multi_source": 304
+      }
+    },
+    "by_category": {
+      "heritage": 208,
+      "hotel": 2037,
+      "experience": 5823,
+      "transport": 41,
+      "nature": 23,
+      "park": 119,
+      "religious": 163,
+      "food": 865,
+      "cafe": 246,
+      "viewpoint": 2,
+      "museum": 40,
+      "arts_culture": 68,
+      "shopping": 416,
+      "entertainment": 9
+    }
+  },
+  "checksums": {
+    "city.json": "76a01b320e63e5f29fd4b83e96a20e7fcd8e22939dc3592e25594a279b879ebe",
+    "places.json": "62e349ef39ff2f0a7e6d848117e4704539d7047286ce928f2da5cb38e3cd149a",
+    "places.jsonl": "d958fc185753a11e0f0142685a2edac31464e0581e90be18de27edb73c5aebee",
+    "places.parquet": "ca742fcc836f4f5f4e6eb1616ccc046386b5de01b24ac3600c682a7b99584e59",
+    "image_manifest.json": "1684fad545466de60d2868379cc84e471fd3cf876bf8c18da16c561685c44d2e",
+    "source_manifest.json": "f650e06a8f1333ab9066ba877f9aa784957fd3c82844e0c05607c08e661e8eb4",
+    "license_manifest.json": "ca96986da832c97a64b35585bf73b8e29dac70466f7089e7c5863a953ee6857d",
+    "yatracanvas.db": "0905a477390a14805c0813ea99fe4fce36bea3a2e26390bbbddae90430186bef"
+  }
+}

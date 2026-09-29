@@ -57,6 +57,83 @@ void main() {
     expect(placeFallbackAsset(normalizedCategory: 'entertainment'), isNull);
   });
 
+  test(
+    'Jaipur place pack returns distinct exact fallbacks before category art',
+    () {
+      final hawa = placeFallbackImage(
+        cityName: 'Jaipur',
+        name: 'Hawa Mahal',
+        normalizedCategory: 'tourism',
+      );
+      final jantar = placeFallbackImage(
+        cityName: 'Jaipur',
+        name: 'Jantar Mantar',
+        normalizedCategory: 'tourism',
+      );
+      final jal = placeFallbackImage(
+        cityName: 'Jaipur',
+        name: 'Jal Mahal',
+        normalizedCategory: 'heritage',
+      );
+
+      expect(
+        hawa?.assetPath,
+        endsWith('/yc_in_rj_jaipur_hawa_mahal/primary.webp'),
+      );
+      expect(
+        jantar?.assetPath,
+        endsWith('/yc_in_rj_jaipur_jantar_mantar/primary.webp'),
+      );
+      expect(
+        jal?.assetPath,
+        endsWith('/yc_in_rj_jaipur_jal_mahal/primary.webp'),
+      );
+      expect({
+        hawa?.assetPath,
+        jantar?.assetPath,
+        jal?.assetPath,
+      }, hasLength(3));
+      expect(hawa?.attribution, contains('CC BY-SA 4.0'));
+      expect(jantar?.attribution, contains('Public domain'));
+    },
+  );
+
+  test('city pack lookup cannot leak Jaipur imagery into another city', () {
+    expect(
+      placeFallbackAsset(
+        cityName: 'Udaipur',
+        name: 'City Palace',
+        normalizedCategory: 'heritage',
+      ),
+      endsWith('/fort_palace.webp'),
+    );
+  });
+
+  testWidgets(
+    'every configured Jaipur fallback is included in the asset bundle',
+    (tester) async {
+      const names = [
+        'Albert Hall Museum',
+        'Amber Fort',
+        'Birla Mandir',
+        'City Palace',
+        'Hawa Mahal',
+        'Jaigarh Fort',
+        'Jal Mahal',
+        'Jantar Mantar',
+        'Nahargarh Fort',
+        'Patrika Gate',
+      ];
+
+      for (final name in names) {
+        final localImage = placeFallbackImage(cityName: 'Jaipur', name: name);
+        expect(localImage, isNotNull, reason: name);
+        final data = await rootBundle.load(localImage!.assetPath);
+        expect(data.lengthInBytes, greaterThan(0), reason: name);
+      }
+    },
+  );
+
   testWidgets('every mapped category resolves to a bundled WebP asset', (
     tester,
   ) async {
@@ -118,6 +195,38 @@ void main() {
     expect(find.byKey(const Key('place_image_local_fallback')), findsOneWidget);
     expect(find.text('Photo unavailable'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Jaipur exact fallback renders its packaged attribution', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 180,
+          child: PlaceImage(
+            name: 'Jantar Mantar',
+            cityName: 'Jaipur',
+            normalizedCategory: 'tourism',
+            showAttribution: true,
+          ),
+        ),
+      ),
+    );
+
+    final localImage = tester.widget<Image>(
+      find.byKey(const Key('place_image_local_fallback')),
+    );
+    expect(
+      localImage.image,
+      const AssetImage(
+        'assets/city_packs/jaipur/images/'
+        'yc_in_rj_jaipur_jantar_mantar/primary.webp',
+      ),
+    );
+    expect(find.textContaining('Knowledge Seeker'), findsOneWidget);
+    expect(find.textContaining('Public domain'), findsOneWidget);
   });
 
   testWidgets(

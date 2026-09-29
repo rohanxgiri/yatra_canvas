@@ -9,6 +9,7 @@ class PlaceImage extends StatelessWidget {
   const PlaceImage({
     required this.name,
     this.image,
+    this.cityName,
     this.normalizedCategory,
     this.rawCategory,
     this.fit = BoxFit.cover,
@@ -20,6 +21,7 @@ class PlaceImage extends StatelessWidget {
 
   final String name;
   final PlaceImageData? image;
+  final String? cityName;
   final String? normalizedCategory;
   final String? rawCategory;
   final BoxFit fit;
@@ -36,12 +38,13 @@ class PlaceImage extends StatelessWidget {
     final attribution = image?.attribution;
 
     Widget fallback({required Key key, required bool showUnavailableLabel}) {
-      final assetPath = placeFallbackAsset(
+      final localImage = placeFallbackImage(
         normalizedCategory: normalizedCategory,
         rawCategory: rawCategory,
         name: name,
+        cityName: cityName,
       );
-      if (assetPath == null) {
+      if (localImage == null) {
         return _NeutralPlaceFallback(
           key: key,
           normalizedCategory: normalizedCategory,
@@ -51,7 +54,8 @@ class PlaceImage extends StatelessWidget {
       }
       return _LocalPlaceFallback(
         key: key,
-        assetPath: assetPath,
+        assetPath: localImage.assetPath,
+        attribution: showAttribution ? localImage.attribution : null,
         fit: fit,
         normalizedCategory: normalizedCategory,
         rawCategory: rawCategory,
@@ -119,6 +123,7 @@ class PlaceImage extends StatelessWidget {
 class _LocalPlaceFallback extends StatelessWidget {
   const _LocalPlaceFallback({
     required this.assetPath,
+    required this.attribution,
     required this.fit,
     required this.normalizedCategory,
     required this.rawCategory,
@@ -127,29 +132,36 @@ class _LocalPlaceFallback extends StatelessWidget {
   });
 
   final String assetPath;
+  final String? attribution;
   final BoxFit fit;
   final String? normalizedCategory;
   final String? rawCategory;
   final bool showUnavailableLabel;
 
   @override
-  Widget build(BuildContext context) => Image.asset(
-    assetPath,
-    key: const Key('place_image_local_fallback'),
-    fit: fit,
-    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-      if (wasSynchronouslyLoaded || frame != null) return child;
-      return _NeutralPlaceFallback(
-        normalizedCategory: normalizedCategory,
-        rawCategory: rawCategory,
-        showUnavailableLabel: false,
-      );
-    },
-    errorBuilder: (_, _, _) => _NeutralPlaceFallback(
-      normalizedCategory: normalizedCategory,
-      rawCategory: rawCategory,
-      showUnavailableLabel: showUnavailableLabel,
-    ),
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      Image.asset(
+        assetPath,
+        key: const Key('place_image_local_fallback'),
+        fit: fit,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) return child;
+          return _NeutralPlaceFallback(
+            normalizedCategory: normalizedCategory,
+            rawCategory: rawCategory,
+            showUnavailableLabel: false,
+          );
+        },
+        errorBuilder: (_, _, _) => _NeutralPlaceFallback(
+          normalizedCategory: normalizedCategory,
+          rawCategory: rawCategory,
+          showUnavailableLabel: showUnavailableLabel,
+        ),
+      ),
+      if (attribution case final value?) _ImageAttribution(attribution: value),
+    ],
   );
 }
 

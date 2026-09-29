@@ -1,6 +1,6 @@
 # YatraCanvas manual database changes
 
-Last reviewed: 2026-09-20
+Last reviewed: 2026-09-27
 
 This directory contains upgrade scripts for databases created by older versions of
 YatraCanvas. It is not an ordered migration runner, and filenames must not be executed
@@ -36,17 +36,18 @@ Current-model migrations verified as applied on 2026-09-07:
    and `moderation_status` column and check on places verified as applied on 2026-09-14. All existing
    cities preserved with `is_enabled=true`, and all existing places preserved with `moderation_status='ACTIVE'`.
 
-Pending deployment review:
+Deployment state after the 2026-09-27 cache/persistence repair:
 
 - `add_provider_cooldowns.sql` is `[IMPLEMENTED]` in repository models/tests and remains
   unapplied by repository work. It adds shared provider backoff metadata only; it does not alter
   canonical places or image cache rows. `rollback_provider_cooldowns.sql` drops cooldown history
   only.
-- `add_place_refresh_jobs.sql` is `[IMPLEMENTED]` in repository models/tests and remains
-  unapplied by repository work. It adds only durable refresh coordination state; it does not
-  alter or delete `places`, `place_tags`, or `city_category_cache`. Apply it before deploying
-  the cache-first recommendation route. `rollback_place_refresh_jobs.sql` drops job history
-  only and is a reviewed destructive recovery helper, not an installation step.
+- `add_place_refresh_jobs.sql` is `[IMPLEMENTED]` in repository models/tests and its complete
+  schema is present in the configured development database. The 2026-09-27 recovery manifest
+  contained 57 durable refresh-job rows, and concurrent-request verification found no duplicate
+  job keys. Its original deployment actor remains `[UNKNOWN]` because there is no migration
+  ledger. `rollback_place_refresh_jobs.sql` drops job history only and is a reviewed destructive
+  recovery helper, not an installation step.
 - `add_place_image_cache.sql` is `[IMPLEMENTED]` in repository models/tests. A read-only catalog
   inspection found `place_image_cache` already present on the configured remote database with the
   expected columns, indexes, constraints, and no server default on `fetched_at`. Its creation
@@ -57,9 +58,25 @@ Pending deployment review:
   read-only transaction by default. Its optional `--write-test` is rejected unless `APP_ENV` is
   explicitly `development` or `test`, commits uniquely identified temporary rows, verifies them
   in a fresh session, and deletes only those rows in cleanup.
+- `add_place_opening_hours_updated_at.sql` is `[IMPLEMENTED]` in repository models/tests and was
+  permanently applied to the configured development database on 2026-09-27. A fresh connection
+  verified the non-null column and all 651 pre-existing rows; later real refreshes wrote additional
+  rows without the prior `UndefinedColumn` failure.
+- `add_city_identity_and_sources.sql` is `[IMPLEMENTED]` in repository models/API/tests and was
+  permanently applied in the same guarded transaction. It preserved provider IDs, reassigned the
+  six known city foreign keys, consolidated the one duplicate normalized identity, backfilled 23
+  legacy identities, and installed `uq_cities_normalized_identity`.
 
-The exact execution actor and restore point cannot be attributed from repository evidence. Do
-not rerun older scripts on this database, and do not run a rollback script as an installation step.
+Before application, a transactionally consistent database-side recovery snapshot was created as
+schema `migration_backup_20260927t121718z`. The manifest was checked in the same transaction:
+28 cities, 2,625 places, 94 trips, 0 import reviews, 1 city source, 133 category-cache rows, 57
+refresh jobs, and 651 opening-hour rows. Post-commit verification from a fresh connection found 27
+cities, 24 city sources, zero normalized duplicates, zero orphan city sources, and both expected
+schema objects. The snapshot remains in the database as the authoritative before-state for a
+reviewed rollback; it is not a platform-level disaster-recovery backup.
+
+Do not rerun either applied script or an older script on this database without first auditing the
+complete result, and do not run a rollback script as an installation step.
 
 ## Historical upgrade order
 
@@ -82,6 +99,8 @@ the catalog before continuing.
 13. `add_place_image_cache.sql`
 14. `add_place_refresh_jobs.sql`
 15. `add_provider_cooldowns.sql`
+16. `add_place_opening_hours_updated_at.sql`
+17. `add_city_identity_and_sources.sql`
 
 `repair_current_schema_parity.sql` is a convergence repair for the older provider and route
 scripts. On the currently configured database its effects are already present, so rerunning the
@@ -97,6 +116,9 @@ dependent assignment data, and `rollback_admin_auth_and_moderation.sql` drops pl
 users, and admin moderation/destination columns.
 `rollback_place_refresh_jobs.sql` drops only durable refresh coordination history.
 `rollback_provider_cooldowns.sql` drops only provider backoff history.
+`rollback_place_opening_hours_updated_at.sql` drops only the update timestamp.
+`rollback_city_identity_and_sources.sql` drops the identity index and provider identity table; it
+cannot recreate duplicate cities consolidated by the forward repair.
 
 ## Verification checklist
 

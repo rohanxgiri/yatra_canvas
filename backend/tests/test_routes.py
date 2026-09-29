@@ -326,11 +326,74 @@ def test_geoapify_city_autocomplete_and_place_details(client: TestClient) -> Non
         "longitude": 72.6369,
         "google_place_id": None,
         "provider_place_id": "geoapify-gandhinagar",
+        "provider_name": "geoapify",
     }
 
     missing = client.get("/cities/place-details/missing-place")
     assert missing.status_code == 404
     assert missing.json() == {"detail": "Provider place could not be found."}
+
+
+def test_city_resolution_normalizes_identity_and_preserves_provider_sources(
+    client: TestClient,
+) -> None:
+    first = client.post(
+        "/cities/resolve",
+        json={
+            "name": " Jaipur, Rajasthan ",
+            "state": " Rajasthan ",
+            "country": " India ",
+            "latitude": 26.9124,
+            "longitude": 75.7873,
+            "provider_name": "geoapify",
+            "provider_place_id": "geoapify-jaipur-primary",
+        },
+    )
+    second = client.post(
+        "/cities/resolve",
+        json={
+            "name": "jaipur rajasthan",
+            "state": "rajasthan",
+            "country": "india",
+            "latitude": 26.91,
+            "longitude": 75.79,
+            "provider_name": "secondary_fixture",
+            "provider_place_id": "secondary-jaipur",
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["name"] == "Jaipur"
+    assert first.json()["google_place_id"] is None
+    assert second.json()["id"] == first.json()["id"]
+    assert len(client.get("/cities").json()) == 1
+
+
+def test_same_city_name_in_different_states_remains_distinct(
+    client: TestClient,
+) -> None:
+    common = {
+        "name": "Rampur",
+        "country": "India",
+        "latitude": 0,
+        "longitude": 0,
+        "provider_place_id": None,
+        "provider_name": None,
+    }
+
+    north = client.post(
+        "/cities/resolve",
+        json={**common, "state": "Uttar Pradesh"},
+    )
+    hills = client.post(
+        "/cities/resolve",
+        json={**common, "state": "Himachal Pradesh"},
+    )
+
+    assert north.status_code == 200
+    assert hills.status_code == 200
+    assert north.json()["id"] != hills.json()["id"]
 
 
 def test_missing_geoapify_key_returns_safe_api_response(client: TestClient) -> None:

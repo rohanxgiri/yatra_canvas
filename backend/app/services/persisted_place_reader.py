@@ -7,11 +7,21 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from uuid import UUID
 
+from sqlalchemy import and_
 from sqlmodel import Session, select
 
 from app.core.config import Settings, get_settings
-from app.models import CityCategoryCache, Place, PlaceTag
+from app.models import (
+    City,
+    CityCategoryCache,
+    Place,
+    PlaceImageCache,
+    PlaceSource,
+    PlaceTag,
+)
 from app.schemas import DiscoveryCategory
+from app.schemas.place_image import PlaceImageRead
+from app.services.place_image_service import image_read_from_cache
 
 
 class CategoryFreshness(str, Enum):
@@ -20,20 +30,50 @@ class CategoryFreshness(str, Enum):
     FRESH = "fresh"
     STALE = "stale"
     EXPIRED = "expired"
+    INSUFFICIENT = "insufficient"
     MISSING = "missing"
 
 
 @dataclass(frozen=True, slots=True)
+class CoverageStatus:
+    """One canonical persisted coverage decision for a city category."""
+
+    state: CategoryFreshness
+    usable_count: int
+    desired_count: int
+    last_refreshed_at: datetime | None
+
+    @property
+    def is_usable(self) -> bool:
+        return self.usable_count > 0
+
+    @property
+    def refresh_needed(self) -> bool:
+        return self.state is not CategoryFreshness.FRESH
+
+
+@dataclass(frozen=True, slots=True)
 class PersistedCandidateSnapshot:
+    city: City | None
     places_by_category: dict[DiscoveryCategory, list[Place]]
-    freshness: dict[DiscoveryCategory, CategoryFreshness]
+    coverage: dict[DiscoveryCategory, CoverageStatus]
+    tags_by_place: dict[UUID, set[str]]
+    place_sources: list[PlaceSource]
+    images_by_place: dict[UUID, PlaceImageRead]
+    image_refresh_ids: set[UUID]
+
+    @property
+    def freshness(self) -> dict[DiscoveryCategory, CategoryFreshness]:
+        """Compatibility view for callers that need only the state."""
+
+        return {category: status.state for category, status in self.coverage.items()}
 
     @property
     def refresh_categories(self) -> list[DiscoveryCategory]:
         return [
             category
-            for category, state in self.freshness.items()
-            if state is not CategoryFreshness.FRESH
+            for category, status in self.coverage.items()
+            if status.refresh_needed
         ]
 
     @property
@@ -68,31 +108,51 @@ class PersistedPlaceReader:
     ) -> PersistedCandidateSnapshot:
         unique_categories = list(dict.fromkeys(categories))
         if not unique_categories:
-            return PersistedCandidateSnapshot({}, {})
+            return PersistedCandidateSnapshot(None, {}, {}, {}, [], {}, set())
 
         category_by_value = {category.value: category for category in unique_categories}
         places_by_category = {category: [] for category in unique_categories}
-        places = list(
-            session.exec(
-                select(Place)
-                .where(
-                    Place.city_id == city_id,
+        # Tags and provider identities describe the same candidate set. Loading
+        # them with the places avoids two extra sequential round trips to a
+        # remote database. The dictionaries below collapse the small outer join
+        # fan out without changing the snapshot contract.
+        candidate_rows = session.exec(
+            select(City, Place, PlaceTag.tag, PlaceSource, PlaceImageCache)
+            .select_from(City)
+            .outerjoin(
+                Place,
+                and_(
+                    Place.city_id == City.id,
                     Place.moderation_status == "ACTIVE",
-                )
-                .order_by(Place.name)
-            ).all()
-        )
-        place_by_id = {place.id: place for place in places}
-        tags_by_place: dict[UUID, set[str]] = {place.id: set() for place in places}
-        if place_by_id:
-            tag_rows = session.exec(
-                select(PlaceTag.place_id, PlaceTag.tag).where(
-                    PlaceTag.place_id.in_(list(place_by_id)),
-                    PlaceTag.tag.in_(list(category_by_value)),
-                )
-            ).all()
-            for place_id, tag in tag_rows:
-                tags_by_place.setdefault(place_id, set()).add(tag)
+                ),
+            )
+            .outerjoin(
+                PlaceTag,
+                PlaceTag.place_id == Place.id,
+            )
+            .outerjoin(PlaceSource, PlaceSource.place_id == Place.id)
+            .outerjoin(PlaceImageCache, PlaceImageCache.place_id == Place.id)
+            .where(City.id == city_id)
+            .order_by(Place.name)
+        ).all()
+        city: City | None = None
+        place_by_id: dict[UUID, Place] = {}
+        tags_by_place: dict[UUID, set[str]] = {}
+        source_by_id: dict[UUID, PlaceSource] = {}
+        image_row_by_place: dict[UUID, PlaceImageCache] = {}
+        for row_city, place, tag, source, image_row in candidate_rows:
+            city = row_city
+            if place is None:
+                continue
+            place_by_id.setdefault(place.id, place)
+            tags_by_place.setdefault(place.id, set())
+            if tag is not None:
+                tags_by_place[place.id].add(tag)
+            if source is not None:
+                source_by_id.setdefault(source.id, source)
+            if image_row is not None:
+                image_row_by_place.setdefault(image_row.place_id, image_row)
+        places = list(place_by_id.values())
 
         for place in places:
             membership_values = set(tags_by_place.get(place.id, set()))
@@ -111,19 +171,48 @@ class PersistedPlaceReader:
         ).all()
         cache_by_key = {row.category: row for row in cache_rows}
         checked_at = now or datetime.now(timezone.utc)
-        freshness: dict[DiscoveryCategory, CategoryFreshness] = {}
+        image_refresh_ids = set(place_by_id)
+        images_by_place: dict[UUID, PlaceImageRead] = {}
+        for place_id, image_row in image_row_by_place.items():
+            expired = self._as_utc(image_row.expires_at) <= checked_at
+            if not expired:
+                image_refresh_ids.discard(place_id)
+            if not expired or image_row.status == "resolved":
+                images_by_place[place_id] = image_read_from_cache(image_row)
+        coverage: dict[DiscoveryCategory, CoverageStatus] = {}
+        desired_count = self._settings.discovery_min_usable_candidates_per_category
         for category, key in keys.items():
             cache = cache_by_key.get(key)
-            if cache is None:
-                freshness[category] = CategoryFreshness.MISSING
+            usable_count = len({place.id for place in places_by_category[category]})
+            last_refreshed_at = (
+                self._as_utc(cache.last_fetched_at) if cache is not None else None
+            )
+            if usable_count == 0:
+                state = CategoryFreshness.MISSING
+            elif cache is None:
+                state = CategoryFreshness.INSUFFICIENT
             elif self._as_utc(cache.expires_at) > checked_at:
-                freshness[category] = CategoryFreshness.FRESH
+                state = CategoryFreshness.FRESH
             elif self._as_utc(cache.last_fetched_at) + self._stale_ttl > checked_at:
-                freshness[category] = CategoryFreshness.STALE
+                state = CategoryFreshness.STALE
             else:
-                freshness[category] = CategoryFreshness.EXPIRED
+                state = CategoryFreshness.EXPIRED
+            coverage[category] = CoverageStatus(
+                state=state,
+                usable_count=usable_count,
+                desired_count=desired_count,
+                last_refreshed_at=last_refreshed_at,
+            )
 
-        return PersistedCandidateSnapshot(places_by_category, freshness)
+        return PersistedCandidateSnapshot(
+            city,
+            places_by_category,
+            coverage,
+            tags_by_place,
+            list(source_by_id.values()),
+            images_by_place,
+            image_refresh_ids,
+        )
 
     @staticmethod
     def _as_utc(value: datetime) -> datetime:

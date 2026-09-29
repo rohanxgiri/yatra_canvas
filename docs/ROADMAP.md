@@ -1,21 +1,27 @@
 # YatraCanvas roadmap
 
-Last reviewed: 2026-09-21
+Last reviewed: 2026-09-27
 
 ## Discover Places data-loading reliability — September 2026
 
-Status: `[IMPLEMENTED]` in repository and Flutter tests; migration deployment, always-on job
-delivery, and configured-PostgreSQL/device performance verification are `[PARTIAL]`.
+Status: `[IMPLEMENTED]` in repository, backend tests, configured PostgreSQL, and Flutter tests;
+always-on job delivery and physical-device performance verification remain `[PARTIAL]`.
 Recommendation responses no longer join background prefetch, partial and stale-usable rows render
 immediately, and prefetch/Discover share durable per-category leases across workers. Flutter uses
 versioned SQLite snapshots and 10-place cursor pages append progressively. Provider/image failures
 remain non-blocking. The client now treats data completeness separately from refresh activity,
 exits the full skeleton as soon as any cards exist, and uses bounded lifecycle-aware polling only
 for empty queued/refreshing responses. Pixel 10 emulator verification covered skeleton-to-card
-transition for a Jaipur trip; physical-device and configured-PostgreSQL timing runs remain open. See
+transition for a Jaipur trip; physical-device timing remains open. See
 [the implementation report](DISCOVER_PIPELINE_IMPLEMENTATION_REPORT.md). `[IMPLEMENTED]` Request
 correlation now preserves or generates a bounded `X-Request-ID`, reuses one Flutter trip-flow ID,
 and follows refresh/provider/image work without logging authorization or provider secrets.
+Repository code now also uses one coverage decision model, provider-neutral city identities, and a
+failed-refresh cooldown. A 2026-09-27 configured-database run persisted Ziro plus four Geoapify
+places and reused the same city ID on repeat. On 2026-09-27 a verified database-side recovery
+snapshot was created and both reviewed parity migrations were permanently applied. Cached
+recommendations now use two database queries, with measured warm HTTP responses of about 3.39
+seconds for Jaipur and 1.71-1.76 seconds for Ziro from this remote-database host.
 
 This roadmap is sequenced for reversible, testable changes. A phase is not complete until its
 acceptance criteria pass in a local/test environment and the source-of-truth documents are
@@ -109,8 +115,9 @@ Acceptance criteria:
 Status: `[PARTIAL]`. Provider-neutral place images, POI-specific cache identity, contextual
 provider queries, candidate URL validation, direct-identifier-first Wikimedia lookup, item
 attribution/license storage, durable TTL cache, shared/durable 429 cooldown, bounded priority
-batches, client precaching, explicit Flutter image states, semantically correct bundled category
-fallbacks, and neutral non-photographic failure presentation are `[IMPLEMENTED]`. Descriptions,
+batches, client precaching, explicit Flutter image states, licensed exact-place Jaipur city pack
+fallbacks, semantically correct bundled category fallbacks, and neutral non-photographic failure
+presentation are `[IMPLEMENTED]`. Descriptions,
 revision-aware refresh, operator batch controls, and media-removal reconciliation remain
 `[PLANNED]`.
 

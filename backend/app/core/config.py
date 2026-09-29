@@ -288,6 +288,12 @@ class Settings(BaseSettings):
         le=30,
         validation_alias="DISCOVERY_MIN_USABLE_CANDIDATES_PER_CATEGORY",
     )
+    place_refresh_failed_retry_minutes: int = Field(
+        default=5,
+        ge=1,
+        le=1440,
+        validation_alias="PLACE_REFRESH_FAILED_RETRY_MINUTES",
+    )
     routing_provider: str = Field(
         default="osrm",
         validation_alias="ROUTING_PROVIDER",

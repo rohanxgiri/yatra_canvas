@@ -3,6 +3,7 @@
 from app.models.entities import (
     City,
     CityCategoryCache,
+    CitySource,
     Place,
     PlaceCategory,
     PlaceImageCache,
@@ -26,6 +27,7 @@ from app.models.entities import (
 __all__ = [
     "City",
     "CityCategoryCache",
+    "CitySource",
     "Place",
     "PlaceCategory",
     "PlaceImageCache",

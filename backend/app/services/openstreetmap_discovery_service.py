@@ -176,10 +176,14 @@ class OpenStreetMapDiscoveryService:
             return results
 
         # Invariant 1: Release checked-out DB connection to pool before starting slow external provider I/O
+        previous_expire_on_commit = session.expire_on_commit
+        session.expire_on_commit = False
         try:
             session.commit()
         except Exception:
             session.rollback()
+        finally:
+            session.expire_on_commit = previous_expire_on_commit
 
         category_radii = {
             category: self._settings.overpass_radius_for_category(category)
@@ -374,6 +378,13 @@ class OpenStreetMapDiscoveryService:
         except _SkipOverpass:
             pass
         except TimeoutError:
+            record_budget_timeout = getattr(
+                self._provider,
+                "record_budget_timeout",
+                None,
+            )
+            if callable(record_budget_timeout):
+                record_budget_timeout()
             provider_outcomes["overpass"] = (
                 "timed out after "
                 f"{self._settings.discovery_interactive_timeout_seconds:.1f}s"

@@ -34,6 +34,16 @@ flutter:
     - lib/assets/onboarding/
     - lib/assets/onboarding/figma_map/
     - assets/images/place_fallbacks/
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_albert_hall_museum/primary.webp
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_amber_fort/primary.webp
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_birla_mandir_aka_the_marble_temple/primary.webp
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_city_palace/primary.webp
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_hawa_mahal/primary.webp
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_jaigarh_fort/primary.webp
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_jal_mahal/primary.webp
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_jantar_mantar/primary.webp
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_nahargarh_fort/primary.webp
+    - assets/city_packs/jaipur/images/yc_in_rj_jaipur_patrika_gate/primary.webp
     - lib/assets/fonts/OFL.txt
   fonts:
     - family: HomeInter

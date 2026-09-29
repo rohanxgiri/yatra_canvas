@@ -192,7 +192,11 @@ class OpenStreetMapPlacesService:
             response = await self._request(query)
             self._raise_for_status(response)
             payload = response.json()
-        except asyncio.CancelledError as exc:
+            if not isinstance(payload, dict) or not isinstance(
+                payload.get("elements"), list
+            ):
+                raise TypeError("response does not contain an elements list")
+        except asyncio.CancelledError:
             duration = time.monotonic() - start_time
             logger.warning(
                 "OpenStreetMap discovery cancelled for category=%s radius=%dm "
@@ -201,14 +205,11 @@ class OpenStreetMapPlacesService:
                 effective_radius,
                 duration,
             )
-            if self._circuit_breaker:
-                self._circuit_breaker.record_failure(
-                    OpenStreetMapPlacesTimeoutError(
-                        "OpenStreetMap discovery was cancelled by its time budget."
-                    )
-                )
+            # A caller cancellation can mean process shutdown or abandoned
+            # work. The owner of an explicit provider time budget records that
+            # timeout, so ordinary cancellation does not poison provider health.
             raise
-        except (ValueError, KeyError) as exc:
+        except (TypeError, ValueError, KeyError) as exc:
             duration = time.monotonic() - start_time
             logger.warning(
                 "OpenStreetMap returned invalid JSON for category=%s duration=%.2fs: %s",
@@ -237,13 +238,6 @@ class OpenStreetMapPlacesService:
         if self._circuit_breaker:
             self._circuit_breaker.record_success()
 
-        if not isinstance(payload, dict) or not isinstance(
-            payload.get("elements"), list
-        ):
-            raise OpenStreetMapPlacesUnavailableError(
-                "OpenStreetMap returned an invalid discovery response."
-            )
-
         results: list[OpenStreetMapNearbyPlace] = []
         seen: set[str] = set()
         for raw in payload["elements"]:
@@ -269,6 +263,16 @@ class OpenStreetMapPlacesService:
             duration,
         )
         return results
+
+    def record_budget_timeout(self) -> None:
+        """Record one explicit outer discovery budget timeout."""
+
+        if self._circuit_breaker:
+            self._circuit_breaker.record_failure(
+                OpenStreetMapPlacesTimeoutError(
+                    "OpenStreetMap discovery exceeded its bounded phase budget."
+                )
+            )
 
     async def search_nearby_places_for_categories(
         self,

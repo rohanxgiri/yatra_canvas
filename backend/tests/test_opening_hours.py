@@ -350,6 +350,59 @@ def test_provider_without_hours_remains_unknown(
     assert place_source.raw_opening_hours is None
 
 
+def test_opening_hours_update_tracks_updated_at(
+    session: Session, sample_city: City
+) -> None:
+    service = CanonicalPlaceService()
+    nearby = OpenStreetMapNearbyPlace(
+        external_place_id="node/opening-hours-update",
+        name="Schedule Update Museum",
+        latitude=9.93,
+        longitude=78.13,
+        source_url="https://www.openstreetmap.org/node/opening-hours-update",
+        tags={"opening_hours": "Mo 09:00-17:00"},
+    )
+    place, _ = service.resolve_or_create_nearby_place(
+        session=session,
+        city=sample_city,
+        category=DiscoveryCategory.TOURISM,
+        nearby=nearby,
+        source_name="openstreetmap",
+        licence_identifier="ODbL",
+    )
+    session.commit()
+    original = session.exec(
+        select(PlaceOpeningHours).where(
+            PlaceOpeningHours.place_id == place.id,
+            PlaceOpeningHours.day_of_week == 0,
+        )
+    ).one()
+    original_updated_at = original.updated_at
+
+    nearby.tags["opening_hours"] = "Mo 10:00-18:00"
+    service.resolve_or_create_nearby_place(
+        session=session,
+        city=sample_city,
+        category=DiscoveryCategory.TOURISM,
+        nearby=nearby,
+        source_name="openstreetmap",
+        licence_identifier="ODbL",
+    )
+    session.commit()
+    session.expire_all()
+    updated = session.exec(
+        select(PlaceOpeningHours).where(
+            PlaceOpeningHours.place_id == place.id,
+            PlaceOpeningHours.day_of_week == 0,
+        )
+    ).one()
+
+    assert original_updated_at is not None
+    assert updated.updated_at is not None
+    assert updated.updated_at >= original_updated_at
+    assert updated.intervals == [{"open": "10:00", "close": "18:00"}]
+
+
 def test_place_read_api_serialization(session: Session, sample_city: City):
     """Requirement 9 & 16: PlaceRead exposes opening_hours dictionary matching API contract."""
     service = CanonicalPlaceService()

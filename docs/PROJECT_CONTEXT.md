@@ -1,7 +1,16 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-09-21
-Last verified against repository: 2026-09-21
+Last reviewed: 2026-09-27
+Last verified against repository: 2026-09-27
+
+`[IMPLEMENTED]` The cache/persistence repair aligns opening-hour updates, canonical city identity,
+provider city provenance, shared coverage decisions, failed-refresh backoff, and recommendation
+batching in repository code, tests, and the configured development database. On 2026-09-27 the two
+reviewed parity migrations were applied after a transactionally consistent database-side recovery
+snapshot was recorded. The cached recommendation read now uses two database queries, and provider
+refresh/image work is dispatched without blocking the FastAPI event loop. See [the cache/persistence
+root-cause report](BACKEND_CACHE_PERSISTENCE_ROOT_CAUSE_AND_FIX.md) and [the cached recommendation
+performance report](BACKEND_CACHED_RECOMMENDATION_PERFORMANCE.md).
 
 `[IMPLEMENTED]` Discover Places and the end-to-end trip onboarding journey now run with complete
 real-world concurrency safety and latency optimization under high WAN round-trip latency. Trip
@@ -48,7 +57,7 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
   - City and arrival location autocomplete via Geoapify (`GET /locations/autocomplete`);
   - OpenStreetMap/Overpass bounded city-wide candidate discovery across 7 categories;
   - Multi-stage recommendation pipeline with canonical/spatial/brand deduplication, generalizable institutional/private suitability filtering, purpose/interest weighting, bounded Wikidata importance, and mixed-interest category balancing hardened across 7 benchmark cities and validated with 0 restricted POI leakage;
-  - Provider-neutral, cache-first place imagery with background Geoapify/Wikimedia/optional Foursquare resolution, item attribution metadata, negative/failure TTLs, URL validation, durable Wikimedia 429 cooldowns, semantically matched bundled category assets, and a guaranteed neutral non-photographic fallback that never blocks place or itinerary responses;
+  - Provider-neutral, cache-first place imagery with background Geoapify/Wikimedia/optional Foursquare resolution, item attribution metadata, negative/failure TTLs, URL validation, durable Wikimedia 429 cooldowns, licensed exact-place Jaipur city pack fallbacks, semantically matched bundled category assets, and a guaranteed neutral non-photographic fallback that never blocks place or itinerary responses;
   - Saved places management (`UserSavedPlace`) with custom ordering, locks, must-visit flags, priorities, notes, and authoritative backend reconciliation;
   - Multi-day itinerary optimization powered by Google OR-Tools VRPTW solver with opening hours, category visit duration heuristics, normalized day-load balancing, bounded empty/under-filled-day repair, midday lunch breaks, locked stops, and must-visit penalties;
   - Keyless road-following route geometry via OSRM (`GET /trips/{trip_id}/route-geometry`);
@@ -74,7 +83,7 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
 | **Client (Flutter)** | Flutter SDK (Dart `^3.13.0`), Material 3, `http`, `flutter_map: ^8.3.2`, `geolocator`, `flutter_svg`, `cached_network_image`, `sqflite` | Widget-local `StatefulWidget` state + shared in-memory `TripDraft`; durable versioned SQLite recommendation snapshots. No external state library (BLoC/Riverpod) or router package. |
 | **Admin Web App** | HTML5, Vanilla CSS, Vanilla JavaScript (ES6+), Fetch API | Responsive, information-dense operational dashboard served by FastAPI at `/admin` with JWT bearer authentication. |
 | **Backend (FastAPI)** | Python 3.12+, FastAPI, Pydantic v2, SQLModel, SQLAlchemy, psycopg 3, httpx, bcrypt, pyjwt | Async REST API, Pydantic settings, dependency injection, safe error translation, backend secret encapsulation, JWT auth, admin suite. |
-| **Database** | PostgreSQL (local or Supabase-hosted) | Canonical/supporting tables include places and provenance, `place_refresh_jobs`, `place_image_cache`, `provider_cooldowns`, users/reports, trips/days/preferences/saved places, route/itinerary caches, and import reviews. Existing deployments require reviewed manual SQL because no ordered migration runner exists. |
+| **Database** | PostgreSQL (local or Supabase-hosted) | Canonical/supporting tables include cities plus `city_sources`, places and provenance, `place_refresh_jobs`, `place_image_cache`, `provider_cooldowns`, users/reports, trips/days/preferences/saved places, route/itinerary caches, and import reviews. Existing deployments require reviewed manual SQL because no ordered migration runner exists. |
 | **Optimization** | Google OR-Tools (`>=9.9.0`) | Multi-day Vehicle Routing Problem with Time Windows (VRPTW) solver (`VrptwSolverService`). |
 | **Routing & Matrix** | Local coordinate estimates (default matrix), OSRM / openrouteservice (geometry) | Keyless Haversine distance/duration calculations for matrices; OSRM public demo / ORS for road geometry polylines. |
 | **Weather** | Open-Meteo | Hourly/daily weather forecasts with in-memory TTL caching and deterministic exposure classification. |
@@ -164,10 +173,10 @@ The recommendation engine (`RecommendationService`) executes a deterministic 5-s
   - Conservative Rule 3: Geographic ($\le 100$m), category-compatible, and strict name variant matching fallback.
   - Rule 4: Canonical Place creation with full `PlaceSource` provenance and licensing (CC BY 4.0 and ODbL-1.0).
 - **Progressive POI Prefetch & Cache-First Live Discovery Reliability** is `[IMPLEMENTED]` with `[PARTIAL]` deployment/job delivery:
-  - 3-tier cache semantics (`FRESH` $\le 24$h, `STALE_USABLE` $\le 168$h, `MISSING`) with `DISCOVERY_MIN_USABLE_CANDIDATES_PER_CATEGORY=6`.
+  - One persisted coverage decision model exposes `FRESH`, `STALE`, `EXPIRED`, `INSUFFICIENT`, and `MISSING` with usable count, desired count, and last refresh time. Fresh completed rows remain authoritative for small cities rather than being forced toward a second hardcoded threshold.
   - Destination, dates, interests, and start-location stages enqueue or record work without blocking Flutter navigation. HTTP 202 is returned before provider work; `GET /places/prefetch/{city_id}` exposes coarse state.
   - Foreground recommendations read persisted eligible POIs only; cache age schedules refresh but never removes otherwise displayable rows.
-  - Prefetch and Discover persist one `place_refresh_jobs` lease per `(city_id, versioned_category)`. Atomic acquisition, lease expiry, and recorded outcomes coalesce provider execution across backend workers. Local task delivery still depends on a live process; a later request recovers queued or expired work.
+  - Prefetch and Discover persist one `place_refresh_jobs` lease per `(city_id, versioned_category)`. Atomic acquisition, lease expiry, recorded outcomes, and a configurable failed-job cooldown coalesce provider execution across backend workers without immediate retry storms. Local task delivery still depends on a live process; a later request recovers queued or expired work.
   - Multi-provider fallback hierarchy: Cached DB places $\to$ `GeoapifyPlacesProvider` $\to$ `AudialaPlacesProvider` $\to$ `OpenStreetMapPlacesService`.
   - Circuit breaker for Overpass OSM with consecutive failure threshold (3) and cooldown (60s).
   - Partial category provider failure tolerance returning scored usable recommendations.

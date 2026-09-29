@@ -1,6 +1,6 @@
 # Data model
 
-Last reviewed: 2026-09-20
+Last reviewed: 2026-09-27
 
 The source of truth for the current schema is `backend/app/models/entities.py`. This document
 describes those SQLModel tables and the tracked SQL scripts; it does not assert what exists in
@@ -11,6 +11,7 @@ an uninspected production database.
 ```mermaid
 erDiagram
     CITY ||--o{ PLACE : contains
+    CITY ||--o{ CITY_SOURCE : identified_by
     CITY ||--o{ CITY_CATEGORY_CACHE : caches
     CITY ||--o{ PLACE_REFRESH_JOB : coordinates
     CITY ||--o{ TRIP : destination
@@ -37,13 +38,14 @@ Deletion behavior must not be assumed except where an `ondelete` action is expli
 
 | Table/model | Status | Purpose and important constraints |
 | --- | --- | --- |
-| `cities` / `City` | `[IMPLEMENTED]` | Canonical destination name/state/country and coordinates. Destination flags `is_enabled`, `is_featured`, `is_popular`, `display_order`, nullable `image_url`, and `description` govern destination promotion and availability. Nullable indexed `google_place_id` has unique constraint `uq_cities_google_place_id`; coordinate checks apply. |
+| `cities` / `City` | `[IMPLEMENTED]` in model/tests and configured development database | Canonical destination name/state/country and coordinates. Destination flags `is_enabled`, `is_featured`, `is_popular`, `display_order`, nullable `image_url`, and `description` govern destination promotion and availability. Nullable indexed `google_place_id` remains a legacy compatibility field. Unique expression index `uq_cities_normalized_identity` enforces one canonical row per trimmed, case-insensitive `(name, state, country)` identity; coordinate checks apply. |
+| `city_sources` / `CitySource` | `[IMPLEMENTED]` in model/API/tests and configured development database | Provider city identity separated from the canonical city. Unique `(source, external_city_id)` prevents provider identity duplication, while `city_id` cascades on canonical city deletion. `last_seen_at` records the most recent observed identity. |
 | `places` / `Place` | `[IMPLEMENTED]` | Canonical curated POI tied to a city, with category, coordinates, optional rating, review count, feature flags, `wikidata_id`, `importance_score`, `moderation_status` (`ACTIVE`, `HIDDEN`, `RESTRICTED`, `DUPLICATE`, `INVALID` with check constraint `ck_places_moderation_status`), `opening_hours_status` (`KNOWN`, `CLOSED`, `UNKNOWN` with check constraint `ck_places_opening_hours_status`), preserved `raw_opening_hours`, `last_fetched_at`, and `created_at`. Rating/review and coordinate checks apply. Moderation status filters out ineligible places from candidate discovery, recommendation scoring, and manual search. |
 | `users` / `User` | `[IMPLEMENTED]` | Registered user account storing unique lowercase `email`, `name`, salted `password_hash` (bcrypt), `role` (`USER`, `ADMIN` with check constraint `ck_users_role`), `is_active` boolean, `created_at`, and `updated_at`. Governs JWT bearer authentication and role-based endpoint authorization. |
 | `place_reports` / `PlaceReport` | `[IMPLEMENTED]` | User/traveler place issue reports tied to `places.id` and optional `users.id`. Stores issue `reason` (`permanently_closed`, `restricted_facility`, `duplicate`, `wrong_category`, etc.), optional `details`, workflow `status` (`OPEN`, `REVIEWING`, `RESOLVED`, `REJECTED` with check constraint `ck_place_reports_status`), optional `admin_notes`, `created_at`, and `updated_at`. |
-| `place_opening_hours` / `PlaceOpeningHours` | `[IMPLEMENTED]` | Normalized daily opening hours tied to `places.id` with `ondelete="CASCADE"`. Stores `day_of_week` (0=Monday .. 6=Sunday), `status` (`KNOWN`, `CLOSED`, `UNKNOWN`), and `intervals` JSON array (`[{"open": "HH:MM", "close": "HH:MM"}]`). Check constraints enforce `0 <= day_of_week <= 6` (`ck_place_opening_hours_day`) and valid status (`ck_place_opening_hours_status`). Unique constraint `uq_place_opening_hours_place_day` guarantees one schedule row per day per canonical place. Feeds exact weekday interval domains in the day-aware optimizer. |
+| `place_opening_hours` / `PlaceOpeningHours` | `[IMPLEMENTED]` in model/tests and configured development database | Normalized daily opening hours tied to `places.id` with `ondelete="CASCADE"`. Stores `day_of_week` (0=Monday .. 6=Sunday), `status` (`KNOWN`, `CLOSED`, `UNKNOWN`), `intervals` JSON, `created_at`, and `updated_at`. Check constraints enforce the day range and valid status. Unique constraint `uq_place_opening_hours_place_day` guarantees one schedule row per day per canonical place. The update timestamp is written on insert and refresh and feeds exact weekday interval domains in the day-aware optimizer. |
 | `city_category_cache` / `CityCategoryCache` | `[IMPLEMENTED]` | One row per city/category with `last_fetched_at` and required `expires_at`; prevents unnecessary nearby refresh. |
-| `place_refresh_jobs` / `PlaceRefreshJob` | `[IMPLEMENTED]` in model/tests; deployment application `[PARTIAL]` | One durable row per `(city_id, versioned_category)`. `queued`/`running`/`completed`/`failed` state, an expiring owner lease, attempts, completion/error timestamps, and a unique constraint provide atomic multi-worker refresh ownership and crash recovery without changing POI display eligibility. |
+| `place_refresh_jobs` / `PlaceRefreshJob` | `[IMPLEMENTED]` in model/tests and configured development database | One durable row per `(city_id, versioned_category)`. `queued`/`running`/`completed`/`failed` state, an expiring owner lease, attempts, completion/error timestamps, and a unique constraint provide atomic multi-worker refresh ownership and crash recovery without changing POI display eligibility. |
 | `place_tags` / `PlaceTag` | `[IMPLEMENTED]` | Application tags unique per place/tag pair. |
 | `place_sources` / `PlaceSource` | `[IMPLEMENTED]` | Provider provenance and external identity. Unique per place/source and globally per source/external ID. Stores `wikidata_id`, source URL, licence identifier, address/contact/social fields, preserved `raw_opening_hours`, provider lifecycle dates, unresolved flags, fetch/import timestamps. |
 | `place_image_cache` / `PlaceImageCache` | `[IMPLEMENTED]` schema and service; migration not applied by repository work | One durable normalized image-resolution row per canonical place, keyed by unique `place_id`. Stores provider/place ID, normalized category, URL/thumbnail, source/attribution/author/license metadata, `resolved`/`not_found`/`failed` status, fetch/expiry timestamps, and bounded failure reason. Provider/status checks and unique `place_id` prevent ambiguous active cache rows. New provider/media identity on `PlaceSource` invalidates the row so an earlier negative result can be retried. UI fallback graphics are never stored as authentic URLs. |
@@ -163,6 +165,10 @@ The authoritative dependency order and the latest configured-database audit are 
 | `backend/sql/rollback_place_refresh_jobs.sql` | Destructive reviewed rollback paired with refresh coordination; drops job history only, not POIs or cache rows |
 | `backend/sql/add_provider_cooldowns.sql` | Additive forward change; creates shared provider backoff state used before Wikimedia requests |
 | `backend/sql/rollback_provider_cooldowns.sql` | Destructive reviewed rollback paired with provider backoff; drops cooldown history only |
+| `backend/sql/add_place_opening_hours_updated_at.sql` | Additive forward change; adds the missing non-null update timestamp with a safe `NOW()` default for existing rows |
+| `backend/sql/rollback_place_opening_hours_updated_at.sql` | Metadata rollback; drops only the added update timestamp |
+| `backend/sql/add_city_identity_and_sources.sql` | Data-preserving forward repair; creates provider city identities, reassigns dependent rows, consolidates duplicate normalized cities, and adds the canonical identity index |
+| `backend/sql/rollback_city_identity_and_sources.sql` | Structural rollback only; merged duplicate cities require a reviewed backup to restore |
 
 No ordered/versioned runner records which scripts ran. A read-only 2026-09-01 audit found the
 configured remote catalog compatible with current model metadata, but its environment
@@ -186,6 +192,21 @@ enabled on every public application table, no public policies exist, and the con
 bypasses that boundary. The repository model maps both the established `PlaceCategory.label` contract
 and the historical `place_categories.created_at` timestamp, matching the live catalog, original
 migration, and importer.
+
+### Configured database cache/persistence audit — 2026-09-27
+
+`[IMPLEMENTED]` Before deployment, a transactionally consistent database-side recovery snapshot
+was recorded in schema `migration_backup_20260927t121718z` for the eight affected canonical and
+dependent tables. Its verified manifest contained 28 cities, 2,625 places, 94 trips, 0 import
+reviews, 1 city source, 133 category-cache rows, 57 refresh jobs, and 651 opening-hour rows.
+
+The city identity and opening-hour parity migrations were then applied together in one guarded
+transaction. A fresh connection confirmed 27 canonical cities, 24 city sources (23 legacy IDs
+backfilled and one existing provider source), zero duplicate normalized identities, the unique
+`uq_cities_normalized_identity` index, and a non-null `place_opening_hours.updated_at` column for
+all existing rows. Subsequent real refreshes increased opening-hour rows from 651 to 735, with no
+null timestamps and no `UndefinedColumn` failure. The database-side snapshot is a migration
+rollback point, not a substitute for a platform-level disaster-recovery backup.
 
 ## Migration and rollback expectations
 

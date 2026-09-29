@@ -5,16 +5,19 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID
 
 from sqlmodel import Session, select
 
+from app.core.config import Settings, get_settings
 from app.models.entities import City, CityCategoryCache, Place
 from app.schemas import DiscoveryCategory
 from app.services.openstreetmap_discovery_service import OpenStreetMapDiscoveryService
-from app.services.persisted_place_reader import PersistedPlaceReader
+from app.services.persisted_place_reader import (
+    CategoryFreshness,
+    PersistedPlaceReader,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +27,6 @@ class PrefetchStage(str, Enum):
     DATES_CONFIRMED = "dates_confirmed"
     INTERESTS_CONFIRMED = "interests_confirmed"
     START_LOCATION_CONFIRMED = "start_location_confirmed"
-
-
-class CategoryCacheState(str, Enum):
-    FRESH = "fresh"
-    STALE_USABLE = "stale_usable"
-    PARTIAL = "partial"
-    INSUFFICIENT = "insufficient"
-    MISSING = "missing"
-    REFRESHING = "refreshing"
 
 
 # Default core categories for broad shallow prefetch
@@ -46,8 +40,9 @@ SHALLOW_PREFETCH_CATEGORIES: list[DiscoveryCategory] = [
     DiscoveryCategory.NATURE,
 ]
 
+# Compatibility name for the default shallow provider batch size. It is not a
+# persisted coverage threshold. Runtime code reads DISCOVERY_SHALLOW_LIMIT.
 SHALLOW_TARGET_CANDIDATES = 15
-DEEP_TARGET_CANDIDATES = 35
 
 
 @dataclass
@@ -70,9 +65,11 @@ class CityPlacePrefetchService:
         self,
         discovery_service: OpenStreetMapDiscoveryService,
         candidate_reader: PersistedPlaceReader | None = None,
+        settings: Settings | None = None,
     ) -> None:
         self._discovery = discovery_service
-        self._candidate_reader = candidate_reader or PersistedPlaceReader()
+        self._settings = settings or get_settings()
+        self._candidate_reader = candidate_reader or PersistedPlaceReader(self._settings)
         # In-flight lock map: (city_id, category_value) -> asyncio.Task
         self._in_flight: dict[tuple[UUID, str], asyncio.Future[None]] = {}
         self._lock = asyncio.Lock()
@@ -100,12 +97,7 @@ class CityPlacePrefetchService:
         categories: list[DiscoveryCategory] | None = None,
     ) -> PrefetchSummary:
         """Execute non-blocking progressive prefetch based on current trip creation stage."""
-        if stage == PrefetchStage.DESTINATION_CONFIRMED:
-            target_categories = categories or SHALLOW_PREFETCH_CATEGORIES
-            min_candidates = SHALLOW_TARGET_CANDIDATES
-        else:
-            target_categories = categories or SHALLOW_PREFETCH_CATEGORIES
-            min_candidates = DEEP_TARGET_CANDIDATES
+        target_categories = categories or SHALLOW_PREFETCH_CATEGORIES
 
         unique_categories = list(dict.fromkeys(target_categories))
         skipped_sufficient: list[str] = []
@@ -117,25 +109,13 @@ class CityPlacePrefetchService:
             city_id=city.id,
             categories=unique_categories,
         )
-        coverage_by_category = {
-            category.value: len(
-                {place.id for place in candidate_snapshot.places_by_category[category]}
-            )
-            for category in unique_categories
-        }
         cache_keys = {
             category: self._discovery.cache_key(category)
             for category in unique_categories
         }
-        cache_rows = session.exec(
-            select(CityCategoryCache).where(
-                CityCategoryCache.city_id == city.id,
-                CityCategoryCache.category.in_(list(cache_keys.values())),
-            )
-        ).all()
-        cache_by_key = {cache.category: cache for cache in cache_rows}
         cache_fetched_before = {
-            cache.category: cache.last_fetched_at for cache in cache_rows
+            cache_keys[category]: coverage.last_refreshed_at
+            for category, coverage in candidate_snapshot.coverage.items()
         }
 
         # Step 1: Coverage & In-flight check
@@ -149,41 +129,22 @@ class CityPlacePrefetchService:
                         "PREFETCH_CACHE city=%s category=%s state=%s count=%d",
                         city.name,
                         category.value,
-                        CategoryCacheState.REFRESHING.value,
-                        coverage_by_category.get(category.value, 0),
+                        "refreshing",
+                        candidate_snapshot.coverage[category].usable_count,
                     )
                     continue
 
-            # Check coverage
-            coverage = coverage_by_category.get(category.value, 0)
-            cache = cache_by_key.get(cache_keys[category])
-            expires_at = cache.expires_at if cache is not None else None
-            if expires_at is not None and expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            is_fresh = expires_at is not None and expires_at > datetime.now(
-                timezone.utc
-            )
-            has_sufficient_coverage = coverage >= min_candidates
-            if is_fresh and has_sufficient_coverage:
-                cache_state = CategoryCacheState.FRESH
-            elif is_fresh and coverage > 0:
-                cache_state = CategoryCacheState.PARTIAL
-            elif coverage > 0:
-                cache_state = CategoryCacheState.STALE_USABLE
-            elif cache is not None:
-                cache_state = CategoryCacheState.INSUFFICIENT
-            else:
-                cache_state = CategoryCacheState.MISSING
-            if has_sufficient_coverage and is_fresh:
+            coverage = candidate_snapshot.coverage[category]
+            if coverage.state is CategoryFreshness.FRESH:
                 skipped_sufficient.append(category.value)
                 logger.info(
                     "PREFETCH_CACHE city_id=%s category=%s state=%s count=%d "
                     "target=%d stage=%s",
                     city.id,
                     category.value,
-                    cache_state.value,
-                    coverage,
-                    min_candidates,
+                    coverage.state.value,
+                    coverage.usable_count,
+                    coverage.desired_count,
                     stage.value,
                 )
             else:
@@ -193,9 +154,9 @@ class CityPlacePrefetchService:
                     "target=%d stage=%s",
                     city.id,
                     category.value,
-                    cache_state.value,
-                    coverage,
-                    min_candidates,
+                    coverage.state.value,
+                    coverage.usable_count,
+                    coverage.desired_count,
                     stage.value,
                 )
 
@@ -235,7 +196,10 @@ class CityPlacePrefetchService:
             )
             # Custom shallow limits if destination_confirmed
             custom_limits = (
-                {c: SHALLOW_TARGET_CANDIDATES for c in needed_categories}
+                {
+                    c: self._settings.discovery_shallow_limit
+                    for c in needed_categories
+                }
                 if stage == PrefetchStage.DESTINATION_CONFIRMED
                 else None
             )

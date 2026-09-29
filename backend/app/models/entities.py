@@ -12,6 +12,7 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    Index,
     Time,
     UniqueConstraint,
     func,
@@ -78,6 +79,13 @@ class City(SQLModel, table=True):
         UniqueConstraint(
             "google_place_id",
             name="uq_cities_google_place_id",
+        ),
+        Index(
+            "uq_cities_normalized_identity",
+            text("lower(trim(name))"),
+            text("lower(COALESCE(trim(state), ''))"),
+            text("lower(trim(country))"),
+            unique=True,
         ),
         CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_cities_latitude"),
         CheckConstraint(
@@ -337,6 +345,40 @@ class ProviderCooldown(SQLModel, table=True):
     )
 
 
+class CitySource(SQLModel, table=True):
+    """Provider identity retained separately from a canonical city."""
+
+    __tablename__ = "city_sources"
+    __table_args__ = (
+        UniqueConstraint(
+            "source",
+            "external_city_id",
+            name="uq_city_sources_source_external_city",
+        ),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    city_id: UUID = Field(
+        foreign_key="cities.id",
+        ondelete="CASCADE",
+        index=True,
+    )
+    source: str = Field(max_length=50, index=True)
+    external_city_id: str = Field(max_length=255, index=True)
+    created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+    last_seen_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(
+            DateTime(timezone=True),
+            nullable=False,
+            server_default=func.now(),
+        ),
+    )
+
+
 class PlaceSource(SQLModel, table=True):
     __tablename__ = "place_sources"
     __table_args__ = (
@@ -465,6 +507,10 @@ class PlaceOpeningHours(SQLModel, table=True):
         sa_column=Column(JSON, nullable=False, server_default=text("'[]'")),
     )
     created_at: datetime | None = Field(
+        default=None,
+        sa_column=created_at_column(),
+    )
+    updated_at: datetime | None = Field(
         default=None,
         sa_column=created_at_column(),
     )

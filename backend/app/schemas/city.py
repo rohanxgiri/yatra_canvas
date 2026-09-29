@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from sqlmodel import Field, SQLModel
 
 
@@ -18,7 +18,7 @@ class CityBase(SQLModel):
     @field_validator("name", "country")
     @classmethod
     def strip_required_text(cls, value: str) -> str:
-        value = value.strip()
+        value = " ".join(value.split()).strip(" ,")
         if not value:
             raise ValueError("must not be blank")
         return value
@@ -28,7 +28,7 @@ class CityBase(SQLModel):
     def strip_optional_text(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        value = value.strip()
+        value = " ".join(value.split()).strip(" ,")
         return value or None
 
 
@@ -40,6 +40,31 @@ class CityResolve(CityBase):
     """Normalized provider city accepted by the resolve endpoint."""
 
     provider_place_id: str | None = Field(default=None, max_length=255)
+    provider_name: str | None = Field(default="geoapify", max_length=50)
+
+    @field_validator("provider_place_id", "provider_name")
+    @classmethod
+    def strip_provider_identity(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+    @model_validator(mode="after")
+    def remove_redundant_state_suffix(self) -> "CityResolve":
+        if not self.state:
+            return self
+        name_words = self.name.casefold().replace(",", " ").split()
+        state_words = self.state.casefold().split()
+        if (
+            len(name_words) > len(state_words)
+            and name_words[-len(state_words) :] == state_words
+        ):
+            kept = self.name.replace(",", " ").split()[: -len(state_words)]
+            normalized_name = " ".join(kept).strip(" ,")
+            if normalized_name:
+                self.name = normalized_name
+        return self
 
 
 class CitySuggestion(SQLModel):

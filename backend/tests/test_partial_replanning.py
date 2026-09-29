@@ -78,9 +78,11 @@ def test_env():
 
 
 def _create_base_trip(
-    session: Session, num_days: int = 3
+    session: Session,
+    num_days: int = 3,
+    existing_city: City | None = None,
 ) -> tuple[Trip, City, list[TripDay]]:
-    city = City(
+    city = existing_city or City(
         id=uuid4(),
         name="Udaipur",
         state="Rajasthan",
@@ -88,7 +90,8 @@ def _create_base_trip(
         latitude=24.5854,
         longitude=73.7125,
     )
-    session.add(city)
+    if existing_city is None:
+        session.add(city)
     trip = Trip(
         id=uuid4(),
         city_id=city.id,
@@ -814,7 +817,11 @@ def test_cannot_move_place_to_rest_day(test_env):
 def test_cannot_move_place_to_another_trips_day(test_env):
     session, client = test_env
     trip1, city, days1 = _create_base_trip(session, num_days=2)
-    trip2, _, days2 = _create_base_trip(session, num_days=2)
+    trip2, _, days2 = _create_base_trip(
+        session,
+        num_days=2,
+        existing_city=city,
+    )
 
     p1 = Place(
         id=uuid4(),

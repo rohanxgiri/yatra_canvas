@@ -4,13 +4,13 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.config import Settings, get_settings
 from app.database import get_session
-from app.models import City
+from app.models import City, CitySource
 from app.schemas import (
     CityCreate,
     CityDetails,
@@ -166,6 +166,7 @@ async def get_provider_place_details(
             latitude=res.latitude,
             longitude=res.longitude,
             provider_place_id=res.provider_place_id,
+            provider_name=res.provider,
         )
     except (
         GeoapifyConfigurationError,
@@ -181,38 +182,80 @@ def resolve_city(city_data: CityResolve, session: SessionDependency) -> City:
     """Return a matching normalized city, or persist it once."""
 
     identity_filters = [
-        func.lower(City.name) == city_data.name.casefold(),
-        func.lower(City.country) == city_data.country.casefold(),
+        func.lower(func.trim(City.name)) == city_data.name.casefold(),
+        func.lower(func.trim(City.country)) == city_data.country.casefold(),
         (
             City.state.is_(None)
             if city_data.state is None
-            else func.lower(City.state) == city_data.state.casefold()
+            else func.lower(func.trim(City.state)) == city_data.state.casefold()
         ),
     ]
-    if city_data.provider_place_id is not None:
-        statement = select(City).where(
-            or_(
-                City.google_place_id == city_data.provider_place_id,
-                and_(*identity_filters),
+    identity_statement = select(City).where(*identity_filters)
+    source_statement = None
+    if city_data.provider_name and city_data.provider_place_id:
+        source_statement = (
+            select(City)
+            .join(CitySource, CitySource.city_id == City.id)
+            .where(
+                CitySource.source == city_data.provider_name,
+                CitySource.external_city_id == city_data.provider_place_id,
             )
         )
-    else:
-        statement = select(City).where(*identity_filters)
-    existing_city = session.exec(statement).first()
+    existing_city = (
+        session.exec(source_statement).first()
+        if source_statement is not None
+        else None
+    )
+    if existing_city is None:
+        existing_city = session.exec(identity_statement).first()
     if existing_city is not None:
+        if city_data.provider_name and city_data.provider_place_id:
+            existing_source = session.exec(
+                select(CitySource).where(
+                    CitySource.source == city_data.provider_name,
+                    CitySource.external_city_id == city_data.provider_place_id,
+                )
+            ).first()
+            if existing_source is None:
+                session.add(
+                    CitySource(
+                        city_id=existing_city.id,
+                        source=city_data.provider_name,
+                        external_city_id=city_data.provider_place_id,
+                    )
+                )
+                session.commit()
         return existing_city
 
     city = City.model_validate(city_data)
-    if city_data.provider_place_id and not city.google_place_id:
+    if (
+        city_data.provider_name == "google"
+        and city_data.provider_place_id
+        and not city.google_place_id
+    ):
         city.google_place_id = city_data.provider_place_id
     session.add(city)
+    if city_data.provider_name and city_data.provider_place_id:
+        session.add(
+            CitySource(
+                city_id=city.id,
+                source=city_data.provider_name,
+                external_city_id=city_data.provider_place_id,
+            )
+        )
     try:
         session.commit()
     except IntegrityError as exc:
         # Another request may have inserted the same provider city after the
         # initial lookup. Re-read before returning a safe conflict.
         session.rollback()
-        existing_city = session.exec(statement).first()
+        existing_city = (
+            session.exec(source_statement).first()
+            if source_statement is not None
+            else None
+        )
+        if existing_city is None:
+            existing_city = session.exec(identity_statement).first()
         if existing_city is not None:
             return existing_city
         raise HTTPException(

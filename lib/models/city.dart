@@ -7,6 +7,7 @@ class City {
     required this.latitude,
     required this.longitude,
     this.providerPlaceId,
+    this.providerName,
   });
 
   final String? id;
@@ -16,6 +17,7 @@ class City {
   final double latitude;
   final double longitude;
   final String? providerPlaceId;
+  final String? providerName;
 
   String get locationLabel {
     final parts = <String>[
@@ -35,7 +37,10 @@ class City {
       country: json['country'] as String,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
-      providerPlaceId: json['provider_place_id'] as String? ?? json['google_place_id'] as String?,
+      providerPlaceId:
+          json['provider_place_id'] as String? ??
+          json['google_place_id'] as String?,
+      providerName: json['provider_name'] as String?,
     );
   }
 
@@ -47,6 +52,7 @@ class City {
       'latitude': latitude,
       'longitude': longitude,
       'provider_place_id': providerPlaceId,
+      'provider_name': providerName,
     };
   }
 }

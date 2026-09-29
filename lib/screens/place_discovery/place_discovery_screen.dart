@@ -2220,6 +2220,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
               const SizedBox(height: 12),
               _OptimizedRouteCard(
                 route: route,
+                cityName: widget.city.name,
                 tripDays: _tripDays,
                 onUpdateStopStatus: _updateStopStatus,
                 onMovePlace: _showMovePlaceSheet,
@@ -2360,6 +2361,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
                               child: PlaceImage(
                                 name: recommendation.name,
                                 image: recommendation.image,
+                                cityName: widget.city.name,
                                 normalizedCategory:
                                     recommendation.normalizedCategory,
                                 rawCategory: recommendation.category,
@@ -2398,6 +2400,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
                     ),
                   ),
                   name: recommendation.name,
+                  cityName: widget.city.name,
                   category: _categoryLabel(recommendation.category),
                   normalizedCategory: recommendation.normalizedCategory,
                   imageData: recommendation.image,
@@ -2919,6 +2922,7 @@ class _PreferenceBadge extends StatelessWidget {
 class _OptimizedRouteCard extends StatelessWidget {
   const _OptimizedRouteCard({
     required this.route,
+    required this.cityName,
     this.tripDays = const [],
     this.onUpdateStopStatus,
     this.onMovePlace,
@@ -2926,6 +2930,7 @@ class _OptimizedRouteCard extends StatelessWidget {
   });
 
   final OptimizedRoute route;
+  final String cityName;
   final List<TripDay> tripDays;
   final void Function(OptimizedRoutePlace place, ItineraryStopStatus status)?
   onUpdateStopStatus;
@@ -3292,6 +3297,7 @@ class _OptimizedRouteCard extends StatelessWidget {
             const SizedBox(height: 7),
             _RouteStop(
               place: dayPlaces[placeIdx],
+              cityName: cityName,
               isBusy: updatingStopIds.contains(
                 dayPlaces[placeIdx].id ?? dayPlaces[placeIdx].placeId,
               ),
@@ -3551,12 +3557,14 @@ class _RouteConnector extends StatelessWidget {
 class _RouteStop extends StatelessWidget {
   const _RouteStop({
     required this.place,
+    required this.cityName,
     this.isBusy = false,
     this.onUpdateStatus,
     this.onMove,
   });
 
   final OptimizedRoutePlace place;
+  final String cityName;
   final bool isBusy;
   final void Function(OptimizedRoutePlace place, ItineraryStopStatus status)?
   onUpdateStatus;
@@ -3675,6 +3683,7 @@ class _RouteStop extends StatelessWidget {
                 child: PlaceImage(
                   name: place.name,
                   image: place.image,
+                  cityName: cityName,
                   normalizedCategory: place.normalizedCategory,
                   rawCategory: place.category,
                   borderRadius: BorderRadius.circular(12),

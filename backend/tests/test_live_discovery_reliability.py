@@ -646,7 +646,7 @@ async def test_stale_sufficient_category_is_refreshed(
 
 
 @pytest.mark.anyio
-async def test_fresh_low_coverage_destination_cache_is_usable_but_deepened(
+async def test_fresh_completed_destination_cache_does_not_rediscover(
     test_db: Session,
     sample_city: City,
 ) -> None:
@@ -683,9 +683,39 @@ async def test_fresh_low_coverage_destination_cache_is_usable_but_deepened(
         categories=[DiscoveryCategory.HERITAGE],
     )
 
-    assert summary.categories_skipped_sufficient == []
-    assert summary.categories_enriched == ["heritage"]
-    assert provider.calls == [DiscoveryCategory.HERITAGE]
+    assert summary.categories_skipped_sufficient == ["heritage"]
+    assert summary.categories_enriched == []
+    assert provider.calls == []
+
+
+@pytest.mark.anyio
+async def test_provider_wait_does_not_hold_an_active_database_transaction(
+    test_db: Session,
+    sample_city: City,
+) -> None:
+    observed_transaction_state: list[bool] = []
+
+    class TransactionCheckingProvider(FakeOverpassPlacesService):
+        async def search_nearby_places_for_categories(self, **kwargs):
+            observed_transaction_state.append(test_db.in_transaction())
+            await asyncio.sleep(0)
+            return await super().search_nearby_places_for_categories(**kwargs)
+
+    provider = TransactionCheckingProvider()
+    discovery = OpenStreetMapDiscoveryService(
+        settings=get_settings(),
+        provider=provider,  # type: ignore[arg-type]
+    )
+
+    result = await discovery.discover_many(
+        session=test_db,
+        city=sample_city,
+        categories=[DiscoveryCategory.HERITAGE],
+        force_refresh_categories={DiscoveryCategory.HERITAGE},
+    )
+
+    assert observed_transaction_state == [False]
+    assert result[DiscoveryCategory.HERITAGE]
 
 
 @pytest.mark.anyio

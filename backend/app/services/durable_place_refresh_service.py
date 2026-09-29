@@ -17,6 +17,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from app.core.config import get_settings
 from app.core.request_context import request_id_scope, resolve_request_id
 from app.models import City, PlaceRefreshJob
 from app.schemas import DiscoveryCategory
@@ -46,9 +47,10 @@ class RefreshEnqueueResult:
     state: str
     queued_categories: list[str]
     reused_categories: list[str]
+    dispatch_categories: list[str] | None = None
 
 
-_background_tasks: set[asyncio.Task[bool]] = set()
+_background_tasks: set[asyncio.Task[object]] = set()
 _refresh_semaphore: asyncio.Semaphore | None = None
 
 
@@ -80,6 +82,69 @@ class DurablePlaceRefreshService:
             f"{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}"
         )
         self._lease_duration = lease_duration
+        self._failed_retry_delay = timedelta(
+            minutes=get_settings().place_refresh_failed_retry_minutes
+        )
+
+    def schedule_refresh_request(
+        self,
+        *,
+        city_id: UUID,
+        categories: list[DiscoveryCategory],
+        stage: PrefetchStage,
+        correlation_id: str | None = None,
+    ) -> RefreshEnqueueResult:
+        """Schedule durable enqueue work without delaying the cached response."""
+
+        request_id = resolve_request_id(correlation_id)
+        task = asyncio.create_task(
+            self._request_refresh_async(
+                city_id=city_id,
+                categories=categories,
+                stage=stage,
+                correlation_id=request_id,
+            )
+        )
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+        return RefreshEnqueueResult(
+            state="scheduled",
+            queued_categories=[],
+            reused_categories=[],
+        )
+
+    async def _request_refresh_async(
+        self,
+        *,
+        city_id: UUID,
+        categories: list[DiscoveryCategory],
+        stage: PrefetchStage,
+        correlation_id: str,
+    ) -> RefreshEnqueueResult:
+        result = await asyncio.to_thread(
+            self.request_refresh,
+            city_id=city_id,
+            categories=categories,
+            stage=stage,
+            schedule=False,
+            correlation_id=correlation_id,
+        )
+        category_by_value = {category.value: category for category in categories}
+        for value in result.dispatch_categories or []:
+            category = category_by_value.get(value)
+            if category is None:
+                continue
+            task = asyncio.create_task(
+                self._scheduled_execute_job(
+                    city_id,
+                    category,
+                    stage,
+                    correlation_id,
+                )
+            )
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
+        return result
 
     def request_refresh(
         self,
@@ -97,11 +162,11 @@ class DurablePlaceRefreshService:
         reused: list[str] = []
         schedule_categories: list[DiscoveryCategory] = []
         any_active = False
+        any_failed_backoff = False
         now = datetime.now(timezone.utc)
 
         category_list = list(dict.fromkeys(categories))
         category_keys = {cat: self._category_key(cat) for cat in category_list}
-        key_to_cat = {key: cat for cat, key in category_keys.items()}
 
         with Session(self._engine) as session:
             existing_jobs = {
@@ -139,6 +204,17 @@ class DurablePlaceRefreshService:
                     any_active = any_active or active
                     if not active:
                         schedule_categories.append(category)
+                    continue
+
+                failed_at = self._as_utc(job.updated_at)
+                failed_backoff = (
+                    job.state == RefreshJobState.FAILED.value
+                    and failed_at is not None
+                    and failed_at + self._failed_retry_delay > now
+                )
+                if failed_backoff:
+                    reused.append(category.value)
+                    any_failed_backoff = True
                     continue
 
                 job.state = RefreshJobState.QUEUED.value
@@ -189,10 +265,19 @@ class DurablePlaceRefreshService:
                 _background_tasks.add(task)
                 task.add_done_callback(_background_tasks.discard)
 
+        if queued:
+            result_state = "queued"
+        elif any_active:
+            result_state = "refreshing"
+        elif any_failed_backoff:
+            result_state = "failed"
+        else:
+            result_state = "queued"
         result = RefreshEnqueueResult(
-            state="refreshing" if any_active and not queued else "queued",
+            state=result_state,
             queued_categories=queued,
             reused_categories=reused,
+            dispatch_categories=[category.value for category in schedule_categories],
         )
         logger.info(
             "PLACE_REFRESH_ENQUEUE request_id=%s city_id=%s refresh_state=%s "
@@ -393,11 +478,15 @@ class DurablePlaceRefreshService:
     ) -> bool:
         sem = _get_refresh_semaphore()
         async with sem:
-            return await self.execute_job(
-                city_id=city_id,
-                category=category,
-                stage=stage,
-                correlation_id=correlation_id,
+            # execute_job includes synchronous SQLAlchemy work before and after
+            # provider awaits. Run its complete event loop in a worker thread so
+            # a remote database cannot block FastAPI's server loop.
+            return await asyncio.to_thread(
+                self._execute_job_in_thread,
+                city_id,
+                category,
+                stage,
+                correlation_id,
             )
 
     def _execute_job_in_thread(

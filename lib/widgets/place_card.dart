@@ -13,6 +13,7 @@ class PlaceCard extends StatelessWidget {
     required this.description,
     this.image,
     this.imageData,
+    this.cityName,
     this.normalizedCategory,
     this.category,
     this.meta,
@@ -28,6 +29,7 @@ class PlaceCard extends StatelessWidget {
   final String description;
   final ImageProvider? image;
   final PlaceImageData? imageData;
+  final String? cityName;
   final String? normalizedCategory;
   final String? category;
   final String? meta;
@@ -81,6 +83,7 @@ class PlaceCard extends StatelessWidget {
                           : PlaceImage(
                               name: name,
                               image: imageData,
+                              cityName: cityName,
                               normalizedCategory: normalizedCategory,
                               rawCategory: category,
                             ),

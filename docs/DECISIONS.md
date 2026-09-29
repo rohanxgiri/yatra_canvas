@@ -1,6 +1,26 @@
 # Architectural decisions
 
-Last reviewed: 2026-09-21
+Last reviewed: 2026-09-27
+
+## ADR-024 — Canonical city identity and cache coverage have one persisted decision boundary
+
+- **Status:** Accepted and `[IMPLEMENTED]` in repository and the configured development database.
+- **Date:** 2026-09-27.
+- **Decision:** Identify a canonical city by normalized `(name, state, country)` and preserve each
+  provider identity separately as `(source, external_city_id)` in `city_sources`. Make
+  `PersistedPlaceReader` the single category coverage decision point for recommendations and
+  prefetch. A successful fresh cache row with usable persisted places is authoritative even when a
+  small destination returns fewer than the configured acquisition target. Stale, expired,
+  insufficient, and missing states schedule work but do not hide otherwise eligible persisted
+  rows. Failed durable refreshes observe a configurable cooldown before requeue.
+- **Consequences:** Repeated provider resolution cannot multiply a city identity, small cities do
+  not enter an endless rediscovery loop, and request traffic cannot immediately retry the same
+  failed provider job. Other deployments still need the reviewed city identity and opening-hour
+  parity migrations before this contract is fully live.
+- **Evidence:** `backend/app/routers/cities.py`, `PersistedPlaceReader`,
+  `CityPlacePrefetchService`, `DurablePlaceRefreshService`, model/migration parity tests, and
+  `docs/BACKEND_CACHE_PERSISTENCE_ROOT_CAUSE_AND_FIX.md`, and the 2026-09-27 configured-database
+  backup/migration verification recorded there.
 
 ## ADR-023 — One bounded correlation ID follows the trip/Discover flow
 
@@ -53,15 +73,16 @@ Last reviewed: 2026-09-21
   any worker observes HTTP 429, honoring `Retry-After` before later requests. Retry a transient
   network/5xx failure at most once at the failed request stage. Preserve recommendation order,
   warm images in 10-item waves, and cap one schedule at 20 IDs. Flutter tries a resolved network
-  image, then only a semantically valid bundled category asset, then a guaranteed neutral
-  gradient/icon.
+  image, then a licensed exact place photo from a city scoped bundle, then a semantically valid
+  bundled category asset, then a guaranteed neutral gradient/icon.
 - **Consequences:** A large or repeated Discover load cannot amplify one Wikimedia 429 into dozens
   of immediate retries, while missing images remain independent from POI availability. Existing
   positive/negative/failure image TTLs remain authoritative. Cross-worker cooldown requires the
   reviewed `provider_cooldowns` migration; process-local serialization still protects an
   unmigrated single worker.
 - **Evidence:** `backend/app/services/provider_rate_control.py`, image provider/cache tests,
-  `lib/widgets/place_image.dart`, and `test/place_image_test.dart`. Wikimedia rate-limit and
+  `lib/widgets/place_image.dart`, `lib/utils/place_image_fallbacks.dart`, the Jaipur city pack,
+  and `test/place_image_test.dart`. Wikimedia rate-limit and
   Action API etiquette guidance verified 2026-09-20 at
   <https://www.mediawiki.org/wiki/Wikimedia_APIs/Rate_limits> and
   <https://www.mediawiki.org/wiki/API:Etiquette>.

@@ -410,7 +410,7 @@ def test_open_circuit_skips_category_waves_that_have_not_started() -> None:
     assert request_count == 3
 
 
-def test_outer_timeout_cancellation_records_circuit_breaker_failure() -> None:
+def test_caller_cancellation_does_not_poison_provider_health() -> None:
     async def handler(_: httpx.Request) -> httpx.Response:
         await asyncio.sleep(1)
         return httpx.Response(200, json={"elements": []})
@@ -437,6 +437,10 @@ def test_outer_timeout_cancellation_records_circuit_breaker_failure() -> None:
                     timeout=0.01,
                 )
 
+        assert breaker.state == CircuitState.CLOSED
+        assert breaker.allow_request() is True
+
+        service.record_budget_timeout()
         assert breaker.state == CircuitState.OPEN
         assert breaker.allow_request() is False
 
@@ -473,4 +477,33 @@ def test_rate_limit_timeout_and_invalid_payload_are_normalized() -> None:
         asyncio.run(call(times_out))
     with pytest.raises(OpenStreetMapPlacesUnavailableError):
         asyncio.run(call(invalid))
+
+
+def test_malformed_payload_records_circuit_breaker_failure() -> None:
+    async def invalid(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"not_elements": []})
+
+    async def run() -> None:
+        breaker = ProviderCircuitBreaker(
+            "overpass",
+            failure_threshold=1,
+            cooldown_seconds=60,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(invalid)
+        ) as client:
+            service = OpenStreetMapPlacesService(
+                "https://overpass.test/api/interpreter",
+                client=client,
+                circuit_breaker=breaker,
+            )
+            with pytest.raises(OpenStreetMapPlacesUnavailableError):
+                await service.search_nearby_places(
+                    latitude=24.57,
+                    longitude=73.68,
+                    category=DiscoveryCategory.HERITAGE,
+                )
+        assert breaker.state == CircuitState.OPEN
+
+    asyncio.run(run())
 

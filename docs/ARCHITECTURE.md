@@ -1,6 +1,6 @@
 # YatraCanvas architecture
 
-Last reviewed: 2026-09-21
+Last reviewed: 2026-09-27
 
 ## Discover Places cache-first data loading — 2026-09-19
 
@@ -10,6 +10,18 @@ otherwise displayable POIs. Prefetch and Discover use the same durable
 `(city_id, versioned_category)` refresh job/lease, so provider work is coalesced across workers and
 never joined by the HTTP read. Local task delivery remains `[PARTIAL]` across process restarts;
 queued jobs and expired leases are recovered when another refresh request observes them.
+
+`[IMPLEMENTED]` City resolution first reuses explicit `(provider, external_city_id)` provenance,
+then the normalized `(name, state, country)` identity. Provider IDs are stored in `city_sources`
+instead of being assigned new meaning in the legacy `google_place_id` field. The normalized unique
+index and existing-row consolidation migration were applied to the configured development database
+on 2026-09-27 after a database-side recovery snapshot and row-count verification.
+
+`[IMPLEMENTED]` The foreground recommendation path reads the city/candidate/tag/source/image
+snapshot in one joined query and category coverage in one query. Ranking and serialization reuse
+that snapshot, so the cached path performs two database round trips and zero provider awaits.
+Durable refresh execution and image enrichment run their synchronous database work in worker
+threads, preserving event-loop responsiveness while provider work remains background-only.
 
 `[IMPLEMENTED]` Flutter stores versioned city/profile recommendation snapshots in SQLite via
 `sqflite`, renders usable snapshots before backend synchronization completes, merges refreshed
@@ -170,11 +182,14 @@ notices on unassigned days.
 prerequisite. Flutter parses the optional provider-neutral `image` object and
 `normalized_category`, then renders recommendation cards, itinerary stops, and selected map POI
 sheets through one `PlaceImage` widget. `cached_network_image` supplies memory/disk-backed native
-caching; the widget reserves its aspect ratio, paints a neutral image-region placeholder while a
-remote image loads, and uses a neutral YatraCanvas gradient plus category icon when no authentic
-photo exists or loading fails. It never substitutes a generic photograph. Returned HTTP(S) image
-URLs are precached with explicit failure handling after recommendation metadata arrives. Home and
-Explore are unchanged by this slice.
+caching; the widget reserves its aspect ratio and paints a neutral image-region placeholder while a
+remote image loads. When that image is absent or fails, an exact place and city match may use a
+bundled licensed city pack photo with packaged author and license attribution. Jaipur currently has
+this path for ten prominent places. Other places use semantically matched category art, then the
+neutral YatraCanvas gradient and category icon. Exact city pack matching is scoped by city so a
+same-name place elsewhere cannot receive Jaipur imagery. Returned HTTP(S) image URLs are precached
+with explicit failure handling after recommendation metadata arrives. Home and Explore are unchanged
+by this slice.
 
 ### FastAPI
 
@@ -186,7 +201,7 @@ Explore are unchanged by this slice.
 | Authentication | `POST /api/auth/login`, `GET /api/auth/me` (JWT bearer tokens, bcrypt verification) |
 | Admin Suite | `/api/admin/dashboard`, `/api/admin/users`, `/api/admin/destinations`, `/api/admin/places`, `/api/admin/trips`, `/api/admin/reports`, `/api/admin/provider-status` |
 | Admin Web App | `GET /admin` (responsive single-page administrative dashboard served statically) |
-| Cities | create/list/get/search; Google autocomplete, details, and resolve |
+| Cities | create/list/get/search; Geoapify autocomplete, details, and canonical resolve with provider provenance |
 | Locations | Geoapify-backed `GET /locations/autocomplete` |
 | Places | create/list; `[DEPRECATED]` legacy `/discover-places`; persisted-only recommendations; staged background prefetch (`POST /places/prefetch`, `GET /places/prefetch/{city_id}`); destination-scoped search (`GET /cities/{city_id}/places/search`); canonical resolution (`POST /cities/{city_id}/places/resolve`) |
 | Saved places | list/create/update/reorder/delete under a trip |
@@ -274,12 +289,12 @@ provider boundary.
   provider-wide `Retry-After` cooldown that other workers check before I/O; transient network/5xx
   failures retry only the failed request once with bounded exponential backoff and jitter.
 - `[IMPLEMENTED]` Progressive POI Prefetch & Cache-First Live Discovery Reliability (`DurablePlaceRefreshService`, `CityPlacePrefetchService`, `OpenStreetMapDiscoveryService`, `GeoapifyPlacesProvider`, `ProviderCircuitBreaker`):
-  - **3-Tier Cache Semantics**: Queries evaluate category coverage into `FRESH` ($\le 24$h / `PLACE_DISCOVERY_CACHE_TTL_HOURS`), `STALE_USABLE` ($\le 168$h / `DISCOVERY_STALE_USABLE_HOURS`), and `MISSING`. A completed fresh destination query is authoritative even when a small city has fewer results than the request limit, preventing perpetual refetch. Cache keys are `(city_id, PLACE_DISCOVERY_CACHE_VERSION, category)`; incrementing the configured version invalidates an incompatible query strategy without deleting rows manually.
+  - **Canonical Coverage Semantics**: `PersistedPlaceReader` is the one decision point for `FRESH`, `STALE`, `EXPIRED`, `INSUFFICIENT`, and `MISSING`, with usable count, desired count, and last refresh time. A completed fresh query with persisted rows is authoritative even when a small city has fewer results than the configured target, preventing perpetual refetch. Rows without cache metadata are insufficient; zero usable rows are missing. Cache keys are `(city_id, PLACE_DISCOVERY_CACHE_VERSION, category)`.
   - **Stale Cache Behavior**: Any otherwise eligible stored category rows remain displayable regardless of refresh age. `fresh`, `stale`, `expired`, and `missing` control only refresh scheduling.
-  - **Durable Concurrency Deduplication**: `PlaceRefreshJob` has a unique `(city_id, versioned_category)` identity and atomic expiring lease. Prefetch and Discover request the same job; separate workers may dispatch it, but only one can execute providers. Completed and failed outcomes are retained.
+  - **Durable Concurrency Deduplication**: `PlaceRefreshJob` has a unique `(city_id, versioned_category)` identity and atomic expiring lease. Prefetch and Discover request the same job; separate workers may dispatch it, but only one can execute providers. Completed and failed outcomes are retained. A failed job is not requeued until `PLACE_REFRESH_FAILED_RETRY_MINUTES` elapses, preventing request-driven retry storms.
   - **Provider Hierarchy & Circuit Breaker**: Background refresh merges `AudialaPlacesProvider` (local enriched POI dataset), `GeoapifyPlacesProvider` (hosted Geoapify `/v2/places` API with bounded coordinate radius), and `OpenStreetMapPlacesService` (Overpass OSM) for deficient categories. Actual eligible Audiala/Geoapify coverage, not provider availability, decides whether Overpass is needed. Overpass is protected by an in-memory circuit breaker and a 12-second default phase budget; no provider is called by the foreground recommendation read.
   - **Background Dispatch**: `POST /places/prefetch` returns HTTP 202 after persisting refresh intent. Database/provider work runs in a worker thread with an independent session. Foreground recommendations only enqueue or observe durable work and return without joining it. `GET /places/prefetch/{city_id}` derives coarse state from durable jobs.
-  - **Remote Database Efficiency**: Cache metadata, category coverage, stored places, and existing provider identities are loaded in batches rather than one query per category or POI. When a city has no stored places and all discovery categories are requested, provider candidates are canonicalized in memory and inserted as one cold-city batch while preserving provider provenance, category tags, and opening hours. This avoids a remote-database identity query for every candidate.
+  - **Remote Database Efficiency**: Cache metadata, category coverage, stored places, tags, and existing provider identities are loaded in batches rather than one query per category or POI. Recommendation ranking reuses the tag batch loaded by `PersistedPlaceReader` instead of querying it twice. When a city has no stored places and all discovery categories are requested, provider candidates are canonicalized in memory and inserted as one cold-city batch while preserving provider provenance, category tags, and opening hours.
   - **Progressive Lifecycle**: destination confirmation enqueues bounded refresh jobs across all seven supported discovery categories before immediate navigation; dates and start location still avoid weather, route, or matrix calls; interests reuse fresh coverage and enrich only deficient categories. Final recommendations use the same `CityCategoryCache` and normalized `Place` rows. Image warming is a separate bounded background concern and is never joined by POI reads.
   - **Start-aware Ranking**: Once a persisted trip supplies start coordinates, recommendation scoring adds a bounded proximity signal. It uses straight-line filtering only and does not build an NxN route matrix.
   - **Durability**: `[IMPLEMENTED]` job identity, state, lease ownership, expiry, and crash recovery are durable across workers. `[PARTIAL]` delivery uses local background tasks rather than an external always-on queue; another request is currently required to recover work after total process loss.

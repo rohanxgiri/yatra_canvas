@@ -105,7 +105,25 @@ def _recommend_in_worker(
     try:
         with Session(engine) as worker_session:
             city_started = time.monotonic()
-            city = worker_session.get(City, city_id)
+            read_city_candidates = getattr(
+                recommendation,
+                "read_persisted_city_candidates",
+                None,
+            )
+            preloaded_snapshot = (
+                read_city_candidates(
+                    session=worker_session,
+                    city_id=city_id,
+                    request=request,
+                )
+                if callable(read_city_candidates)
+                else None
+            )
+            city = (
+                preloaded_snapshot.city
+                if preloaded_snapshot is not None
+                else worker_session.get(City, city_id)
+            )
             city_lookup_ms = (time.monotonic() - city_started) * 1000
             if city is None:
                 raise _CityNotFoundError
@@ -116,6 +134,7 @@ def _recommend_in_worker(
                         session=worker_session,
                         city=city,
                         request=request,
+                        candidate_snapshot=preloaded_snapshot,
                     )
                 )
             else:
@@ -442,19 +461,36 @@ async def recommend_city_places(
             recommendation,
         )
         schedule_place_image_enrichment(
-            [item.id for item in result],
+            [
+                item.id
+                for item in result
+                if item.id in candidate_snapshot.image_refresh_ids
+            ],
             engine=session.get_bind(),
             correlation_id=request_id,
         )
         refresh_categories = candidate_snapshot.refresh_categories
         refresh_state = "idle"
         if refresh_categories:
-            refresh_request = refresh_service.request_refresh(
-                city_id=city_id,
-                categories=refresh_categories,
-                stage=PrefetchStage.INTERESTS_CONFIRMED,
-                correlation_id=request_id,
+            schedule_refresh = getattr(
+                refresh_service,
+                "schedule_refresh_request",
+                None,
             )
+            if callable(schedule_refresh):
+                refresh_request = schedule_refresh(
+                    city_id=city_id,
+                    categories=refresh_categories,
+                    stage=PrefetchStage.INTERESTS_CONFIRMED,
+                    correlation_id=request_id,
+                )
+            else:
+                refresh_request = refresh_service.request_refresh(
+                    city_id=city_id,
+                    categories=refresh_categories,
+                    stage=PrefetchStage.INTERESTS_CONFIRMED,
+                    correlation_id=request_id,
+                )
             refresh_state = refresh_request.state
         response.headers["X-Refresh-State"] = refresh_state
         response.headers["X-Stale-Categories"] = ",".join(

@@ -27,8 +27,6 @@ logger = logging.getLogger(__name__)
 from app.models.entities import (
     City,
     Place,
-    PlaceSource,
-    PlaceTag,
     Trip,
     TripPreference,
     UserSavedPlace,
@@ -350,6 +348,27 @@ class RecommendationService:
             categories=categories,
         )
 
+    def read_persisted_city_candidates(
+        self,
+        *,
+        session: Session,
+        city_id: UUID,
+        request: RecommendationRequest,
+    ) -> PersistedCandidateSnapshot:
+        """Load city identity and its complete cached recommendation snapshot."""
+
+        categories = list(dict.fromkeys(request.categories))
+        if (
+            request.category_filter is not None
+            and request.category_filter not in categories
+        ):
+            categories.append(request.category_filter)
+        return self._candidate_reader.read(
+            session=session,
+            city_id=city_id,
+            categories=categories,
+        )
+
     async def recommend(
         self,
         *,
@@ -370,6 +389,7 @@ class RecommendationService:
         session: Session,
         city: City,
         request: RecommendationRequest,
+        candidate_snapshot: PersistedCandidateSnapshot | None = None,
     ) -> tuple[list[RecommendationRead], PersistedCandidateSnapshot]:
         t_rec_start = time.monotonic()
         # Stage 1: Candidate Retrieval
@@ -380,7 +400,7 @@ class RecommendationService:
         ):
             categories_to_retrieve.append(request.category_filter)
 
-        snapshot = self._candidate_reader.read(
+        snapshot = candidate_snapshot or self._candidate_reader.read(
             session=session,
             city_id=city.id,
             categories=categories_to_retrieve,
@@ -415,20 +435,10 @@ class RecommendationService:
             t_retrieval_ms,
         )
 
-        # Fetch PlaceSource records for identity deduplication
-        candidate_ids = list({p.id for p in raw_candidates})
-        place_sources = list(
-            session.exec(
-                select(PlaceSource).where(
-                    PlaceSource.place_id.in_(candidate_ids)  # type: ignore[union-attr]
-                )
-            ).all()
-        )
-
         # Stage 2: Canonical & Spatial Deduplication
         deduped_candidates = deduplicate_places(
             places=raw_candidates,
-            place_sources=place_sources,
+            place_sources=snapshot.place_sources,
         )
 
         logger.info(
@@ -438,16 +448,14 @@ class RecommendationService:
             len(raw_candidates),
         )
 
-        # Fetch tags for suitability and category/preference matching
+        # Reuse the batched tags loaded with candidate membership. This keeps
+        # the foreground path to one tag query rather than loading the same
+        # relationship twice.
         deduped_ids = [p.id for p in deduped_candidates]
-        tags_by_place: dict[UUID, set[str]] = {pid: set() for pid in deduped_ids}
-        tag_rows = session.exec(
-            select(PlaceTag).where(
-                PlaceTag.place_id.in_(deduped_ids)  # type: ignore[union-attr]
-            )
-        ).all()
-        for tag_row in tag_rows:
-            tags_by_place.setdefault(tag_row.place_id, set()).add(tag_row.tag)
+        tags_by_place: dict[UUID, set[str]] = {
+            place_id: set(snapshot.tags_by_place.get(place_id, set()))
+            for place_id in deduped_ids
+        }
 
         # Check existing saved places & stored preferences if trip_id is provided
         saved_place_ids: set[UUID] = set()
@@ -719,5 +727,10 @@ class RecommendationService:
             total_rec_ms,
         )
         page = final_results[request.cursor_offset : page_end]
-        enrich_image_reads(session, page)
+        enrich_image_reads(
+            session,
+            page,
+            cached_images=snapshot.images_by_place,
+            cached_refresh_ids=snapshot.image_refresh_ids,
+        )
         return page, snapshot

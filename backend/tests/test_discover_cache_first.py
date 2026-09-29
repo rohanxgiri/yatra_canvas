@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -9,10 +10,6 @@ from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
-
 from app.core.config import get_settings
 from app.database import get_session
 from app.main import app
@@ -27,6 +24,9 @@ from app.services.openstreetmap_places_service import (
     OpenStreetMapPlacesUnavailableError,
 )
 from app.services.recommendation_service import RecommendationService
+from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine, select
 
 DISCOVERY_CATEGORIES = list(DiscoveryCategory)
 
@@ -213,6 +213,43 @@ def test_foreground_recommendation_calls_zero_place_providers(cache_first_api) -
     response = _post_recommendations(cache_first_api)
 
     assert response.status_code == 200
+    _assert_no_place_provider_calls(cache_first_api)
+
+
+def test_foreground_recommendation_uses_one_batched_query_per_relationship(
+    cache_first_api,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    _seed_places(cache_first_api["engine"], cache_first_api["city_id"], count=7)
+    caplog.set_level(logging.INFO, logger="app.routers.places")
+
+    response = _post_recommendations(cache_first_api)
+
+    assert response.status_code == 200
+    db_events = [
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith("RECOMMEND_DB")
+    ]
+    assert len(db_events) == 1
+    assert "query_count=2" in db_events[0]
+    _assert_no_place_provider_calls(cache_first_api)
+
+
+def test_non_category_tags_remain_available_to_suitability_filter(
+    cache_first_api,
+) -> None:
+    _seed_places(cache_first_api["engine"], cache_first_api["city_id"], count=7)
+    with Session(cache_first_api["engine"]) as session:
+        first_place = session.exec(select(Place).order_by(Place.name)).first()
+        assert first_place is not None
+        session.add(PlaceTag(place_id=first_place.id, tag="canteen"))
+        session.commit()
+
+    response = _post_recommendations(cache_first_api)
+
+    assert response.status_code == 200
+    assert len(response.json()) == 6
     _assert_no_place_provider_calls(cache_first_api)
 
 

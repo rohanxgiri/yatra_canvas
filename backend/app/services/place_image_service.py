@@ -119,8 +119,10 @@ def enrich_image_reads(
     items: list,
     *,
     id_attribute: str = "id",
+    cached_images: dict[UUID, PlaceImageRead] | None = None,
+    cached_refresh_ids: set[UUID] | None = None,
 ) -> set[UUID]:
-    """Attach normalized category/image fields to API read models in two queries."""
+    """Attach cached images using category data already present on read models."""
 
     ids = [
         getattr(item, id_attribute)
@@ -129,21 +131,23 @@ def enrich_image_reads(
     ]
     if not ids:
         return set()
-    places = {
-        place.id: place
-        for place in session.exec(select(Place).where(Place.id.in_(ids))).all()
-    }
-    images, refresh = get_cached_place_images(session, ids)
+    if cached_images is None:
+        images, refresh = get_cached_place_images(session, ids)
+    else:
+        images = cached_images
+        refresh = (
+            set(ids) & cached_refresh_ids
+            if cached_refresh_ids is not None
+            else set(ids) - set(images)
+        )
     for item in items:
         place_id = getattr(item, id_attribute, None)
-        place = places.get(place_id)
-        if place is None:
-            continue
-        if hasattr(item, "category"):
-            item.category = place.category
-        if hasattr(item, "normalized_category"):
+        category = getattr(item, "category", None)
+        name = getattr(item, "name", None)
+        if hasattr(item, "normalized_category") and category:
             item.normalized_category = normalize_place_category(
-                place.category, name=place.name
+                category,
+                name=name,
             ).value
         if hasattr(item, "image"):
             item.image = images.get(place_id)
@@ -547,11 +551,21 @@ def schedule_place_image_enrichment(
                 else:
                     target_engine = engine
                 for offset in range(0, len(ids), IMAGE_ENRICHMENT_BATCH_SIZE):
-                    with Session(target_engine) as session:
-                        await PlaceImageResolver().resolve_many(
-                            session,
-                            ids[offset : offset + IMAGE_ENRICHMENT_BATCH_SIZE],
-                        )
+                    batch_ids = ids[offset : offset + IMAGE_ENRICHMENT_BATCH_SIZE]
+
+                    def resolve_batch(
+                        current_batch_ids: list[UUID] = batch_ids,
+                    ) -> None:
+                        async def resolve() -> None:
+                            with Session(target_engine) as session:
+                                await PlaceImageResolver().resolve_many(
+                                    session,
+                                    current_batch_ids,
+                                )
+
+                        asyncio.run(resolve())
+
+                    await asyncio.to_thread(resolve_batch)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:  # noqa: BLE001 - background work must not escape
@@ -594,4 +608,3 @@ def cleanup_poisoned_image_cache(
     count = result.rowcount
     logger.info("CLEANUP_POISONED_IMAGE_CACHE deleted=%d city_id=%s", count, city_id)
     return count
-

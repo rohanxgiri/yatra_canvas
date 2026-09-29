@@ -17,6 +17,25 @@ void main() {
     );
   });
 
+  test(
+    'Jaipur city pack has a distinct bundled image for screenshot places',
+    () {
+      final assets = <String>{
+        for (final name in ['Jantar Mantar', 'Jal Mahal', 'Hawa Mahal'])
+          placeFallbackAsset(
+            cityName: 'Jaipur',
+            name: name,
+            normalizedCategory: 'tourism',
+          )!,
+      };
+
+      expect(assets, hasLength(3));
+      for (final asset in assets) {
+        expect(File(asset).existsSync(), isTrue, reason: asset);
+      }
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Scenario F: Place Fallback Asset & Category Coverage', () {

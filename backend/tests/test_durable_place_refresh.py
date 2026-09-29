@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine, select
-
 from app.models import City, CityCategoryCache, Place, PlaceRefreshJob, PlaceTag
 from app.schemas import DiscoveryCategory
 from app.services.city_place_prefetch_service import PrefetchStage
@@ -17,6 +15,8 @@ from app.services.durable_place_refresh_service import (
     DurablePlaceRefreshService,
     RefreshJobState,
 )
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine, select
 
 
 @pytest.fixture
@@ -219,6 +219,41 @@ async def test_active_lease_is_observed_without_waiting(refresh_db) -> None:
 
 
 @pytest.mark.anyio
+async def test_scheduled_refresh_job_does_not_block_the_server_event_loop(
+    refresh_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine, city_id = refresh_db
+    service = DurablePlaceRefreshService(
+        engine=engine,
+        category_refresher=lambda *_args: None,  # type: ignore[arg-type]
+        worker_id="event-loop-worker",
+    )
+
+    def blocking_job(*_args) -> bool:
+        time.sleep(0.3)
+        return True
+
+    monkeypatch.setattr(service, "_execute_job_in_thread", blocking_job)
+
+    started = time.perf_counter()
+    task = asyncio.create_task(
+        service._scheduled_execute_job(
+            city_id,
+            DiscoveryCategory.TOURISM,
+            PrefetchStage.INTERESTS_CONFIRMED,
+            "event-loop-test",
+        )
+    )
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    event_loop_delay = time.perf_counter() - started
+
+    assert event_loop_delay < 0.15
+    assert await task is True
+
+
+@pytest.mark.anyio
 async def test_expired_lease_can_be_recovered(refresh_db) -> None:
     engine, city_id = refresh_db
     calls: list[DiscoveryCategory] = []
@@ -306,6 +341,31 @@ async def test_provider_failure_records_error_and_keeps_stored_places(
         assert session.exec(
             select(Place).where(Place.city_id == city_id)
         ).one().name == ("Old but useful market")
+
+    immediate_retry = service.request_refresh(
+        city_id=city_id,
+        categories=[DiscoveryCategory.MARKETS],
+        stage=PrefetchStage.INTERESTS_CONFIRMED,
+        schedule=False,
+    )
+    assert immediate_retry.state == "failed"
+    assert immediate_retry.queued_categories == []
+    assert immediate_retry.reused_categories == ["markets"]
+
+    with Session(engine) as session:
+        failed_job = session.exec(select(PlaceRefreshJob)).one()
+        failed_job.updated_at = datetime.now(timezone.utc) - timedelta(minutes=6)
+        session.add(failed_job)
+        session.commit()
+
+    delayed_retry = service.request_refresh(
+        city_id=city_id,
+        categories=[DiscoveryCategory.MARKETS],
+        stage=PrefetchStage.INTERESTS_CONFIRMED,
+        schedule=False,
+    )
+    assert delayed_retry.state == "queued"
+    assert delayed_retry.queued_categories == ["markets"]
 
 
 @pytest.mark.anyio
