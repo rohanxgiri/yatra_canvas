@@ -14,6 +14,7 @@ import '../../theme/yc_motion.dart';
 import '../../widgets/create_trip_scaffold.dart';
 import '../../widgets/yc_pressable.dart';
 import 'trip_purpose_screen.dart';
+import 'start_point_picker.dart';
 
 class ArrivalDetailsScreen extends StatefulWidget {
   const ArrivalDetailsScreen({
@@ -98,8 +99,14 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     _startName =
         widget.draft.startLocationName ??
         (_startType == TripStartLocationType.arrival ? _arrivalPoint : null);
-    _startLatitude = widget.draft.startLatitude;
-    _startLongitude = widget.draft.startLongitude;
+    _startLatitude =
+        widget.draft.startLatitude ??
+        (_startType == TripStartLocationType.arrival ? _arrivalLatitude : null);
+    _startLongitude =
+        widget.draft.startLongitude ??
+        (_startType == TripStartLocationType.arrival
+            ? _arrivalLongitude
+            : null);
     _startProvider = widget.draft.startLocationProvider;
     _startProviderPlaceId = widget.draft.startLocationProviderPlaceId;
     _ownsLocationService = widget.locationService == null;
@@ -111,6 +118,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     _pointController.addListener(_refreshPoint);
     _startSearchController.addListener(_onStartSearchChanged);
     _pointFocus.addListener(_refresh);
+    unawaited(_loadBundledStarts());
   }
 
   @override
@@ -132,6 +140,43 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   }
 
   void _refresh() => setState(() {});
+
+  Future<void> _loadBundledStarts() async {
+    if (!await _locationService.hasOfflineCity(widget.draft.destination?.id) ||
+        !mounted) {
+      return;
+    }
+    if (_pointController.text.isEmpty &&
+        _startType == TripStartLocationType.arrival) {
+      await _searchArrivalPoint('', ++_arrivalSearchRevision);
+    }
+  }
+
+  Future<void> _choosePoint() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final city = widget.draft.destination;
+    final point = await Navigator.of(context).push<SelectedStartPoint>(
+      MaterialPageRoute(
+        builder: (_) => StartPointPicker(
+          cityName: city?.name ?? 'your destination',
+          latitude: city?.latitude ?? _startLatitude ?? 0,
+          longitude: city?.longitude ?? _startLongitude ?? 0,
+          cityId: city?.id,
+          locationService: _locationService,
+        ),
+      ),
+    );
+    if (!mounted || point == null) return;
+    setState(() {
+      _startType = TripStartLocationType.custom;
+      _startName = point.name;
+      _startLatitude = point.latitude;
+      _startLongitude = point.longitude;
+      _startProvider = null;
+      _startProviderPlaceId = null;
+      _startError = null;
+    });
+  }
 
   void _refreshPoint() {
     final query = _pointController.text.trim();
@@ -157,7 +202,7 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
         }
       }
     });
-    if (_suppressArrivalSearch || query.length < 3) return;
+    if (_suppressArrivalSearch) return;
     _arrivalSearchDebounce = Timer(
       const Duration(milliseconds: 400),
       () => _searchArrivalPoint(query, revision),
@@ -172,10 +217,16 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     });
     try {
       final suggestions = await _locationService.autocomplete(
-        _arrivalProviderQuery(query),
+        query,
         hotelOnly: false,
+        locationKind: _method == 'Train'
+            ? 'station'
+            : _method == 'Flight'
+            ? 'airport'
+            : null,
         latitude: widget.draft.destination?.latitude,
         longitude: widget.draft.destination?.longitude,
+        cityId: widget.draft.destination?.id,
       );
       if (!mounted ||
           revision != _arrivalSearchRevision ||
@@ -198,31 +249,29 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
 
   void _retryArrivalSearch() {
     final query = _lastArrivalQuery ?? _pointController.text.trim();
-    if (query.length < 3) return;
     final revision = ++_arrivalSearchRevision;
     _searchArrivalPoint(query, revision);
   }
 
   void _selectMethod(String method) {
-    if (_method == method) return;
-    setState(() => _method = method);
-    if (_arrivalPoint.isNotEmpty) _refreshPoint();
-  }
-
-  String _arrivalProviderQuery(String query) {
-    final normalized = query.toLowerCase();
-    return switch (_method) {
-      'Train'
-          when !normalized.contains('railway') &&
-              !normalized.contains('station') =>
-        '$query railway station',
-      'Flight' when !normalized.contains('airport') => '$query airport',
-      'Bus'
-          when !normalized.contains('bus') &&
-              !normalized.contains('terminal') =>
-        '$query bus station',
-      _ => query,
-    };
+    setState(() => _method = _method == method ? '' : method);
+    if (_startType == TripStartLocationType.arrival &&
+        _arrivalLatitude == null) {
+      _suppressArrivalSearch = true;
+      _pointController.clear();
+      _suppressArrivalSearch = false;
+      unawaited(_searchArrivalPoint('', ++_arrivalSearchRevision));
+      final fieldContext = _pointFocus.context;
+      if (fieldContext != null) {
+        unawaited(
+          Scrollable.ensureVisible(
+            fieldContext,
+            alignment: .1,
+            duration: const Duration(milliseconds: 250),
+          ),
+        );
+      }
+    }
   }
 
   void _selectPoint(LocationSuggestion suggestion) {
@@ -260,22 +309,24 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     if (selected != null && mounted) setState(() => _arrivalTime = selected);
   }
 
-  bool get _canContinue {
-    if (_arrivalPoint.isEmpty || _isSavingStart) return false;
-    if (_startType == TripStartLocationType.arrival) {
-      return _arrivalLatitude != null &&
-          _arrivalLongitude != null &&
-          !_isSearchingArrival;
-    }
-    return _startName != null &&
-        _startLatitude != null &&
-        _startLongitude != null &&
-        !_isResolvingLocation &&
-        !_isGettingCurrentLocation;
-  }
+  bool get _canContinue =>
+      !_isSavingStart &&
+      _startName?.trim().isNotEmpty == true &&
+      _startLatitude != null &&
+      _startLongitude != null &&
+      _startLatitude!.isFinite &&
+      _startLongitude!.isFinite &&
+      _startLatitude!.abs() <= 90 &&
+      _startLongitude!.abs() <= 180 &&
+      !_isResolvingLocation &&
+      !_isGettingCurrentLocation;
 
   void _selectStartType(TripStartLocationType type) {
+    if (_startType == type) return;
+    _searchRevision++;
     _searchDebounce?.cancel();
+    _isGettingCurrentLocation = false;
+    _isSearchingLocation = false;
     _suppressStartSearch = true;
     _startSearchController.clear();
     _suppressStartSearch = false;
@@ -299,6 +350,12 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     });
     if (type == TripStartLocationType.currentLocation) {
       _useCurrentLocation();
+    } else if (type == TripStartLocationType.custom) {
+      _choosePoint();
+    } else if (type == TripStartLocationType.hotel) {
+      unawaited(_searchStartPoint('', ++_searchRevision));
+    } else if (type == TripStartLocationType.arrival) {
+      unawaited(_loadBundledStarts());
     }
   }
 
@@ -318,38 +375,43 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
       _locationSuggestions = const [];
       _isSearchingLocation = false;
     });
-    if (query.length < 3 ||
-        (_startType != TripStartLocationType.hotel &&
-            _startType != TripStartLocationType.custom)) {
+    if (_startType != TripStartLocationType.hotel &&
+        _startType != TripStartLocationType.custom) {
       return;
     }
-    _searchDebounce = Timer(const Duration(milliseconds: 400), () async {
-      setState(() {
-        _isSearchingLocation = true;
-        _startError = null;
-      });
-      try {
-        final suggestions = await _locationService.autocomplete(
-          query,
-          hotelOnly: _startType == TripStartLocationType.hotel,
-          latitude: widget.draft.destination?.latitude,
-          longitude: widget.draft.destination?.longitude,
-        );
-        if (!mounted ||
-            revision != _searchRevision ||
-            query != _startSearchController.text.trim()) {
-          return;
-        }
-        setState(() => _locationSuggestions = suggestions);
-      } on Object catch (error) {
-        if (!mounted) return;
-        setState(() => _startError = _locationError(error));
-      } finally {
-        if (mounted && revision == _searchRevision) {
-          setState(() => _isSearchingLocation = false);
-        }
-      }
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () => _searchStartPoint(query, revision),
+    );
+  }
+
+  Future<void> _searchStartPoint(String query, int revision) async {
+    setState(() {
+      _isSearchingLocation = true;
+      _startError = null;
     });
+    try {
+      final suggestions = await _locationService.autocomplete(
+        query,
+        hotelOnly: _startType == TripStartLocationType.hotel,
+        latitude: widget.draft.destination?.latitude,
+        longitude: widget.draft.destination?.longitude,
+        cityId: widget.draft.destination?.id,
+      );
+      if (!mounted ||
+          revision != _searchRevision ||
+          query != _startSearchController.text.trim()) {
+        return;
+      }
+      setState(() => _locationSuggestions = suggestions);
+    } on Object catch (error) {
+      if (!mounted || revision != _searchRevision) return;
+      setState(() => _startError = _locationError(error));
+    } finally {
+      if (mounted && revision == _searchRevision) {
+        setState(() => _isSearchingLocation = false);
+      }
+    }
   }
 
   void _selectLocationSuggestion(LocationSuggestion suggestion) {
@@ -370,39 +432,49 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   }
 
   Future<void> _useCurrentLocation() async {
+    final revision = ++_searchRevision;
     setState(() {
       _isGettingCurrentLocation = true;
       _startError = null;
     });
     try {
       final position = await _deviceLocationService.getCurrentPosition();
-      if (!mounted) return;
+      if (!mounted || revision != _searchRevision) return;
       setState(() {
         _startName = 'Current location';
         _startLatitude = position.latitude;
         _startLongitude = position.longitude;
       });
     } on Object catch (error) {
-      if (!mounted) return;
+      if (!mounted || revision != _searchRevision) return;
       setState(() => _startError = _locationError(error));
     } finally {
-      if (mounted) setState(() => _isGettingCurrentLocation = false);
+      if (mounted && revision == _searchRevision) {
+        setState(() => _isGettingCurrentLocation = false);
+      }
     }
   }
 
   String _locationError(Object error) {
     if (error is DeviceLocationException) return error.message;
     if (error is LocationServiceException) return error.message;
-    if (error is TimeoutException) return 'Location lookup timed out. Try again.';
+    if (error is TimeoutException) {
+      return 'Location lookup timed out. Try again.';
+    }
     return 'Could not select this start location.';
   }
 
   Future<void> _continue() async {
+    if (!_canContinue) return;
+    // The existing API requires arrival_place. With no separate arrival selected,
+    // the user-confirmed origin supplies that field rather than an invented venue.
     widget.draft
       ..arrivalMethod = _method
-      ..arrivalPoint = _arrivalPoint
-      ..arrivalLatitude = _arrivalLatitude
-      ..arrivalLongitude = _arrivalLongitude
+      ..arrivalPoint = _startType == TripStartLocationType.arrival
+          ? _arrivalPoint
+          : _startName!
+      ..arrivalLatitude = _startLatitude
+      ..arrivalLongitude = _startLongitude
       ..arrivalTime = TimeOfDayValue(
         hour: _arrivalTime.hour,
         minute: _arrivalTime.minute,
@@ -473,13 +545,22 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
   }
 
   Widget _buildStartLocationDetails() {
-    if (_startType == TripStartLocationType.arrival) {
-      return _StartLocationStatus(
-        key: const ValueKey('arrival-start'),
-        icon: Icons.flag_outlined,
-        message: _arrivalPoint.isEmpty
-            ? 'Choose your arrival point above.'
-            : 'Sightseeing will begin at $_arrivalPoint.',
+    if (_startType == TripStartLocationType.custom) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _choosePoint,
+            icon: const Icon(Icons.map_outlined),
+            label: const Text('Choose a point or enter coordinates'),
+          ),
+          if (_startName != null)
+            _StartLocationStatus(
+              icon: Icons.check_circle_outline,
+              message:
+                  '$_startName (${_startLatitude!.toStringAsFixed(5)}, ${_startLongitude!.toStringAsFixed(5)})',
+            ),
+        ],
       );
     }
     if (_startType == TripStartLocationType.currentLocation) {
@@ -546,12 +627,24 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  'Powered by Geoapify • © OpenStreetMap contributors',
+                  _locationSuggestions.every((s) => s.provider == 'city_pack')
+                      ? 'Bundled city places • Available offline'
+                      : 'Powered by Geoapify • © OpenStreetMap contributors',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textTertiary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+              ),
+            ] else if (!_isSearchingLocation &&
+                _startSearchController.text.length >= 3 &&
+                _startName == null &&
+                _startError == null) ...[
+              const SizedBox(height: 8),
+              const Text('No hotel found. Choose a point on the map instead.'),
+              TextButton(
+                onPressed: _choosePoint,
+                child: const Text('Choose on map'),
               ),
             ] else if (_startName != null) ...[
               const SizedBox(height: 10),
@@ -600,66 +693,49 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
     final city = widget.draft.destination?.name ?? 'Ujjain';
     return CreateTripScaffold(
       step: 3,
-      title: 'How are you reaching $city?',
-      subtitle: 'Set your arrival, then choose where sightseeing begins.',
+      title: 'Where will you start in $city?',
+      subtitle:
+          'Choose a place or your own point. How you get there is optional.',
       continueEnabled: _canContinue,
       onContinue: _continue,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Arrival method', style: AppTextStyles.sectionTitle),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _methods
-                .map(
-                  (method) => _TransportCard(
-                    label: method.$1,
-                    icon: method.$2,
-                    selected: _method == method.$1,
-                    onTap: () => _selectMethod(method.$1),
-                  ),
-                )
-                .toList(growable: false),
-          ),
-          const SizedBox(height: 30),
-          const Text(
-            'Where will you arrive?',
-            style: AppTextStyles.sectionTitle,
-          ),
+          const Text('Starting point', style: AppTextStyles.sectionTitle),
           const SizedBox(height: 12),
-          TextField(
-            controller: _pointController,
-            focusNode: _pointFocus,
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              hintText: 'Search arrival points in $city',
-              prefixIcon: const Icon(Icons.location_on_outlined),
-              suffixIcon: _isSearchingArrival
-                  ? const Padding(
-                      padding: EdgeInsets.all(14),
-                      child: SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  : null,
-            ),
-          ),
-          if (_arrivalSuggestions.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Material(
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: AppColors.border),
+          if (_startType == TripStartLocationType.arrival) ...[
+            TextField(
+              key: const ValueKey('start-place-search'),
+              controller: _pointController,
+              focusNode: _pointFocus,
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: 'Place, hotel or station',
+                hintText: 'Search places in $city',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _isSearchingArrival
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : null,
               ),
-              child: Column(
-                children: _arrivalSuggestions
-                    .map(
-                      (suggestion) => ListTile(
-                        dense: true,
+            ),
+            if (_arrivalSuggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Material(
+                color: AppColors.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    for (final suggestion in _arrivalSuggestions)
+                      ListTile(
                         leading: const Icon(
                           Icons.place_outlined,
                           color: AppColors.teal,
@@ -675,183 +751,98 @@ class _ArrivalDetailsScreenState extends State<ArrivalDetailsScreen> {
                         ),
                         onTap: () => _selectPoint(suggestion),
                       ),
-                    )
-                    .toList(growable: false),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'Powered by Geoapify • © OpenStreetMap contributors',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textTertiary,
-                  fontWeight: FontWeight.w600,
+                  ],
                 ),
               ),
+              const SizedBox(height: 6),
+              Text(
+                _arrivalSuggestions.every((s) => s.provider == 'city_pack')
+                    ? 'Bundled city places • Available offline'
+                    : 'Powered by Geoapify • © OpenStreetMap contributors',
+                style: AppTextStyles.caption,
+              ),
+            ] else if (_arrivalError != null) ...[
+              const SizedBox(height: 8),
+              _StartLocationError(
+                message: _arrivalError!,
+                onRetry: _retryArrivalSearch,
+              ),
+              TextButton(
+                onPressed: _choosePoint,
+                child: const Text('Choose a point instead'),
+              ),
+            ] else if (_hasSearchedArrival &&
+                !_isSearchingArrival &&
+                _arrivalLatitude == null) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'No matching place. You can choose any point on the map.',
+              ),
+              TextButton(
+                onPressed: _choosePoint,
+                child: const Text('Choose on map'),
+              ),
+            ],
+          ],
+          const SizedBox(height: 16),
+          // Full-width rows remain usable with larger phone text settings.
+          for (final type in TripStartLocationType.values) ...[
+            _StartOptionCard(
+              type: type,
+              selected: _startType == type,
+              onTap: () => _selectStartType(type),
             ),
-          ] else if (_arrivalError != null) ...[
             const SizedBox(height: 8),
+          ],
+          if (_startType != TripStartLocationType.arrival) ...[
+            const SizedBox(height: 4),
+            _buildStartLocationDetails(),
+          ],
+          if (_startError != null) ...[
+            const SizedBox(height: 10),
             _StartLocationError(
-              message: _arrivalError!,
-              onRetry: _retryArrivalSearch,
-            ),
-          ] else if (_hasSearchedArrival &&
-              !_isSearchingArrival &&
-              _arrivalPoint.isNotEmpty &&
-              _arrivalLatitude == null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'No matching arrival point found. Try a station, airport, or terminal name.',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ] else if (_arrivalPoint.isNotEmpty &&
-              _arrivalLatitude == null &&
-              _startType == TripStartLocationType.arrival) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Select a search result so route planning has an exact starting point.',
-              style: AppTextStyles.caption.copyWith(color: AppColors.error),
-            ),
-          ] else if (_arrivalLatitude != null && _arrivalLongitude != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.success,
-                  size: 18,
-                ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Text(
-                    'Route starting point confirmed',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+              message: _startError!,
+              onRetry: _startType == TripStartLocationType.currentLocation
+                  ? _useCurrentLocation
+                  : null,
             ),
           ],
-          const SizedBox(height: 26),
+          if (_canContinue) ...[
+            const SizedBox(height: 12),
+            _StartLocationStatus(
+              icon: Icons.check_circle_outline,
+              message: 'Start confirmed: $_startName',
+            ),
+          ],
+          const SizedBox(height: 24),
           const Text(
             'Approximate arrival time',
             style: AppTextStyles.sectionTitle,
           ),
           const SizedBox(height: 12),
           _TimeField(value: _formatTime(_arrivalTime), onTap: _pickTime),
-          const SizedBox(height: 26),
-          const Text('Start your trip from', style: AppTextStyles.sectionTitle),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              return Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final type in TripStartLocationType.values)
-                    SizedBox(
-                      width: width,
-                      child: _StartOptionCard(
-                        type: type,
-                        selected: _startType == type,
-                        onTap: () => _selectStartType(type),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: _buildStartLocationDetails(),
-          ),
-          if (_startError case final error?) ...[
-            const SizedBox(height: 10),
-            _StartLocationError(
-              message: error,
-              onRetry: _startType == TripStartLocationType.currentLocation
-                  ? _useCurrentLocation
-                  : null,
-            ),
-          ],
-          const SizedBox(height: 20),
-          _StartCard(
-            locationName: _startName ?? 'Choose a start location',
-            locationType: _startType.label,
-            arrivalTime: _formatTime(_arrivalTime),
+          const SizedBox(height: 24),
+          Text('Travel method (optional)', style: AppTextStyles.sectionTitle),
+          const SizedBox(height: 6),
+          const Text('Skip this if you are already in the city.'),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final method in _methods)
+                FilterChip(
+                  avatar: Icon(method.$2, size: 18),
+                  label: Text(method.$1),
+                  selected: _method == method.$1,
+                  onSelected: (_) => _selectMethod(method.$1),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
-}
-
-class _TransportCard extends StatelessWidget {
-  const _TransportCard({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => YCPressable(
-    onTap: onTap,
-    semanticLabel: label,
-    selected: selected,
-    borderRadius: BorderRadius.circular(20),
-    child: AnimatedContainer(
-      duration: YCMotion.duration(context, YCMotion.component),
-      width: 104,
-      height: 92,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.tealDark : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: selected ? AppColors.tealDark : AppColors.border,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                color: selected ? Colors.white : AppColors.teal,
-                size: 22,
-              ),
-              const Spacer(),
-              if (selected)
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.marigold,
-                  size: 18,
-                ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            label,
-            style: AppTextStyles.label.copyWith(
-              color: selected ? Colors.white : AppColors.charcoal,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _TimeField extends StatelessWidget {
@@ -895,6 +886,12 @@ class _StartOptionCard extends StatelessWidget {
     required this.onTap,
   });
   final TripStartLocationType type;
+  String get _label => switch (type) {
+    TripStartLocationType.arrival => 'Search places',
+    TripStartLocationType.hotel => 'Hotel',
+    TripStartLocationType.currentLocation => 'Current location',
+    TripStartLocationType.custom => 'Choose on map',
+  };
   final bool selected;
   final VoidCallback onTap;
   @override
@@ -907,7 +904,7 @@ class _StartOptionCard extends StatelessWidget {
     };
     return YCPressable(
       onTap: onTap,
-      semanticLabel: type.label,
+      semanticLabel: _label,
       selected: selected,
       borderRadius: BorderRadius.circular(18),
       child: AnimatedContainer(
@@ -922,12 +919,12 @@ class _StartOptionCard extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               Icon(icon, size: 22, color: AppColors.teal),
               const SizedBox(width: 12),
-              Expanded(child: Text(type.label, style: AppTextStyles.bodyLarge)),
+              Expanded(child: Text(_label, style: AppTextStyles.bodyLarge)),
               Icon(
                 selected ? Icons.check_circle : Icons.circle_outlined,
                 color: selected ? AppColors.teal : AppColors.borderStrong,
@@ -1000,79 +997,6 @@ class _StartLocationError extends StatelessWidget {
           Expanded(child: Text(message, style: AppTextStyles.caption)),
           if (onRetry != null)
             TextButton(onPressed: onRetry, child: const Text('Retry')),
-        ],
-      ),
-    );
-  }
-}
-
-class _StartCard extends StatelessWidget {
-  const _StartCard({
-    required this.locationName,
-    required this.locationType,
-    required this.arrivalTime,
-  });
-
-  final String locationName;
-  final String locationType;
-  final String arrivalTime;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.tealDark,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.marigold,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.flag_rounded, color: AppColors.charcoal),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .12),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    'START  •  ${locationType.toUpperCase()}',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.marigold,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .7,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  locationName,
-                  style: AppTextStyles.cardTitle.copyWith(color: Colors.white),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Route planning begins here after your $arrivalTime arrival.',
-                  style: AppTextStyles.body.copyWith(color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

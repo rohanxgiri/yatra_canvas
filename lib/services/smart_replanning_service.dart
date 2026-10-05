@@ -3,11 +3,12 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'local_first_client.dart';
+
 import '../config/api_config.dart';
 import '../models/itinerary_stop_status.dart';
 import '../models/optimized_route.dart';
 import '../models/smart_replanning.dart';
-
 
 class SmartReplanningException implements Exception {
   const SmartReplanningException(this.message, [this.cause]);
@@ -21,9 +22,9 @@ class SmartReplanningException implements Exception {
 
 class SmartReplanningService {
   SmartReplanningService({http.Client? client, String? baseUrl})
-      : _client = client ?? http.Client(),
-        _ownsClient = client == null,
-        _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
+    : _client = client ?? LocalFirstClient(),
+      _ownsClient = client == null,
+      _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
   static const Duration _requestTimeout = Duration(seconds: 45);
 

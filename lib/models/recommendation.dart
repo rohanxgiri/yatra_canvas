@@ -20,6 +20,7 @@ class Recommendation {
     this.isSaved = false,
     this.normalizedCategory = 'other',
     this.image,
+    this.placeDetails,
   });
 
   final String id;
@@ -39,6 +40,7 @@ class Recommendation {
   final bool isSaved;
   final String normalizedCategory;
   final PlaceImageData? image;
+  final Place? placeDetails;
 
   factory Recommendation.fromJson(Map<String, dynamic> json) {
     final rawMatchedCategories =
@@ -70,11 +72,19 @@ class Recommendation {
       image: imageJson is Map
           ? PlaceImageData.fromJson(Map<String, dynamic>.from(imageJson))
           : null,
+      placeDetails: json['place_details'] is Map
+          ? Place.fromJson(
+              Map<String, dynamic>.from(json['place_details'] as Map),
+            )
+          : json['base_source'] == 'city_pack'
+          ? Place.fromJson(json)
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    if (placeDetails != null) 'place_details': placeDetails!.toJson(),
     'name': name,
     'category': category,
     'latitude': latitude,

@@ -279,3 +279,35 @@ recommendation changes or final day-planning UI are included. See
   state synchronization, terminal status enforcement, and realistic planner benchmarks.
 - `[PARTIAL]` Apply the reviewed opening-hours and itinerary-status migrations through an environment-aware
   deployment process, then repeat PostgreSQL/RLS integration checks in staging.
+
+## Bundled city-data loop — 2026-10-04
+
+`[IMPLEMENTED]` Generic SQLite app export, safe one-command sync, prepared-city local
+discovery/search/details, persistent local trips/TripDays/itineraries, immediate fallback media and
+base-bound City Lab repair import are in repository. The Suraj Pol acceptance repair was applied
+to `v4-citylab-offline-01`, leaving previous canonical releases intact.
+`[PARTIAL]` Physical-phone airplane-mode and performance acceptance remain outstanding because no
+Android device was connected. Local route distance is approximate; online OR-Tools/providers remain
+available. This section supplements the product roadmap, not a replacement scope.
+See [developer loop](CITY_DATA_DEV_LOOP.md) and [verification report](CITY_DATA_IMPLEMENTATION_REPORT.md).
+
+### Offline starting point correction (2026-10-04)
+
+- `[IMPLEMENTED]` Complete offline location-result contract, optional travel method, full-width
+  starting options, hotel/GPS starts without a second arrival, and direct point selection.
+- `[PARTIAL]` Physical-phone acceptance and offline street-map coverage remain separate follow-up
+  work. The current landmark picker does not bundle street tiles.
+- Evidence: [starting point verification](OFFLINE_START_LOCATION_FIX.md).
+
+## Offline testing correction, 2026-10-04
+
+`[IMPLEMENTED]` Jaipur setup browses lodging/stations/airports by selection and resolves the newly
+bundled Jaipur Junction alias. Android ordinary-column search covers devices without FTS5. Local
+planning now produces visible ordered route connections from a freely chosen origin, including an
+explicit planning action when opening a map with only saved places. Pack places without a real photo
+use labelled placeholders rather than repeating a category photograph.
+
+`[PARTIAL]` Offline planning uses approximate coordinate travel estimates. Downloadable street maps,
+road-following offline navigation, broader transport coverage and wider real-photo coverage remain
+future data/engineering work. Latest changes have automated widget/SQLite evidence; final physical
+phone acceptance and measured motion performance remain unverified. See [report](OFFLINE_ROUTE_SEARCH_FIX.md).

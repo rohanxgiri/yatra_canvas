@@ -8,9 +8,11 @@ import 'package:yatra_canvas/models/city.dart';
 import 'package:yatra_canvas/models/trip_draft.dart';
 import 'package:yatra_canvas/models/trip_start_location.dart';
 import 'package:yatra_canvas/screens/create_trip/arrival_details_screen.dart';
+import 'package:yatra_canvas/screens/create_trip/start_point_picker.dart';
 import 'package:yatra_canvas/services/device_location_service.dart';
 import 'package:yatra_canvas/services/location_service.dart';
 import 'package:yatra_canvas/services/trip_service.dart';
+import 'package:yatra_canvas/services/place_prefetch_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
 void main() {
@@ -89,72 +91,69 @@ void main() {
     expect(captured.url.queryParameters.containsKey('type'), isFalse);
   });
 
-  testWidgets(
-    'hotel start is searched, resolved, and saved before continuing',
-    (tester) async {
-      tester.view.physicalSize = const Size(430, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets('hotel start is searched, resolved, and saved before continuing', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-      final draft = TripDraft(
-        tripId: 'trip-123',
-        arrivalPoint: 'Ujjain Railway Station',
-        arrivalLatitude: 23.1793,
-        arrivalLongitude: 75.7849,
-      );
-      final locationService = _FakeLocationService();
-      final tripService = _FakeTripService();
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: ArrivalDetailsScreen(
-            draft: draft,
-            locationService: locationService,
-            tripService: tripService,
-            deviceLocationService: _FakeDeviceLocationService(),
-          ),
+    final draft = TripDraft(
+      tripId: 'trip-123',
+      // An independently chosen hotel must not require a second arrival point.
+    );
+    final locationService = _FakeLocationService();
+    final tripService = _FakeTripService();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: ArrivalDetailsScreen(
+          draft: draft,
+          locationService: locationService,
+          tripService: tripService,
+          deviceLocationService: _FakeDeviceLocationService(),
         ),
-      );
+      ),
+    );
 
-      await tester.ensureVisible(find.text('Hotel'));
-      await tester.tap(find.text('Hotel'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Search hotels in your city'),
-        'imperial',
-      );
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pump();
+    await tester.ensureVisible(find.text('Hotel'));
+    await tester.tap(find.text('Hotel'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search hotels in your city'),
+      'imperial',
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
 
-      expect(locationService.hotelOnly, isTrue);
-      expect(find.text('Hotel Imperial'), findsOneWidget);
-      expect(
-        find.text('Powered by Geoapify • © OpenStreetMap contributors'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Hotel Imperial'));
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Powered by Geoapify • © OpenStreetMap contributors'),
-        findsOneWidget,
-      );
-      expect(draft.startLocationType, TripStartLocationType.arrival);
+    expect(locationService.hotelOnly, isTrue);
+    expect(find.text('Hotel Imperial'), findsOneWidget);
+    expect(
+      find.text('Powered by Geoapify • © OpenStreetMap contributors'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Hotel Imperial'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Powered by Geoapify • © OpenStreetMap contributors'),
+      findsOneWidget,
+    );
+    expect(draft.startLocationType, TripStartLocationType.arrival);
 
-      await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));
-      await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
-      await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.pumpAndSettle();
 
-      expect(draft.startLocationType, TripStartLocationType.hotel);
-      expect(draft.startLocationName, 'Hotel Imperial, Ujjain, India');
-      expect(draft.startLatitude, 23.1801);
-      expect(draft.startLocationProvider, 'geoapify');
-      expect(draft.startLocationProviderPlaceId, 'geoapify-hotel-imperial');
-      expect(tripService.savedType, TripStartLocationType.hotel);
-      expect(tripService.savedTripId, 'trip-123');
-      expect(find.text('What brings you to Ujjain?'), findsOneWidget);
-    },
-  );
+    expect(draft.startLocationType, TripStartLocationType.hotel);
+    expect(draft.startLocationName, 'Hotel Imperial, Ujjain, India');
+    expect(draft.startLatitude, 23.1801);
+    expect(draft.startLocationProvider, 'geoapify');
+    expect(draft.startLocationProviderPlaceId, 'geoapify-hotel-imperial');
+    expect(tripService.savedType, TripStartLocationType.hotel);
+    expect(tripService.savedTripId, 'trip-123');
+    expect(find.text('What brings you to Ujjain?'), findsOneWidget);
+  });
 
   testWidgets('arrival search supplies the precise route start', (
     tester,
@@ -189,7 +188,7 @@ void main() {
 
     final arrivalField = find.widgetWithText(
       TextField,
-      'Search arrival points in Surat',
+      'Search places in Surat',
     );
     await tester.enterText(arrivalField, 'Surat');
     await tester.pump(const Duration(milliseconds: 400));
@@ -202,7 +201,7 @@ void main() {
       'Surat Railway Station',
     );
     expect(stationSuggestion, findsOneWidget);
-    expect(arrivalService.lastQuery, 'Surat railway station');
+    expect(arrivalService.lastQuery, 'Surat');
 
     await tester.tap(stationSuggestion);
     await tester.pumpAndSettle();
@@ -211,6 +210,18 @@ void main() {
     );
     expect(continueButton.onPressed, isNotNull);
 
+    await tester.ensureVisible(find.text('Train'));
+    await tester.tap(find.text('Train'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continue'))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.text('Train'));
+    await tester.pumpAndSettle();
+
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
@@ -218,7 +229,100 @@ void main() {
     expect(draft.arrivalLatitude, 21.2064);
     expect(draft.startLatitude, 21.2064);
     expect(draft.startLongitude, 72.8407);
+    expect(draft.arrivalMethod, isEmpty);
   });
+
+  testWidgets('GPS start continues without an arrival point or travel method', (
+    tester,
+  ) async {
+    final draft = TripDraft();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: ArrivalDetailsScreen(
+          draft: draft,
+          locationService: _FakeLocationService(),
+          tripService: _FakeTripService(),
+          deviceLocationService: _FakeDeviceLocationService(),
+        ),
+      ),
+    );
+    await tester.ensureVisible(find.text('Current location'));
+    await tester.tap(find.text('Current location'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.pumpAndSettle();
+    expect(draft.startLocationType, TripStartLocationType.currentLocation);
+    expect(draft.arrivalPoint, 'Current location');
+    expect(draft.startLatitude, 23.1765);
+    expect(draft.arrivalMethod, isEmpty);
+    expect(find.text('What brings you to Ujjain?'), findsOneWidget);
+  });
+
+  testWidgets(
+    'an unlisted coordinate starts the trip and rejects invalid numbers',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final draft = TripDraft(
+        destination: const City(
+          id: 'jaipur',
+          name: 'Jaipur',
+          country: 'India',
+          latitude: 26.915458,
+          longitude: 75.818982,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ArrivalDetailsScreen(
+            draft: draft,
+            locationService: _FakeLocationService(),
+            tripService: _FakeTripService(),
+            prefetchService: PlacePrefetchService(
+              client: MockClient((_) async => http.Response('{}', 202)),
+            ),
+          ),
+        ),
+      );
+      await tester.ensureVisible(find.text('Choose on map'));
+      await tester.tap(find.text('Choose on map'));
+      await tester.pumpAndSettle();
+      expect(find.byType(StartPointPicker), findsOneWidget);
+      await tester.tap(find.text('Enter coordinates'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('point-latitude')),
+        'NaN',
+      );
+      await tester.tap(find.text('Use coordinates'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a number from -90 to 90.'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('point-latitude')),
+        '26.92345',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('point-longitude')),
+        '75.83456',
+      );
+      await tester.tap(find.text('Use coordinates'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Use this starting point'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+      await tester.pumpAndSettle();
+      expect(draft.startLocationType, TripStartLocationType.custom);
+      expect(draft.startLatitude, 26.92345);
+      expect(draft.startLongitude, 75.83456);
+      expect(draft.startLocationProvider, isNull);
+      expect(draft.arrivalPoint, 'My starting point');
+      expect(find.text('What brings you to Jaipur?'), findsOneWidget);
+    },
+  );
 
   testWidgets('current location permission denial is explained and retryable', (
     tester,
@@ -267,6 +371,9 @@ class _FakeLocationService extends LocationService {
     required bool hotelOnly,
     double? latitude,
     double? longitude,
+    String? cityId,
+    int limit = 5,
+    String? locationKind,
   }) async {
     this.hotelOnly = hotelOnly;
     return const [
@@ -295,6 +402,9 @@ class _ArrivalLocationService extends LocationService {
     required bool hotelOnly,
     double? latitude,
     double? longitude,
+    String? cityId,
+    int limit = 5,
+    String? locationKind,
   }) async {
     lastQuery = query;
     expect(hotelOnly, isFalse);

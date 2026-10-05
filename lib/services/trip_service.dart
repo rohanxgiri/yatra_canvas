@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'local_first_client.dart';
+
 import '../config/api_config.dart';
 import '../models/created_trip.dart';
 import '../models/trip_day.dart';
@@ -12,7 +14,7 @@ import 'request_correlation.dart';
 
 class TripService {
   TripService({http.Client? client, String? baseUrl})
-    : _client = client ?? http.Client(),
+    : _client = client ?? LocalFirstClient(),
       _ownsClient = client == null,
       _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 

@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../models/city.dart';
 import '../../models/optimized_route.dart';
@@ -2344,6 +2345,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
                     _savedPlaceFor(recommendation.id) != null;
                 final busy = _mutatingPlaceIds.contains(recommendation.id);
                 return PlaceCard(
+                  placeId: recommendation.id,
                   onTap: () => showModalBottomSheet<void>(
                     context: context,
                     isScrollControlled: true,
@@ -2359,6 +2361,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
                             AspectRatio(
                               aspectRatio: 4 / 3,
                               child: PlaceImage(
+                                placeId: recommendation.id,
                                 name: recommendation.name,
                                 image: recommendation.image,
                                 cityName: widget.city.name,
@@ -2384,16 +2387,43 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
                               _matchDescription(recommendation),
                               style: AppTextStyles.bodyLarge,
                             ),
+                            if (recommendation
+                                    .placeDetails
+                                    ?.description
+                                    ?.isNotEmpty ==
+                                true) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                recommendation.placeDetails!.description!,
+                                style: AppTextStyles.body,
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             Text(
                               _recommendationMeta(recommendation),
                               style: AppTextStyles.bodyMuted,
                             ),
                             const SizedBox(height: 16),
-                            const Text(
-                              'Opening hours have not been provided for this recommendation.',
+                            Text(
+                              recommendation.placeDetails == null
+                                  ? 'Opening hours have not been provided for this recommendation.'
+                                  : recommendation
+                                            .placeDetails!
+                                            .rawOpeningHours
+                                            ?.isNotEmpty ==
+                                        true
+                                  ? 'Opening hours${recommendation.placeDetails!.hoursVerification == 'VERIFIED' ? '' : ' (unverified)'}: ${recommendation.placeDetails!.rawOpeningHours}'
+                                  : 'Opening hours unavailable. Check before visiting.',
                               style: AppTextStyles.bodyMuted,
                             ),
+                            if (kDebugMode &&
+                                recommendation.placeDetails != null) ...[
+                              const SizedBox(height: 12),
+                              SelectableText(
+                                'place_id: ${recommendation.id}\ncity_id: ${widget.city.id}\npack: ${recommendation.placeDetails!.packVersion}\nhours: ${recommendation.placeDetails!.hoursVerification}',
+                                style: AppTextStyles.caption,
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -3681,6 +3711,7 @@ class _RouteStop extends StatelessWidget {
               SizedBox.square(
                 dimension: 52,
                 child: PlaceImage(
+                  placeId: place.id,
                   name: place.name,
                   image: place.image,
                   cityName: cityName,

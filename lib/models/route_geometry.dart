@@ -76,22 +76,27 @@ class TripRouteGeometry {
     required this.days,
     this.totalDistanceMeters,
     this.totalDurationSeconds,
+    this.geometryKind = 'road',
   });
 
   final String tripId;
   final List<DayRouteGeometry> days;
   final double? totalDistanceMeters;
   final double? totalDurationSeconds;
+  final String geometryKind;
+  bool get isOfflineOverview => geometryKind == 'offline_overview';
 
   factory TripRouteGeometry.fromJson(Map<String, dynamic> json) {
     final rawDays = json['days'] as List<dynamic>? ?? [];
     return TripRouteGeometry(
       tripId: json['trip_id'] as String,
+      geometryKind: json['geometry_kind'] as String? ?? 'road',
       days: rawDays
           .map((d) => DayRouteGeometry.fromJson(d as Map<String, dynamic>))
           .toList(growable: false),
       totalDistanceMeters: (json['total_distance_meters'] as num?)?.toDouble(),
-      totalDurationSeconds: (json['total_duration_seconds'] as num?)?.toDouble(),
+      totalDurationSeconds: (json['total_duration_seconds'] as num?)
+          ?.toDouble(),
     );
   }
 

@@ -10,3 +10,4 @@ analyzer:
     - macos/**
     - linux/**
     - tmp/**
+    - scratch/**

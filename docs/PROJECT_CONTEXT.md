@@ -228,3 +228,21 @@ underfilled trips and up to 50 selections. Full-trip previews use the same input
 TripDay configuration, selection, assignment, planning, map viewing, execution status, and partial
 replanning. See [`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md). No new product feature
 or provider was introduced.
+
+## Bundled city-data loop — 2026-10-04
+
+`[IMPLEMENTED]` DataFactory, City Pack Lab and this consumer remain separate repositories.
+Prepared cities ship indexed SQLite and local media in the APK, with field-level runtime enrichment
+and persistent local trips. Jaipur is the acceptance fixture; selection/export is metadata-driven.
+See [offline architecture](OFFLINE_CITY_PACK_ARCHITECTURE.md) and [developer loop](CITY_DATA_DEV_LOOP.md).
+`[PARTIAL]` Physical Android airplane-mode acceptance remains unverified; desktop tests are not phone measurements.
+
+## Offline planning correction, 2026-10-04
+
+`[IMPLEMENTED]` Prepared Jaipur now has 685 places, including Jaipur Junction railway station.
+Hotel selection browses hotels immediately; optional Train and Flight selections browse stations
+and airports respectively. Android search supports SQLite builds without FTS5. Offline itinerary
+geometry connects the chosen start and ordered stops, with a labelled route overview and explicit
+planning action on the map. Missing pack photos use identifiable non-photographic placeholders.
+`[PARTIAL]` Street-map tiles, road-following routes and live weather remain unavailable offline.
+See [the current offline correction report](OFFLINE_ROUTE_SEARCH_FIX.md).

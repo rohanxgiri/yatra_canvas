@@ -36,6 +36,7 @@ local.properties
 # Local database files and backup artifacts
 *.db
 *.sqlite
+!assets/citypacks/**/*.sqlite
 *.sqlite3
 *.dump
 *.pgdump

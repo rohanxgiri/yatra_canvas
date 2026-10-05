@@ -128,3 +128,10 @@ The following variables were removed from `Settings` and `backend/.env.example` 
 - FSQ portal tokens are operator credentials for obtaining an extract. If automated ingestion is
   later approved, define their storage and rotation separately rather than overloading
   `FSQ_OS_PLACES_PATH`.
+
+## Bundled city-data loop — 2026-10-04
+
+`[IMPLEMENTED]` The bundled city-data loop adds no environment variables or provider
+credentials. Export/sync use CLI city/version/output and checkout-path arguments. City Lab reuses its
+existing local operational settings. Runtime SQLite installation uses the platform database directory.
+See [actual commands](CITY_DATA_DEV_LOOP.md).

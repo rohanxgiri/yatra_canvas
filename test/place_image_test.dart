@@ -11,6 +11,31 @@ import 'package:yatra_canvas/widgets/place_card.dart';
 import 'package:yatra_canvas/widgets/place_image.dart';
 
 void main() {
+  testWidgets('offline places without photos show identifiable placeholders', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 240,
+            height: 180,
+            child: PlaceImage(
+              name: 'Example local hotel',
+              placeId: 'yc_in_rj_jaipur_example',
+              cityName: 'Jaipur',
+              normalizedCategory: 'hotel',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('place_image_local_fallback')), findsNothing);
+    expect(find.text('Example local hotel'), findsOneWidget);
+    expect(find.text('Photo unavailable offline'), findsOneWidget);
+  });
+
   test('Place tolerates an absent or null image payload', () {
     final base = <String, dynamic>{
       'id': 'p1',
@@ -229,40 +254,36 @@ void main() {
     expect(find.textContaining('Public domain'), findsOneWidget);
   });
 
-  testWidgets(
-    'valid remote metadata uses an image-region loading placeholder',
-    (tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: SizedBox(
-            width: 320,
-            height: 180,
-            child: PlaceImage(
-              name: 'Hawa Mahal',
-              image: PlaceImageData(
-                status: 'resolved',
-                url: 'https://images.example/hawa.jpg',
-              ),
-              normalizedCategory: 'landmark',
+  testWidgets('valid remote metadata shows a fallback while loading', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 180,
+          child: PlaceImage(
+            name: 'Hawa Mahal',
+            image: PlaceImageData(
+              status: 'resolved',
+              url: 'https://images.example/hawa.jpg',
             ),
+            normalizedCategory: 'landmark',
           ),
         ),
-      );
+      ),
+    );
 
-      final widget = tester.widget<CachedNetworkImage>(
-        find.byKey(const Key('place_image_remote')),
-      );
-      expect(widget.imageUrl, 'https://images.example/hawa.jpg');
-      expect(
-        find.byKey(const Key('place_image_state_loading')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('place_image_neutral_fallback')),
-        findsNothing,
-      );
-    },
-  );
+    final widget = tester.widget<CachedNetworkImage>(
+      find.byKey(const Key('place_image_remote')),
+    );
+    expect(widget.imageUrl, 'https://images.example/hawa.jpg');
+    expect(find.byKey(const Key('place_image_state_loading')), findsOneWidget);
+    expect(
+      find.byKey(const Key('place_image_neutral_fallback')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('network failure settles on fallback without layout overflow', (
     tester,

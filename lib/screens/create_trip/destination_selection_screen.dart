@@ -11,6 +11,8 @@ import '../../models/trip_start_location.dart';
 import '../../services/city_service.dart';
 import '../../services/place_prefetch_service.dart';
 import '../../services/trip_service.dart';
+import '../../services/city_pack_repository.dart';
+import 'city_preparation_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../theme/yc_motion.dart';
@@ -274,7 +276,7 @@ class _DestinationSelectionScreenState
     return 'Could not reach the city service. Check your connection and try again.';
   }
 
-  void _continue() {
+  Future<void> _continue() async {
     final cityId = _draft.destination?.id;
     if (cityId != null && cityId.isNotEmpty) {
       unawaited(
@@ -285,13 +287,19 @@ class _DestinationSelectionScreenState
         ),
       );
     }
+    final prepared =
+        cityId != null && await CityPackRepository.shared.hasCityPack(cityId);
+    if (!mounted) return;
+    final next = SelectDatesScreen(
+      draft: _draft,
+      tripService: widget.tripService,
+      prefetchService: widget.prefetchService,
+    );
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => SelectDatesScreen(
-          draft: _draft,
-          tripService: widget.tripService,
-          prefetchService: widget.prefetchService,
-        ),
+        builder: (_) => prepared
+            ? CityPreparationScreen(city: _draft.destination!, next: next)
+            : next,
       ),
     );
   }

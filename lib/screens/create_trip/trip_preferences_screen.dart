@@ -430,8 +430,12 @@ class _TripSummary extends StatelessWidget {
         Icons.calendar_today_outlined,
         '${MaterialLocalizations.of(context).formatMediumDate(draft.startDate)} – ${MaterialLocalizations.of(context).formatMediumDate(draft.endDate)} · ${draft.durationDays} days',
       ),
-      (Icons.train_rounded, draft.arrivalMethod),
-      (Icons.flag_outlined, 'START: ${draft.arrivalPoint}'),
+      if (draft.arrivalMethod.isNotEmpty)
+        (Icons.directions_transit_rounded, draft.arrivalMethod),
+      (
+        Icons.flag_outlined,
+        'START: ${draft.startLocationName ?? draft.arrivalPoint}',
+      ),
       (Icons.auto_awesome_outlined, purposes),
       (Icons.tune_rounded, '$pace pace  •  $budget budget'),
     ];

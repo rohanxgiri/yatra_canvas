@@ -232,3 +232,34 @@ MISSED may become SKIPPED or be moved. A successful move atomically updates the 
 days, preserves completed prefixes and unrelated days, and updates the saved-place day lock. A rejected
 move leaves all persisted rows unchanged. Full evidence and remote-schema caveats are recorded in
 [`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md).
+
+## Bundled city-data loop — 2026-10-04
+
+`[IMPLEMENTED]` The app runtime projection adds name/aliases/normalized-name FTS5 and indexed
+category/media/hours state to the existing DataFactory SQLite schema. `manifest.json` records source
+fingerprint/version, schema, city, counts, exact inventory and SHA-256 hashes. Canonical provenance
+is not duplicated into ordinary app rows. Runtime enrichment is `enrichment(place_id,payload,expires_at)`;
+local trip persistence is `trips(id,payload)` in a separate DB. This is an app-local schema change,
+not a backend/production migration. Hours expose VERIFIED, UNVERIFIED and UNKNOWN independently of
+the legacy UI KNOWN/UNKNOWN flag. See [offline schema](OFFLINE_CITY_PACK_ARCHITECTURE.md).
+
+### Starting point compatibility (2026-10-04)
+
+`[IMPLEMENTED]` Existing `start_location_type`, name, coordinates and provider identity hold
+the selected origin. A user-selected map point uses `custom` without invented provider identity.
+When a user selects GPS, a hotel or a custom point, the required legacy `arrival_place` and arrival
+coordinates receive that same confirmed origin. No backend schema or migration changed. Arrival
+method remains optional draft UI state, as before it is not persisted by the trip API.
+
+## Offline route overview and station addition, 2026-10-04
+
+`[IMPLEMENTED]` The client TripRouteGeometry model has `geometryKind`, defaulting to `road` for
+existing online payloads. Local payloads use `offline_overview`; coordinates describe visit-order
+connections, without road-distance or road-duration metadata. Geometry is derived from persisted
+saved-place coordinates and itinerary ordering. No backend or runtime SQLite migration is needed.
+
+`[IMPLEMENTED]` New immutable Jaipur release `v5-offline-startpoints-01` contains 685 records.
+`yc_in_rj_jaipur_jaipur_junction_railway_station` is a transport/railway_station record with aliases
+including Jaipur railway station and Jaipur train station. Its name/coordinates are source-backed;
+hours and photos remain unknown. Existing IDs and 18 bundled photos are retained. The previous
+release fingerprint is verified unchanged in [the audit](verification/jaipur-start-station-source.json).

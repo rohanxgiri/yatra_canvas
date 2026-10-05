@@ -605,3 +605,55 @@ provider, environment, and data-model documentation.
   `lib/screens/place_discovery/place_discovery_screen.dart`,
   `lib/widgets/place_image.dart`, `lib/widgets/yc_skeleton.dart`,
   `test/place_discovery_test.dart`, and `test/place_image_test.dart`.
+
+## Bundled city-data loop — 2026-10-04
+
+### ADR-025 — Immutable bundled SQLite city packs and reviewed field repair
+
+- **Status:** Accepted from the user's implementation request; `[IMPLEMENTED]` repository workflow,
+  `[PARTIAL]` physical-device acceptance.
+- **Date:** 2026-10-04.
+- **Decision:** DataFactory owns canonical immutable releases; City Lab owns human overlays and
+  checksummed base-bound patches; YatraCanvas owns read-only runtime SQLite projections and separate
+  enrichment/trip databases. Prepared cities are usable without internet; other cities retain APIs.
+- **Consequences:** Field-level repair checks stale base values before a new release, preserves
+  audit provenance, and never applies production migrations. Test-only photos remain opt-in and
+  outside strict licensed-media readiness. The local bounded scheduler uses verified weekly hours
+  as hard windows, unverified hours as preferences and unknown hours as usable uncertainty.
+- **Limits:** Coordinate travel estimates are not road routing/OR-Tools parity; offline tiles and
+  weather are unavailable. See [offline architecture](OFFLINE_CITY_PACK_ARCHITECTURE.md).
+
+### ADR-026 — Starting location leads trip setup
+
+- **Status:** Accepted from the user's 2026-10-04 correction; `[IMPLEMENTED]` in the app and tests.
+- **Decision:** Require a confirmed geographic origin, not a transport mode or a separate station.
+  Use bundled places, device GPS, a point tapped on the coordinate view, manually entered
+  coordinates, or an explicitly selected city centre from destination metadata. Travel method
+  stays optional and never changes or clears that origin.
+- **Rationale:** The offline adapter omitted fields required by the location model. The UI also
+  appended transport terms to queries and blocked independent starts on a required arrival field.
+- **Compatibility:** Reuse the existing start-location schema and populate required legacy arrival
+  fields with the chosen origin. Keep provider identity only for real provider/pack selections.
+- **Limits:** Pack coverage is incomplete. Offline landmarks do not include street-map imagery.
+  See [evidence and testing](OFFLINE_START_LOCATION_FIX.md).
+
+`[IMPLEMENTED]` Android SQLite compatibility: when FTS5 is unavailable, local searches fall back
+to parameterized matching over ordinary name, normalized-name and alias columns. Category/hotel
+filters, limits and ordering still apply. This path was reproduced on the Android emulator; desktop
+SQLite alone did not expose the missing module. The immutable pack does not need replacement.
+
+### ADR-027 — Visible, explicitly approximate offline routes
+
+- **Status:** `[IMPLEMENTED]`, accepted 2026-10-04.
+- **Decision:** Derive a day-specific coordinate overview from the persisted itinerary, connecting
+  the chosen origin and ordered non-skipped stops. Label it as an offline overview and reserve a
+  separate explanatory panel so map controls remain usable with large text. Offer an explicit
+  planning action when saved places have no itinerary; keep map reads free of optimization writes.
+- **Search/data:** Optional methods filter unconfirmed prepared-city suggestions. Hotel browsing
+  starts immediately. Add missing source-reviewed locations through new immutable canonical releases,
+  rather than hard-coding fictional coordinates into the client. Jaipur Junction uses Wikidata CC0
+  evidence, verified 2026-10-04; the old release is preserved.
+- **Media:** For canonical pack IDs without exact-place photos, show an identifiable, non-photographic
+  placeholder. Existing verified/bundled photos and their attribution still take priority.
+- **Limits:** `[PARTIAL]` No offline street tiles, road graph, turn-by-turn directions, weather feed,
+  or OR-Tools parity. Coordinate lines must not be presented as road geometry.

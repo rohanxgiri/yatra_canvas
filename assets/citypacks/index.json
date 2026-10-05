@@ -1,0 +1,11 @@
+{
+  "jaipur": {
+    "city_id": "jaipur",
+    "name": "Jaipur",
+    "state": "Rajasthan",
+    "country": "India",
+    "latitude": 26.915458,
+    "longitude": 75.818982,
+    "pack_version": "v5-offline-startpoints-01"
+  }
+}

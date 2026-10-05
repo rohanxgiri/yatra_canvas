@@ -11,6 +11,9 @@ class PlaceImageData {
     this.license,
     this.licenseUrl,
     this.status = 'not_found',
+    this.assetPath,
+    this.thumbnailAssetPath,
+    this.mediaClass,
   });
 
   final String? url;
@@ -22,10 +25,24 @@ class PlaceImageData {
   final String? license;
   final String? licenseUrl;
   final String status;
+  final String? assetPath;
+  final String? thumbnailAssetPath;
+  final String? mediaClass;
+
+  String? get bundledPath {
+    final path = thumbnailAssetPath ?? assetPath;
+    return path != null &&
+            path.startsWith('assets/citypacks/') &&
+            !path.contains('..') &&
+            !path.contains('\\')
+        ? path
+        : null;
+  }
 
   PlaceImageState get state {
     switch (status) {
       case 'resolved':
+        if (bundledPath != null) return PlaceImageState.success;
         return _validRemoteUrl == null
             ? PlaceImageState.error
             : PlaceImageState.success;
@@ -49,7 +66,8 @@ class PlaceImageData {
     return candidate;
   }
 
-  bool get hasRemoteImage => state == PlaceImageState.success;
+  bool get hasRemoteImage =>
+      _validRemoteUrl != null && state == PlaceImageState.success;
 
   String? get bestUrl => hasRemoteImage ? _validRemoteUrl : null;
 
@@ -63,6 +81,9 @@ class PlaceImageData {
     license: json['license'] as String?,
     licenseUrl: json['license_url'] as String?,
     status: json['status'] as String? ?? 'not_found',
+    assetPath: json['asset_path'] as String?,
+    thumbnailAssetPath: json['thumbnail_asset_path'] as String?,
+    mediaClass: json['media_class'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -75,5 +96,8 @@ class PlaceImageData {
     'license': license,
     'license_url': licenseUrl,
     'status': status,
+    'asset_path': assetPath,
+    'thumbnail_asset_path': thumbnailAssetPath,
+    'media_class': mediaClass,
   };
 }

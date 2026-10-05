@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'local_first_client.dart';
+
 import '../config/api_config.dart';
 import '../models/place.dart';
 import '../models/recommendation.dart';
@@ -37,7 +39,7 @@ class RecommendationService {
     http.Client? client,
     String? baseUrl,
     String? requestId,
-  }) : _client = client ?? http.Client(),
+  }) : _client = client ?? LocalFirstClient(),
        _ownsClient = client == null,
        _requestId = RequestCorrelation.resolve(requestId),
        _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(

@@ -653,3 +653,46 @@ or low-quality POIs without ad-hoc code filtering.
 and never invokes full optimization as a side effect. TripDay data supplies POI weekday context and valid
 move targets. Status and partial-move responses are published from the map to the parent itinerary so both
 screens share the backend response as their source of truth.
+
+## Bundled city-data loop — 2026-10-04
+
+`[IMPLEMENTED]` Prepared-city services dispatch through `LocalFirstClient` to a read-only
+`CityPackRepository`; unsupported cities/server trips retain HTTP. Pack installation verifies assets,
+uses versioned atomic SQLite copies and separates enrichment/trip databases. Media uses the existing
+fallback library. City Lab patches are base-bound, checksummed and applied to NEW immutable releases.
+See [the schema, boundaries and limitations](OFFLINE_CITY_PACK_ARCHITECTURE.md).
+`[PARTIAL]` The bounded local greedy scheduler estimates coordinate travel; backend OR-Tools remains
+the online solver. Offline map tiles, road routing and weather are not supplied by a city pack.
+
+### Starting point correction (2026-10-04)
+
+`[IMPLEMENTED]` Trip setup asks for one confirmed starting location. Travel method is optional
+and does not rewrite searches or invalidate coordinates. Prepared-city location suggestions
+include the complete typed contract. Hotel filtering reads the canonical hotel category.
+GPS and user-selected coordinates do not depend on geocoding. The point picker uses FlutterMap
+with bundled landmark markers and no tile requests, and explicitly explains that roads are absent.
+See [verification](OFFLINE_START_LOCATION_FIX.md).
+
+`[IMPLEMENTED]` Android SQLite compatibility: when FTS5 is unavailable, local searches fall back
+to parameterized matching over ordinary name, normalized-name and alias columns. Category/hotel
+filters, limits and ordering still apply. This path was reproduced on the Android emulator; desktop
+SQLite alone did not expose the missing module. The immutable pack does not need replacement.
+
+## Offline route and search correction, 2026-10-04
+
+`[IMPLEMENTED]` LocalItineraryPlanner produces `route_geometry` with `geometry_kind=offline_overview`.
+Each populated day starts at the trip's chosen origin and connects non-skipped stops in visit order.
+OfflineTripStore derives geometry for both itinerary reads and route-geometry reads, including trips
+saved by older APKs. TripMapScreen avoids online tile requests for local trips and displays a labelled
+coordinate overview. Its explicit Plan route offline action persists a local itinerary and informs
+the parent screen; merely opening a map still does not optimize it.
+
+`[IMPLEMENTED]` Local start search accepts `location_kind=station|airport`, applies transport filters
+before pagination, and excludes the airport from station results. Hotel browsing uses raw lodging
+categories. Selected-city qualifiers are removed from multi-token searches inside that city pack.
+An optional method changes unconfirmed suggestions without invalidating a confirmed starting point.
+
+`[IMPLEMENTED]` Jaipur pack `v5-offline-startpoints-01` adds one source-reviewed station through the
+existing immutable City Lab import and app export pipeline. The previous release is preserved.
+`[PARTIAL]` These lines are approximate coordinate connections. No offline street tiles, road graph,
+turn-by-turn routing or solver parity is added. See [verification](OFFLINE_ROUTE_SEARCH_FIX.md).

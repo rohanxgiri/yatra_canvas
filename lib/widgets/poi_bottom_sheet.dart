@@ -1,6 +1,7 @@
 import '../theme/yc_style.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/itinerary_stop_status.dart';
@@ -115,6 +116,10 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
 
     // Build a DateTime on the correct calendar date but with the visit hour/min.
     final atArrival = DateTime(date.year, date.month, date.day, hour, minute);
+    if (_place.baseSource == 'city_pack' &&
+        !_place.hasScheduleForDay(atArrival)) {
+      return null;
+    }
     final intervals = _place.getIntervalsForDay(atArrival);
 
     if (intervals.isEmpty) return 'Closed at scheduled time';
@@ -293,6 +298,7 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
                     AspectRatio(
                       aspectRatio: 4 / 3,
                       child: PlaceImage(
+                        placeId: _place.id,
                         name: _place.name,
                         image: _place.image,
                         normalizedCategory: _place.normalizedCategory,
@@ -381,6 +387,30 @@ class _PoiBottomSheetState extends State<PoiBottomSheet> {
         const SizedBox(height: 10),
         // Place name
         Text(_place.name, style: AppTextStyles.sectionTitle),
+        if (_place.description?.isNotEmpty == true) ...[
+          const SizedBox(height: 10),
+          Text(_place.description!, style: AppTextStyles.body),
+        ],
+        if (_place.baseSource == 'city_pack' &&
+            _place.hoursVerification == 'UNVERIFIED')
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text('Opening hours are unverified. Check before visiting.'),
+          ),
+        if (kDebugMode && _place.baseSource == 'city_pack')
+          Material(
+            color: Colors.transparent,
+            child: ExpansionTile(
+              title: const Text('Place diagnostics'),
+              children: [
+                SelectableText(
+                  'place_id: ${_place.id}\ncity_id: ${_place.cityId}\npack: ${_place.packVersion ?? 'none'}\n'
+                  'base: ${_place.baseSource}\nmedia: ${_place.image?.provider ?? 'fallback'} / ${_place.image?.mediaClass ?? 'fallback'}\n'
+                  'hours: ${_place.hoursVerification}\nenrichment: ${_place.enrichmentState ?? 'none'}',
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

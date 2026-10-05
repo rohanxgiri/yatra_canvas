@@ -161,3 +161,44 @@ opening, and Google Maps URL construction make no Geoapify, OSM, or route-provid
 moves reuse `RouteMatrixCache` and call routing only for missing or expired traffic-backed legs. Deep map
 loading uses `GET /trips/{trip_id}/itinerary`; it does not call `optimize-route`. See
 [`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md) for measured call counts and limitations.
+
+## Bundled city-data loop — 2026-10-04
+
+`[IMPLEMENTED]` Bundled city packs precede provider calls for prepared-city discovery,
+search, details and trip planning. Missing fields may be enriched through the existing backend with
+four-second background request timeouts and a separate cache (24-hour success, 15-minute failure).
+No provider, key, paid API,
+quota or external capability was added. Existing unsupported-city routes retain their behavior.
+`[IMPLEMENTED]` Test-only local media requires explicit opt-in, remains outside strict licensed-source
+readiness and carries provenance. See [offline architecture](OFFLINE_CITY_PACK_ARCHITECTURE.md).
+
+### Starting location lookup correction (2026-10-04)
+
+`[IMPLEMENTED]` The local `/locations/autocomplete` adapter includes `country_code`,
+`result_type`, city/state, stable provider ID, name and coordinates. Its formatted address keeps
+the place name even when the pack address contains only a street. Prepared-city requests carry
+local `city_id` and can browse without a query; this parameter is not added to unsupported-city
+provider calls. Empty local results remain empty and offer direct point selection. Hotel-only
+requests filter canonical hotel/accommodation rows before limiting. No provider or key was added.
+
+`[IMPLEMENTED]` Android SQLite compatibility: when FTS5 is unavailable, local searches fall back
+to parameterized matching over ordinary name, normalized-name and alias columns. Category/hotel
+filters, limits and ordering still apply. This path was reproduced on the Android emulator; desktop
+SQLite alone did not expose the missing module. The immutable pack does not need replacement.
+
+## Prepared-city location and route adapter, 2026-10-04
+
+`[IMPLEMENTED]` Local-only `/locations/autocomplete` requests may carry `location_kind=station` or
+`airport` alongside the prepared `city_id`. An empty query browses that kind; lodging uses the existing
+hotel-only amenity request. These extra adapter parameters are not forwarded to provider-backed
+HTTP searches for unsupported cities. A selected city's name is optional in local name/alias queries.
+
+`[IMPLEMENTED]` Local itinerary/route-geometry responses now carry `geometry_kind=offline_overview`
+and day `coordinates` in the existing [latitude, longitude] order. This is a client-local response
+extension; the backend road-route contract is unchanged. Road distances/durations are not invented.
+
+`[IMPLEMENTED]` Jaipur Junction's name, aliases and coordinate 26.920203, 75.786923 were reviewed
+against [Wikidata Q6124154](https://www.wikidata.org/wiki/Q6124154), revision 2529252551, on 2026-10-04.
+Structured data licensing was checked against [Wikidata licensing](https://www.wikidata.org/wiki/Wikidata:Licensing)
+on that date (CC0). The addition has no asserted opening hours or photo. Source evidence and immutable
+release fingerprints are in [the station audit](verification/jaipur-start-station-source.json).

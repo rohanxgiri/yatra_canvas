@@ -92,6 +92,35 @@ class _TripMapScreenState extends State<TripMapScreen> {
   int? _selectedDay;
   String? _selectedPlaceId;
   int? _durationDays;
+  bool get _offlineMap =>
+      widget.tripId.startsWith('offline_') ||
+      _routeGeometry?.isOfflineOverview == true;
+
+  Future<void> _buildOfflineRoute() async {
+    setState(() => _isRouteLoading = true);
+    try {
+      final route = await _routeOptimizationService.optimizeRoute(
+        widget.tripId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _optimizedRoute = route;
+        _routeGeometry = route.routeGeometry;
+      });
+      widget.onItineraryChanged?.call(route);
+      _fitMapBounds();
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not plan your route. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRouteLoading = false);
+    }
+  }
 
   List<int> get _logicalDays {
     final total = _durationDays ?? _optimizedRoute?.totalDays ?? 1;
@@ -746,9 +775,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
   @override
   Widget build(BuildContext context) {
     return YCScaffold(
-      appBar: AppBar(
-        title: const Text('Your trip map'),
-      ),
+      appBar: AppBar(title: const Text('Your trip map')),
       body: _buildBody(),
     );
   }
@@ -807,237 +834,290 @@ class _TripMapScreenState extends State<TripMapScreen> {
     final points = _getVisiblePoints();
     final center = points.isNotEmpty ? points.first : const LatLng(0, 0);
 
-    return Stack(
+    return Column(
       children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: 13.0,
-            onMapReady: _fitMapBounds,
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.yatracanvas.app',
-            ),
-            PolylineLayer(polylines: _buildPolylines()),
-            MarkerLayer(markers: _buildMarkers()),
-            RichAttributionWidget(
-              attributions: [
-                TextSourceAttribution(
-                  'OpenStreetMap contributors',
-                  onTap: () async {
-                    try {
-                      if (await launchUrl(
-                        Uri.parse('https://www.openstreetmap.org/copyright'),
-                      )) {
-                        return;
-                      }
-                    } catch (_) {}
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Could not open attribution. Visit openstreetmap.org/copyright.',
-                          ),
-                        ),
-                      );
-                    }
-                  },
+        Expanded(
+          child: Stack(
+            children: [
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: 13.0,
+                  backgroundColor: _offlineMap
+                      ? const Color(0xFFF0F4F8)
+                      : const Color(0xFFE0E0E0),
+                  onMapReady: _fitMapBounds,
                 ),
-              ],
-            ),
-          ],
-        ),
-        if (_logicalDays.isNotEmpty)
-          Positioned(
-            top: 14,
-            left: 14,
-            right: 14,
-            child: YatraRefractiveGlass(
-              radius: 22,
-              blur: 6,
-              fill: const Color(0xE8FFFFFF),
-              borderColor: const Color(0xF2FFFFFF),
-              shadow: true,
-              shadowColor: const Color(0x14142C53),
-              shadowBlur: 18,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  children: [
-                    _MapDayChip(
-                      label: 'All days',
-                      selected: _selectedDay == null,
-                      onTap: () {
-                        setState(() => _selectedDay = null);
-                        _fitMapBounds();
-                      },
-                    ),
-                    for (final day in _logicalDays) ...[
-                      const SizedBox(width: 6),
-                      _MapDayChip(
-                        label: 'Day $day',
-                        selected: _selectedDay == day,
-                        onTap: () {
-                          setState(() => _selectedDay = day);
-                          _fitMapBounds();
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        Positioned(
-          right: 16,
-          bottom: 48,
-          child: SafeArea(
-            top: false,
-            left: false,
-            child: YatraRefractiveGlass(
-              radius: 24,
-              blur: 1.2,
-              displacement: 1.4,
-              fill: const Color(0xD9FFFFFF),
-              borderColor: const Color(0xF2FFFFFF),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    tooltip: 'Fit trip on map',
-                    onPressed: _fitMapBounds,
-                    icon: const Icon(Icons.center_focus_strong_outlined),
-                  ),
-                  IconButton(
-                    tooltip: 'Zoom in',
-                    onPressed: () => _mapController.move(
-                      _mapController.camera.center,
-                      (_mapController.camera.zoom + 1).clamp(3, 19),
+                  if (!_offlineMap)
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.yatracanvas.app',
                     ),
-                    icon: const Icon(Icons.add),
-                  ),
-                  IconButton(
-                    tooltip: 'Zoom out',
-                    onPressed: () => _mapController.move(
-                      _mapController.camera.center,
-                      (_mapController.camera.zoom - 1).clamp(3, 19),
+                  PolylineLayer(polylines: _buildPolylines()),
+                  MarkerLayer(markers: _buildMarkers()),
+                  if (!_offlineMap)
+                    RichAttributionWidget(
+                      attributions: [
+                        TextSourceAttribution(
+                          'OpenStreetMap contributors',
+                          onTap: () async {
+                            try {
+                              if (await launchUrl(
+                                Uri.parse(
+                                  'https://www.openstreetmap.org/copyright',
+                                ),
+                              )) {
+                                return;
+                              }
+                            } catch (_) {}
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Could not open attribution. Visit openstreetmap.org/copyright.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
                     ),
-                    icon: const Icon(Icons.remove),
-                  ),
                 ],
               ),
-            ),
+              if (_logicalDays.isNotEmpty)
+                Positioned(
+                  top: 14,
+                  left: 14,
+                  right: 14,
+                  child: YatraRefractiveGlass(
+                    radius: 22,
+                    blur: 6,
+                    fill: const Color(0xE8FFFFFF),
+                    borderColor: const Color(0xF2FFFFFF),
+                    shadow: true,
+                    shadowColor: const Color(0x14142C53),
+                    shadowBlur: 18,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.all(8),
+                      child: Row(
+                        children: [
+                          _MapDayChip(
+                            label: 'All days',
+                            selected: _selectedDay == null,
+                            onTap: () {
+                              setState(() => _selectedDay = null);
+                              _fitMapBounds();
+                            },
+                          ),
+                          for (final day in _logicalDays) ...[
+                            const SizedBox(width: 6),
+                            _MapDayChip(
+                              label: 'Day $day',
+                              selected: _selectedDay == day,
+                              onTap: () {
+                                setState(() => _selectedDay = day);
+                                _fitMapBounds();
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                right: 16,
+                bottom: 48,
+                child: SafeArea(
+                  top: false,
+                  left: false,
+                  child: YatraRefractiveGlass(
+                    radius: 24,
+                    blur: 1.2,
+                    displacement: 1.4,
+                    fill: const Color(0xD9FFFFFF),
+                    borderColor: const Color(0xF2FFFFFF),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Fit trip on map',
+                          onPressed: _fitMapBounds,
+                          icon: const Icon(Icons.center_focus_strong_outlined),
+                        ),
+                        IconButton(
+                          tooltip: 'Zoom in',
+                          onPressed: () => _mapController.move(
+                            _mapController.camera.center,
+                            (_mapController.camera.zoom + 1).clamp(3, 19),
+                          ),
+                          icon: const Icon(Icons.add),
+                        ),
+                        IconButton(
+                          tooltip: 'Zoom out',
+                          onPressed: () => _mapController.move(
+                            _mapController.camera.center,
+                            (_mapController.camera.zoom - 1).clamp(3, 19),
+                          ),
+                          icon: const Icon(Icons.remove),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (_selectedDay != null &&
+                  _optimizedRoute != null &&
+                  !_optimizedRoute!.places.any(
+                    (p) => p.dayNumber == _selectedDay,
+                  ))
+                Positioned(
+                  top: 90,
+                  left: 16,
+                  right: 16,
+                  child: Material(
+                    elevation: 0,
+                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.surface,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            size: 18,
+                            color: AppColors.teal,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _tripDays.any(
+                                    (day) =>
+                                        day.dayNumber == _selectedDay &&
+                                        day.dayType == DayType.rest,
+                                  )
+                                  ? 'Day $_selectedDay · Rest day. Take it slow.'
+                                  : 'Day $_selectedDay · Flexible time. This is not a rest day.',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.charcoal,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              if (_isRouteLoading)
+                Positioned(
+                  bottom: 24,
+                  left: 24,
+                  right: 88,
+                  child: Material(
+                    elevation: 0,
+                    borderRadius: BorderRadius.circular(20),
+                    color: AppColors.surface,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              'Loading route…',
+                              style: AppTextStyles.caption.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              if (_routeUnavailable && !_isRouteLoading)
+                Positioned(
+                  left: 16,
+                  right: 84,
+                  bottom: 36,
+                  child: SafeArea(
+                    top: false,
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Route could not refresh. Your places are still on the map.',
+                              style: AppTextStyles.caption,
+                            ),
+                            TextButton(
+                              onPressed: _fetchRouteAsync,
+                              child: const Text('Retry route'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
-        if (_selectedDay != null &&
-            _optimizedRoute != null &&
-            !_optimizedRoute!.places.any((p) => p.dayNumber == _selectedDay))
-          Positioned(
-            top: 90,
-            left: 16,
-            right: 16,
-            child: Material(
-              elevation: 0,
-              borderRadius: BorderRadius.circular(12),
-              color: AppColors.surface,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      size: 18,
-                      color: AppColors.teal,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _tripDays.any(
-                              (day) =>
-                                  day.dayNumber == _selectedDay &&
-                                  day.dayType == DayType.rest,
-                            )
-                            ? 'Day $_selectedDay · Rest day. Take it slow.'
-                            : 'Day $_selectedDay · Flexible time. This is not a rest day.',
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.charcoal,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        if (_isRouteLoading)
-          Positioned(
-            bottom: 24,
-            left: 24,
-            right: 88,
-            child: Material(
-              elevation: 0,
-              borderRadius: BorderRadius.circular(20),
-              color: AppColors.surface,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Loading route…',
-                        style: AppTextStyles.caption.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        if (_routeUnavailable && !_isRouteLoading)
-          Positioned(
-            left: 16,
-            right: 84,
-            bottom: 36,
+        if (_offlineMap)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: SafeArea(
               top: false,
               child: Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Route could not refresh. Your places are still on the map.',
-                        style: AppTextStyles.caption,
+                        'Offline route overview',
+                        style: AppTextStyles.label,
                       ),
-                      TextButton(
-                        onPressed: _fetchRouteAsync,
-                        child: const Text('Retry route'),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Lines connect stops in visit order. Street maps and road directions are unavailable offline.',
                       ),
+                      if ((_optimizedRoute?.places.isEmpty ?? true) &&
+                          _savedPlaces.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: _isRouteLoading
+                              ? null
+                              : _buildOfflineRoute,
+                          icon: const Icon(Icons.route),
+                          label: const Text('Plan route offline'),
+                        ),
                     ],
                   ),
                 ),

@@ -17,11 +17,13 @@ dependencies:
   url_launcher: ^6.3.1
   cached_network_image: ^4.0.0
   sqflite: ^2.4.4
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  sqflite_common_ffi: ^2.4.2
 
 flutter:
   default-flavor: regular
@@ -29,6 +31,28 @@ flutter:
   shaders:
     - shaders/yatra_refractive_glass.frag
   assets:
+    # CITYPACK ASSETS BEGIN
+    - assets/citypacks/
+    - assets/citypacks/jaipur/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_akabar_ke_kos_chinha/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_akshardham_temple/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_albert_hall_museum/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_amrapali_museum/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_anokhi_museum_of_hand_printing/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_dalaram_bagh/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_galtaji/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_ganesh_pol/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_govind_devji_temple/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_iswari_minar_swarga_sali_isarlat/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_kesar_kyari/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_moti_dungri_mandir/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_royal_gaitor/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_sattais_kacheri/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_shri_digamber_jain_atishya_kshetra_mandir_sanghiji/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_sisodia_rani_palace_and_garden/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_stepwell_panna_meena/
+    - assets/citypacks/jaipur/media/yc_in_rj_jaipur_suraj_pol_gate/
+    # CITYPACK ASSETS END
     - lib/Logo/logo.svg
     - lib/assets/home/
     - lib/assets/onboarding/

@@ -3,12 +3,14 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'local_first_client.dart';
+
 import '../config/api_config.dart';
 import '../models/trip_start_location.dart';
 
 class LocationService {
   LocationService({http.Client? client, String? baseUrl})
-    : _client = client ?? http.Client(),
+    : _client = client ?? LocalFirstClient(),
       _ownsClient = client == null,
       _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
@@ -17,20 +19,35 @@ class LocationService {
   final bool _ownsClient;
   final String _baseUrl;
 
+  Future<bool> hasOfflineCity(String? cityId) async =>
+      cityId != null &&
+      _client is LocalFirstClient &&
+      await _client.packs.hasCityPack(cityId);
+
   Future<List<LocationSuggestion>> autocomplete(
     String query, {
     required bool hotelOnly,
     double? latitude,
     double? longitude,
+    String? cityId,
+    int limit = 5,
+    String? locationKind,
   }) async {
     final normalized = query.trim();
-    if (normalized.length < 3) return const [];
+    // Only a prepared city can browse local results without a provider query.
+    final hasPack =
+        cityId != null &&
+        _client is LocalFirstClient &&
+        await _client.packs.hasCityPack(cityId);
+    if (normalized.length < 3 && !hasPack) return const [];
     final uri = Uri.parse('$_baseUrl/locations/autocomplete').replace(
       queryParameters: {
         'query': normalized,
         if (hotelOnly) 'type': 'amenity',
         'country_code': 'in',
-        'limit': '5',
+        'limit': '${limit.clamp(1, 100)}',
+        if (hasPack) 'city_id': cityId,
+        if (hasPack && locationKind != null) 'location_kind': locationKind,
         if (latitude != null) 'latitude': '$latitude',
         if (longitude != null) 'longitude': '$longitude',
       },

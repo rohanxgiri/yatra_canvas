@@ -134,6 +134,13 @@ class Place {
     this.openingHours = const {},
     this.normalizedCategory = 'other',
     this.image,
+    this.description,
+    this.website,
+    this.hoursVerification = 'UNKNOWN',
+    this.packVersion,
+    this.baseSource = 'api',
+    this.aliases = const [],
+    this.enrichmentState,
   });
 
   final String id;
@@ -153,8 +160,28 @@ class Place {
   final Map<String, List<OpeningHoursInterval>> openingHours;
   final String normalizedCategory;
   final PlaceImageData? image;
+  final String? description;
+  final String? website;
+  final String hoursVerification;
+  final String? packVersion;
+  final String baseSource;
+  final List<String> aliases;
+  final String? enrichmentState;
 
   /// Returns intervals for a given date.
+  bool hasScheduleForDay(DateTime date) {
+    const dayKeys = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    return openingHours.containsKey(dayKeys[date.weekday - 1]);
+  }
+
   List<OpeningHoursInterval> getIntervalsForDay(DateTime date) {
     final dayKeys = [
       'monday',
@@ -178,6 +205,7 @@ class Place {
     if (openingHoursStatus == OpeningHoursStatus.closed) {
       return false;
     }
+    if (baseSource == 'city_pack' && !hasScheduleForDay(dateTime)) return null;
 
     final intervals = getIntervalsForDay(dateTime);
     if (intervals.isEmpty) {
@@ -236,6 +264,13 @@ class Place {
       image: imageJson is Map
           ? PlaceImageData.fromJson(Map<String, dynamic>.from(imageJson))
           : null,
+      description: json['description'] as String?,
+      website: json['website'] as String?,
+      hoursVerification: json['hours_verification'] as String? ?? 'UNKNOWN',
+      packVersion: json['pack_version'] as String?,
+      baseSource: json['base_source'] as String? ?? 'api',
+      aliases: (json['aliases'] as List? ?? []).cast<String>(),
+      enrichmentState: json['enrichment_state'] as String?,
     );
   }
 
@@ -259,6 +294,13 @@ class Place {
     ),
     'normalized_category': normalizedCategory,
     'image': image?.toJson(),
+    'description': description,
+    'website': website,
+    'hours_verification': hoursVerification,
+    'pack_version': packVersion,
+    'base_source': baseSource,
+    'aliases': aliases,
+    'enrichment_state': enrichmentState,
   };
 }
 

@@ -4,6 +4,8 @@ import 'dart:developer' as developer;
 
 import 'package:http/http.dart' as http;
 
+import 'local_first_client.dart';
+
 import '../config/api_config.dart';
 import '../models/place.dart';
 import 'request_correlation.dart';
@@ -20,7 +22,7 @@ enum PrefetchStage {
 
 class PlacePrefetchService {
   PlacePrefetchService({http.Client? client, String? baseUrl})
-    : _client = client ?? http.Client(),
+    : _client = client ?? LocalFirstClient(),
       _ownsClient = client == null,
       _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 

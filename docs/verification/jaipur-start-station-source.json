@@ -1,0 +1,44 @@
+{
+  "status": "IMPLEMENTED",
+  "source_url": "https://www.wikidata.org/wiki/Q6124154",
+  "license_url": "https://www.wikidata.org/wiki/Wikidata:Licensing",
+  "license": "CC0",
+  "verified_on": "2026-10-04",
+  "source_revision": 2529252551,
+  "place_id": "yc_in_rj_jaipur_jaipur_junction_railway_station",
+  "name": "Jaipur Junction railway station",
+  "latitude": 26.920203,
+  "longitude": 75.786923,
+  "previous_release": "v4-citylab-offline-01",
+  "previous_release_fingerprint": {
+    "places.json": "3a85ae31c7b726c2442f8093ca951c8dc64e6b7692ddb695976d0e9a578ee6bd",
+    "city.json": "c16e1b0d92b9c54b920c68d97d90b3ea26ca54e3025b5fbe9b12c1772f397e24",
+    "media_assurance.json": "339d78cddc889798b0ec2406bf319b70d8853d4cdec48d16c25ffcc7749ace55",
+    "field_provenance.json": "959d6e0cdf1d13b777106f49bf13473e069f39c40de6d158b91c515ebcc76818",
+    "checksums.json": "744b9c4258fa2a848d281f850670fc08ba060f91cdb80b5ae872e51e305691d6"
+  },
+  "previous_release_unchanged": true,
+  "import": {
+    "patch_id": "jaipur-offline-startpoints-01",
+    "source_release": "v4-citylab-offline-01",
+    "source_snapshot": {
+      "places.json": "3a85ae31c7b726c2442f8093ca951c8dc64e6b7692ddb695976d0e9a578ee6bd",
+      "city.json": "c16e1b0d92b9c54b920c68d97d90b3ea26ca54e3025b5fbe9b12c1772f397e24",
+      "media_assurance.json": "339d78cddc889798b0ec2406bf319b70d8853d4cdec48d16c25ffcc7749ace55",
+      "field_provenance.json": "959d6e0cdf1d13b777106f49bf13473e069f39c40de6d158b91c515ebcc76818",
+      "checksums.json": "744b9c4258fa2a848d281f850670fc08ba060f91cdb80b5ae872e51e305691d6"
+    },
+    "decisions": [
+      {
+        "place_id": "yc_in_rj_jaipur_jaipur_junction_railway_station",
+        "action": "APPLY",
+        "reasons": []
+      }
+    ],
+    "summary": {
+      "APPLY": 1
+    },
+    "dry_run": false,
+    "output_pack": "C:\\Users\\girir\\Documents\\YatraCanvas-DataFactory\\releases\\india\\rajasthan\\jaipur\\v5-offline-startpoints-01"
+  }
+}

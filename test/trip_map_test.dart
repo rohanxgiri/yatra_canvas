@@ -373,6 +373,35 @@ class MockRouteGeometryService implements RouteGeometryService {
 
 void main() {
   testWidgets(
+    'offline map offers explicit planning without fetching street tiles',
+    (tester) async {
+      final saved = await MockSavedPlaceService().getSavedPlaces('offline_map');
+      final planner = MockRouteOptimizationService();
+      OptimizedRoute? changed;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TripMapScreen(
+            tripId: 'offline_map',
+            initialSavedPlaces: saved,
+            initialDurationDays: 2,
+            routeOptimizationService: planner,
+            onItineraryChanged: (route) => changed = route,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(planner.calls, 0);
+      expect(find.byType(TileLayer), findsNothing);
+      await tester.tap(find.text('Plan route offline'));
+      await tester.pumpAndSettle();
+      expect(planner.calls, 1);
+      expect(changed?.places, isNotEmpty);
+      expect(find.text('Plan route offline'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'TripMapScreen displays markers and PolylineLayer for road route geometry',
     (WidgetTester tester) async {
       final tripService = MockTripService();

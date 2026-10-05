@@ -28,7 +28,7 @@ class TripDraft {
     DateTime? endDate,
     this.datesFlexible = false,
     this.durationDays = 2,
-    this.arrivalMethod = 'Train',
+    this.arrivalMethod = '',
     this.arrivalPoint = '',
     this.arrivalLatitude,
     this.arrivalLongitude,
