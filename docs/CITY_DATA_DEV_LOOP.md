@@ -1,9 +1,14 @@
 # City-data developer loop
 
-Status: `[IMPLEMENTED]` repository workflow; `[PARTIAL]` physical Android acceptance. 2026-10-04.
+Status: `[IMPLEMENTED]` repository workflow; `[PARTIAL]` physical Android acceptance. Verified 2026-10-06.
 
 The examples use the existing DataFactory virtual environment. Run each command from the named
 checkout. All cities are selected by metadata; Jaipur is the acceptance fixture.
+
+The three checkouts have separate ownership. DataFactory creates immutable source and app-pack
+releases, CityPack Lab stores human review and exports base-bound repair patches, and YatraCanvas
+consumes the validated app projection. Inspect the working tree in every checkout before a sync
+or publication step. Never apply a production database migration as part of this loop.
 
 ## Export and sync
 

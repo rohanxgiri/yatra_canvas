@@ -1,6 +1,6 @@
 # Offline city packs
 
-Verified in repository: 2026-10-04. Physical-device acceptance remains `[PARTIAL]`.
+Verified in repository: 2026-10-06. Physical-device acceptance remains `[PARTIAL]`.
 
 `[IMPLEMENTED]` The three checkouts remain separate. DataFactory owns immutable canonical releases;
 City Pack Lab owns durable human overlays and repair bundles; YatraCanvas consumes a compact SQLite
@@ -16,6 +16,20 @@ flowchart LR
   V --> N[New immutable canonical release]
   N --> E
 ```
+
+## Repository ownership
+
+`[IMPLEMENTED]` The handoff has three explicit boundaries:
+
+| Repository | Source of truth | It must not do |
+| --- | --- | --- |
+| [DataFactory](https://github.com/rohanxgiri/YatraCanvas-DataFactory) | Canonical place records, provenance, immutable releases, and app-pack exports | Rewrite an existing release in place |
+| [CityPack Lab](https://github.com/rohanxgiri/YatraCanvas-CityPack_lab) | Human overlays, evidence, manual QA, release gates, and repair ZIPs | Edit the baseline SQLite database or certify unreviewed data |
+| [YatraCanvas](https://github.com/rohanxgiri/yatra_canvas) | Prepared-city consumption, local search, and offline trip state | Treat the app projection as canonical data |
+
+Repair publication is deliberately a dry-run then apply operation that writes a new DataFactory
+release. App sync and certification are separate steps. No production database migration is part
+of this workflow. `[PARTIAL]` The final physical-device acceptance step is still outstanding.
 
 ## Runtime data
 

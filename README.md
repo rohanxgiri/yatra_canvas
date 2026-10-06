@@ -26,11 +26,27 @@ For the evidence backed project state, start with [Project context](docs/PROJECT
 | `docs/` | Architecture, data, provider, roadmap, decision, and verification documents |
 | `.agents/skills/` | Project local planning, development, testing, review, and documentation workflows |
 
+## Three repository city pack workflow
+
+`[IMPLEMENTED]` Offline city data is maintained across three separate repositories. Each repository
+has a different ownership boundary:
+
+| Repository | Owns | Handoff |
+| --- | --- | --- |
+| [YatraCanvas DataFactory](https://github.com/rohanxgiri/YatraCanvas-DataFactory) | Canonical source data, immutable releases, validation, and indexed app-pack exports | Exports a validated SQLite and media projection |
+| [YatraCanvas CityPack Lab](https://github.com/rohanxgiri/YatraCanvas-CityPack_lab) | Human curation, evidence, manual QA, release gates, and base-bound repair patches | Sends reviewed repair patches back to DataFactory and certified artifacts to this app |
+| YatraCanvas | Flutter consumption of prepared packs, local search, and offline trip planning | Tests or packages the app projection; it does not edit canonical pack databases |
+
+The normal loop is DataFactory export, CityPack Lab review, DataFactory dry-run and apply, then
+YatraCanvas sync and app verification. Start with the [offline pack architecture](docs/OFFLINE_CITY_PACK_ARCHITECTURE.md)
+and [city-data developer loop](docs/CITY_DATA_DEV_LOOP.md). `[PARTIAL]` Physical Android
+airplane-mode acceptance and measured device performance remain unverified.
+
 ## Prerequisites
 
 1. Install Flutter with a Dart SDK compatible with `pubspec.yaml`. The current Dart constraint is
    `^3.13.0`.
-2. Install Python 3.10 or newer. The maintained project context uses Python 3.12 or newer.
+2. Install Python 3.12 or newer. This matches the maintained backend and city-pack tooling context.
 3. Install PostgreSQL, or obtain a PostgreSQL connection URL from a development database. A
    Supabase hosted PostgreSQL connection URL is supported.
 4. Install the platform tooling required by your Flutter target, such as Android Studio and an
@@ -242,6 +258,8 @@ at an unclassified, staging, or production database.
 | [Decisions](docs/DECISIONS.md) | Accepted architecture decisions |
 | [Agent workflow](docs/AGENT_WORKFLOW.md) | How to use the project local workflow skills |
 | [Backend guide](backend/README.md) | Backend details, APIs, providers, and import commands |
+| [Offline city pack architecture](docs/OFFLINE_CITY_PACK_ARCHITECTURE.md) | Pack ownership, local runtime behavior, and repair integrity |
+| [City-data developer loop](docs/CITY_DATA_DEV_LOOP.md) | Cross-repository export, curation, repair, sync, and acceptance commands |
 
 Generated document files and screenshots under `docs/` may describe earlier UI snapshots. Treat
 the seven source of truth documents linked above as authoritative for current architecture.
