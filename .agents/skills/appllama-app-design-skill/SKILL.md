@@ -7,6 +7,14 @@ metadata:
   version: 1.3.0
 ---
 
+## YatraCanvas project context
+
+Read [Agent workflow](../../../docs/AGENT_WORKFLOW.md) and root
+[AGENTS.md](../../../AGENTS.md) before using this skill. YatraCanvas uses Flutter:
+adapt design principles to its existing widgets and navigation. Expo, React Native,
+Reanimated and iOS simulator commands are reference examples for other stacks.
+Use the repository's visual references and supported Flutter targets for verification.
+
 # Appllama App Design Skill
 
 You are building screens that will sit on a phone next to the best-designed apps

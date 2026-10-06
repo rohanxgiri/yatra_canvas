@@ -1,6 +1,6 @@
 # Agent Workflow
 
-Last updated: 2026-09-21
+Last updated: 2026-10-06
 
 ## Status and provenance
 
@@ -12,6 +12,18 @@ Last updated: 2026-09-21
   `sync`, and `debug`.
 - The pack contains Markdown and YAML instruction assets only. No executable scripts were
   installed.
+
+`[IMPLEMENTED]` The installed inventory also includes `appllama-app-design-skill` under
+`.agents/skills/`, sourced from `appllama/appllama-skills` in `skills-lock.json`.
+This repository uses Flutter. Apply its design principles through the current Flutter
+widgets and navigation; its Expo, React Native and Reanimated examples do not select
+this project's stack. Inspect the relevant `design_reference/wanderlog/` images for
+screen work as required by root `AGENTS.md`.
+
+Local skill entrypoints link to this guide. These project additions preserve upstream
+frontmatter and supporting resources. `skills-lock.json` records imported sources;
+use the installed `SKILL.md` files to determine availability rather than treating that
+file as a complete inventory or proof that local instructions are unmodified.
 
 The pack supports planning and delivery; it does not become a new source of product or
 architecture truth. Root `AGENTS.md` and the source-of-truth documents listed there always
@@ -68,11 +80,36 @@ root instructions.
 - Do not let upstream workflow conventions silently introduce dependencies, providers,
   environment variables, migrations, or claims about implementation status.
 
+## City pack work and verification
+
+`[IMPLEMENTED]` DataFactory owns canonical releases, CityPack Lab owns review and
+curation, and YatraCanvas consumes an app projection in `assets/citypacks/`.
+Read [offline architecture](OFFLINE_CITY_PACK_ARCHITECTURE.md) and
+[the developer loop](CITY_DATA_DEV_LOOP.md) when a skill touches this boundary.
+Inspect `LocalFirstClient` and `CityPackRepository` in `lib/services/` for local
+behavior, and the backend separately for server behavior. The local planner uses
+approximate travel estimates; the server planner uses OR-Tools.
+
+For a local pack change, relevant checks include `flutter test test/offline_city_pack_test.dart`
+and `python -m unittest tools.test_sync_city_pack`. Run backend checks from `backend/`
+when backend behavior changes. Documentation edits need link and diff validation;
+they do not justify a provider probe, pack rebuild or production migration.
+`[PARTIAL]` Physical Android acceptance and measured device performance still require
+device evidence. Automated tests cannot establish those results.
+
+Keep `/audit` and `/sync` surgical. A documentation change alone does not advance
+product scope, ratify a spec, or justify rewriting curated context. Existing user
+authorization to commit, push or merge applies to those actions within the named
+repositories; generic skill prompts do not require repeating that authorization.
+Stage explicit task files after reviewing the diff. Use the branch or review workflow
+required by the repository being changed.
+
 ## Recommended next engineering step
 
-The workflow pack itself does not change product priority. Based on the current roadmap and
-repository state, the next slice should validate the recently completed Discover pipeline in
-a staging environment: review and apply the additive migrations there, exercise Shillong and
-Manali against real PostgreSQL-backed data, and verify the Flutter flow on a physical device.
-After that evidence is captured, the next planned security milestone is Supabase Auth JWT
-validation and removal of trusted client-supplied user identity.
+The workflow pack itself does not change product priority. Consult `docs/ROADMAP.md`
+for the next slice. `[PARTIAL]` Physical Android acceptance of prepared-city search,
+local trips, pack upgrades and approximate route display remains open; use the device
+steps in `CITY_DATA_DEV_LOOP.md` and the evidence in `OFFLINE_ROUTE_SEARCH_FIX.md`.
+`[PLANNED]` Supabase Auth verification and authenticated traveller ownership remain
+security work. Trip creation already rejects client-supplied user identity and uses
+a server-owned development identity; inspect current code before describing that gap.
