@@ -247,6 +247,11 @@ at an unclassified, staging, or production database.
 
 ## Project documentation
 
+Start with Project context for the current product state, then read Architecture and the
+Data model before changing a feature. For setup issues, consult Environment variables;
+for provider behavior, consult APIs and data sources. Read Roadmap and Decisions before
+proposing changes to the delivery plan or architecture.
+
 | Document | Purpose |
 | --- | --- |
 | [Project context](docs/PROJECT_CONTEXT.md) | Concise current status and product boundary |
