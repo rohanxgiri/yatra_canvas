@@ -199,7 +199,7 @@ class _PlaceDecisionSheetState extends State<PlaceDecisionSheet> {
                   const SizedBox(height: 22),
                   Text('Why it matches your trip', style: AppTextStyles.cardTitle),
                   const SizedBox(height: 8),
-                  Text(reason, style: AppTextStyles.bodyMuted),
+                  Text(reason!, style: AppTextStyles.bodyMuted),
                 ] else if (recommendation.matchedCategories.isNotEmpty) ...[
                   const SizedBox(height: 22),
                   Text('Why it matches your trip', style: AppTextStyles.cardTitle),
