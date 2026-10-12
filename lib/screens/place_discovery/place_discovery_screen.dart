@@ -31,6 +31,7 @@ import '../../models/trip_day.dart';
 import '../../services/trip_service.dart';
 import '../create_trip/plan_days_screen.dart';
 import '../../widgets/place_card.dart';
+import '../../widgets/place_decision_sheet.dart';
 import '../../widgets/place_image.dart';
 import '../../widgets/selection_chip.dart';
 import '../../widgets/yc_skeleton.dart';
@@ -2350,19 +2351,25 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
                     context: context,
                     isScrollControlled: true,
                     showDragHandle: true,
-                    builder: (sheetContext) => SafeArea(
-                      top: false,
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            AspectRatio(
-                              aspectRatio: 4 / 3,
-                              child: PlaceImage(
-                                placeId: recommendation.id,
-                                name: recommendation.name,
+                    builder: (sheetContext) => FractionallySizedBox(
+                      heightFactor: 0.9,
+                      child: PlaceDecisionSheet(
+                        recommendation: recommendation,
+                        cityName: widget.city.name,
+                        initiallySelected: selected,
+                        categoryLabel: _categoryLabel(recommendation.category),
+                        matchDescription: _matchDescription(recommendation),
+                        meta: _recommendationMeta(recommendation),
+                        onToggle: _tripId == null
+                            ? null
+                            : () async {
+                                await _toggleSavedPlace(recommendation);
+                                return _savedPlaceFor(recommendation.id) != null;
+                              },
+                      ),
+                    ),
+                  ),
+                  name: recommendation.name,
                                 image: recommendation.image,
                                 cityName: widget.city.name,
                                 normalizedCategory:
