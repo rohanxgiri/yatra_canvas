@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/yatra_session.dart';
+import '../../services/admin_api_client.dart';
+import '../../admin/screens/admin_panel_screen.dart';
 import '../../theme/yc_motion.dart';
 import '../../widgets/yc_auth_button.dart';
 import '../home/home_screen.dart';
@@ -8,11 +10,8 @@ import '../onboarding/widgets/onboarding_button.dart';
 import '../onboarding/widgets/onboarding_styles.dart';
 import 'sign_up_screen.dart';
 
-/// Sign-in screen — UI only.
-///
-/// [UI ONLY] No backend authentication is performed.
-/// Form validation and field state are implemented but the Sign In button
-/// shows a placeholder notice. Wire up to Supabase Auth when ready (ADR-001).
+/// Sign-in screen. Admin accounts authenticate with the FastAPI backend.
+/// Traveller account persistence is not yet enabled; Guest mode remains available.
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
 
@@ -24,6 +23,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _obscurePass = true;
+  bool _signingIn = false;
 
   @override
   void dispose() {
@@ -32,29 +32,38 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
-  void _signIn() {
-    // [UI ONLY] No real authentication. Supabase Auth integration is planned.
-    if (_emailCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) {
+  Future<void> _signIn() async {
+    if (_signingIn) return;
+    final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text;
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please enter your email and password.'),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(16),
-        ),
+        const SnackBar(content: Text('Enter your email and password.')),
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text(
-          'Account sign-in is coming soon. Continue as Guest for now.',
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+
+    setState(() => _signingIn = true);
+    try {
+      await AdminSession.instance.signIn(email, password);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        YCRoutes.standard<void>(builder: (_) => const AdminPanelScreen()),
+        (route) => false,
+      );
+    } on AdminApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to sign in. Please try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
   }
 
   void _googleNotice() {
@@ -135,7 +144,7 @@ class _SignInScreenState extends State<SignInScreen> {
                         ),
                         SizedBox(height: 10 * scale),
                         Text(
-                          'Your journeys are waiting.',
+                          'Admin accounts can sign in here. Traveller sign-in and trip sync are still in development.',
                           style: OnboardingStyle.text(
                             15 * scale,
                             color: OnboardingStyle.mutedSlate,
@@ -206,7 +215,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
                         // ── Sign in ───────────────────────────────────────
                         OnboardingPrimaryButton(
-                          label: 'Sign In',
+                          label: _signingIn ? 'Signing in...' : 'Admin Sign In',
                           height: 52 * scale,
                           backgroundColor: const Color(0xFF1A4FC4),
                           showShadow: false,
