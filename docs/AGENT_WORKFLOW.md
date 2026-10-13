@@ -110,6 +110,7 @@ The workflow pack itself does not change product priority. Consult `docs/ROADMAP
 for the next slice. `[PARTIAL]` Physical Android acceptance of prepared-city search,
 local trips, pack upgrades and approximate route display remains open; use the device
 steps in `CITY_DATA_DEV_LOOP.md` and the evidence in `OFFLINE_ROUTE_SEARCH_FIX.md`.
-`[PLANNED]` Supabase Auth verification and authenticated traveller ownership remain
-security work. Trip creation already rejects client-supplied user identity and uses
-a server-owned development identity; inspect current code before describing that gap.
+`[IMPLEMENTED]` Optional local JWT accounts enforce traveller ownership on online
+trip resources. Token-free guests reuse the existing shared guest identity without configuration.
+`[PLANNED]` Supabase Auth remains the production identity direction; native storage and
+device acceptance still need physical device evidence. See `AUTH_ADMIN_IMPLEMENTATION.md`.

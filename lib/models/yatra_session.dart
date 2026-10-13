@@ -51,6 +51,8 @@ class YatraSession extends ChangeNotifier {
   void signOut() {
     authMode = YatraAuthMode.guest;
     displayEmail = null;
+    name = 'Traveller';
+    pace = 'Balanced';
     notifyListeners();
   }
 

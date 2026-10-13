@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlmodel import Session
 
+from app.core import dev_auth
 from app.core.security import decode_access_token
 from app.database import get_session
 from app.models import User, UserRole
@@ -15,9 +16,7 @@ from app.models import User, UserRole
 bearer_scheme = HTTPBearer(auto_error=False)
 
 SessionDependency = Annotated[Session, Depends(get_session)]
-TokenDependency = Annotated[
-    HTTPAuthorizationCredentials | None, Depends(bearer_scheme)
-]
+TokenDependency = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)]
 
 
 def get_current_user(
@@ -49,12 +48,26 @@ def get_current_user(
             detail="Authentication token has expired.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
-    except (jwt.InvalidTokenError, ValueError) as exc:
+    except (jwt.InvalidTokenError, ValueError, TypeError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate authentication credentials.",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+
+    if payload.get("dev_admin") is True:
+        if dev_auth.enabled() and user_id == dev_auth.DEMO_ADMIN_ID:
+            # A registered account at this email supersedes the demo and revokes
+            # existing demo sessions. Live database roles remain authoritative.
+            from sqlalchemy import func
+            from sqlmodel import select
+
+            existing = session.exec(select(User).where(
+                func.lower(User.email) == "admin@yatracanvas.com"
+            )).first()
+            if existing is None:
+                return dev_auth.principal()
+        raise HTTPException(status_code=401, detail="Development session unavailable.")
 
     user = session.get(User, user_id)
     if user is None:

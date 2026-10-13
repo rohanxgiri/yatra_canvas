@@ -9,6 +9,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
+from app.services.trip_service import DEVELOPMENT_USER_ID
+
 from app.database import get_session
 from app.main import app
 from app.models import Trip
@@ -75,7 +77,7 @@ def create_place(
 def create_trip(engine: Engine, city_id: str) -> Trip:
     with Session(engine) as session:
         trip = Trip(
-            user_id=uuid4(),
+            user_id=DEVELOPMENT_USER_ID,
             city_id=UUID(city_id),
             trip_name="Ujjain spiritual trip",
             days=2,

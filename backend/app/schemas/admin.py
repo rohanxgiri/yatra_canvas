@@ -20,6 +20,7 @@ class AdminDashboardMetrics(BaseModel):
     recent_trips: list[dict[str, Any]]
     recent_reports: list[dict[str, Any]]
     provider_health: dict[str, Any]
+    refreshed_at: datetime | None = None
 
 
 class AdminUserRead(BaseModel):
@@ -44,6 +45,7 @@ class AdminUserUpdate(BaseModel):
     is_active: bool | None = None
     role: str | None = None
     name: str | None = None
+    reason: str = Field(default="", max_length=1000)
 
 
 class AdminDestinationRead(BaseModel):
@@ -143,6 +145,14 @@ class AdminPlaceUpdate(BaseModel):
     """Payload to moderate or adjust a place."""
 
     model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    category: str | None = Field(default=None, min_length=1, max_length=80)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    raw_opening_hours: str | None = Field(default=None, max_length=1000)
+    reason: str = Field(default="", max_length=1000)
+    expected_moderation_status: str | None = Field(default=None,
+        pattern=r"^(ACTIVE|HIDDEN|RESTRICTED|DUPLICATE|INVALID)$")
 
     moderation_status: str | None = Field(
         default=None,
@@ -211,6 +221,7 @@ class AdminReportUpdate(BaseModel):
         pattern=r"^(OPEN|REVIEWING|RESOLVED|REJECTED)$",
     )
     admin_notes: str | None = Field(default=None, max_length=1000)
+    expected_updated_at: datetime | None = None
 
 
 class AdminProviderStatus(BaseModel):

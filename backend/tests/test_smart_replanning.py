@@ -8,6 +8,8 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
+from app.services.trip_service import DEVELOPMENT_USER_ID
+
 from app.database import get_session
 from app.main import app
 from app.models.entities import City, Place, RouteMatrixCache, Trip, TripItinerary, UserSavedPlace
@@ -153,7 +155,7 @@ def test_replan_impact_detects_stale_itinerary(session_and_client):
     trip = Trip(
         id=uuid4(),
         city_id=city.id,
-        user_id=uuid4(),
+        user_id=DEVELOPMENT_USER_ID,
         trip_name="Jaipur Trip",
         start_date=date(2026, 9, 15),
         days=1,
@@ -204,7 +206,7 @@ def test_replan_preview_and_atomic_apply(session_and_client):
     trip = Trip(
         id=uuid4(),
         city_id=city.id,
-        user_id=uuid4(),
+        user_id=DEVELOPMENT_USER_ID,
         trip_name="Jaipur Trip",
         start_date=date(2026, 9, 15),
         days=1,
@@ -265,7 +267,7 @@ def test_notes_only_change_does_not_mark_stale(session_and_client):
     trip = Trip(
         id=uuid4(),
         city_id=city.id,
-        user_id=uuid4(),
+        user_id=DEVELOPMENT_USER_ID,
         trip_name="Jaipur Trip",
         start_date=date(2026, 9, 15),
         days=1,
@@ -303,7 +305,7 @@ def test_remove_place_shows_in_preview(session_and_client):
     trip = Trip(
         id=uuid4(),
         city_id=city.id,
-        user_id=uuid4(),
+        user_id=DEVELOPMENT_USER_ID,
         trip_name="Jaipur Trip",
         start_date=date(2026, 9, 15),
         days=1,
@@ -348,7 +350,7 @@ def test_replan_preview_conflict_when_must_visit_cannot_fit(session_and_client):
     trip = Trip(
         id=uuid4(),
         city_id=city.id,
-        user_id=uuid4(),
+        user_id=DEVELOPMENT_USER_ID,
         trip_name="Jaipur Trip",
         start_date=date(2026, 9, 15),
         days=1,

@@ -11,7 +11,83 @@ Provider behavior, pricing, quotas, schemas, and policies are volatile. The fact
 checked against the linked official pages on the stated date; re-check them before launch or a
 provider change. `[PLANNED]` entries are not configured or callable in this repository.
 
+`[IMPLEMENTED]` Discover browser response contract, 2026-10-12: existing allowed browser
+origins can read `X-Request-ID`, `X-Refresh-State`, `X-Stale-Categories` and `X-Next-Cursor`
+through CORS. `scheduled` means the existing background enqueue has been dispatched; Flutter
+treats it as active preparation and uses its existing bounded retries. This does not expose
+authentication headers or change place acquisition, provider configuration or authorization.
+
 ## Operational matrix
+
+### Integrated admin adapter, verified from source 2026-10-07
+
+`[IMPLEMENTED]` Existing account login/me now have signup and an honest unavailable reset
+endpoint. Signup always creates USER accounts and ignores no extra role/identity fields.
+Privileged APIs require a verified token and live ADMIN role. Online trip resources accept
+token-free guests using the original shared guest UUID, with no guest flag. Authenticated requests
+retain traveller ownership checks; admin trip inspection uses read only admin endpoints.
+
+| Method | Path | Contract |
+| --- | --- | --- |
+| POST | `/api/auth/signup` | Name/email/password, USER-only bcrypt registration, token/profile, 201; duplicate 409 |
+| POST | `/api/auth/forgot-password` | Valid email, `available=false`, explicit no email sent |
+| GET | `/api/admin/dashboard` | Real backend counts, enabled destinations, recent trips/reports, provider configuration and UTC `refreshed_at`; excludes device-only trips |
+| GET | `/api/admin/reports` | Paginated status/reason, city/place and text search over recorded report/place/city evidence |
+| GET/PATCH | `/api/admin/reports/{id}` | Current evidence and notes; optional loaded `expected_updated_at` prevents stale writes with 409; mutation and actor audit are atomic |
+| PATCH | `/api/admin/places/{id}` | Existing catalog moderation/fields; optional loaded `expected_moderation_status` prevents overwriting a changed moderation decision |
+| GET | `/api/admin/city-lab/cities` | Selected immutable releases, city search/gate filter, offset/limit, configured flag and release selection evidence |
+| GET | `/api/admin/city-lab/summary` | Actual counts across selected connected releases, quality inventory and existing DataFactory task totals |
+| GET | `/api/admin/city-lab/cities/{key}` | Real metadata/quality/coverage, optional matching Lab evidence, actual validation/build audit |
+| GET | `/api/admin/city-lab/cities/{key}/places` | Name/category/provider ID search; QA/issue filters; name/priority/confidence/recent/missing sorting |
+| GET/PATCH | `/api/admin/city-lab/cities/{key}/places/{id}` | Immutable source plus backend review overlay; fingerprint/evidence, `expected_updated_at` revision and existing field validation |
+| GET | `/api/admin/city-lab/cities/{key}/media` | Only canonical referenced, contained image files; bearer header, never token URL |
+| GET | `/api/admin/city-lab/cities/{key}/duplicates` | Existing DataFactory identity conflict groups; paginated |
+| GET | `/api/admin/research/tasks` | Required release key `city`, actual DataFactory types/priorities/evidence, persisted review state |
+| POST | `/api/admin/research/{task}/review` | Human accepted/rejected/manual review, task-specific fields and evidence |
+| GET | `/api/admin/city-packs` | All immutable release versions, paginated |
+| POST | `/api/admin/city-lab/cities/{key}/validate` | Existing release validator, audited result/failure |
+| POST | `/api/admin/city-packs/{key}/build` | Existing app pack exporter, isolated backend output, never remote publish |
+| POST | `/api/admin/city-lab/cities/{key}/export-patch` | Approved place/research corrections, base fingerprints, checksummed schema 1 ZIP |
+| GET | `/api/admin/artifacts/{uuid}` | Authorized reviewed patch download |
+| GET | `/api/admin/system-health` | Actual SQL job/image/cache/cooldown state, no provider connectivity claims |
+| GET | `/api/admin/jobs` | Paginated state filter; excludes lease owner and raw provider error text |
+| GET | `/api/admin/audit-log` | Action/city/entity/actor/date filters; safe before/after evidence |
+
+`[IMPLEMENTED]` The default city view prefers the canonical version referenced by the bundled
+app projection for the matching city/state/country. Otherwise it selects by manifest generation
+time. Derivatives can retain identical timestamps; ties are flagged as ambiguous and ordered
+deterministically, without claiming that one is newer or certified. City Packs exposes all versions.
+Concurrent overlay updates must supply the loaded review's `updated_at` as `expected_updated_at`;
+absent revisions are accepted only for the first review. Stale or competing writes return 409.
+
+`[IMPLEMENTED]` As of 2026-10-12, unreadable/invalid release metadata is reported through
+`inventory_problems` and `inventory_complete=false` on city list/summary responses. Returned
+counts cover readable selected releases only. No absolute filesystem path or guessed health is
+returned. City Lab schema 1 evaluations require city/version and score/review/check consistency.
+`reported_gate_status` preserves the Lab result; canonical `status` remains NOT_CERTIFIED when
+that result is READY because the real export lacks a canonical content fingerprint. The adapter
+does not invent a binding field or recompute Lab scores. Missing/invalid evidence has null readiness
+and `readiness_problem`; `readiness_scope` explains the evaluation boundary.
+
+`[IMPLEMENTED]` Existing user, destination, place and report admin updates now append audit in
+the mutation transaction. Trip search accepts name/destination/user name/email/IDs, `user_id`
+and date-state filters. Date states describe schedule dates, not observed trip completion or
+planner failure. Read only details expose actual saved selections, day windows, itinerary
+status and travel legs. `[UNKNOWN]` Historical unscheduled reasons and solver score breakdowns
+are not persisted and are not reconstructed by rerunning a planner on an admin read.
+
+`[PARTIAL]` The adapter requires a trusted `DATAFACTORY_CHECKOUT`, `ADMIN_RELEASE_ROOT` and
+its declared Python dependencies (`backend/requirements-admin.txt`). Source functions reused:
+`research.export.make_tasks`, `pipeline.identity_assurance.conflict_groups`,
+`citylab_patch.validate_value/get_value`, `pipeline.validate.validate_release_package`, and
+`app_pack.export_app_pack`. No provider request is introduced by these operations. City Lab
+is a separate Flutter desktop tool without an HTTP API; version matched exports are consumed
+under `ADMIN_ARTIFACT_ROOT/lab_reports/<release-key>/release.json`. It owns READY,
+REVIEW_REQUIRED and BLOCKED gates; GO/CONDITIONAL/NO-GO are not fabricated equivalents.
+
+`[IMPLEMENTED]` Native session dependency documentation was verified 2026-10-07 at the
+[official flutter_secure_storage package page](https://pub.dev/packages/flutter_secure_storage).
+Web persistence is deliberately memory only. Physical device storage behavior remains `[PARTIAL]`.
 
 | Provider | Purpose | Current status | Runtime/batch | Owner | Key required | Classification |
 | --- | --- | --- | --- | --- | --- | --- |

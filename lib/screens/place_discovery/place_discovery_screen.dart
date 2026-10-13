@@ -2344,6 +2344,7 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
                     recommendation.isSaved ||
                     _savedPlaceFor(recommendation.id) != null;
                 final busy = _mutatingPlaceIds.contains(recommendation.id);
+                final summary = _placeSummary(recommendation);
                 return PlaceCard(
                   placeId: recommendation.id,
                   onTap: () => showModalBottomSheet<void>(
@@ -2387,17 +2388,18 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
                               _matchDescription(recommendation),
                               style: AppTextStyles.bodyLarge,
                             ),
-                            if (recommendation
-                                    .placeDetails
-                                    ?.description
-                                    ?.isNotEmpty ==
-                                true) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                recommendation.placeDetails!.description!,
-                                style: AppTextStyles.body,
-                              ),
-                            ],
+                            const SizedBox(height: 12),
+                            const Text(
+                              'About this place',
+                              style: AppTextStyles.label,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              summary ?? 'Summary unavailable for this place.',
+                              style: summary == null
+                                  ? AppTextStyles.bodyMuted
+                                  : AppTextStyles.body,
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               _recommendationMeta(recommendation),
@@ -2483,6 +2485,35 @@ class _PlaceDiscoveryScreenState extends State<PlaceDiscoveryScreen>
         .map((category) => category.label)
         .join(' + ');
     return 'Matches $matches';
+  }
+
+  String? _placeSummary(Recommendation recommendation) {
+    final description = recommendation.placeDetails?.description
+        ?.replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    String normalize(String value) => value
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase()
+        .replaceFirst(RegExp(r'[.!?]+$'), '');
+    if (description == null ||
+        description.isEmpty ||
+        normalize(description) ==
+            normalize(_matchDescription(recommendation))) {
+      return null;
+    }
+    final words = description.split(' ');
+    if (words.length <= 70) return description;
+
+    // Use source text only, preferring a complete sentence between 40 and 70 words.
+    final excerpt = words.take(70).join(' ');
+    for (final ending in RegExp(
+      r'[.!?](?=\s|$)',
+    ).allMatches(excerpt).toList().reversed) {
+      final sentence = excerpt.substring(0, ending.end);
+      if (sentence.split(' ').length >= 40) return sentence;
+    }
+    return '$excerpt…';
   }
 
   String _recommendationMeta(Recommendation recommendation) {

@@ -8,6 +8,8 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
+from app.services.trip_service import DEVELOPMENT_USER_ID
+
 from app.database import get_session
 from app.main import app
 from app.models.entities import City, Place, PlaceTag, Trip, TripItinerary, TripPreference, UserSavedPlace
@@ -122,7 +124,7 @@ def test_normal_weather_generates_no_advisory(session_and_client):
 
     trip_date = date.today() + timedelta(days=2)
     trip = Trip(
-        user_id=uuid4(),
+        user_id=DEVELOPMENT_USER_ID,
         city_id=city.id,
         trip_name="Pleasant Jaipur",
         days=1,
@@ -176,7 +178,7 @@ def test_isolated_one_hour_spike_does_not_trigger_advisory(session_and_client):
     session.commit()
 
     trip_date = date.today() + timedelta(days=2)
-    trip = Trip(user_id=uuid4(), city_id=city.id, trip_name="Spike Test", days=1, start_date=trip_date)
+    trip = Trip(user_id=DEVELOPMENT_USER_ID, city_id=city.id, trip_name="Spike Test", days=1, start_date=trip_date)
     session.add(trip)
     session.commit()
 
@@ -223,7 +225,7 @@ def test_very_hot_weather_triggers_advisory_on_outdoor_place(session_and_client)
     session.commit()
 
     trip_date = date.today() + timedelta(days=2)
-    trip = Trip(user_id=uuid4(), city_id=city.id, trip_name="Hot Jaipur", days=1, start_date=trip_date)
+    trip = Trip(user_id=DEVELOPMENT_USER_ID, city_id=city.id, trip_name="Hot Jaipur", days=1, start_date=trip_date)
     session.add(trip)
     session.commit()
 
@@ -279,7 +281,7 @@ def test_indoor_only_day_does_not_trigger_heat_advisory(session_and_client):
     session.commit()
 
     trip_date = date.today() + timedelta(days=2)
-    trip = Trip(user_id=uuid4(), city_id=city.id, trip_name="Museum Day", days=1, start_date=trip_date)
+    trip = Trip(user_id=DEVELOPMENT_USER_ID, city_id=city.id, trip_name="Museum Day", days=1, start_date=trip_date)
     session.add(trip)
     session.commit()
 
@@ -326,7 +328,7 @@ def test_heavy_rain_and_storm_advisories(session_and_client):
     session.commit()
 
     trip_date = date.today() + timedelta(days=3)
-    trip = Trip(user_id=uuid4(), city_id=city.id, trip_name="Beach Trip", days=1, start_date=trip_date)
+    trip = Trip(user_id=DEVELOPMENT_USER_ID, city_id=city.id, trip_name="Beach Trip", days=1, start_date=trip_date)
     session.add(trip)
     session.commit()
 
@@ -383,7 +385,7 @@ def test_forecast_outside_horizon_returns_no_forecast_available(session_and_clie
 
     # 40 days in the future (outside 16-day horizon)
     future_date = date.today() + timedelta(days=40)
-    trip = Trip(user_id=uuid4(), city_id=city.id, trip_name="Future Journey", days=2, start_date=future_date)
+    trip = Trip(user_id=DEVELOPMENT_USER_ID, city_id=city.id, trip_name="Future Journey", days=2, start_date=future_date)
     session.add(trip)
     session.commit()
 
@@ -404,7 +406,7 @@ def test_weather_provider_timeout_degrades_gracefully(session_and_client):
     session.add(city)
     session.commit()
 
-    trip = Trip(user_id=uuid4(), city_id=city.id, trip_name="Timeout Trip", days=1, start_date=date.today())
+    trip = Trip(user_id=DEVELOPMENT_USER_ID, city_id=city.id, trip_name="Timeout Trip", days=1, start_date=date.today())
     session.add(trip)
     session.commit()
 
@@ -425,7 +427,7 @@ def test_suggest_weather_alternatives(session_and_client):
     session.add(city)
     session.commit()
 
-    trip = Trip(user_id=uuid4(), city_id=city.id, trip_name="Cultural Tour", days=1, start_date=date.today())
+    trip = Trip(user_id=DEVELOPMENT_USER_ID, city_id=city.id, trip_name="Cultural Tour", days=1, start_date=date.today())
     session.add(trip)
     session.commit()
 
@@ -457,7 +459,7 @@ def test_rearrange_preview_and_transactional_apply(session_and_client):
     session.add(city)
     session.commit()
 
-    trip = Trip(user_id=uuid4(), city_id=city.id, trip_name="Rearrange Test", days=1, start_date=date.today())
+    trip = Trip(user_id=DEVELOPMENT_USER_ID, city_id=city.id, trip_name="Rearrange Test", days=1, start_date=date.today())
     session.add(trip)
     session.commit()
 
@@ -528,7 +530,7 @@ def test_ignore_weather_suggestions(session_and_client):
     session.commit()
 
     trip_date = date.today() + timedelta(days=2)
-    trip = Trip(user_id=uuid4(), city_id=city.id, trip_name="Ignore Test", days=1, start_date=trip_date)
+    trip = Trip(user_id=DEVELOPMENT_USER_ID, city_id=city.id, trip_name="Ignore Test", days=1, start_date=trip_date)
     session.add(trip)
     session.commit()
 

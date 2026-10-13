@@ -37,6 +37,11 @@ failures with a non-blocking notice, and only non-empty server results replace t
 The cache read and backend request still start together; backend failures are captured immediately
 so a fast failure cannot escape while the local snapshot is being read.
 
+`[IMPLEMENTED]` Browser Discover correction, 2026-10-12: CORS exposes only the non-secret
+request correlation, refresh state, stale category and next cursor response headers. Flutter
+maps the backend's asynchronous `scheduled` enqueue state to active preparation, preserving
+the existing bounded polling behavior instead of treating the first empty read as final.
+
 `[IMPLEMENTED]` A non-identifying flow correlation ID links trip creation, staged prefetch,
 recommendation reads, durable refresh dispatch, provider work, and image enrichment. Flutter keeps
 one safe `X-Request-ID` for the trip/Discover flow. FastAPI retains an incoming ID only when it
@@ -74,9 +79,10 @@ repository reality from the intended provider architecture.
 
 `[IMPLEMENTED]` The September 2026 UI redesign adds locally scoped `YCStyle`,
 `YCScaffold`, a unified four-moment onboarding story, responsive trip-creation
-surfaces, and refined discovery/day/map/POI presentations. Completing or skipping
-onboarding enters the in-memory guest session and clears the route stack to Home;
-it does not gate planning behind the `[PARTIAL]` traveler-account surfaces. Home
+surfaces, and refined discovery/day/map/POI presentations. `[IMPLEMENTED]` The corrected
+2026-10-12 startup shows the existing four onboarding screens to signed-out users, then
+opens guest Home on completion or Skip. Sign-in is optional. Restored
+sessions enter the role-appropriate experience directly; traveller logout returns to guest Home. Home
 and Explore retain their approved layouts and glass components. See
 [UI redesign](UI_REDESIGN.md) and [UX/UI polish](YATRACANVAS_UX_UI_POLISH.md).
 
@@ -191,6 +197,21 @@ same-name place elsewhere cannot receive Jaipur imagery. Returned HTTP(S) image 
 with explicit failure handling after recommendation metadata arrives. Home and Explore are unchanged
 by this slice.
 
+`[IMPLEMENTED]` Discover Places details add a small **About this place** heading below the
+existing recommendation reason. The paragraph reads the already loaded `Place.description`
+from a bundled city pack or cached field enrichment, normalizes whitespace and bounds long text
+to 70 source words, preferring complete sentences. Shorter source descriptions remain unchanged.
+Missing, blank or reason-identical text shows a muted unavailable message. Opening the sheet
+does not fetch content; imagery, metadata, scrolling and itinerary actions retain their existing paths.
+
+`[PARTIAL]` Description coverage depends on existing data: the bundled Jaipur pack has descriptions
+for 108 of 685 records (read only SQLite inspection, 2026-10-12). The PostgreSQL `Place` model has no
+description column and backend Wikimedia enrichment currently supplies images, not summaries.
+DataFactory already owns cached Wikipedia/Wikidata description enrichment and source provenance;
+missing content can be populated through that pipeline or the reviewed City Lab repair and immutable
+export/sync workflow in [the developer loop](CITY_DATA_DEV_LOOP.md). This enhancement adds no provider,
+database migration or pack replacement. Backend Wikipedia text enrichment remains `[PLANNED]`.
+
 ### FastAPI
 
 `[IMPLEMENTED]` `backend/app/main.py` assembles routers for:
@@ -198,7 +219,7 @@ by this slice.
 | Area | Current endpoints |
 | --- | --- |
 | Status | `GET /` |
-| Authentication | `POST /api/auth/login`, `GET /api/auth/me` (JWT bearer tokens, bcrypt verification) |
+| Authentication | `POST /api/auth/login`, `POST /api/auth/signup`, `GET /api/auth/me`, honest unavailable `POST /api/auth/forgot-password` |
 | Admin Suite | `/api/admin/dashboard`, `/api/admin/users`, `/api/admin/destinations`, `/api/admin/places`, `/api/admin/trips`, `/api/admin/reports`, `/api/admin/provider-status` |
 | Admin Web App | `GET /admin` (responsive single-page administrative dashboard served statically) |
 | Cities | create/list/get/search; Geoapify autocomplete, details, and canonical resolve with provider provenance |
@@ -459,8 +480,9 @@ in-memory caching and deterministic indoor/outdoor place environment classificat
 Legacy Google route client code remains but is not called by the normal Flutter flow.
 `[IMPLEMENTED]` Local JWT authentication, role protected admin endpoints, the web admin dashboard,
 trip get and update paths, durable place refresh coordination, and Discover request correlation
-exist. `[PARTIAL]` Traveller account binding, authenticated trip ownership, complete trip list and
-delete lifecycle, always on external job delivery, and deployment level observability remain absent.
+exist. `[IMPLEMENTED]` Flutter accounts now bind online trips to verified local JWT identities.
+`[PARTIAL]` Supabase identity, complete traveller trip list/delete and history restoration,
+always on external job delivery, and deployment level observability remain open.
 
 ### Database and schema changes
 
@@ -468,12 +490,11 @@ delete lifecycle, always on external job delivery, and deployment level observab
 reviews, trips/preferences, saved places, route-matrix cache rows, and itinerary rows. PostgreSQL
 is required by configuration; tests substitute in-memory SQLite where supported.
 
-`[PARTIAL]` FastAPI startup calls `SQLModel.metadata.create_all` unconditionally in every
-environment, including staging and production; `APP_ENV` does not yet alter startup behavior.
+`[IMPLEMENTED]` FastAPI startup calls `SQLModel.metadata.create_all` only when `APP_ENV`
+is explicitly `development` or `test`. Unclassified, staging and production startup does not apply schema changes.
 Standalone forward SQL scripts in `backend/sql/` handle changes to existing databases. There is
-no Alembic/Supabase migration history or automated schema-version check. Once formal migrations
-are adopted, startup schema creation should be restricted to disposable development/test
-environments or removed. The guarded `backend/scripts/verify_place_image_cache.py` utility is
+no Alembic/Supabase migration history or automated schema-version check. The guarded
+`backend/scripts/verify_place_image_cache.py` utility is
 read-only by default and permits its temporary persistence test only when `APP_ENV` is explicitly
 `development` or `test`.
 
@@ -602,11 +623,11 @@ Changing the selected provider must not silently change a REST contract or canon
 
 - Flutter's `API_BASE_URL` is public configuration. Database and provider credentials are
   backend secrets. No real value belongs in source control, docs, URLs in logs, or test fixtures.
-- `[PARTIAL]` Local JWT authentication and admin authorization are implemented. Traveller requests
-  do not yet derive ownership from verified tokens. Current trip creation rejects client-supplied
-  user identity and assigns a server-owned development-only placeholder UUID.
-  It accepts a client-generated `request_id` solely as the new trip primary key for idempotent retries;
-  this is isolated scaffolding, not an implemented authorization boundary.
+- `[IMPLEMENTED]` Local JWT accounts, admin authorization and traveller trip ownership are verified
+  server side. Creation rejects client supplied identity. Every trip resource checks its owner;
+  admins inspect through read only admin APIs. Token-free traveller requests use the original
+  shared guest UUID without a flag. Guest requests cannot access account-owned trips or admin APIs.
+  Client `request_id` remains solely a retry identity, with owner checks.
 - `[UNKNOWN]` RLS status cannot be inferred from SQLModel. Before any Supabase client accesses
   exposed tables, track and test grants and RLS policies as migrations.
 - Imports and admin corrections are privileged operations. They need authentication,
@@ -630,16 +651,66 @@ Provider and endpoint metrics, alerting, centralized collection, sampling, and r
 
 | Concern | Current | Target |
 | --- | --- | --- |
-| Identity/authorization | `[IMPLEMENTED]` backend JWT auth (`USER`, `ADMIN` roles), bcrypt hashing, `require_admin` guard; `[PARTIAL]` traveler account binding in Flutter | account registration/trip ownership binding in Flutter |
-| Trip lifecycle | `[PARTIAL]` create flow and downstream single-session ID handoff; no read/edit/resume/auth | persisted creation through multi-day itinerary lifecycle |
+| Identity/authorization | `[IMPLEMENTED]` local JWT signup/login, Flutter role gate, native secure storage, `require_admin`, traveller ownership; `[PARTIAL]` production identity lifecycle | Supabase identity, reset delivery and session revocation infrastructure |
+| Trip lifecycle | `[IMPLEMENTED]` authenticated create/read/edit and offline persistence; `[PARTIAL]` account history UI and list/delete | complete account trip lifecycle |
 | Place acquisition | `[IMPLEMENTED]` durable background Audiala/Geoapify/OSM refresh plus local FSQ importer; `[PARTIAL]` external delivery/deletion lifecycle | reviewed extract ingestion, always-on workers, and optional Wikimedia enrichment |
 | Routing | `[IMPLEMENTED]` pairwise matrix estimates, constraint-aware optimizer; real road geometry via openrouteservice/OSRM | provider-neutral openrouteservice directions/matrix and multi-day planning |
 | Map | `[IMPLEMENTED]` FlutterMap with OpenStreetMap tiles, markers, and real road-route PolylineLayer | explicit renderer/tiles decision with attribution and offline policy |
 | Admin | `[IMPLEMENTED]` authorized admin suite (`/api/admin/*`), POI moderation lifecycle (`ACTIVE`, `HIDDEN`, `RESTRICTED`, `DUPLICATE`, `INVALID`), destination management, trip inspector, report triage, and responsive web dashboard at `/admin` | expanded bulk-moderation tools and offline dataset export |
 | Migrations | `create_all` plus SQL scripts | ordered, reversible, tested migration history |
-| Operations | `[UNKNOWN]` | documented deployment, health, metrics, backup, and incident behavior |
+| Operations | `[IMPLEMENTED]` SQL job/cache/image/cooldown summaries and privileged audit; `[PARTIAL]` deployment observability | measured provider health, alerts, retention, backup and incident behavior |
 
 # Admin and moderation architecture note (2026-09-14)
+
+## Integrated mobile admin update, 2026-10-07
+
+`[IMPLEMENTED]` Auth UI delegates to `AuthController` (ChangeNotifier), `AuthRepository`
+and a platform `SessionStore`. `AuthGate` restores sessions first, then constructs the
+resolved experience or the existing onboarding story before guest Home for signed-out launches. Its
+Navigator key changes on identity transitions, removing the previous navigation history.
+Unknown roles fail closed. Native sessions use `flutter_secure_storage`; web sessions are
+memory only. Restored admins require `/api/auth/me`; unexpired offline travellers can use
+native local packs. Expiry and logout return the traveller entry to guest Home; explicit account
+and admin entry retain sign-in. Operation generations stop
+late requests from undoing logout, and secure store deletion remains retryable.
+
+`[IMPLEMENTED]` `AdminShell` provides five independent nested navigation stacks, mobile
+destinations and a desktop rail. An injectable admin repository supplies paginated HTTP
+data and safe errors. Backend `require_admin` checks the live role/activity on every request.
+Traveller endpoints use one shared owner guard, including saved places, scheduling, geometry,
+weather and replanning. Anonymous requests use the existing guest namespace independently of
+authentication settings. This is scoped to traveller APIs. The temporary showcase principal is explicitly opt in and forbidden
+in staging/production. The user reaffirmed its fixed local test credentials on 2026-10-12.
+It cannot shadow a registered account; registering that email revokes existing demo sessions.
+Normal authentication uses registered bcrypt/JWT accounts. Deployment signing keys require at least 32 bytes.
+
+`[IMPLEMENTED]` Native offline trips are stored in account separated SQLite files.
+Guest/legacy trips keep the original filename; no legacy row is assigned to a new account.
+Canonical packs and their shared read only place database stay independent of account sessions.
+
+`[PARTIAL]` `CityLabService` reads configured immutable DataFactory releases. Existing
+DataFactory functions own research priorities, duplicate groups, field validation, release
+validation and app pack construction. Its lazy settings are seeded without directory creation;
+imports avoid bytecode writes to the sibling checkout. Output is restricted to backend owned
+artifacts outside the canonical root and checkout. Reviews are database overlays with release
+fingerprints, evidence and audit. Approved corrections export the existing schema 1 patch ZIP.
+Canonical apply, image import, release deployment and automatic merge stay in their existing
+workflows. Schema 1 City Lab `release.json` supplies reported gate vocabulary and scores
+after city/version, score and review/check consistency validation. Its export does not bind
+canonical content hashes, so a reported READY does not certify the configured canonical
+bytes. Missing, invalid or contradictory evidence returns `NOT_CERTIFIED` with no score.
+
+`[IMPLEMENTED]` The 2026-10-12 Admin Studio refinement loads Overview sources independently,
+labels backend/canonical scopes and refresh times, and retains clearly marked stale results
+after errors. Navigation initializes sections on first use. Online Place Manager and Place
+Reports reuse existing audited APIs; report search/detail and optimistic review revisions
+are additive. Unreadable release metadata is excluded with an explicit incomplete-inventory
+notice. Admin JSON and media responses from a previous identity are rejected.
+
+`[PARTIAL]` Password reset delivery, production identity/revocation, full observability,
+ordered migrations, and physical device secure storage verification remain open. The new
+schema is additive with a data preserving archival rollback; no remote migration was applied.
+See [report](AUTH_ADMIN_IMPLEMENTATION.md) and [decision](DECISIONS.md#adr-028--integrated-local-jwt-authentication-and-operational-admin).
 
 `[IMPLEMENTED]` The role-based administrative system and web dashboard are documented in
 [`ADMIN_ARCHITECTURE.md`](ADMIN_ARCHITECTURE.md). Fast-path candidate discovery, recommendation scoring,

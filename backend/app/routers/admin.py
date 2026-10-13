@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -44,7 +44,7 @@ from app.schemas.admin import (
     AdminUserRead,
     AdminUserUpdate,
 )
-from app.services.provider_circuit_breaker import ProviderCircuitBreaker
+from app.services.admin_audit import record, snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ def get_dashboard_metrics(
     total_places = session.exec(select(func.count(Place.id))).one()
     total_destinations = session.exec(select(func.count(City.id))).one()
     active_destinations = session.exec(
-        select(func.count(City.id)).where(City.is_enabled == True)  # noqa: E712
+        select(func.count(City.id)).where(City.is_enabled == True)
     ).one()
 
     # Moderation breakdown
@@ -85,9 +85,7 @@ def get_dashboard_metrics(
             Place.moderation_status
         )
     ).all()
-    places_by_status = {
-        status_name: count for status_name, count in status_counts_raw
-    }
+    places_by_status = {status_name: count for status_name, count in status_counts_raw}
     for default_status in ["ACTIVE", "HIDDEN", "RESTRICTED", "DUPLICATE", "INVALID"]:
         places_by_status.setdefault(default_status, 0)
 
@@ -119,7 +117,9 @@ def get_dashboard_metrics(
 
     # Recent reports
     recent_reports_rows = session.exec(
-        select(PlaceReport, Place.name.label("place_name"), City.name.label("city_name"))
+        select(
+            PlaceReport, Place.name.label("place_name"), City.name.label("city_name")
+        )
         .join(Place, Place.id == PlaceReport.place_id, isouter=True)
         .join(City, City.id == Place.city_id, isouter=True)
         .order_by(col(PlaceReport.created_at).desc())
@@ -128,6 +128,7 @@ def get_dashboard_metrics(
     recent_reports = [
         {
             "id": str(report.id),
+            "place_id": str(report.place_id),
             "place_name": place_name or "Unknown Place",
             "city_name": city_name or "Unknown City",
             "reason": report.reason,
@@ -138,12 +139,14 @@ def get_dashboard_metrics(
     ]
 
     # External provider overview (safe summary)
-    audiala_path = Path(settings.audiala_dataset_path) if settings.audiala_dataset_path else None
+    audiala_path = (
+        Path(settings.audiala_dataset_path) if settings.audiala_dataset_path else None
+    )
     provider_health = {
         "overpass": {
             "name": "OpenStreetMap / Overpass",
-            "status": "online",
-            "circuit_breaker": "closed",
+            "status": "not_probed",
+            "circuit_breaker": "unknown",
         },
         "geoapify": {
             "name": "Geoapify Geocoding",
@@ -174,6 +177,7 @@ def get_dashboard_metrics(
         recent_trips=recent_trips,
         recent_reports=recent_reports,
         provider_health=provider_health,
+        refreshed_at=datetime.now(timezone.utc),
     )
 
 
@@ -294,6 +298,7 @@ def update_admin_user(
                 detail="Administrators cannot demote their own account role.",
             )
 
+    before = snapshot(user, ("name", "role", "is_active"))
     if update_data.name is not None:
         user.name = update_data.name.strip()
     if update_data.is_active is not None:
@@ -309,6 +314,16 @@ def update_admin_user(
 
     user.updated_at = datetime.now(timezone.utc)
     session.add(user)
+    record(
+        session,
+        current_admin,
+        "USER_UPDATED",
+        "user",
+        user.id,
+        before,
+        snapshot(user, ("name", "role", "is_active")),
+        update_data.reason,
+    )
     session.commit()
     session.refresh(user)
 
@@ -354,7 +369,9 @@ def list_admin_destinations(
 
     statement = select(City)
     if q:
-        statement = statement.where(func.lower(City.name).like(f"%{q.strip().lower()}%"))
+        statement = statement.where(
+            func.lower(City.name).like(f"%{q.strip().lower()}%")
+        )
     if is_enabled is not None:
         statement = statement.where(City.is_enabled == is_enabled)
     if is_featured is not None:
@@ -411,7 +428,11 @@ def list_admin_destinations(
     ]
 
 
-@router.post("/destinations", response_model=AdminDestinationRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/destinations",
+    response_model=AdminDestinationRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_admin_destination(
     payload: AdminDestinationCreate,
     session: SessionDependency,
@@ -434,10 +455,21 @@ def create_admin_destination(
         created_at=datetime.now(timezone.utc),
     )
     session.add(city)
+    record(
+        session,
+        current_admin,
+        "CITY_CREATED",
+        "city",
+        city.id,
+        after=snapshot(city, ("name", "state", "country", "is_enabled")),
+        city_id=city.id,
+    )
     session.commit()
     session.refresh(city)
 
-    logger.info("Admin %s created destination %s (%s)", current_admin.email, city.name, city.id)
+    logger.info(
+        "Admin %s created destination %s (%s)", current_admin.email, city.name, city.id
+    )
 
     return AdminDestinationRead(
         id=city.id,
@@ -514,6 +546,22 @@ def update_admin_destination(
             detail="Destination not found.",
         )
 
+    before = snapshot(
+        city,
+        (
+            "name",
+            "state",
+            "country",
+            "latitude",
+            "longitude",
+            "is_enabled",
+            "is_featured",
+            "is_popular",
+            "image_url",
+            "description",
+            "display_order",
+        ),
+    )
     if update_data.name is not None:
         city.name = update_data.name.strip()
     if update_data.state is not None:
@@ -531,17 +579,33 @@ def update_admin_destination(
     if update_data.is_popular is not None:
         city.is_popular = update_data.is_popular
     if update_data.image_url is not None:
-        city.image_url = update_data.image_url.strip() if update_data.image_url else None
+        city.image_url = (
+            update_data.image_url.strip() if update_data.image_url else None
+        )
     if update_data.description is not None:
-        city.description = update_data.description.strip() if update_data.description else None
+        city.description = (
+            update_data.description.strip() if update_data.description else None
+        )
     if update_data.display_order is not None:
         city.display_order = update_data.display_order
 
     session.add(city)
+    record(
+        session,
+        current_admin,
+        "CITY_UPDATED",
+        "city",
+        city.id,
+        before,
+        snapshot(city, before.keys()),
+        city_id=city.id,
+    )
     session.commit()
     session.refresh(city)
 
-    logger.info("Admin %s updated destination %s (%s)", current_admin.email, city.name, city.id)
+    logger.info(
+        "Admin %s updated destination %s (%s)", current_admin.email, city.name, city.id
+    )
 
     places_count = session.exec(
         select(func.count(Place.id)).where(Place.city_id == destination_id)
@@ -579,7 +643,9 @@ def list_admin_places(
     session: SessionDependency,
     city_id: Annotated[UUID | None, Query(description="Filter by city")] = None,
     category: Annotated[str | None, Query(description="Filter by category")] = None,
-    moderation_status: Annotated[str | None, Query(description="Filter by status")] = None,
+    moderation_status: Annotated[
+        str | None, Query(description="Filter by status")
+    ] = None,
     q: Annotated[str | None, Query(description="Search by place name")] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -595,9 +661,13 @@ def list_admin_places(
     if category:
         statement = statement.where(Place.category == category.lower())
     if moderation_status:
-        statement = statement.where(Place.moderation_status == moderation_status.upper())
+        statement = statement.where(
+            Place.moderation_status == moderation_status.upper()
+        )
     if q:
-        statement = statement.where(func.lower(Place.name).like(f"%{q.strip().lower()}%"))
+        statement = statement.where(
+            func.lower(Place.name).like(f"%{q.strip().lower()}%")
+        )
 
     rows = list(
         session.exec(
@@ -667,7 +737,9 @@ def get_admin_place_details(
         )
 
     city = session.get(City, place.city_id)
-    sources = session.exec(select(PlaceSource).where(PlaceSource.place_id == place_id)).all()
+    sources = session.exec(
+        select(PlaceSource).where(PlaceSource.place_id == place_id)
+    ).all()
     hours = session.exec(
         select(PlaceOpeningHours)
         .where(PlaceOpeningHours.place_id == place_id)
@@ -754,6 +826,40 @@ def update_admin_place_moderation(
             detail="Place not found.",
         )
 
+    if update_data.expected_moderation_status is not None:
+        place = session.exec(select(Place).where(Place.id == place_id)
+            .with_for_update().execution_options(populate_existing=True)).one()
+        if place.moderation_status != update_data.expected_moderation_status:
+            raise HTTPException(409, "Moderation changed. Reload before saving.")
+
+    before = snapshot(
+        place,
+        (
+            "name",
+            "category",
+            "latitude",
+            "longitude",
+            "raw_opening_hours",
+            "moderation_status",
+            "is_popular",
+            "is_heritage",
+            "is_local_speciality",
+        ),
+    )
+    for field in ("name", "category", "latitude", "longitude"):
+        value = getattr(update_data, field)
+        if value is not None:
+            setattr(place, field, value.strip() if isinstance(value, str) else value)
+    if update_data.raw_opening_hours is not None:
+        from app.services.canonical_place_service import CanonicalPlaceService
+
+        # Retain provider raw hours. Human changes are canonical and audited.
+        place.raw_opening_hours = update_data.raw_opening_hours
+        place.opening_hours_status = (
+            CanonicalPlaceService()._upsert_place_opening_hours(
+                session, place.id, update_data.raw_opening_hours
+            )
+        )
     if update_data.moderation_status is not None:
         old_status = place.moderation_status
         place.moderation_status = update_data.moderation_status
@@ -774,6 +880,17 @@ def update_admin_place_moderation(
         place.is_local_speciality = update_data.is_local_speciality
 
     session.add(place)
+    record(
+        session,
+        current_admin,
+        "PLACE_UPDATED",
+        "place",
+        place.id,
+        before,
+        snapshot(place, before.keys()),
+        update_data.reason,
+        place.city_id,
+    )
     session.commit()
     session.refresh(place)
 
@@ -816,23 +933,60 @@ def update_admin_place_moderation(
 @router.get("/trips", response_model=list[AdminTripRead])
 def list_admin_trips(
     session: SessionDependency,
-    city_id: Annotated[UUID | None, Query(description="Filter by destination city")] = None,
+    user_id: Annotated[UUID | None, Query()] = None,
+    city_id: Annotated[
+        UUID | None, Query(description="Filter by destination city")
+    ] = None,
     q: Annotated[str | None, Query(description="Search by trip name")] = None,
+    date_state: Annotated[
+        str | None, Query(pattern=r"^(UPCOMING|ACTIVE|PAST|UNDATED)$")
+    ] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[AdminTripRead]:
     """List traveller trips with destination, stop counts, and date ranges."""
 
-    statement = select(Trip, City.name.label("city_name"), User.name.label("user_name")).join(
-        City, City.id == Trip.city_id, isouter=True
-    ).join(
-        User, User.id == Trip.user_id, isouter=True
+    statement = (
+        select(Trip, City.name.label("city_name"), User.name.label("user_name"))
+        .join(City, City.id == Trip.city_id, isouter=True)
+        .join(User, User.id == Trip.user_id, isouter=True)
     )
 
+    if user_id:
+        statement = statement.where(Trip.user_id == user_id)
     if city_id:
         statement = statement.where(Trip.city_id == city_id)
+    if date_state:
+        today = datetime.now(timezone.utc).date()
+        end = (
+            select(func.max(TripDay.date))
+            .where(TripDay.trip_id == Trip.id)
+            .correlate(Trip)
+            .scalar_subquery()
+        )
+        if date_state == "UPCOMING":
+            statement = statement.where(Trip.start_date > today)
+        elif date_state == "ACTIVE":
+            statement = statement.where(Trip.start_date <= today, end >= today)
+        elif date_state == "PAST":
+            statement = statement.where(end < today)
+        else:
+            statement = statement.where(Trip.start_date.is_(None))
     if q:
-        statement = statement.where(func.lower(Trip.trip_name).like(f"%{q.strip().lower()}%"))
+        from sqlalchemy import String, cast
+
+        term = f"%{q.strip().lower()}%"
+        id_term = term.replace("-", "")
+        statement = statement.where(
+            or_(
+                func.lower(Trip.trip_name).like(term),
+                func.lower(City.name).like(term),
+                func.lower(User.name).like(term),
+                func.lower(User.email).like(term),
+                func.replace(cast(Trip.id, String), "-", "").like(id_term),
+                func.replace(cast(Trip.user_id, String), "-", "").like(id_term),
+            )
+        )
 
     rows = list(
         session.exec(
@@ -906,7 +1060,11 @@ def get_admin_trip_details(
 
     # User saved places with place details
     saved_rows = session.exec(
-        select(UserSavedPlace, Place.name.label("place_name"), Place.category.label("category"))
+        select(
+            UserSavedPlace,
+            Place.name.label("place_name"),
+            Place.category.label("category"),
+        )
         .join(Place, Place.id == UserSavedPlace.place_id, isouter=True)
         .where(UserSavedPlace.trip_id == trip_id)
         .order_by(UserSavedPlace.custom_order)
@@ -914,7 +1072,11 @@ def get_admin_trip_details(
 
     # Itinerary stops with place details
     itinerary_rows = session.exec(
-        select(TripItinerary, Place.name.label("place_name"), Place.category.label("category"))
+        select(
+            TripItinerary,
+            Place.name.label("place_name"),
+            Place.category.label("category"),
+        )
         .join(Place, Place.id == TripItinerary.place_id, isouter=True)
         .where(TripItinerary.trip_id == trip_id)
         .order_by(TripItinerary.day_number, TripItinerary.visit_order)
@@ -961,6 +1123,9 @@ def get_admin_trip_details(
                 "is_locked": sp.is_locked,
                 "must_visit": sp.must_visit,
                 "assignment_mode": sp.assignment_mode,
+                "assigned_day_id": str(sp.assigned_day_id)
+                if sp.assigned_day_id
+                else None,
                 "notes": sp.notes,
             }
             for sp, place_name, category in saved_rows
@@ -972,9 +1137,15 @@ def get_admin_trip_details(
                 "place_id": str(it.place_id),
                 "place_name": place_name,
                 "category": category,
-                "planned_arrival_time": it.planned_arrival_time.isoformat() if it.planned_arrival_time else None,
-                "planned_departure_time": it.planned_departure_time.isoformat() if it.planned_departure_time else None,
+                "planned_arrival_time": it.planned_arrival_time.isoformat()
+                if it.planned_arrival_time
+                else None,
+                "planned_departure_time": it.planned_departure_time.isoformat()
+                if it.planned_departure_time
+                else None,
                 "status": it.status,
+                "travel_time_minutes": it.travel_time_minutes,
+                "distance_from_previous": it.distance_from_previous,
             }
             for it, place_name, category in itinerary_rows
         ],
@@ -991,25 +1162,46 @@ def list_admin_reports(
     session: SessionDependency,
     status_filter: Annotated[str | None, Query(alias="status")] = None,
     reason: Annotated[str | None, Query()] = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    city_id: Annotated[UUID | None, Query()] = None,
+    place_id: Annotated[UUID | None, Query()] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[AdminReportRead]:
     """List place reports submitted by users or reviewers."""
 
-    statement = select(
-        PlaceReport, Place.name.label("place_name"), City.name.label("city_name")
-    ).join(Place, Place.id == PlaceReport.place_id, isouter=True).join(
-        City, City.id == Place.city_id, isouter=True
+    statement = (
+        select(
+            PlaceReport, Place.name.label("place_name"), City.name.label("city_name")
+        )
+        .join(Place, Place.id == PlaceReport.place_id, isouter=True)
+        .join(City, City.id == Place.city_id, isouter=True)
     )
 
     if status_filter:
         statement = statement.where(PlaceReport.status == status_filter.upper())
     if reason:
         statement = statement.where(PlaceReport.reason == reason)
+    if city_id:
+        statement = statement.where(Place.city_id == city_id)
+    if place_id:
+        statement = statement.where(PlaceReport.place_id == place_id)
+    if q and q.strip():
+        term = f"%{q.strip().lower()}%"
+        statement = statement.where(
+            or_(
+                func.lower(Place.name).like(term),
+                func.lower(City.name).like(term),
+                func.lower(PlaceReport.reason).like(term),
+                func.lower(PlaceReport.details).like(term),
+            )
+        )
 
     rows = list(
         session.exec(
-            statement.order_by(col(PlaceReport.created_at).desc()).offset(offset).limit(limit)
+            statement.order_by(col(PlaceReport.created_at).desc(), PlaceReport.id)
+            .offset(offset)
+            .limit(limit)
         ).all()
     )
 
@@ -1031,6 +1223,21 @@ def list_admin_reports(
     ]
 
 
+@router.get("/reports/{report_id}", response_model=AdminReportRead)
+def get_admin_report(report_id: UUID, session: SessionDependency) -> AdminReportRead:
+    """Reload current review evidence before editing a report."""
+    report = session.get(PlaceReport, report_id)
+    if report is None:
+        raise HTTPException(404, "Report not found.")
+    place = session.get(Place, report.place_id)
+    city = session.get(City, place.city_id) if place else None
+    return AdminReportRead(
+        **report.model_dump(),
+        place_name=place.name if place else None,
+        city_name=city.name if city else None,
+    )
+
+
 @router.patch("/reports/{report_id}", response_model=AdminReportRead)
 def update_admin_report(
     report_id: UUID,
@@ -1047,6 +1254,25 @@ def update_admin_report(
             detail="Report not found.",
         )
 
+    before = snapshot(report, ("status", "admin_notes"))
+    if "expected_updated_at" in update_data.model_fields_set:
+        # Row locking serializes competing reviewers on PostgreSQL. SQLite
+        # fixtures still exercise the revision comparison without production IO.
+        report = session.exec(
+            select(PlaceReport)
+            .where(PlaceReport.id == report_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).one()
+        expected = update_data.expected_updated_at
+        actual = report.updated_at
+        def normalize(value):
+            if value is None:
+                return None
+            return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        if normalize(expected) != normalize(actual):
+            raise HTTPException(409, "Report changed. Reload before saving.")
+        before = snapshot(report, ("status", "admin_notes"))
     if update_data.status is not None:
         report.status = update_data.status
     if update_data.admin_notes is not None:
@@ -1054,6 +1280,15 @@ def update_admin_report(
 
     report.updated_at = datetime.now(timezone.utc)
     session.add(report)
+    record(
+        session,
+        current_admin,
+        "REPORT_UPDATED",
+        "report",
+        report.id,
+        before,
+        snapshot(report, before.keys()),
+    )
     session.commit()
     session.refresh(report)
 
@@ -1093,7 +1328,9 @@ def get_admin_provider_status(
 ) -> AdminProviderStatus:
     """Inspect data source providers, circuit breakers, and configuration without leaking secrets."""
 
-    audiala_path = Path(settings.audiala_dataset_path) if settings.audiala_dataset_path else None
+    audiala_path = (
+        Path(settings.audiala_dataset_path) if settings.audiala_dataset_path else None
+    )
 
     providers = {
         "overpass": {
@@ -1102,7 +1339,7 @@ def get_admin_provider_status(
             "timeout_seconds": settings.overpass_timeout_seconds,
             "circuit_breaker_threshold": settings.overpass_circuit_breaker_threshold,
             "circuit_breaker_cooldown_seconds": settings.overpass_circuit_breaker_cooldown_seconds,
-            "status": "active",
+            "status": "not_probed",
         },
         "geoapify": {
             "name": "Geoapify Geocoding & Autocomplete",

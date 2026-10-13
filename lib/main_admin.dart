@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
-
-import 'admin/admin_app.dart';
+import 'main.dart' as application;
 
 void main() {
-  runApp(const YatraCanvasAdminApp());
+  application.main();
 }

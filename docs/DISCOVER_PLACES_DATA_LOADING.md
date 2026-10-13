@@ -2,6 +2,24 @@
 
 Last verified against repository: 2026-09-21
 
+`[IMPLEMENTED]` Browser empty-state correction, verified 2026-10-12: a cold Lucknow response
+could remain at "No matching places found" while background acquisition populated the database.
+The frontend did not recognize `X-Refresh-State: scheduled`, and CORS hid the custom refresh
+and pagination headers from browser clients. Flutter now treats `scheduled` as active preparation;
+the backend explicitly exposes the four non-secret Discover/correlation headers. Existing bounded
+polling, cache-first reads, guest planning and admin authorization are preserved. Regression tests
+cover the real HTTP header parsing through an empty-to-populated widget flow and the CORS contract.
+
+`[IMPLEMENTED]` Verification for this correction: 36 targeted Flutter tests and 37 backend tests
+passed; Flutter analysis found no issues. Both new regressions failed before the fix. The configured
+backend returned ten Lucknow results for Sightseeing plus Culture & Heritage, and the browser
+preview rendered Bara Imambara and the existing "Show more places" cursor action. The preview
+then appended the next page to reach 20 ranked places, verifying that browser pagination metadata
+is readable. See [the pagination result](verification/lucknow-discover-pagination.jpg). The preview
+uses real backend place data without a trip context and does not alter the user's existing trip.
+See [the corrected Lucknow result](verification/lucknow-discover-after.jpg). No provider, schema,
+migration, account requirement or UI layout changed.
+
 Status: `[IMPLEMENTED]` in repository and targeted backend/Flutter tests. Reviewed migration
 deployment, always-on external job delivery, physical-device validation, and configured-PostgreSQL
 Manali timings remain `[PARTIAL]` or `[UNKNOWN]` and must not be inferred from unit tests.

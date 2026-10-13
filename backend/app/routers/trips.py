@@ -6,7 +6,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
+from app.core.trip_access import trip_actor
 from app.database import get_session
+from app.models import User
 from app.schemas import (
     TripCreate,
     TripDayRead,
@@ -29,13 +31,12 @@ from app.services.trip_service import (
     TripStartLocationError,
 )
 
-
 router = APIRouter(prefix="/trips", tags=["trips"])
 SessionDependency = Annotated[Session, Depends(get_session)]
 
 
-def get_trip_service() -> TripService:
-    return TripService()
+def get_trip_service(actor: Annotated[User, Depends(trip_actor)]) -> TripService:
+    return TripService(development_user_id=actor.id)
 
 
 TripServiceDependency = Annotated[TripService, Depends(get_trip_service)]

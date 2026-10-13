@@ -18,10 +18,9 @@ from app.schemas import (
     TripUpdate,
 )
 
-
-# DEVELOPMENT ONLY: all unauthenticated trip creation is assigned to this
-# server-owned placeholder. Replace this dependency with verified auth identity;
-# never accept user_id from the request body.
+# Original shared guest namespace, retained to preserve existing guest trips.
+# Optional authenticated trips use their verified account identity instead.
+# Never accept user_id from the request body.
 DEVELOPMENT_USER_ID = UUID("00000000-0000-4000-8000-000000000001")
 
 
@@ -137,6 +136,8 @@ class TripService:
         preference_values: list[str],
         city: City,
     ) -> TripRead:
+        if trip.user_id != self._development_user_id:
+            raise TripServiceNotFoundError("Trip not found.")
         existing_preferences = session.exec(
             select(TripPreference).where(TripPreference.trip_id == trip.id)
         ).all()

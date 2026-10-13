@@ -11,6 +11,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
+from app.services.trip_service import DEVELOPMENT_USER_ID
+
 from app.database import get_session
 from app.main import app
 from app.models import City, Place, Trip, TripItinerary
@@ -118,7 +120,7 @@ def _create_trip_and_places(session: Session) -> tuple[Trip, list[Place]]:
 
     trip = Trip(
         city_id=city.id,
-        user_id=uuid4(),
+        user_id=DEVELOPMENT_USER_ID,
         trip_name="Jaipur Exploration",
         days=2,
         start_date=datetime(2026, 8, 25, tzinfo=timezone.utc),

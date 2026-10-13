@@ -5,14 +5,17 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.core.config import get_settings
 from app.core.request_context import RequestIdMiddleware
+from app.core.trip_access import require_trip_access
 from app.database import create_db_and_tables
 from app.routers import (
     admin,
+    admin_operations,
     auth,
     cities,
     locations,
@@ -35,9 +38,10 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Initialize the current migration-free database schema at startup."""
+    """Initialize local development only; deployed databases use reviewed migrations."""
 
-    create_db_and_tables()
+    if get_settings().app_env in {"development", "test"}:
+        create_db_and_tables()
     yield
 
 
@@ -64,20 +68,32 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Flutter web needs the same refresh/pagination metadata as native clients.
+    expose_headers=[
+        "X-Request-ID",
+        "X-Refresh-State",
+        "X-Stale-Categories",
+        "X-Next-Cursor",
+    ],
 )
 app.add_middleware(RequestIdMiddleware)
 
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(admin_operations.router)
 app.include_router(cities.router)
 app.include_router(places.router)
-app.include_router(saved_places.router)
-app.include_router(route_optimization.router)
-app.include_router(route_geometry.router)
-app.include_router(trips.router)
+app.include_router(saved_places.router, dependencies=[Depends(require_trip_access)])
+app.include_router(
+    route_optimization.router, dependencies=[Depends(require_trip_access)]
+)
+app.include_router(route_geometry.router, dependencies=[Depends(require_trip_access)])
+app.include_router(trips.router, dependencies=[Depends(require_trip_access)])
 app.include_router(locations.router)
-app.include_router(weather_advisories.router)
-app.include_router(smart_replanning.router)
+app.include_router(
+    weather_advisories.router, dependencies=[Depends(require_trip_access)]
+)
+app.include_router(smart_replanning.router, dependencies=[Depends(require_trip_access)])
 
 admin_static_dir = Path(__file__).resolve().parent / "static" / "admin"
 if admin_static_dir.exists():

@@ -21,9 +21,173 @@ import 'package:yatra_canvas/services/route_optimization_service.dart';
 import 'package:yatra_canvas/services/saved_place_service.dart';
 import 'package:yatra_canvas/services/trip_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
+import 'package:yatra_canvas/theme/app_text_styles.dart';
 import 'package:yatra_canvas/widgets/selection_chip.dart';
+import 'package:yatra_canvas/widgets/place_card.dart';
+import 'package:yatra_canvas/widgets/place_image.dart';
 
 void main() {
+  testWidgets('place summary appears below the reason with unchanged imagery', (
+    tester,
+  ) async {
+    final recommendation = _summaryRecommendation('  $_summarySource\n ');
+    await _openSummarySheet(tester, recommendation);
+    final sheet = find.byType(BottomSheet);
+    final reason = find.descendant(
+      of: sheet,
+      matching: find.text('Matches Heritage'),
+    );
+    final heading = find.descendant(
+      of: sheet,
+      matching: find.text('About this place'),
+    );
+    final summary = find.descendant(
+      of: sheet,
+      matching: find.text(_summarySource),
+    );
+    expect(heading, findsOneWidget);
+    expect(summary, findsOneWidget);
+    expect(
+      tester.getTopLeft(reason).dy,
+      lessThan(tester.getTopLeft(heading).dy),
+    );
+    expect(
+      tester.getTopLeft(heading).dy,
+      lessThan(tester.getTopLeft(summary).dy),
+    );
+    final imageFinder = find.descendant(
+      of: sheet,
+      matching: find.byType(PlaceImage),
+    );
+    final image = tester.widget<PlaceImage>(imageFinder);
+    expect(image.image, same(recommendation.image));
+    expect(image.showAttribution, isTrue);
+    expect(image.borderRadius, BorderRadius.circular(18));
+    final ratio = tester.widget<AspectRatio>(
+      find.ancestor(of: imageFinder, matching: find.byType(AspectRatio)).first,
+    );
+    expect(ratio.aspectRatio, 4 / 3);
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: sheet,
+              matching: find.text(recommendation.name),
+            ),
+          )
+          .style,
+      AppTextStyles.pageTitle,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final description in <String?>[
+    null,
+    '',
+    ' \n\t ',
+    ' matches   HERITAGE. ',
+  ]) {
+    testWidgets('missing or duplicate summary is unobtrusive: $description', (
+      tester,
+    ) async {
+      await _openSummarySheet(tester, _summaryRecommendation(description));
+      final sheet = find.byType(BottomSheet);
+      expect(
+        find.descendant(of: sheet, matching: find.text('About this place')),
+        findsOneWidget,
+      );
+      final unavailable = find.descendant(
+        of: sheet,
+        matching: find.text('Summary unavailable for this place.'),
+      );
+      expect(unavailable, findsOneWidget);
+      expect(tester.widget<Text>(unavailable).style, AppTextStyles.bodyMuted);
+      expect(
+        find.descendant(of: sheet, matching: find.text('Matches Heritage')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'long source summary ends at a complete sentence within 70 words',
+    (tester) async {
+      final description =
+          '$_summarySource ${List.filled(40, 'More source details').join(' ')}';
+      await _openSummarySheet(tester, _summaryRecommendation(description));
+      expect(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text(_summarySource),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(description), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'long single sentence is limited to 70 words and scrolls at large text',
+    (tester) async {
+      final words = List.generate(100, (i) => 'detail$i');
+      await _openSummarySheet(
+        tester,
+        _summaryRecommendation(words.join(' ')),
+        size: const Size(320, 568),
+        textScale: 2,
+      );
+      final sheet = find.byType(BottomSheet);
+      expect(
+        find.descendant(
+          of: sheet,
+          matching: find.text('${words.take(70).join(' ')}…'),
+        ),
+        findsOneWidget,
+      );
+      final hours = find.descendant(
+        of: sheet,
+        matching: find.text(
+          'Opening hours unavailable. Check before visiting.',
+        ),
+      );
+      await tester.scrollUntilVisible(
+        hours,
+        200,
+        scrollable: find
+            .descendant(of: sheet, matching: find.byType(Scrollable))
+            .first,
+      );
+      expect(hours.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'opening summary keeps add and remove itinerary actions working',
+    (tester) async {
+      final saved = _FakeSavedPlaceService();
+      await _openSummarySheet(
+        tester,
+        _summaryRecommendation(_summarySource),
+        saved: saved,
+      );
+      Navigator.of(tester.element(find.text('About this place'))).pop();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.widgetWithText(TextButton, 'Add'));
+      await tester.tap(find.widgetWithText(TextButton, 'Add'));
+      await tester.pumpAndSettle();
+      expect(saved.addedPlaceIds, ['summary-place']);
+      await tester.ensureVisible(
+        find.widgetWithText(TextButton, 'Remove').first,
+      );
+      await tester.tap(find.widgetWithText(TextButton, 'Remove').first);
+      await tester.pumpAndSettle();
+      expect(saved.removedPlaceIds, ['summary-place']);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('PlaceService requests and parses a discovery category', () async {
     final client = MockClient((request) async {
       expect(request.url.path, '/cities/city-123/discover-places');
@@ -943,6 +1107,82 @@ const _city = City(
   longitude: 75.7885,
 );
 
+// Source text from the bundled Jaipur record, never generated by the UI.
+const _summarySource =
+    'The Jantar Mantar is a collection of 19 astronomical instruments built by '
+    'the Rajput king Sawai Jai Singh, the founder of Jaipur, Rajasthan, India. '
+    'The monument was completed in 1734. It features the world\'s largest stone '
+    'sundial, and is a UNESCO World Heritage Site.';
+
+Recommendation _summaryRecommendation(String? description) => Recommendation(
+  id: 'summary-place',
+  name: 'Jantar Mantar',
+  category: 'heritage',
+  latitude: 26.9248,
+  longitude: 75.8246,
+  reviewCount: 0,
+  isPopular: false,
+  isHeritage: true,
+  isLocalSpeciality: false,
+  matchedCategories: const [PlaceCategory.heritage],
+  recommendationScore: 70,
+  recommendationReason: 'Matches Heritage',
+  placeDetails: Place(
+    id: 'summary-place',
+    cityId: _city.id!,
+    name: 'Jantar Mantar',
+    category: 'heritage',
+    latitude: 26.9248,
+    longitude: 75.8246,
+    reviewCount: 0,
+    isPopular: false,
+    isHeritage: true,
+    isLocalSpeciality: false,
+    description: description,
+  ),
+);
+
+Future<void> _openSummarySheet(
+  WidgetTester tester,
+  Recommendation recommendation, {
+  Size size = const Size(390, 844),
+  double textScale = 1,
+  _FakeSavedPlaceService? saved,
+}) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  final service = _ControlledRecommendationService()
+    ..complete([recommendation]);
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: PlaceDiscoveryScreen(
+        city: _city,
+        tripId: saved == null ? null : 'trip-123',
+        tripPurposes: const {'Culture & Heritage'},
+        recommendationService: service,
+        savedPlaceService: saved,
+        tripService: _FakeTripService(),
+        recommendationCache: _FakeRecommendationCache(const []),
+        placeImagePrefetchService: _RecordingPlaceImagePrefetchService(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(find.byType(PlaceCard));
+  final callsBeforeOpening = service.calls;
+  await tester.tap(find.byType(PlaceCard));
+  await tester.pumpAndSettle();
+  expect(service.calls, callsBeforeOpening);
+}
+
 const _threeDayRoute = OptimizedRoute(
   tripId: 'trip-day-states',
   places: [
@@ -966,6 +1206,7 @@ class _ControlledRecommendationService extends RecommendationService {
   _ControlledRecommendationService() : super(baseUrl: 'http://example.test');
 
   final Completer<List<Recommendation>> _completer = Completer();
+  int calls = 0;
 
   void complete(List<Recommendation> recommendations) =>
       _completer.complete(recommendations);
@@ -982,7 +1223,10 @@ class _ControlledRecommendationService extends RecommendationService {
     Iterable<String>? interests,
     PlaceCategory? categoryFilter,
     String? cursor,
-  }) => _completer.future;
+  }) {
+    calls++;
+    return _completer.future;
+  }
 
   @override
   void close() {}

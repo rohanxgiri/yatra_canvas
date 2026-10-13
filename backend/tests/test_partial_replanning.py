@@ -37,6 +37,8 @@ from datetime import date, datetime, time, timedelta
 from uuid import uuid4
 
 import pytest
+from app.services.trip_service import DEVELOPMENT_USER_ID
+
 from app.database import get_session
 from app.main import app
 from app.models.entities import (
@@ -95,7 +97,7 @@ def _create_base_trip(
     trip = Trip(
         id=uuid4(),
         city_id=city.id,
-        user_id=uuid4(),
+        user_id=DEVELOPMENT_USER_ID,
         trip_name="Udaipur Tour",
         start_date=date(2026, 9, 14),  # Monday
         days=num_days,

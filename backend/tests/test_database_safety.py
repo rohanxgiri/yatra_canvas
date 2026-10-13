@@ -10,7 +10,7 @@ from app.core.database_safety import (
 
 
 def settings(app_env: str | None = None) -> Settings:
-    values = {"DATABASE_URL": "postgresql://localhost/yatracanvas_test"}
+    values = {"DATABASE_URL": "postgresql://localhost/yatracanvas_test", "JWT_SECRET_KEY": "isolated-test-signing-key-at-least-32-bytes", "ALLOW_DEV_GUEST": False, "ENABLE_DEV_ADMIN": False}
     if app_env is not None:
         values["APP_ENV"] = app_env
     return Settings(_env_file=None, **values)  # type: ignore[arg-type]

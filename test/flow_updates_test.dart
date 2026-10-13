@@ -5,6 +5,8 @@ import 'package:yatra_canvas/screens/create_trip/trip_preferences_screen.dart';
 import 'package:yatra_canvas/screens/onboarding/personal_interests_screen.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
+import 'support/auth_fakes.dart';
+
 void main() {
   testWidgets('onboarding skips the removed quick check-in screen', (
     tester,
@@ -13,9 +15,14 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    final auth = testAuth();
+    addTearDown(auth.dispose);
 
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const PersonalInterestsScreen()),
+      MaterialApp(
+        theme: AppTheme.light,
+        home: PersonalInterestsScreen(auth: auth),
+      ),
     );
 
     expect(find.text('Find the place\nthat stays with you.'), findsOneWidget);

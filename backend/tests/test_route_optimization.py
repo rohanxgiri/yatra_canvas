@@ -15,6 +15,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
+from app.services.trip_service import DEVELOPMENT_USER_ID
+
 from app.database import get_session
 from app.main import app
 from app.models import RouteMatrixCache, Trip, TripItinerary, UserSavedPlace
@@ -164,7 +166,7 @@ def _seed_trip_and_saved_places(
 ) -> UUID:
     with Session(engine) as session:
         trip = Trip(
-            user_id=uuid4(),
+            user_id=DEVELOPMENT_USER_ID,
             city_id=UUID(city_id),
             trip_name="Ujjain route",
             days=2,

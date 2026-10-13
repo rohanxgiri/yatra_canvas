@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:yatra_canvas/models/city.dart';
 import 'package:yatra_canvas/models/place.dart';
 import 'package:yatra_canvas/models/recommendation.dart';
@@ -9,6 +13,44 @@ import 'package:yatra_canvas/services/recommendation_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
 void main() {
+  testWidgets('scheduled HTTP refresh polls until actual places arrive', (
+    tester,
+  ) async {
+    var calls = 0;
+    final service = RecommendationService(
+      baseUrl: 'http://api.test',
+      client: MockClient((_) async {
+        calls++;
+        return http.Response(
+          calls == 1
+              ? '[]'
+              : jsonEncode([_recommendation(1, prefix: 'Fetched').toJson()]),
+          200,
+          headers: {'x-refresh-state': calls == 1 ? 'scheduled' : 'idle'},
+        );
+      }),
+    );
+    addTearDown(service.close);
+    await _pumpScreen(
+      tester,
+      service: service,
+      cache: _SnapshotCache([]),
+      pollDelay: const Duration(milliseconds: 20),
+    );
+    expect(
+      find.byKey(const ValueKey('place-preparation-state')),
+      findsOneWidget,
+    );
+    expect(find.text('No matching places found'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(calls, 2);
+    expect(find.text('Fetched place 1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('place-preparation-state')), findsNothing);
+  });
+
   testWidgets('cold empty refresh renders preparation instead of final empty', (
     tester,
   ) async {

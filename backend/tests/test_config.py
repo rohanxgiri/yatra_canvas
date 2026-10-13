@@ -22,6 +22,9 @@ def _settings(**values: object) -> Settings:
     return Settings(
         _env_file=None,
         DATABASE_URL="postgresql://localhost/yatracanvas_test",
+        JWT_SECRET_KEY="isolated-test-signing-key-at-least-32-bytes",
+        ALLOW_DEV_GUEST=False,
+        ENABLE_DEV_ADMIN=False,
         **values,
     )  # type: ignore[call-arg]
 

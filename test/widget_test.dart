@@ -11,39 +11,94 @@ import 'package:yatra_canvas/screens/create_trip/destination_selection_screen.da
 import 'package:yatra_canvas/screens/home/home_screen.dart';
 import 'package:yatra_canvas/screens/home/widgets/home_style.dart';
 import 'package:yatra_canvas/screens/onboarding/login_screen.dart';
+import 'package:yatra_canvas/screens/onboarding/onboarding_screen.dart';
+import 'package:yatra_canvas/screens/auth/sign_in_screen.dart';
 import 'package:yatra_canvas/screens/place_discovery/place_discovery_screen.dart';
 import 'package:yatra_canvas/services/city_service.dart';
 import 'package:yatra_canvas/services/trip_service.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 import 'package:yatra_canvas/widgets/yatra_bottom_navigation.dart';
 
+import 'support/auth_fakes.dart';
+
 void main() {
-  testWidgets('opens the onboarding flow from splash', (tester) async {
-    await tester.pumpWidget(const YatraCanvasApp());
-
-    expect(
-      find.text('A little curiosity.\nA world to discover.'),
-      findsOneWidget,
-    );
-
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Find the place\nthat stays with you.'), findsOneWidget);
-    expect(find.text('Continue as Guest'), findsNothing);
-  });
+  testWidgets(
+    'guest launch completes onboarding directly into Home without credentials',
+    (tester) async {
+      final auth = testAuth();
+      addTearDown(auth.dispose);
+      await tester.pumpWidget(YatraCanvasApp(auth: auth));
+      await tester.pumpAndSettle();
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+      expect(find.byType(SignInScreen), findsNothing);
+      expect(find.byType(HomeScreen), findsNothing);
+      for (var step = 0; step < 3; step++) {
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        expect(find.byType(SignInScreen), findsNothing);
+      }
+      await tester.tap(find.text('Start Planning'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SignInScreen), findsNothing);
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(auth.session, isNull);
+      expect(find.byType(OnboardingScreen), findsNothing);
+      expect(
+        Navigator.of(tester.element(find.byType(HomeScreen))).canPop(),
+        isFalse,
+      );
+    },
+  );
 
   testWidgets('guest entry explains account availability', (tester) async {
+    final auth = testAuth();
+    addTearDown(auth.dispose);
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const LoginScreen()),
+      MaterialApp(
+        theme: AppTheme.light,
+        home: LoginScreen(auth: auth),
+      ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text('Mobile number'), findsNothing);
     expect(find.text('Continue with Phone'), findsNothing);
     expect(find.text('Continue with Google'), findsNothing);
     expect(find.text('Continue with Apple'), findsNothing);
-    expect(find.text('Continue as Guest'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Continue as a guest'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Continue as a guest'), findsOneWidget);
   });
+
+  testWidgets(
+    'account link at the end of onboarding uses the same sign-in controller',
+    (tester) async {
+      final auth = testAuth();
+      addTearDown(auth.dispose);
+      await tester.pumpWidget(YatraCanvasApp(auth: auth));
+      await tester.pumpAndSettle();
+      for (var step = 0; step < 3; step++) {
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('Sign in (optional)'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SignInScreen), findsOneWidget);
+      expect(
+        tester.widget<SignInScreen>(find.byType(SignInScreen)).auth,
+        same(auth),
+      );
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+      await tester.tap(find.text('Start Planning'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeScreen), findsOneWidget);
+    },
+  );
 
   testWidgets('create trip flow advances through all five steps', (
     tester,

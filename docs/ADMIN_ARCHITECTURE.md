@@ -3,6 +3,22 @@
 Last updated: 2026-09-14
 Status: `[IMPLEMENTED]`
 
+`[IMPLEMENTED]` Guest mode correction, 2026-10-12: traveller onboarding ends at Home,
+and normal online/offline trip planning requires no sign-in. The dedicated admin entry
+and all `/api/admin/*` operations retain authentication and live role checks.
+Admin Studio uses a scoped `AdminTheme`, responsive branded rail/mobile navigation,
+labeled collection filters, consistent cards/buttons and icon-assisted status indicators.
+Home and Explore are unchanged. See [guest verification](GUEST_MODE_RESTORATION.md).
+
+`[IMPLEMENTED]` The 2026-10-12 integrated Flutter Admin Studio now uses registered JWT
+accounts, independently refreshed and scoped Overview data, online place moderation and
+report review, City Quality, Fix Center, Review Queue and City Releases. Server audit and
+stale decision checks protect supported mutations. The user requested retaining the fixed
+local showcase login; it remains explicitly enabled and blocked in staging/production.
+`[PARTIAL]` City Lab evaluations lack canonical content binding; publication and image import
+remain in the existing desktop workflow. See [the current delivery report](ADMIN_IMPLEMENTATION_REPORT.md)
+and [source API contracts](API_AND_DATA_SOURCES.md) for the latest integration and limitations.
+
 ---
 
 ## 1. System Overview

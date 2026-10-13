@@ -3,10 +3,13 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:sqflite/sqflite.dart';
+import 'package:crypto/crypto.dart';
 
 import 'city_pack_repository.dart';
+import 'authenticated_client.dart';
 import 'local_itinerary_planner.dart';
 import '../models/place.dart';
+import '../models/auth_controller.dart';
 
 /// Application service gateway. It routes prepared cities to local repositories,
 /// and preserves the existing HTTP transport for all other cities and trips.
@@ -17,13 +20,18 @@ class LocalFirstClient extends http.BaseClient {
     CityPackRepository? packs,
     OfflineTripStore? trips,
     this.allowEnrichment = true,
-  }) : network = network ?? http.Client(),
+  }) : network = network ?? AuthenticatedClient(),
        packs = packs ?? CityPackRepository.shared,
-       trips = trips ?? OfflineTripStore.shared;
+       // Keep the public injectable name while resolving default storage by account.
+       // ignore: prefer_initializing_formals
+       _trips = trips;
 
   final http.Client network;
   final CityPackRepository packs;
-  final OfflineTripStore trips;
+  final OfflineTripStore? _trips;
+  OfflineTripStore get trips =>
+      _trips ??
+      OfflineTripStore.forAccount(AuthController.instance.session?.user.id);
   final bool allowEnrichment;
   static final Set<String> _enriching = {};
 
@@ -335,18 +343,23 @@ class LocalResponse {
 
 class OfflineTripStore {
   // ignore: prefer_initializing_formals
-  OfflineTripStore({DatabaseFactory? factory, this.directory})
+  OfflineTripStore({DatabaseFactory? factory, this.directory, this.accountId})
     // Preserve the public injectable argument and defer default SQLite setup.
     // ignore: prefer_initializing_formals
     : _factory = factory;
   static final shared = OfflineTripStore();
+  static final _accounts = <String, OfflineTripStore>{};
+  static OfflineTripStore forAccount(String? id) => id == null
+      ? shared
+      : _accounts.putIfAbsent(id, () => OfflineTripStore(accountId: id));
+  final String? accountId;
   final DatabaseFactory? _factory;
   DatabaseFactory get factory => _factory ?? databaseFactory;
   final String? directory;
   Future<Database>? _opening;
   Future<Database> database() => _opening ??= _open();
   Future<Database> _open() async => factory.openDatabase(
-    '${directory ?? await factory.getDatabasesPath()}/yatracanvas_offline_trips.sqlite',
+    '${directory ?? await factory.getDatabasesPath()}/yatracanvas_offline_trips${accountId == null ? '' : '_${sha256.convert(utf8.encode(accountId!))}'}.sqlite',
     options: OpenDatabaseOptions(
       version: 1,
       onCreate: (db, _) => db.execute(

@@ -1,5 +1,6 @@
 """Database table models."""
 
+from app.models.admin_operations import AdminAuditEvent, AdminReview
 from app.models.entities import (
     City,
     CityCategoryCache,
@@ -25,6 +26,8 @@ from app.models.entities import (
 )
 
 __all__ = [
+    "AdminAuditEvent",
+    "AdminReview",
     "City",
     "CityCategoryCache",
     "CitySource",

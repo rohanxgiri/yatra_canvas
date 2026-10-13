@@ -8,6 +8,8 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
+from app.services.trip_service import DEVELOPMENT_USER_ID
+
 from app.core.itinerary_constants import (
     DEFAULT_DAY_START_TIME,
     estimate_visit_duration,
@@ -399,7 +401,7 @@ def test_transactional_regeneration_updates_itinerary(session_and_client):
     trip = Trip(
         id=uuid4(),
         city_id=city.id,
-        user_id=uuid4(),
+        user_id=DEVELOPMENT_USER_ID,
         trip_name="Jaipur Trip",
         start_date=date(2026, 9, 15),
         days=1,

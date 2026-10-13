@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../models/yatra_session.dart';
 import '../../theme/yc_motion.dart';
 import '../../widgets/yatra_brand.dart';
-import '../home/home_screen.dart';
+import '../auth/auth_gate.dart';
+import '../../models/auth_controller.dart';
 import '../home/widgets/yatra_refractive_glass.dart';
 import '../auth/account_entry_screen.dart';
 import 'widgets/onboarding_button.dart';
@@ -18,11 +18,11 @@ import 'widgets/onboarding_styles.dart';
 /// Introduces travellers to the core value proposition:
 /// Discover places -> personalise -> connect the route -> plan your days.
 ///
-/// Finishing or skipping is a one-way guest entry into the product. Traveller
-/// account binding remains partial, so onboarding never blocks planning behind
-/// account controls that cannot complete yet.
+/// Finishing or skipping opens Home with optional account entry.
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  const OnboardingScreen({this.auth, this.onComplete, super.key});
+  final AuthController? auth;
+  final VoidCallback? onComplete;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -72,16 +72,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _enterApp() {
-    YatraSession.instance.enterAsGuest();
+    if (widget.onComplete != null) {
+      widget.onComplete!();
+      return;
+    }
     Navigator.of(context).pushAndRemoveUntil(
-      YCRoutes.journey<void>(builder: (_) => const HomeScreen()),
+      YCRoutes.journey<void>(
+        builder: (_) => AuthGate(auth: widget.auth ?? AuthController.instance),
+      ),
       (route) => false,
     );
   }
 
   void _openAccountOptions() {
     Navigator.of(context).push(
-      YCRoutes.standard<void>(builder: (_) => const AccountEntryScreen()),
+      YCRoutes.standard<void>(
+        builder: (_) => AccountEntryScreen(auth: widget.auth),
+      ),
     );
   }
 
@@ -193,7 +200,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                     horizontal: 11,
                                     vertical: 7,
                                   ),
-                              child: OnboardingProgressIndicator(
+                                  child: OnboardingProgressIndicator(
                                     currentPage: _currentPage,
                                     pageCount: _stepCount,
                                   ),
@@ -203,9 +210,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 const SizedBox(height: 4),
                                 TextButton(
                                   onPressed: _openAccountOptions,
-                                  child: const Text(
-                                    'Sign in or save trips to an account',
-                                  ),
+                                  child: const Text('Sign in (optional)'),
                                 ),
                               ],
                               SizedBox(height: 14 * scale),

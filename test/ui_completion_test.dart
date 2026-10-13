@@ -12,6 +12,8 @@ import 'package:yatra_canvas/screens/home/widgets/home_style.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 import 'package:yatra_canvas/widgets/yatra_bottom_navigation.dart';
 
+import 'support/auth_fakes.dart';
+
 Finder action(String label) =>
     find.byWidgetPredicate((w) => w is HomeAction && w.label == label);
 
@@ -151,18 +153,24 @@ void main() {
     );
   });
 
-  testWidgets('compact admin menu opens the separate operational drawer', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const YatraCanvasAdminApp());
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.menu_rounded));
-    await tester.pumpAndSettle();
-    expect(find.byType(Drawer), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'legacy admin entry shows onboarding and still requires authentication',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final auth = testAuth();
+      addTearDown(auth.dispose);
+      await tester.pumpWidget(YatraCanvasAdminApp(auth: auth));
+      await tester.pumpAndSettle();
+      expect(find.text('Find the place\nthat stays with you.'), findsOneWidget);
+      expect(find.byType(NavigationRail), findsNothing);
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

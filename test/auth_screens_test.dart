@@ -6,6 +6,8 @@ import 'package:yatra_canvas/screens/auth/sign_up_screen.dart';
 import 'package:yatra_canvas/screens/onboarding/login_screen.dart';
 import 'package:yatra_canvas/theme/app_theme.dart';
 
+import 'support/auth_fakes.dart';
+
 void main() {
   testWidgets(
     'account surfaces remain usable on a narrow phone with large text',
@@ -14,12 +16,14 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
+      final auth = testAuth();
+      addTearDown(auth.dispose);
 
       for (final screen in <Widget>[
-        const AccountEntryScreen(),
-        const SignInScreen(),
-        const SignUpScreen(),
-        const LoginScreen(),
+        AccountEntryScreen(auth: auth),
+        SignInScreen(auth: auth),
+        SignUpScreen(auth: auth),
+        LoginScreen(auth: auth),
       ]) {
         await tester.pumpWidget(
           MaterialApp(
@@ -56,18 +60,26 @@ void main() {
     },
   );
 
-  testWidgets('legacy guest entry is honest about account availability', (
+  testWidgets('optional account entry offers unrestricted guest planning', (
     tester,
   ) async {
+    final auth = testAuth();
+    addTearDown(auth.dispose);
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const LoginScreen()),
+      MaterialApp(
+        theme: AppTheme.light,
+        home: LoginScreen(auth: auth),
+      ),
     );
+    await tester.pumpAndSettle();
 
-    expect(find.text('Continue as Guest'), findsOneWidget);
-    expect(
-      find.textContaining('Account sign-in is not available yet'),
-      findsOneWidget,
+    expect(find.text('Sign In'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Continue as a guest'),
+      200,
+      scrollable: find.byType(Scrollable).first,
     );
+    expect(find.text('Continue as a guest'), findsOneWidget);
     expect(find.text('Continue with Google'), findsNothing);
   });
 }

@@ -33,8 +33,8 @@ Status: `[PARTIAL]`. Approved Home/Explore remain the visual reference. Shared
 planning foundations, unified onboarding, responsive trip creation, discovery,
 day planning, map/POI refinements, and session account screens are implemented.
 Saved/Profile navigation integration is implemented; physical-device acceptance
-testing remains open. Durable account history, authentication and notification delivery remain
-separate backend/product work. See [screen audit and evidence](UI_REDESIGN.md).
+testing remains open. `[IMPLEMENTED]` Local JWT authentication and role routing now exist.
+Durable account history UI and notification delivery remain separate work. See [screen audit and evidence](UI_REDESIGN.md).
 
 ## Phase 1 — Source of truth and configuration alignment
 
@@ -55,11 +55,31 @@ Acceptance criteria:
 
 ## Phase 2 — Versioned migrations, identity, and complete trip lifecycle
 
-Status: `[PARTIAL]`. The current unauthenticated slices implement trip create/get/patch plus the
+### Integrated admin delivery, 2026-10-07
+
+`[IMPLEMENTED]` Login/signup, honest password reset entry, role gate, native secure sessions,
+guest-compatible online trips, account ownership checks and responsive admin navigation are available. Dashboard, users,
+read only trips, quality/QA overlays, research review, pack validation/build adapters, health
+and audit use backend data. Home and Explore visual files are preserved.
+
+`[PARTIAL]` City Lab certification needs a matching desktop export; image import and canonical
+application remain in their existing tooling. Remote publish, automatic merges, reset email,
+Supabase identity, session revocation, account history UI, migration runner and device acceptance
+remain explicit work. Do not mark the whole phase production ready from this delivery.
+See [implementation report](AUTH_ADMIN_IMPLEMENTATION.md).
+
+Status: `[PARTIAL]`. The current authenticated local JWT slices implement trip create/get/patch plus the
 normal Flutter handoff into persistent saved-place list/add/update/reorder/delete operations.
 The returned real `trip_id` is retained in memory and every saved-place mutation uses it.
-Authentication, ownership, trip list/delete, restart persistence, and a versioned migration
-runner remain planned.
+`[IMPLEMENTED]` Local JWT signup/login, secure native session restoration, traveller ownership,
+and account separated offline trip persistence are available. Supabase identity, traveller
+trip list/delete/history restoration and a versioned migration runner remain planned.
+
+`[IMPLEMENTED]` Priority correction, 2026-10-12: guest planning is the default after onboarding,
+without tokens or `ALLOW_DEV_GUEST`. Admin authorization remains separate. Current delivery
+focuses on admin UI usability, preserving Home, Explore, the backend planner and offline packs.
+`[PLANNED]` Further account/authentication development is postponed; no new migration or
+pipeline is part of this correction.
 
 Scope: adopt an ordered migration workflow; integrate Supabase Auth; add an application profile
 only if product needs require it; create authenticated trip create/read/update flows; persist
@@ -223,9 +243,12 @@ Acceptance criteria:
 
 Status: `[PARTIAL]`. Role based local JWT authentication, the protected `/api/admin/*` suite,
 destination management, POI moderation, read only trip inspection, report triage, provider
-diagnostics, and the FastAPI served web dashboard are `[IMPLEMENTED]`. Durable actor and
-before or after correction history, merge or unmerge recovery, and broader bulk moderation tools
-remain `[PLANNED]`. The separate Flutter admin shell remains presentation only.
+diagnostics, the integrated Flutter Admin Studio and the FastAPI served web dashboard are
+`[IMPLEMENTED]`. Durable actor and before/after correction history exists in backend audit
+events. `[PLANNED]` Merge/unmerge recovery and broader bulk moderation remain open.
+`[PARTIAL]` City Lab content binding/certification import and the reproducible planner test
+workspace still need integration. The 2026-10-12 slice adds scoped live Overview, online
+place/report workflows, stale decision guards and explicit incomplete inventory evidence.
 
 Scope: replace hard-coded admin data with authenticated, role-authorized APIs for import review,
 dedupe, corrections, source-quality decisions, and audit history.

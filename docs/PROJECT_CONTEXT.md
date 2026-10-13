@@ -70,8 +70,8 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
   - Responsive Web Admin Dashboard served by FastAPI at `/admin` (HTML5, Vanilla CSS, reactive Vanilla JS).
 
 - **What is partial / not yet implemented:**
-  - Traveler account binding in Flutter: Traveler app still uses guest session flow and server-owned default UUID `user_id`; multi-trip persistence under authenticated traveler accounts is planned;
-  - Account-level multi-trip persistence: `TripDraft` and successful-save snapshots in `YatraSession` survive screen navigation during a session, but not an app restart; the new account/history screens do not add authenticated ownership or a trip-list endpoint;
+  - `[IMPLEMENTED]` Flutter login/signup, central role gate, native secure sessions, and online trip ownership use local backend JWT accounts. `[PARTIAL]` Supabase identity, password reset email delivery, and authenticated trip history across restart remain open;
+  - Account-level multi-trip history: presentation snapshots in `YatraSession` remain memory only; native offline trips use account separated SQLite files. No traveller server trip-list endpoint or account history restoration UI has been added;
   - Versioned migration runner: Database uses `SQLModel.metadata.create_all` plus manual `.sql` scripts; no Alembic runner is configured.
 
 ---
@@ -246,3 +246,33 @@ geometry connects the chosen start and ordered stops, with a labelled route over
 planning action on the map. Missing pack photos use identifiable non-photographic placeholders.
 `[PARTIAL]` Street-map tiles, road-following routes and live weather remain unavailable offline.
 See [the current offline correction report](OFFLINE_ROUTE_SEARCH_FIX.md).
+
+## Integrated authentication and admin, 2026-10-07
+
+`[IMPLEMENTED]` The same Flutter app now routes through `AuthGate` to traveller or admin
+navigation. Authentication uses the existing backend `User`/JWT model, dedicated signup,
+safe form errors and native secure storage. Every online trip resource checks its owner.
+Guest planning is the default online and offline, with no account, token or guest flag.
+Token-free requests reuse the original shared guest UUID; account-owned trips remain guarded.
+Home/Explore visual files are unchanged.
+
+`[IMPLEMENTED]` Guest restoration, 2026-10-12: signed-out launches display the original
+four-screen onboarding before Home. Completing or skipping requires no credentials.
+The final account link is optional and can be dismissed. Restored sessions skip the introduction;
+traveller logout returns to guest Home. The dedicated admin entry still requires sign-in.
+`[PARTIAL]` Saved/history presentation snapshots remain session-only. Native guest trip records
+persist locally; no cross-device guest history or automatic history restoration is claimed.
+
+`[IMPLEMENTED]` Admin has responsive Overview, City Quality, Trips, Users and Operations navigation,
+backend review overlays, audited SQL mutations and read only operational inspection.
+`[PARTIAL]` Existing DataFactory functions are exposed through an optional configured adapter.
+City Lab evaluations are displayed from validated matching exports, never recomputed with a
+new score. `[PARTIAL]` The export lacks canonical content binding, so reported READY alone
+cannot certify the configured release. Image import remains in desktop City Lab; canonical patch application remains in
+the reviewed DataFactory workflow. Remote publish and automatic merge are not configured.
+See [implementation and verification report](AUTH_ADMIN_IMPLEMENTATION.md).
+
+`[IMPLEMENTED]` The 2026-10-12 refinement retains the explicitly enabled local showcase login
+at user request and prevents it shadowing registered accounts. It adds scoped operational metrics, exposes online place moderation
+and report review in Flutter, guards stale decisions and identity responses, and discloses
+incomplete release inventories. See [the current delivery report](ADMIN_IMPLEMENTATION_REPORT.md).

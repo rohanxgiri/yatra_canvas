@@ -1,0 +1,16 @@
+# Optional runtime dependencies for the existing DataFactory adapter.
+# Derived from the inspected sibling DataFactory pyproject, not a copied pipeline.
+-r requirements.txt
+pyarrow>=15.0.0
+pillow>=10.3.0
+rapidfuzz>=3.8.0
+shapely>=2.0.0
+ImageHash==4.3.2
+opening-hours-py==2.1.4
+pyyaml>=6.0.1
+duckdb>=1.0.0
+overturemaps>=1.0.0
+osmium>=4.0.0
+wikitextparser>=0.56.0
+typer>=0.12.0
+rich>=13.7.0

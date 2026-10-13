@@ -657,3 +657,59 @@ SQLite alone did not expose the missing module. The immutable pack does not need
   placeholder. Existing verified/bundled photos and their attribution still take priority.
 - **Limits:** `[PARTIAL]` No offline street tiles, road graph, turn-by-turn directions, weather feed,
   or OR-Tools parity. Coordinate lines must not be presented as road geometry.
+
+### ADR-028 — Integrated local JWT authentication and operational admin
+
+- **Status:** Accepted, `[IMPLEMENTED]` authentication/role/ownership and admin APIs;
+  `[PARTIAL]` City Lab adapters and production identity lifecycle. Date 2026-10-07.
+- **Decision:** Extend existing bcrypt/JWT accounts and Flutter ChangeNotifier/Navigator.
+  One central gate constructs the correct experience directly and resets history on identity
+  transitions. Native secure storage persists token/profile, web sessions remain memory only.
+  Unknown roles fail closed; admins require an online role check after restart. This is an
+  incremental implementation under ADR-001; Supabase Auth remains the production direction.
+- **Ownership:** Verified travellers own online trip resources. The legacy default UUID is
+  restored for default token-free guest planning by the 2026-10-12 correction below. Legacy data is preserved, never
+  reassigned automatically. Native offline trip files are separated by account identity.
+- **Admin data:** Read immutable DataFactory releases, reuse its existing functions and
+  consume version matched City Lab score/gate exports. Human reviews are backend overlays
+  with evidence and audited transitions. Export the existing base bound patch contract;
+  canonical apply/image import remain in existing tooling. Remote publishing/auto merge
+  are not inferred capabilities. No installed app JSON is a canonical write target.
+- **Security:** Server live role/activity checks guard all privileged endpoints. Demo admin
+  remains ephemeral and explicitly opt in, forbidden in staging/production. Startup metadata
+  creation is limited to explicit development/test. Reviewed additive schema scripts include
+  archival rollback and are not applied to production during repository work.
+- **Evidence:** `backend/tests/test_integrated_auth_admin.py`,
+  `backend/tests/test_admin_datafactory_integration.py`, `test/auth_controller_test.dart`,
+  `test/auth_gate_test.dart`, `test/admin_panel_test.dart`, and
+  [delivery report](AUTH_ADMIN_IMPLEMENTATION.md).
+
+## ADR-029 — Admin evaluation evidence and operational scope
+
+- **Status:** Accepted, `[IMPLEMENTED]` in code and regression tests. Date 2026-10-12.
+- **Decision:** Reuse registered bcrypt/JWT accounts and existing bootstrap tooling. Retain
+  the fixed local showcase identity at the user's explicit 2026-10-12 request. It requires
+  ENABLE_DEV_ADMIN and development/test, never shadows registered accounts and is blocked
+  in staging/production. Load operational/canonical
+  summaries independently and identify the source, freshness and incomplete inventories.
+  Reject stale report/moderation decisions and responses belonging to a previous identity.
+- **Evidence:** Reuse the actual CityPack Lab schema 1 export and its score/gate vocabulary;
+  validate identity, version, finite scores and review/check consistency. No new quality
+  algorithm is introduced. `[PARTIAL]` The export does not contain a canonical content
+  fingerprint, so its reported READY is an evaluation, not certification of configured bytes.
+  No release file or publication gate is modified to compensate for that missing contract.
+- **Consequences:** Local showcases may use the explicit demo; deployed admin uses registered accounts. Optional adapter
+  failures do not hide backend operations. Canonical ownership, reviewed overlays, immutable
+  releases and explicit publication remain unchanged. See [delivery report](ADMIN_IMPLEMENTATION_REPORT.md).
+
+### Guest mode correction accepted 2026-10-12
+
+`[IMPLEMENTED]` The user's latest correction supersedes compulsory traveller sign-in.
+Preserve the existing four-screen onboarding; completion and Skip open guest Home and clear
+onboarding history. Account entry is optional. The original server-owned guest UUID handles
+token-free traveller requests without a flag, preserving legacy guest trips. Existing account
+ownership checks and live admin role/activity checks remain intact; invalid supplied tokens
+are rejected rather than downgraded. Guest online storage shares the existing guest namespace.
+Native guest SQLite records remain device local; session presentation history is not durable.
+Further authentication development is postponed. This correction adds no schema, pipeline,
+provider or deployment change. Admin presentation changes use local tokens and existing APIs.

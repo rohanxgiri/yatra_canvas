@@ -2,7 +2,8 @@
 
 Last reviewed: 2026-09-27
 
-The source of truth for the current schema is `backend/app/models/entities.py`. This document
+The source of truth for the current schema is `backend/app/models/entities.py` and
+`backend/app/models/admin_operations.py`. This document
 describes those SQLModel tables and the tracked SQL scripts; it does not assert what exists in
 an uninspected production database.
 
@@ -52,7 +53,7 @@ Deletion behavior must not be assumed except where an `ondelete` action is expli
 | `provider_cooldowns` / `ProviderCooldown` | `[IMPLEMENTED]` in model/tests; deployment application `[PARTIAL]` | One provider-wide durable cooldown row. Stores the triggering host, cooldown deadline, bounded reason, observed `Retry-After`, and timestamps so separate backend workers suppress Wikimedia requests after a 429. It contains no POI or image metadata. |
 | `place_categories` / `PlaceCategory` | `[IMPLEMENTED]` | Provider-specific category ID/label and creation timestamp, unique for place/source/external category. |
 | `place_import_reviews` / `PlaceImportReview` | `[IMPLEMENTED]` schema, `[PARTIAL]` workflow | One review per provider/external place ID. Status is `pending`, `resolved`, or `ignored`; stores candidates, match evidence, and a source snapshot. No connected admin endpoint/UI action exists. |
-| `trips` / `Trip` | `[IMPLEMENTED]` schema, create, get, and patch APIs, `[PARTIAL]` lifecycle | `POST /trips` persists destination, server-owned development UUID `user_id`, name, inclusive days/start date, and arrival/start-location fields. An optional client-generated `request_id` becomes `trips.id`; replaying the same ID and payload returns the existing trip, while reuse with different data is rejected. `GET /trips/{trip_id}` returns the complete application trip representation, and `PATCH /trips/{trip_id}` supports partial updates with date/coordinate/preference validation and downstream cache invalidation. List/delete and authentication remain absent. |
+| `trips` / `Trip` | `[IMPLEMENTED]` guest and authenticated create/get/patch; `[PARTIAL]` lifecycle | `POST /trips` uses the original server-owned shared guest UUID when no token is supplied, or the verified JWT traveller account. No guest flag is required. `request_id` supports owner checked idempotent retries. Guest requests cannot access account-owned trips. Legacy UUIDs are preserved without reassignment. Traveller list/delete and history UI remain open. |
 | `trip_days` / `TripDay` | `[IMPLEMENTED]` schema, create, get, and patch APIs | Individual configurable trip days tied to `trips.id` with `ondelete="CASCADE"`. Stores `day_number`, `date`, `day_type` (`FULL_DAY`, `HALF_DAY`, `REST`, `TRAVEL`), optional touring window (`start_time`, `end_time`), and `created_at`. Unique constraint `uq_trip_days_trip_day_number` enforces unique `day_number` per trip. Check constraints enforce `day_number > 0` and valid `day_type`. Automatically generated on trip creation and date updates. Protected against changing to `REST` or removing the sightseeing window when places are locked to the day. Protected against destructive duration reduction when scheduled `TripItinerary` visits exist or when places are locked to eliminated days. Active records supply optimizer route windows and original output day numbers. |
 | `trip_preferences` / `TripPreference` | `[IMPLEMENTED]` schema/create/edit path | The trip-create and trip-edit transactions store unique purposes with weight 2.0 and secondary preferences (pace, budget, transport, extra interests) with weight 1.0 as generic weighted preference rows, unique per trip/preference. These weights inform recommendation relevance scoring and ranking. Also stores `ignore_weather_advisories` to suppress future weather advisories for the trip. |
 | `user_saved_places` / `UserSavedPlace` | `[IMPLEMENTED]` API | Unique trip/place selection with `custom_order`, `priority`, `is_locked` (ordering/solver lock), `must_visit`, `notes`, `assignment_mode` (`AUTO` \| `LOCKED`), and nullable `assigned_day_id` (foreign key to `trip_days.id`). Database check constraints enforce `assignment_mode IN ('AUTO', 'LOCKED')` (`ck_user_saved_places_assignment_mode`) and consistency (`ck_user_saved_places_assignment_consistency`): `AUTO` requires null `assigned_day_id`, while `LOCKED` requires non-null `assigned_day_id`. In `AUTO` mode, itinerary optimization chooses an active sightseeing day. In `LOCKED` mode, the place is pinned to a specific active non-`REST` day with a usable sightseeing window belonging to the same trip. Native vehicle-domain constraints enforce assignments; infeasible locks become explicit unscheduled results. |
@@ -63,7 +64,7 @@ Deletion behavior must not be assumed except where an `ondelete` action is expli
 Currency has been removed from the roadmap. Weather forecasts use in-memory TTL caching and do
 not require persistent database tables.
 
-Authentication and role authorization `[IMPLEMENTED]` are supported via JWT tokens and bcrypt password hashing on `User` accounts (`USER` and `ADMIN` roles). Trip creation continues to accept legacy anonymous calls with server-owned default user identities for backward compatibility.
+Authentication and role authorization `[IMPLEMENTED]` use JWT and bcrypt `User` accounts (`USER`, `ADMIN`) for optional accounts and protected administration. Online guest trips require neither a token nor `ALLOW_DEV_GUEST`. Guest online trips share the original guest namespace; this is not private account storage. Offline native guests keep the original device SQLite file.
 
 The FSQ importer currently auto-attaches only when normalized name and broad category agree and
 there is exactly one nearby candidate inside the configured distance. Ambiguous, conflicting, or
@@ -79,8 +80,9 @@ must not reuse another provider's identifier namespace.
 
 `[PARTIAL]` Import ambiguity has explicit review status in `PlaceImportReview`, but `Place` has
 no overall verification state, reviewer, review timestamp, correction history, or field-level
-provenance. The mock admin UI does not change database data. Until a reviewed model is added,
-do not describe canonical places as human-verified merely because an import record matched.
+provenance. `[IMPLEMENTED]` Admin reviews and actor/before/after audit now live in separate tables.
+An overlay is a human review of a release, not canonical publication or automatic verification.
+Do not describe canonical places as human verified merely because an import record matched.
 
 Planned verification additions must define whether verification applies to an entire place or
 individual fields, keep an audit history, and reference the supporting sources. They require a
@@ -135,7 +137,42 @@ not owned by this snapshot.
 
 ## Current migration state
 
-`[PARTIAL]` New databases receive SQLModel metadata through `create_all`. Existing databases need
+### Admin review and audit additions, 2026-10-07
+
+`[IMPLEMENTED]` `admin_audit_events` stores UUID identity, timestamp, actor UUID, action,
+entity type/ID, optional city identity, before/after JSON and bounded reason. API mutations
+append audit in the same database transaction. There is no audit update/delete API.
+`[PARTIAL]` Database role grants/retention/append-only enforcement need deployment review.
+The actor has no foreign key so historical audit survives account lifecycle changes and the
+explicit local showcase principal remains ephemeral. Its audit identity is distinct from real
+accounts. No table or migration changed in the 2026-10-12 refinement.
+
+`[IMPLEMENTED]` Report updates may include `expected_updated_at`; place moderation may
+include `expected_moderation_status`. PostgreSQL locks the row before comparison and audit.
+Stale decisions return 409 without a mutation or audit event. Legacy API clients retain their
+existing contract; the new Flutter forms always supply the loaded revision/state.
+
+`[IMPLEMENTED]` `admin_reviews` stores release key, entity type/ID, canonical city identity,
+base fingerprint, QA/research status, changes/base values JSON, notes/evidence URL, actor and
+updated timestamp. A unique `(release_key, entity_type, entity_id)` owns one current overlay.
+Provider provenance and canonical release files remain immutable. Approved research/place
+corrections can be exported together; conflicting values or excluded targets block export.
+QA exclusions are review decisions; the existing DataFactory UPDATE patch has no exclusion
+operation, so exclusions are not silently applied to a canonical release.
+
+| Script | Purpose |
+| --- | --- |
+| `backend/sql/add_admin_operations.sql` | Additive audit/review tables and indexes; no legacy user/trip/place changes |
+| `backend/sql/rollback_admin_operations.sql` | Rename to archive tables after removing only their secondary indexes; preserve every review/audit row |
+
+Apply after the existing account foundation in a controlled deployment. Stop writes, review a
+backup and existing archives before rollback. Restore by renaming archives back and running
+the forward script to restore indexes. An existing archive causes rollback to fail rather
+than overwrite it. Scripts were checked on disposable SQLite for data preservation and with
+the PostgreSQL parser for syntax. `[PARTIAL]` Live PostgreSQL deployment verification remains
+open. Repository work did not apply these scripts to any remote database.
+
+`[PARTIAL]` Explicit development/test databases receive SQLModel metadata through `create_all`. Existing and deployed databases need
 reviewed SQL changes because `create_all` does not alter columns or constraints. Tracked scripts:
 
 The authoritative dependency order and the latest configured-database audit are recorded in
@@ -222,7 +259,7 @@ rollback point, not a substitute for a platform-level disaster-recovery backup.
 6. Keep SQLModel metadata and migration DDL synchronized in the same change.
 
 `[PLANNED]` Likely future entities include an application profile linked to Supabase Auth,
-field/source verification or correction history, ingestion runs, and provider-aware weather/rate
+full canonical field/source verification history, ingestion runs, and provider-aware weather/rate
 caches. Their exact schemas are deliberately not invented here.
 # Core-flow integrity verification (2026-09-07)
 

@@ -6,6 +6,7 @@ import '../../models/trip_day.dart';
 import '../../models/saved_place.dart';
 import '../../models/trip_start_location.dart';
 import '../../models/yatra_session.dart';
+import '../../models/auth_controller.dart';
 import '../../services/trip_service.dart';
 import '../../services/saved_place_service.dart';
 import '../../theme/yc_motion.dart';
@@ -86,8 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _signOut() {
-    YatraSession.instance.signOut();
-    setState(() {});
+    AuthController.instance.logout();
   }
 
   @override

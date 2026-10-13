@@ -20,6 +20,8 @@ enum RecommendationRefreshState {
 
   static RecommendationRefreshState fromHeader(String? value) {
     switch (value?.trim().toLowerCase()) {
+      // The backend schedules its durable enqueue without delaying this read.
+      case 'scheduled':
       case 'queued':
         return queued;
       case 'refreshing':

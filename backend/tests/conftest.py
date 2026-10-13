@@ -6,7 +6,13 @@ from sqlmodel import create_engine
 
 
 @pytest.fixture(autouse=True)
-def isolated_startup_database(monkeypatch):
+def isolated_startup_database(monkeypatch, request):
+    from app.core.config import get_settings
+
+    if request.node.path.name not in {"test_config.py", "test_database_safety.py"}:
+        monkeypatch.setenv("APP_ENV", "test")
+        monkeypatch.setenv("ALLOW_DEV_GUEST", "false")
+    get_settings.cache_clear()
     # Endpoint fixtures override request sessions, but FastAPI lifespan separately
     # calls create_db_and_tables(). Never let that touch a configured remote DB.
     engine = create_engine(
@@ -20,4 +26,5 @@ def isolated_startup_database(monkeypatch):
         lambda *args, **kwargs: None,
     )
     yield
+    get_settings.cache_clear()
     engine.dispose()

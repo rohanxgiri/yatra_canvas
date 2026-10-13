@@ -30,6 +30,7 @@ import 'package:yatra_canvas/models/optimized_route.dart';
 import 'package:yatra_canvas/models/route_geometry.dart';
 import 'package:yatra_canvas/models/place.dart';
 import 'package:yatra_canvas/models/recommendation.dart';
+import 'package:yatra_canvas/services/recommendation_service.dart';
 import 'package:yatra_canvas/models/saved_place.dart';
 import 'package:yatra_canvas/widgets/poi_bottom_sheet.dart';
 
@@ -107,6 +108,66 @@ void main() {
     await packs.close();
     await directory.delete(recursive: true);
   });
+
+  test(
+    'offline trips stay private across guest, accounts and restart',
+    () async {
+      final city = (await packs.searchCities('Jaipur')).single;
+      final accountA = OfflineTripStore(
+        factory: databaseFactoryFfi,
+        directory: directory.path,
+        accountId: 'traveller-a',
+      );
+      final accountB = OfflineTripStore(
+        factory: databaseFactoryFfi,
+        directory: directory.path,
+        accountId: 'traveller-b',
+      );
+      final restartedA = OfflineTripStore(
+        factory: databaseFactoryFfi,
+        directory: directory.path,
+        accountId: 'traveller-a',
+      );
+      final body = <String, dynamic>{
+        'request_id': 'guest-only',
+        'city_id': city['id'],
+        'start_date': '2026-10-05',
+        'days': 1,
+      };
+      try {
+        final guestTrip =
+            (await trips.create(body, packs))['trip_id'] as String;
+        expect(
+          (await accountA.handle(guestTrip, '', 'GET', {}, packs)).status,
+          404,
+        );
+        final ownTrip =
+            (await accountA.create({
+                  ...body,
+                  'request_id': 'account-only',
+                }, packs))['trip_id']
+                as String;
+        expect(
+          (await accountB.handle(ownTrip, '', 'GET', {}, packs)).status,
+          404,
+        );
+        expect((await trips.handle(ownTrip, '', 'GET', {}, packs)).status, 404);
+        await accountA.close();
+        expect(
+          (await restartedA.handle(ownTrip, '', 'GET', {}, packs)).status,
+          200,
+        );
+        expect(
+          (await trips.handle(guestTrip, '', 'GET', {}, packs)).status,
+          200,
+        );
+      } finally {
+        await accountA.close();
+        await accountB.close();
+        await restartedA.close();
+      }
+    },
+  );
 
   test(
     'offline location filters separate hotels stations and airports',
@@ -938,6 +999,64 @@ void main() {
           rendered.dispose();
         });
       }
+    },
+  );
+
+  test(
+    'offline recommendations retain pack summaries and cached enrichment',
+    () async {
+      final rows = await packs.getCityPlaces(
+        'jaipur',
+        category: 'heritage',
+        limit: 500,
+      );
+      final described = rows.firstWhere(
+        (p) => (p['description'] as String?)?.isNotEmpty == true,
+      );
+      final missing = rows.firstWhere(
+        (p) => (p['description'] as String?)?.isNotEmpty != true,
+      );
+      const cachedDescription =
+          'Cached source description for the offline regression fixture.';
+      await packs.cacheEnrichment(described['id'] as String, {
+        'description': 'Do not replace the pack description.',
+      });
+      await packs.cacheEnrichment(missing['id'] as String, {
+        'description': cachedDescription,
+      });
+      var calls = 0;
+      final client = LocalFirstClient(
+        packs: packs,
+        trips: trips,
+        allowEnrichment: false,
+        network: MockClient((_) async {
+          calls++;
+          throw const SocketException('Offline');
+        }),
+      );
+      final service = RecommendationService(
+        client: client,
+        baseUrl: 'http://offline.test',
+      );
+      final recommendations = await service.getRecommendations('jaipur', [
+        PlaceCategory.heritage,
+      ], limit: 100);
+      final packPlace = recommendations.firstWhere(
+        (p) => p.id == described['id'],
+      );
+      final enriched = recommendations.firstWhere((p) => p.id == missing['id']);
+      expect(packPlace.placeDetails?.description, described['description']);
+      expect(enriched.placeDetails?.description, cachedDescription);
+      expect(packPlace.placeDetails?.baseSource, 'city_pack');
+      expect(
+        packPlace.placeDetails?.image?.toJson(),
+        Place.fromJson(described).image?.toJson(),
+      );
+      final restored = Recommendation.fromJson(packPlace.toJson());
+      expect(restored.placeDetails?.description, described['description']);
+      expect(restored.image?.toJson(), packPlace.image?.toJson());
+      expect(calls, 0);
+      client.close();
     },
   );
 

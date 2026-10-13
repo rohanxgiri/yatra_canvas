@@ -1,59 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:yatra_canvas/admin/admin_app.dart';
 import 'package:yatra_canvas/main.dart';
+import 'package:yatra_canvas/admin/admin_app.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
-import 'package:yatra_canvas/screens/onboarding/personal_interests_screen.dart';
-import 'package:yatra_canvas/theme/app_theme.dart';
+
+import 'support/auth_fakes.dart';
 
 void main() {
-  testWidgets('launch story reaches home without a sign-in detour', (
+  testWidgets('guest is the default on cold launch and after restart', (
     tester,
   ) async {
-    await tester.pumpWidget(const YatraCanvasApp());
-    await tester.pump(const Duration(seconds: 2));
+    final store = MemorySessionStore();
+    for (var launch = 0; launch < 2; launch++) {
+      final auth = testAuth(store: store);
+      await tester.pumpWidget(YatraCanvasApp(auth: auth));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(auth.session, isNull);
+      expect(store.value, isNull);
+      expect(find.text('Sign In'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      auth.dispose();
+    }
+  });
+  testWidgets('AC-3 old admin entrypoint never bypasses authentication', (
+    tester,
+  ) async {
+    final auth = testAuth();
+    addTearDown(auth.dispose);
+    await tester.pumpWidget(YatraCanvasAdminApp(auth: auth));
     await tester.pumpAndSettle();
-    expect(find.text('Find the place\nthat stays with you.'), findsOneWidget);
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
-    expect(find.byType(HomeScreen), findsOneWidget);
-  });
-
-  testWidgets('legacy personalisation entry follows the four-page story', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const PersonalInterestsScreen()),
-    );
-    for (var page = 0; page < 3; page++) {
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
-    }
-    await tester.tap(find.text('Start Planning'));
-    await tester.pumpAndSettle();
-    expect(find.byType(HomeScreen), findsOneWidget);
-  });
-  testWidgets('all admin navigation destinations render', (tester) async {
-    tester.view.physicalSize = const Size(1440, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(const YatraCanvasAdminApp());
-    await tester.pumpAndSettle();
-
-    const destinations = <String, String>{
-      'Trips': 'Traveller journeys',
-      'Destinations': 'Manage the places travellers can discover.',
-      'Travellers': 'A simple view of people planning with YatraCanvas.',
-      'Reports': 'Review content flagged by travellers.',
-      'Overview': 'Route pulse',
-    };
-
-    for (final entry in destinations.entries) {
-      await tester.tap(find.text(entry.key).first);
-      await tester.pumpAndSettle();
-      expect(find.text(entry.value), findsOneWidget);
-    }
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.byType(HomeScreen), findsNothing);
   });
 }

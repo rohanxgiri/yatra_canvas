@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
-import 'screens/admin_panel_screen.dart';
+import '../main.dart';
+import '../models/auth_controller.dart';
 
 class YatraCanvasAdminApp extends StatelessWidget {
-  const YatraCanvasAdminApp({super.key});
+  const YatraCanvasAdminApp({this.auth, super.key});
+  final AuthController? auth;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'YatraCanvas Admin',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      home: const AdminPanelScreen(),
-    );
+    return YatraCanvasApp(auth: auth, requireAuthentication: true);
   }
 }

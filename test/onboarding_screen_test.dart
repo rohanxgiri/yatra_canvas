@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yatra_canvas/screens/home/home_screen.dart';
+
+import 'support/auth_fakes.dart';
+
 import 'package:yatra_canvas/screens/onboarding/onboarding_screen.dart';
 import 'package:yatra_canvas/screens/onboarding/splash_screen.dart';
 import 'package:yatra_canvas/screens/onboarding/widgets/onboarding_figma_first_screen.dart';
@@ -23,6 +26,8 @@ Future<void> pumpStory(
   final iconFile = File(
     'build/unit_test_assets/fonts/MaterialIcons-Regular.otf',
   );
+  final auth = testAuth();
+  addTearDown(auth.dispose);
   if (iconFile.existsSync()) {
     await (FontLoader('MaterialIcons')..addFont(
           Future.value(ByteData.view(iconFile.readAsBytesSync().buffer)),
@@ -41,7 +46,7 @@ Future<void> pumpStory(
         ),
         child: RepaintBoundary(
           key: const ValueKey('onboarding-render'),
-          child: OnboardingScreen(key: UniqueKey()),
+          child: OnboardingScreen(key: UniqueKey(), auth: auth),
         ),
       ),
     ),
@@ -52,17 +57,11 @@ Future<void> pumpStory(
       tester.element(find.byType(OnboardingScreen)),
     );
     await precacheImage(
-      const ResizeImage(
-        AssetImage('lib/assets/home/jaipur.png'),
-        width: 720,
-      ),
+      const ResizeImage(AssetImage('lib/assets/home/jaipur.png'), width: 720),
       tester.element(find.byType(OnboardingScreen)),
     );
     await precacheImage(
-      const ResizeImage(
-        AssetImage('lib/assets/home/varanasi.png'),
-        width: 480,
-      ),
+      const ResizeImage(AssetImage('lib/assets/home/varanasi.png'), width: 480),
       tester.element(find.byType(OnboardingScreen)),
     );
     await precacheImage(
@@ -125,7 +124,7 @@ void main() {
     expect(find.byType(OnboardingScreen), findsOneWidget);
   });
 
-  testWidgets('story navigation, back swipe and skip enter Home', (
+  testWidgets('story navigation, back swipe and skip open guest Home', (
     tester,
   ) async {
     addTearDown(tester.view.resetPhysicalSize);
@@ -172,7 +171,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('at your pace.'), findsOneWidget);
 
-    // Start Planning enters Home
+    // Start Planning opens Home without authentication.
     await tester.tap(find.text('Start Planning'));
     await tester.pumpAndSettle();
     expect(find.byType(HomeScreen), findsOneWidget);

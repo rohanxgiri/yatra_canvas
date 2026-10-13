@@ -16,6 +16,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
+from app.services.trip_service import DEVELOPMENT_USER_ID
+
 from app.database import get_session
 from app.main import app
 from app.models import City, Place, Trip, UserSavedPlace
@@ -65,7 +67,7 @@ def test_env() -> Generator[tuple[TestClient, Session, City, Trip], None, None]:
 
         trip = Trip(
             id=uuid4(),
-            user_id=uuid4(),
+            user_id=DEVELOPMENT_USER_ID,
             city_id=city.id,
             trip_name="Kochi Trip",
             days=3,

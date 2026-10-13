@@ -19,6 +19,8 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 from fastapi.testclient import TestClient
 
+from app.services.trip_service import DEVELOPMENT_USER_ID
+
 from app.database import get_session
 from app.main import app
 from app.models.entities import City, Place, Trip, TripItinerary, UserSavedPlace
@@ -533,7 +535,7 @@ def test_optimize_route_endpoint_attaches_geometry(
 
         with Session(engine) as session:
             trip = Trip(
-                user_id=uuid4(),
+                user_id=DEVELOPMENT_USER_ID,
                 city_id=UUID(city_id),
                 trip_name="Jaipur Highlights",
                 days=1,

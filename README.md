@@ -8,8 +8,12 @@ API, cache first place discovery, saved places, multi day itinerary optimization
 geometry, weather assistance, JWT protected administration APIs, POI moderation, and a web admin
 dashboard.
 
-`[PARTIAL]` The traveller app still uses a guest session and a server owned development user.
-Supabase Auth integration, authenticated traveller ownership, restart durable trip history, an
+`[IMPLEMENTED]` Local backend JWT accounts, Flutter role routing and authenticated online trip ownership are available.
+`[IMPLEMENTED]` Guest planning is the default after onboarding. Home, Explore, online trips and
+prepared offline city packs require no account or token. Admin operations remain role protected.
+`[PARTIAL]` Guest history presentation is session-only; native offline records persist on the
+device, and online guest records share the legacy guest namespace without cross-device history UI.
+`[PARTIAL]` Supabase Auth integration, traveller account history across restart, an
 ordered migration runner, and always on background job delivery remain incomplete.
 
 For the evidence backed project state, start with [Project context](docs/PROJECT_CONTEXT.md).
@@ -282,7 +286,12 @@ roadmap and source of truth documents take precedence over generic skill default
 2. Never add secrets to Flutter, logs, screenshots, examples, tests, or commits.
 3. Public Overpass and OSRM endpoints are useful for development but do not provide a production
    service guarantee.
-4. FastAPI currently runs `SQLModel.metadata.create_all` at startup. An ordered migration runner
-   and environment restricted schema initialization are still `[PLANNED]`.
+4. `[IMPLEMENTED]` FastAPI runs `SQLModel.metadata.create_all` only in explicit development/test.
+   An ordered migration runner remains `[PLANNED]`.
 5. Deployment configuration, backup objectives, centralized logs, and production monitoring are
    `[UNKNOWN]` because this repository does not define them.
+
+`[IMPLEMENTED]` Registered administrators enter the integrated Flutter Admin Studio through
+normal Sign In. An explicitly enabled fixed login is available only for local showcases.
+Local setup, current audit, source mapping,
+test results and remaining integration work are in [the Admin Studio report](docs/ADMIN_IMPLEMENTATION_REPORT.md).

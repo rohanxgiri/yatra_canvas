@@ -4,7 +4,7 @@ from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -31,8 +31,41 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="APP_ENV",
     )
+    # Explicit local showcase identity, forbidden in staging/production.
+    enable_dev_admin: bool = Field(default=False, validation_alias="ENABLE_DEV_ADMIN")
+    # Retained for existing configurations; normal guest trip access needs no flag.
+    allow_dev_guest: bool = Field(default=False, validation_alias="ALLOW_DEV_GUEST")
+    admin_release_root: str | None = Field(
+        default=None, validation_alias="ADMIN_RELEASE_ROOT"
+    )
+    datafactory_checkout: str | None = Field(
+        default=None, validation_alias="DATAFACTORY_CHECKOUT"
+    )
+    admin_artifact_root: str = Field(
+        default="data/admin", validation_alias="ADMIN_ARTIFACT_ROOT"
+    )
+
+    @model_validator(mode="after")
+    def validate_auth_environment(self):
+        if self.app_env in (AppEnvironment.STAGING, AppEnvironment.PRODUCTION):
+            if self.enable_dev_admin or self.allow_dev_guest:
+                raise ValueError(
+                    "Development authentication is forbidden in staging/production"
+                )
+            secret = self.jwt_secret_key.get_secret_value()
+            if (
+                secret == "yatracanvas-dev-insecure-jwt-secret-key-change-in-production"
+                or len(secret.encode("utf-8")) < 32
+            ):
+                raise ValueError(
+                    "A deployment JWT_SECRET_KEY of at least 32 bytes is required"
+                )
+        return self
+
     jwt_secret_key: SecretStr = Field(
-        default=SecretStr("yatracanvas-dev-insecure-jwt-secret-key-change-in-production"),
+        default=SecretStr(
+            "yatracanvas-dev-insecure-jwt-secret-key-change-in-production"
+        ),
         validation_alias="JWT_SECRET_KEY",
     )
     jwt_algorithm: str = Field(
