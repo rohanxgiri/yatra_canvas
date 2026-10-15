@@ -16,6 +16,9 @@ class CityService {
       _baseUrl = (baseUrl ?? ApiConfig.baseUrl).replaceFirst(RegExp(r'/$'), '');
 
   static const Duration _requestTimeout = Duration(seconds: 10);
+  // Destination search is the first remote read after launch. Render Free can
+  // take about a minute to start; existing results remain selectable meanwhile.
+  static const Duration _searchTimeout = Duration(seconds: 65);
 
   final http.Client _client;
   final bool _ownsClient;
@@ -27,7 +30,7 @@ class CityService {
 
     final uri = Uri.parse('$_baseUrl/cities/search')
         .replace(queryParameters: {'query': normalizedQuery});
-    final response = await _client.get(uri).timeout(_requestTimeout);
+    final response = await _search(uri);
 
     if (response.statusCode != 200) {
       throw CityServiceException(_errorMessage(response));
@@ -55,12 +58,9 @@ class CityService {
     final normalizedQuery = query.trim();
     if (normalizedQuery.length < 3) return const [];
 
-    final uri = Uri.parse('$_baseUrl/cities/autocomplete').replace(
-      queryParameters: {
-        'query': normalizedQuery,
-      },
-    );
-    final response = await _client.get(uri).timeout(_requestTimeout);
+    final uri = Uri.parse('$_baseUrl/cities/autocomplete')
+        .replace(queryParameters: {'query': normalizedQuery});
+    final response = await _search(uri, timeout: _requestTimeout);
 
     if (response.statusCode != 200) {
       throw CityServiceException(_errorMessage(response));
@@ -151,6 +151,34 @@ class CityService {
       // Use the stable fallback below when the backend response is not JSON.
     }
     return 'City request failed (${response.statusCode}). Please try again.';
+  }
+
+  Future<http.Response> _search(Uri uri, {Duration? timeout}) async {
+    final abort = Completer<void>();
+    try {
+      final request = http.AbortableRequest(
+        'GET',
+        uri,
+        abortTrigger: abort.future,
+      );
+      return await (() async => http.Response.fromStream(
+        await _client.send(request),
+      ))().timeout(timeout ?? _searchTimeout);
+    } on TimeoutException catch (error) {
+      throw CityServiceException(
+        'The server is taking longer to respond. Please retry shortly; prepared cities remain available offline.',
+        error,
+      );
+    } on http.ClientException catch (error) {
+      throw CityServiceException(
+        'Could not load city suggestions. Check your connection and retry.',
+        error,
+      );
+    } finally {
+      // Cancel pending network I/O and prevent a late automatic retry after the
+      // caller's timeout. Local pack reads finish independently of transport.
+      if (!abort.isCompleted) abort.complete();
+    }
   }
 
   void close() {

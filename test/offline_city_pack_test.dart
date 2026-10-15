@@ -169,6 +169,41 @@ void main() {
     },
   );
 
+  test('history reads persisted device trips after restart with original request identity', () async {
+    final city = (await packs.searchCities('Jaipur')).single;
+    await trips.create({
+      'request_id': 'persisted-history',
+      'city_id': city['id'],
+      'start_date': '2026-10-14',
+      'end_date': '2026-10-15',
+      'days': 2,
+      'arrival_place': 'Chosen city centre',
+      'start_latitude': city['latitude'],
+      'start_longitude': city['longitude'],
+      'preferences': ['Balanced'],
+      'purposes': ['Culture & Heritage'],
+    }, packs);
+    await trips.close();
+    final reopened = OfflineTripStore(
+      factory: databaseFactoryFfi,
+      directory: directory.path,
+    );
+    addTearDown(reopened.close);
+    final restored = await reopened.listTrips();
+    expect(restored, hasLength(1));
+    expect(restored.single.tripId, 'offline_persisted-history');
+    expect(restored.single.creationRequestId, 'persisted-history');
+    expect(restored.single.destination!.id, city['id']);
+    expect(restored.single.durationDays, 2);
+    final other = OfflineTripStore(
+      factory: databaseFactoryFfi,
+      directory: directory.path,
+      accountId: 'another-user',
+    );
+    addTearDown(other.close);
+    expect(await other.listTrips(), isEmpty);
+  });
+
   test(
     'offline location filters separate hotels stations and airports',
     () async {

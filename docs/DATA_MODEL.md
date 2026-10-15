@@ -128,6 +128,21 @@ Geoapify's autocomplete cache is in memory and therefore has no table timestamp.
 
 ## Flutter recommendation snapshot cache
 
+`[IMPLEMENTED]` As of 2026-10-14, the existing native `trips(id,payload)` store also supplies
+up to 100 recent local history drafts ordered by SQLite row ID. It reuses `payload.trip`,
+including original `request_id`, destination and dates. History reads the existing account
+file and never assigns guest records to another identity. No SQLite format, backend table,
+city identity or migration is changed. `[PARTIAL]` Remote trip listing/sync remains absent.
+
+### Native offline admin mode marker, 2026-10-13
+
+`[IMPLEMENTED]` The existing native secure session key may contain the distinct object
+`{"mode":"offline_admin","schema_version":1}` after explicit local credential login.
+It contains no password, token, user UUID or server role. Unknown marker versions fail
+closed. Ordinary account records retain the existing `AuthSession` JSON contract.
+Logout removes the marker. Installed pack SQLite remains read only and has no schema
+change. No backend table, migration or canonical record is changed by this mode.
+
 `[IMPLEMENTED]` This is device-local cache data, not canonical PostgreSQL schema. Flutter uses a
 SQLite `recommendation_snapshots` table keyed by a stable city/trip-profile hash. Each row stores a
 renderable recommendation JSON payload, `saved_at`, `last_validated_at`, and `schema_version`.

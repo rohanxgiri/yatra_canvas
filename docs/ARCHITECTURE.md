@@ -2,6 +2,32 @@
 
 Last reviewed: 2026-09-27
 
+## Android hosted-backend delivery, 2026-10-14
+
+`[IMPLEMENTED]` `ApiConfig` uses the public Render origin by default in release builds,
+retains development defaults and explicit `API_BASE_URL` overrides, and rejects malformed or
+credential-bearing origins. Existing services and admin/auth repositories share that setting.
+`BackendClient` uses the installed HTTP library's retry wrapper for GET only, with one retry
+after one second for connection failures and 429/500/502/503/504. Longer or date-form
+`Retry-After` values suppress automatic retry. Mutation requests are sent once. Existing
+service deadlines remain, except the first canonical city search permits 65 seconds for a
+Render cold start and aborts network work when its deadline expires. No health gate is added.
+
+`[IMPLEMENTED]` Existing Trip History reads up to 100 recent persisted native offline trips
+from the current account's existing SQLite file when opened. It merges them into presentation
+state without removing current plans, retains original creation IDs, exposes storage retry,
+and rejects responses after an identity transition. Existing trip detail/map services reopen
+the persisted itinerary. Home/Explore layouts and canonical city packs are unchanged.
+`[PARTIAL]` This does not restore remote account/guest history or provide cross-device sync.
+See [Android deployment and actual validation](ANDROID_PRODUCTION_DEPLOYMENT.md).
+
+`[IMPLEMENTED]` Online map tile failure now displays one nonblocking notice per failed attempt,
+retains markers/itinerary geometry, and reloads tile images only on explicit Retry tiles.
+Disposed/late retry actions are ignored. Local maps instantiate no tile layer and keep their
+existing explicit offline-overview explanation. Physical mobile-data trip creation, live places,
+server optimization/road map, and Jaipur offline process-restart recovery passed on a Galaxy S23.
+`[PARTIAL]` Full device/network/performance and privileged deployment acceptance remain separate.
+
 ## Discover Places cache-first data loading — 2026-09-19
 
 `[IMPLEMENTED]` Foreground recommendations read and rank eligible PostgreSQL rows without invoking
@@ -663,6 +689,23 @@ Provider and endpoint metrics, alerting, centralized collection, sampling, and r
 # Admin and moderation architecture note (2026-09-14)
 
 ## Integrated mobile admin update, 2026-10-07
+
+### Offline credential entry, 2026-10-13
+
+`[IMPLEMENTED]` Explicit Offline admin sign in validates the public local showcase
+credential on the device and enters a distinct `AuthStatus.offlineAdmin` workspace.
+It makes no authentication request and persists a versioned mode marker in the existing
+native secure store. It has no `AuthSession`, bearer token, or backend ADMIN role.
+The local screen reads actual bundled pack metadata, search results, visiting information
+and local photos through `CityPackRepository`. Logout clears the marker and navigation.
+
+`[IMPLEMENTED]` Online login and restored server administrators still use live backend
+verification. There is no local fallback after an online rejection. `AdminRepository`
+rejects local mode before issuing protected requests. `[PARTIAL]` Offline admin does not
+manage server users, moderate online places, certify releases or publish canonical data.
+See [offline admin login spec](specs/0002-offline-admin-login.md) and
+`test/offline_admin_login_test.dart`. This is the user's explicit 2026-10-13 exception to
+the postponed general authentication work, not a production identity implementation.
 
 `[IMPLEMENTED]` Auth UI delegates to `AuthController` (ChangeNotifier), `AuthRepository`
 and a platform `SessionStore`. `AuthGate` restores sessions first, then constructs the

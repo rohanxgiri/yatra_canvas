@@ -3,6 +3,12 @@
 Last reviewed: 2026-09-27
 Last verified against repository: 2026-09-27
 
+`[IMPLEMENTED]` The 2026-10-14 Android delivery defaults release clients to the hosted Render
+backend, preserves explicit/development configuration and local Jaipur planning, adds bounded
+GET retries and reproducible build/install scripts, and reopens persisted local trips through
+the existing history screen. `[PARTIAL]` Remote history and newer deployed auth/admin endpoint
+parity remain open. See [deployment and measured validation](ANDROID_PRODUCTION_DEPLOYMENT.md).
+
 `[IMPLEMENTED]` The cache/persistence repair aligns opening-hour updates, canonical city identity,
 provider city provenance, shared coverage decisions, failed-refresh backoff, and recommendation
 batching in repository code, tests, and the configured development database. On 2026-09-27 the two
@@ -248,6 +254,14 @@ planning action on the map. Missing pack photos use identifiable non-photographi
 See [the current offline correction report](OFFLINE_ROUTE_SEARCH_FIX.md).
 
 ## Integrated authentication and admin, 2026-10-07
+
+`[IMPLEMENTED]` The user's 2026-10-13 correction adds explicit Offline admin credential
+login for the existing local showcase identity. It works on a fresh native installation
+without internet, restores a secure device mode marker and opens installed city data.
+It does not create a JWT or server ADMIN authority. Online accounts and protected admin
+operations keep live backend checks. `[PARTIAL]` Offline server operations, canonical
+editing and publication are not provided. Evidence: `test/offline_admin_login_test.dart`
+and [spec](specs/0002-offline-admin-login.md).
 
 `[IMPLEMENTED]` The same Flutter app now routes through `AuthGate` to traveller or admin
 navigation. Authentication uses the existing backend `User`/JWT model, dedicated signup,

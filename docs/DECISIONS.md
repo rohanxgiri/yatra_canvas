@@ -2,6 +2,24 @@
 
 Last reviewed: 2026-09-27
 
+## ADR-031, Hosted Android testing with the existing local-first boundary
+
+- **Status:** Accepted from the user's 2026-10-14 implementation request; `[IMPLEMENTED]`
+  client/build/local history changes, `[PARTIAL]` complete deployed/device acceptance.
+- **Decision:** Keep the existing public `API_BASE_URL` define. Release defaults to Render
+  and development targets retain their local defaults. Retry GET at most once within
+  caller deadlines; respect cooldowns, retain correlation, and send mutations once.
+  Permit a cold-start budget only on initial city search, with cancellation and explicit retry.
+- **Offline:** Prepared cities stay local even online, using the existing pack/SQLite/planner
+  contracts. Read persisted current-account local trips into the existing history screen;
+  do not invent server history, sync, road tiles, weather or OR-Tools parity offline.
+- **Release:** Keep package IDs/flavors and development signing for internal phone testing.
+  Archive previous APKs, record the public origin/hash, install with upgrade semantics and
+  retain app data. Store distribution signing remains separate reviewed work.
+- **Evidence:** `test/api_config_test.dart`, `test/backend_client_test.dart`,
+  `test/offline_trip_history_test.dart`, `test/offline_city_pack_test.dart`, the opt-in
+  GET-only `test/production_api_smoke_test.dart`, and [deployment validation](ANDROID_PRODUCTION_DEPLOYMENT.md).
+
 ## ADR-024 — Canonical city identity and cache coverage have one persisted decision boundary
 
 - **Status:** Accepted and `[IMPLEMENTED]` in repository and the configured development database.
@@ -701,6 +719,22 @@ SQLite alone did not expose the missing module. The immutable pack does not need
 - **Consequences:** Local showcases may use the explicit demo; deployed admin uses registered accounts. Optional adapter
   failures do not hide backend operations. Canonical ownership, reviewed overlays, immutable
   releases and explicit publication remain unchanged. See [delivery report](ADMIN_IMPLEMENTATION_REPORT.md).
+
+### ADR-030 — Explicit offline admin credential workspace
+
+- **Status:** `[IMPLEMENTED]` in Flutter and regression tests, accepted from the user's
+  explicit offline credential login correction on 2026-10-13.
+- **Decision:** Validate the public local showcase credential only in explicit Offline
+  admin mode. Store a versioned device mode marker, with no password, JWT or server role.
+  Read installed packs through the existing read only repository. Keep online login,
+  live role checks and privileged APIs unchanged, with no automatic local fallback.
+- **Evidence:** `lib/services/offline_admin_access.dart`, `AuthController`, `AuthGate`,
+  `OfflineAdminScreen` and `test/offline_admin_login_test.dart`. Targeted authentication,
+  admin and offline pack checks pass. Physical verification is recorded separately in
+  the [delivery spec](specs/0002-offline-admin-login.md).
+- **Limits:** `[PARTIAL]` The device workspace does not supply server user management,
+  moderation, provider status, canonical corrections or publication. This local demo
+  unlock is not a production identity. No backend migration or provider is introduced.
 
 ### Guest mode correction accepted 2026-10-12
 

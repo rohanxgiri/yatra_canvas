@@ -80,9 +80,16 @@ Flutter's one setting is supplied at build/run time with `--dart-define`.
 
 ## Flutter build-time variable
 
+`[IMPLEMENTED]` The 2026-10-13 Offline admin sign in needs no new environment variable,
+backend process or provider key. It is an explicit local mode with no server privileges.
+`ENABLE_DEV_ADMIN` continues to govern the separate backend showcase login only; it does
+not control device access to the bundled read only dataset. `API_BASE_URL` is used only
+by the existing online flows.
+
 | Variable | Service/provider | Required? | Owner | Purpose | Public/secret | Status and replacement note |
 | --- | --- | --- | --- | --- | --- | --- |
-| `API_BASE_URL` | YatraCanvas FastAPI | Optional build override | Flutter/build | Backend origin; emulator-friendly development default is in code | Safe public configuration | `[IMPLEMENTED]`; never put provider or database credentials in `--dart-define` |
+| `API_BASE_URL` | YatraCanvas FastAPI | Optional build override | Flutter/build | HTTP(S) origin; release defaults to `https://yatra-canvas.onrender.com`, debug/profile native Android uses `http://10.0.2.2:8000`, other development targets use localhost | Safe public configuration | `[IMPLEMENTED]`; override wins, trailing slashes normalize, credential/path/query/fragment URLs are rejected; never include secrets |
+| `RUN_PRODUCTION_READS` | Flutter contract tests only | Optional, default false | Flutter/test | Explicitly enables GET-only Render smoke checks in `test/production_api_smoke_test.dart` | Non-secret test switch | `[IMPLEMENTED]`; passed with `--dart-define`, not read by the backend; default regression tests skip live access |
 
 ## What a developer needs today
 

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../models/auth_session.dart';
+import 'backend_client.dart';
 
 class AuthFailure implements Exception {
   const AuthFailure(this.message, {this.connection = false});
@@ -52,7 +53,7 @@ abstract interface class AuthRepository {
 
 class BackendAuthRepository implements AuthRepository {
   BackendAuthRepository({http.Client? client, String? baseUrl})
-    : _client = client ?? http.Client(),
+    : _client = client ?? BackendClient(),
       _base = baseUrl ?? ApiConfig.baseUrl;
   final http.Client _client;
   final String _base;

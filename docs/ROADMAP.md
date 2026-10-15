@@ -2,6 +2,14 @@
 
 Last reviewed: 2026-09-27
 
+## Hosted Android testing slice, 2026-10-14
+
+`[IMPLEMENTED]` Hosted release API defaults, safe GET retry, reproducible regular APK build,
+data-preserving ADB install and existing-screen local history restoration are delivered.
+`[PARTIAL]` Physical network/offline acceptance and current Render auth/admin parity are
+tracked with actual outcomes in [Android deployment](ANDROID_PRODUCTION_DEPLOYMENT.md).
+This slice adds no provider, migration, canonical data release or mandatory authentication.
+
 ## Discover Places data-loading reliability — September 2026
 
 Status: `[IMPLEMENTED]` in repository, backend tests, configured PostgreSQL, and Flutter tests;
@@ -240,6 +248,12 @@ Acceptance criteria:
 - No secrets are shipped to Flutter.
 
 ## Phase 9 — Authorized admin verification tools
+
+`[IMPLEMENTED]` Explicit user correction, 2026-10-13: native Offline admin credential
+login, restart restoration and installed dataset inspection work without the backend.
+This bounded device workflow does not advance server moderation, publication, managed
+identity or release certification. `[PARTIAL]` Those operations retain their existing
+online and tooling dependencies. See [spec](specs/0002-offline-admin-login.md).
 
 Status: `[PARTIAL]`. Role based local JWT authentication, the protected `/api/admin/*` suite,
 destination management, POI moderation, read only trip inspection, report triage, provider

@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/auth_controller.dart';
+import '../../services/offline_admin_access.dart';
 import '../../theme/yc_style.dart';
 import '../../widgets/yatra_brand.dart';
 import 'sign_in_screen.dart';
@@ -68,6 +70,7 @@ class _AuthFormState extends State<AuthForm> {
   final _name = TextEditingController(), _email = TextEditingController();
   final _password = TextEditingController(), _confirm = TextEditingController();
   bool _hidden = true, _confirmHidden = true;
+  bool _offlineAdmin = false;
   String? _error;
   @override
   void dispose() {
@@ -84,6 +87,8 @@ class _AuthFormState extends State<AuthForm> {
     setState(() => _error = null);
     final accepted = widget.signup
         ? await widget.auth.signup(_name.text, _email.text, _password.text)
+        : _offlineAdmin
+        ? await widget.auth.loginOfflineAdmin(_email.text, _password.text)
         : await widget.auth.login(_email.text, _password.text);
     if (!mounted) return;
     if (accepted) {
@@ -158,11 +163,36 @@ class _AuthFormState extends State<AuthForm> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.auth,
     builder: (context, _) => AuthCanvas(
-      title: widget.signup ? 'Create your account' : 'Welcome back',
+      title: widget.signup
+          ? 'Create your account'
+          : _offlineAdmin
+          ? 'Offline admin'
+          : 'Welcome back',
       subtitle: widget.signup
           ? 'Start building trips around the places you love.'
+          : _offlineAdmin
+          ? 'Sign in to the city data stored on this device. No internet needed.'
           : 'Continue planning journeys made for you.',
       children: [
+        if (!widget.signup && !kIsWeb) ...[
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Online')),
+              ButtonSegment(value: true, label: Text('Offline admin')),
+            ],
+            selected: {_offlineAdmin},
+            onSelectionChanged: widget.auth.busy
+                ? null
+                : (selection) => setState(() {
+                    _offlineAdmin = selection.single;
+                    _error = null;
+                    if (_offlineAdmin && _email.text.isEmpty) {
+                      _email.text = OfflineAdminAccess.email;
+                    }
+                  }),
+          ),
+          const SizedBox(height: 24),
+        ],
         Form(
           key: _form,
           child: AutofillGroup(

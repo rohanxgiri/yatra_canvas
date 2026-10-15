@@ -1,6 +1,7 @@
 import '../../widgets/yc_scaffold.dart';
 
 import 'dart:developer' as developer;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -74,6 +75,8 @@ class _TripMapScreenState extends State<TripMapScreen> {
   late final bool _ownsReplanningService;
 
   final MapController _mapController = MapController();
+  final _tileReset = StreamController<void>.broadcast();
+  bool _tileFailureReported = false;
   final Stopwatch _perfWatch = Stopwatch();
 
   /// Tracks stop IDs with in-flight status-update requests.
@@ -95,6 +98,30 @@ class _TripMapScreenState extends State<TripMapScreen> {
   bool get _offlineMap =>
       widget.tripId.startsWith('offline_') ||
       _routeGeometry?.isOfflineOverview == true;
+
+  void _onTileFailure() {
+    if (!mounted || _tileFailureReported) return;
+    _tileFailureReported = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Map tiles could not load. Your places and route are still available.',
+          ),
+          action: SnackBarAction(
+            label: 'Retry tiles',
+            onPressed: () {
+              if (!mounted) return;
+              _tileFailureReported = false;
+              _tileReset.add(null);
+            },
+          ),
+        ),
+      );
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
 
   Future<void> _buildOfflineRoute() async {
     setState(() => _isRouteLoading = true);
@@ -182,6 +209,7 @@ class _TripMapScreenState extends State<TripMapScreen> {
 
   @override
   void dispose() {
+    _tileReset.close();
     if (_ownsTripService) _tripService.close();
     if (_ownsSavedPlaceService) _savedPlaceService.close();
     if (_ownsRouteOptimizationService) _routeOptimizationService.close();
@@ -855,6 +883,9 @@ class _TripMapScreenState extends State<TripMapScreen> {
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.yatracanvas.app',
+                      reset: _tileReset.stream,
+                      evictErrorTileStrategy: EvictErrorTileStrategy.dispose,
+                      errorTileCallback: (_, _, _) => _onTileFailure(),
                     ),
                   PolylineLayer(polylines: _buildPolylines()),
                   MarkerLayer(markers: _buildMarkers()),

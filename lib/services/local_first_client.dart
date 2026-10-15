@@ -10,6 +10,7 @@ import 'authenticated_client.dart';
 import 'local_itinerary_planner.dart';
 import '../models/place.dart';
 import '../models/auth_controller.dart';
+import '../models/trip_draft.dart';
 
 /// Application service gateway. It routes prepared cities to local repositories,
 /// and preserves the existing HTTP transport for all other cities and trips.
@@ -434,6 +435,24 @@ class OfflineTripStore {
       await txn.insert('trips', {'id': id, 'payload': jsonEncode(state)});
     });
     return {'trip_id': id};
+  }
+
+  /// Read the most recent device trips using the existing persisted contract.
+  /// No server request, migration, or transfer between account files is involved.
+  Future<List<TripDraft>> listTrips({int limit = 100}) async {
+    final rows = await (await database()).query(
+      'trips',
+      orderBy: 'rowid DESC',
+      limit: limit.clamp(1, 100),
+    );
+    return [
+      for (final row in rows)
+        TripDraft.fromJson(
+          Map<String, dynamic>.from(
+            (jsonDecode(row['payload'] as String) as Map)['trip'] as Map,
+          ),
+        ),
+    ];
   }
 
   Future<LocalResponse> handle(

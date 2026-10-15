@@ -373,6 +373,58 @@ class MockRouteGeometryService implements RouteGeometryService {
 
 void main() {
   testWidgets(
+    'tile failure reports once and retries tiles without changing itinerary',
+    (tester) async {
+      final saved = await MockSavedPlaceService().getSavedPlaces('t1');
+      final planner = MockRouteOptimizationService();
+      final geometry = await MockRouteGeometryService().getRouteGeometry('t1');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TripMapScreen(
+            tripId: 't1',
+            initialSavedPlaces: saved,
+            initialDurationDays: 2,
+            initialRouteGeometry: geometry,
+            routeOptimizationService: planner,
+            tripService: MockTripService(),
+            savedPlaceService: MockSavedPlaceService(),
+            smartReplanningService: MockSmartReplanningService(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final tiles = tester.widget<TileLayer>(find.byType(TileLayer));
+      var resets = 0;
+      final subscription = tiles.reset!.listen((_) => resets++);
+      addTearDown(subscription.cancel);
+      tiles.errorTileCallback!(_FailedTile(), StateError('offline'), null);
+      tiles.errorTileCallback!(_FailedTile(), StateError('offline'), null);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.text(
+          'Map tiles could not load. Your places and route are still available.',
+        ),
+        findsOneWidget,
+      );
+      expect(resets, 0);
+      expect(planner.calls, 0);
+      expect(find.byType(MarkerLayer), findsOneWidget);
+      expect(find.byType(PolylineLayer), findsOneWidget);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Retry tiles'));
+      await tester.pump();
+      expect(resets, 1);
+      expect(planner.calls, 0);
+      final retryAction = tester.widget<SnackBarAction>(
+        find.byType(SnackBarAction),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      retryAction.onPressed();
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
     'offline map offers explicit planning without fetching street tiles',
     (tester) async {
       final saved = await MockSavedPlaceService().getSavedPlaces('offline_map');
@@ -623,3 +675,5 @@ void main() {
     expect(published!.places.first.status, 'COMPLETED');
   });
 }
+
+class _FailedTile extends Fake implements TileImage {}

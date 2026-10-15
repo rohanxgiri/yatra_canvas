@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/auth_controller.dart';
 import '../../admin/screens/admin_shell.dart';
+import '../../admin/screens/offline_admin_screen.dart';
 import '../home/home_screen.dart';
 import 'sign_in_screen.dart';
 import 'sign_up_screen.dart';
@@ -12,12 +13,13 @@ class AuthGate extends StatefulWidget {
     required this.auth,
     this.userBuilder,
     this.adminBuilder,
+    this.offlineAdminBuilder,
     this.onboardingBuilder,
     this.requireAuthentication = false,
     super.key,
   });
   final AuthController auth;
-  final WidgetBuilder? userBuilder, adminBuilder;
+  final WidgetBuilder? userBuilder, adminBuilder, offlineAdminBuilder;
   final Widget Function(BuildContext, VoidCallback)? onboardingBuilder;
 
   /// Only explicit account/admin entry requires a session. Travellers use Home.
@@ -50,7 +52,8 @@ class _AuthGateState extends State<AuthGate> {
       }
       final authenticated =
           auth.status == AuthStatus.authenticatedUser ||
-          auth.status == AuthStatus.authenticatedAdmin;
+          auth.status == AuthStatus.authenticatedAdmin ||
+          auth.isOfflineAdmin;
       // Account restoration is optional for travellers. Logout and expiry return
       // to guest Home without replaying onboarding or interrupting planning.
       if (authenticated) _onboardingComplete = true;
@@ -66,6 +69,9 @@ class _AuthGateState extends State<AuthGate> {
                 : widget.requireAuthentication
                 ? SignInScreen(auth: auth)
                 : (widget.userBuilder?.call(context) ?? const HomeScreen())
+          : auth.isOfflineAdmin
+          ? (widget.offlineAdminBuilder?.call(context) ??
+                OfflineAdminScreen(auth: auth))
           : auth.isAdmin
           ? (widget.adminBuilder?.call(context) ?? AdminShell(auth: auth))
           : (widget.userBuilder?.call(context) ?? const HomeScreen());
@@ -74,7 +80,9 @@ class _AuthGateState extends State<AuthGate> {
           '${onboarding
               ? 'onboarding'
               : authenticated
-              ? auth.isAdmin
+              ? auth.isOfflineAdmin
+                    ? 'offline-admin'
+                    : auth.isAdmin
                     ? 'admin'
                     : 'user'
               : widget.requireAuthentication

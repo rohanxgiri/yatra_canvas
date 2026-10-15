@@ -23,6 +23,8 @@ class _SummaryTrips extends TripService {
   }
 }
 
+Future<List<TripDraft>> _emptyOfflineHistory() async => [];
+
 class _SummaryPlaces extends SavedPlaceService {
   @override
   Future<List<SavedPlace>> getSavedPlaces(String tripId) async => [];
@@ -62,7 +64,10 @@ void main() {
   ) async {
     YatraSession.instance.remember(TripDraft(tripId: 'active-trip'));
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: const TripHistoryScreen()),
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const TripHistoryScreen(loadOfflineTrips: _emptyOfflineHistory),
+      ),
     );
     final chip = tester.widget<SelectionChip>(
       find.widgetWithText(SelectionChip, 'Ongoing'),
@@ -163,7 +168,9 @@ void main() {
           favorites: favorites,
           onFavorite: favorites.remove,
         ),
-        'history': const TripHistoryScreen(),
+        'history': const TripHistoryScreen(
+          loadOfflineTrips: _emptyOfflineHistory,
+        ),
         'settings': const SettingsScreen(),
       }.entries) {
         await tester.pumpWidget(
@@ -204,7 +211,10 @@ void main() {
             matchesGoldenFile('goldens/account_${entry.key}.png'),
           );
         }
-        await tester.drag(find.byType(Scrollable).first, const Offset(0, -1400));
+        await tester.drag(
+          find.byType(Scrollable).first,
+          const Offset(0, -1400),
+        );
         await tester.pumpAndSettle();
         expect(
           tester.takeException(),

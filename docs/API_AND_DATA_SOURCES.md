@@ -19,6 +19,21 @@ authentication headers or change place acquisition, provider configuration or au
 
 ## Operational matrix
 
+### Hosted Android API verification, 2026-10-14
+
+`[IMPLEMENTED]` GET-only checks against `https://yatra-canvas.onrender.com` returned populated
+city/place data and successful Geoapify suggestions deserializable by Flutter. `[PARTIAL]`
+Deployment parity: live OpenAPI omits repository signup/reset and newer admin operations.
+Successful public reads do not establish full schema parity, ownership or privileged operation
+correctness. No production mutation or migration was used for connectivity checks.
+See [endpoint evidence and limits](ANDROID_PRODUCTION_DEPLOYMENT.md).
+
+Render's [Free service documentation](https://render.com/docs/free), verified 2026-10-14,
+describes idle spin-down after 15 minutes, startup taking about one minute, ephemeral local
+files and usage-related suspension. The actual subscribed tier/dashboard settings remain
+`[UNKNOWN]` from public API evidence. Phone packs/trips remain in device SQLite; PostgreSQL
+remains external. GET retries do not retry trip creation, resolution or optimization writes.
+
 ### Integrated admin adapter, verified from source 2026-10-07
 
 `[IMPLEMENTED]` Existing account login/me now have signup and an honest unavailable reset
@@ -239,6 +254,11 @@ loading uses `GET /trips/{trip_id}/itinerary`; it does not call `optimize-route`
 [`CORE_TRIP_FLOW_RELIABILITY.md`](CORE_TRIP_FLOW_RELIABILITY.md) for measured call counts and limitations.
 
 ## Bundled city-data loop — 2026-10-04
+
+`[IMPLEMENTED]` Offline admin credential entry added on 2026-10-13 performs zero auth or
+admin HTTP calls. Its inspection data comes from the existing installed pack repository
+and bundled assets. It adds no provider, API endpoint, key or network fallback. Protected
+server admin requests still require a real backend session and live role checks.
 
 `[IMPLEMENTED]` Bundled city packs precede provider calls for prepared-city discovery,
 search, details and trip planning. Missing fields may be enriched through the existing backend with

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'auth_session.dart';
 import 'yatra_session.dart';
 import '../services/auth_repository.dart';
+import '../services/offline_admin_access.dart';
 
 enum AuthStatus {
   unknown,
@@ -13,6 +14,7 @@ enum AuthStatus {
   authenticating,
   authenticatedUser,
   authenticatedAdmin,
+  offlineAdmin,
   authenticationError,
 }
 
@@ -39,6 +41,7 @@ class AuthController extends ChangeNotifier {
   }
 
   bool get isAdmin => session?.user.role == UserRole.admin;
+  bool get isOfflineAdmin => status == AuthStatus.offlineAdmin;
   bool get signedIn => session != null;
   bool get busy => status == AuthStatus.authenticating;
   Future<void> restore() async {
@@ -52,9 +55,12 @@ class AuthController extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      final saved = AuthSession.fromJson(
-        Map<String, dynamic>.from(jsonDecode(raw) as Map),
-      );
+      final value = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      if (OfflineAdminAccess.isStoredMarker(value)) {
+        _acceptOfflineAdmin(operation);
+        return;
+      }
+      final saved = AuthSession.fromJson(value);
       if (saved.expired) {
         await logout();
         return;
@@ -94,8 +100,10 @@ class AuthController extends ChangeNotifier {
       await _accept(await action(), operation);
       return operation == _operation;
     } on AuthFailure catch (failure) {
+      if (operation != _operation) return false;
       error = failure.message;
     } catch (_) {
+      if (operation != _operation) return false;
       error = 'Unable to securely save your session. Please try again.';
     }
     if (operation != _operation) return false;
@@ -109,6 +117,54 @@ class AuthController extends ChangeNotifier {
       _authenticate(() => repository.login(email, password));
   Future<bool> signup(String name, String email, String password) =>
       _authenticate(() => repository.signup(name, email, password));
+
+  Future<bool> loginOfflineAdmin(String email, String password) async {
+    final operation = ++_operation;
+    _expiryTimer?.cancel();
+    session = null;
+    offline = false;
+    error = null;
+    status = AuthStatus.authenticating;
+    notifyListeners();
+    if (!OfflineAdminAccess.accepts(email, password)) {
+      status = AuthStatus.authenticationError;
+      error = 'Incorrect offline admin email or password.';
+      notifyListeners();
+      return false;
+    }
+    try {
+      await _storageAction(() async {
+        if (operation == _operation) {
+          await store.write(jsonEncode(OfflineAdminAccess.marker));
+        }
+      });
+      if (operation != _operation) return false;
+      _acceptOfflineAdmin(operation);
+      return true;
+    } catch (_) {
+      if (operation != _operation) return false;
+      status = AuthStatus.authenticationError;
+      error = 'Unable to save the offline session. Please try again.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void _acceptOfflineAdmin(int operation) {
+    if (operation != _operation) return;
+    _expiryTimer?.cancel();
+    session = null;
+    guest = false;
+    offline = true;
+    error = null;
+    logoutIncomplete = false;
+    status = AuthStatus.offlineAdmin;
+    generation++;
+    YatraSession.instance.signOut();
+    YatraSession.instance.clearRecentTrips();
+    notifyListeners();
+  }
+
   Future<void> _accept(AuthSession value, int operation) async {
     if (operation != _operation) return;
     if (value.expired) {

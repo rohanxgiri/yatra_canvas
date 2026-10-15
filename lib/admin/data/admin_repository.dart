@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../config/api_config.dart';
 import '../../models/auth_controller.dart';
+import '../../services/backend_client.dart';
 
 class AdminFailure implements Exception {
   const AdminFailure(this.message);
@@ -22,7 +23,7 @@ class AdminPage {
 
 class AdminRepository {
   AdminRepository({required this.auth, http.Client? client, String? baseUrl})
-    : client = client ?? http.Client(),
+    : client = client ?? BackendClient(),
       baseUrl = baseUrl ?? ApiConfig.baseUrl;
   final AuthController auth;
   final http.Client client;

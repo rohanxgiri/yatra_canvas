@@ -2,10 +2,11 @@ import 'package:http/http.dart' as http;
 
 import '../models/auth_controller.dart';
 import '../config/api_config.dart';
+import 'backend_client.dart';
 
 class AuthenticatedClient extends http.BaseClient {
   AuthenticatedClient({http.Client? network, AuthController? auth})
-    : network = network ?? http.Client(),
+    : network = network ?? BackendClient(),
       auth = auth ?? AuthController.instance;
   final http.Client network;
   final AuthController auth;

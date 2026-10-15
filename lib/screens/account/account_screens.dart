@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
 
 import '../../models/trip_draft.dart';
@@ -9,6 +10,7 @@ import '../../models/yatra_session.dart';
 import '../../models/auth_controller.dart';
 import '../../services/trip_service.dart';
 import '../../services/saved_place_service.dart';
+import '../../services/local_first_client.dart';
 import '../../theme/yc_motion.dart';
 import '../../theme/yc_style.dart';
 import '../../widgets/yc_scaffold.dart';
@@ -749,21 +751,61 @@ class _SavedScreenState extends State<SavedScreen> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class TripHistoryScreen extends StatefulWidget {
-  const TripHistoryScreen({super.key});
+  const TripHistoryScreen({this.loadOfflineTrips, this.auth, super.key});
+  final Future<List<TripDraft>> Function()? loadOfflineTrips;
+  final AuthController? auth;
   @override
   State<TripHistoryScreen> createState() => _TripHistoryScreenState();
 }
 
 class _TripHistoryScreenState extends State<TripHistoryScreen> {
   String _filter = 'Upcoming';
+  bool _loadingOffline = false;
+  bool _filterChanged = false;
+  String? _offlineError;
   @override
   void initState() {
     super.initState();
+    _chooseFilter();
+    if (!kIsWeb || widget.loadOfflineTrips != null) _loadOffline();
+  }
+
+  void _chooseFilter() {
     final statuses = YatraSession.instance.trips.map(_status).toSet();
     if (statuses.contains('Ongoing')) {
       _filter = 'Ongoing';
     } else if (!statuses.contains('Upcoming') && statuses.contains('Past')) {
       _filter = 'Past';
+    }
+  }
+
+  Future<void> _loadOffline() async {
+    final auth = widget.auth ?? AuthController.instance;
+    final generation = auth.generation;
+    setState(() {
+      _loadingOffline = true;
+      _offlineError = null;
+    });
+    try {
+      final load =
+          widget.loadOfflineTrips ??
+          OfflineTripStore.forAccount(auth.session?.user.id).listTrips;
+      final restored = await load();
+      if (!mounted || auth.generation != generation) return;
+      for (final trip in restored.reversed) {
+        // Current session snapshots may contain more recent in-progress edits.
+        if (!YatraSession.instance.trips.any(
+          (item) => item.tripId == trip.tripId,
+        )) {
+          YatraSession.instance.remember(trip);
+        }
+      }
+      if (!_filterChanged) _chooseFilter();
+    } catch (_) {
+      if (!mounted || auth.generation != generation) return;
+      _offlineError = 'Could not open trips saved on this device. Previously opened plans are kept. Please retry.';
+    } finally {
+      if (mounted) setState(() => _loadingOffline = false);
     }
   }
 
@@ -796,6 +838,19 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                 style: YCStyle.secondary,
               ),
               const SizedBox(height: 24),
+              if (_loadingOffline && YatraSession.instance.trips.isEmpty)
+                const YCStateCard(
+                  title: 'Opening saved trips',
+                  message: 'Reading plans stored on this device.',
+                  loading: true,
+                ),
+              if (_offlineError != null)
+                YCStateCard(
+                  title: 'Saved trips could not load',
+                  message: _offlineError!,
+                  actionLabel: 'Retry',
+                  onAction: _loadOffline,
+                ),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -804,12 +859,15 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                     SelectionChip(
                       label: label,
                       selected: _filter == label,
-                      onSelected: (_) => setState(() => _filter = label),
+                      onSelected: (_) => setState(() {
+                        _filterChanged = true;
+                        _filter = label;
+                      }),
                     ),
                 ],
               ),
               const SizedBox(height: 24),
-              if (trips.isEmpty)
+              if (trips.isEmpty && !_loadingOffline && _offlineError == null)
                 _TripHistoryEmpty(
                   title: _filter == 'Past'
                       ? 'Memories start with a plan'

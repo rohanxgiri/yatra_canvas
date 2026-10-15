@@ -34,7 +34,9 @@ class YatraCanvasApp extends StatelessWidget {
             child: Center(
               child: Container(
                 constraints: BoxConstraints(
-                  maxWidth: controller.isAdmin ? double.infinity : 600,
+                  maxWidth: controller.isAdmin || controller.isOfflineAdmin
+                      ? double.infinity
+                      : 600,
                 ),
                 decoration: const BoxDecoration(
                   boxShadow: [

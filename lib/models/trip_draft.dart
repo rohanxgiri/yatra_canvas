@@ -178,6 +178,7 @@ class TripDraft {
 
     return TripDraft(
       tripId: tripId,
+      creationRequestId: json['request_id'] as String?,
       destination: destination,
       startDate: startDate,
       endDate: endDate,
