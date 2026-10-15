@@ -1,13 +1,15 @@
 # YatraCanvas roadmap
 
-Last reviewed: 2026-09-27
+Last reviewed: 2026-10-15
 
 ## Hosted Android testing slice, 2026-10-14
 
 `[IMPLEMENTED]` Hosted release API defaults, safe GET retry, reproducible regular APK build,
 data-preserving ADB install and existing-screen local history restoration are delivered.
-`[PARTIAL]` Physical network/offline acceptance and current Render auth/admin parity are
-tracked with actual outcomes in [Android deployment](ANDROID_PRODUCTION_DEPLOYMENT.md).
+`[PARTIAL]` Galaxy S23 checks passed for hosted guest flows over Wi-Fi and mobile data and for
+prepared Jaipur planning without internet. Direct use after physically unplugging USB, broader
+device coverage, and current Render auth/admin parity remain open. See the measured results in
+[Android deployment](ANDROID_PRODUCTION_DEPLOYMENT.md).
 This slice adds no provider, migration, canonical data release or mandatory authentication.
 
 ## Discover Places data-loading reliability — September 2026
@@ -40,9 +42,10 @@ updated. It is not a release-date commitment.
 Status: `[PARTIAL]`. Approved Home/Explore remain the visual reference. Shared
 planning foundations, unified onboarding, responsive trip creation, discovery,
 day planning, map/POI refinements, and session account screens are implemented.
-Saved/Profile navigation integration is implemented; physical-device acceptance
-testing remains open. `[IMPLEMENTED]` Local JWT authentication and role routing now exist.
-Durable account history UI and notification delivery remain separate work. See [screen audit and evidence](UI_REDESIGN.md).
+Saved/Profile navigation integration is implemented; broader physical-device acceptance
+testing remains open. `[IMPLEMENTED]` Local JWT authentication, role routing, and device local
+trip history restoration now exist. Server backed account history and notification delivery
+remain separate work. See [screen audit and evidence](UI_REDESIGN.md).
 
 ## Phase 1 — Source of truth and configuration alignment
 
@@ -72,7 +75,7 @@ and audit use backend data. Home and Explore visual files are preserved.
 
 `[PARTIAL]` City Lab certification needs a matching desktop export; image import and canonical
 application remain in their existing tooling. Remote publish, automatic merges, reset email,
-Supabase identity, session revocation, account history UI, migration runner and device acceptance
+Supabase identity, session revocation, server backed account history and a migration runner
 remain explicit work. Do not mark the whole phase production ready from this delivery.
 See [implementation report](AUTH_ADMIN_IMPLEMENTATION.md).
 
@@ -80,8 +83,9 @@ Status: `[PARTIAL]`. The current authenticated local JWT slices implement trip c
 normal Flutter handoff into persistent saved-place list/add/update/reorder/delete operations.
 The returned real `trip_id` is retained in memory and every saved-place mutation uses it.
 `[IMPLEMENTED]` Local JWT signup/login, secure native session restoration, traveller ownership,
-and account separated offline trip persistence are available. Supabase identity, traveller
-trip list/delete/history restoration and a versioned migration runner remain planned.
+account separated offline trip persistence and device local history restoration are available.
+Supabase identity, server backed trip list/delete/history and a versioned migration runner remain
+planned.
 
 `[IMPLEMENTED]` Priority correction, 2026-10-12: guest planning is the default after onboarding,
 without tokens or `ALLOW_DEV_GUEST`. Admin authorization remains separate. Current delivery

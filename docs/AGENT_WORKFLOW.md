@@ -1,6 +1,6 @@
 # Agent Workflow
 
-Last updated: 2026-10-06
+Last updated: 2026-10-15
 
 ## Status and provenance
 
@@ -94,8 +94,16 @@ For a local pack change, relevant checks include `flutter test test/offline_city
 and `python -m unittest tools.test_sync_city_pack`. Run backend checks from `backend/`
 when backend behavior changes. Documentation edits need link and diff validation;
 they do not justify a provider probe, pack rebuild or production migration.
-`[PARTIAL]` Physical Android acceptance and measured device performance still require
-device evidence. Automated tests cannot establish those results.
+`[PARTIAL]` Physical Android acceptance is documented in
+[Android production deployment](ANDROID_PRODUCTION_DEPLOYMENT.md). A Galaxy S23 passed the
+hosted guest flow over Wi-Fi and mobile data and the prepared Jaipur flow without internet.
+Pack upgrade acceptance, broader device coverage and measured performance remain open.
+Automated tests cannot establish those results.
+
+For hosted Android internal testing, use `tools/build_android_release.ps1` and then
+`tools/install_android_release.ps1`; review the deployment guide for the hosted URL, signing
+limits and physical acceptance steps. USB is used by the install helper, not by the app's hosted
+network connection. Confirm any USB unplug scenario on the actual phone before reporting it passed.
 
 Keep `/audit` and `/sync` surgical. A documentation change alone does not advance
 product scope, ratify a spec, or justify rewriting curated context. Existing user
@@ -107,10 +115,12 @@ required by the repository being changed.
 ## Recommended next engineering step
 
 The workflow pack itself does not change product priority. Consult `docs/ROADMAP.md`
-for the next slice. `[PARTIAL]` Physical Android acceptance of prepared-city search,
-local trips, pack upgrades and approximate route display remains open; use the device
-steps in `CITY_DATA_DEV_LOOP.md` and the evidence in `OFFLINE_ROUTE_SEARCH_FIX.md`.
+for the next slice. `[IMPLEMENTED]` Prepared Jaipur search, local trip planning and the
+approximate route overview passed on a Galaxy S23 without internet on 2026-10-14.
+`[PARTIAL]` Pack upgrade acceptance and broader device coverage remain open; use the device
+steps in `CITY_DATA_DEV_LOOP.md` and the measured results in `ANDROID_PRODUCTION_DEPLOYMENT.md`.
 `[IMPLEMENTED]` Optional local JWT accounts enforce traveller ownership on online
 trip resources. Token-free guests reuse the existing shared guest identity without configuration.
-`[PLANNED]` Supabase Auth remains the production identity direction; native storage and
-device acceptance still need physical device evidence. See `AUTH_ADMIN_IMPLEMENTATION.md`.
+`[PLANNED]` Supabase Auth remains the production identity direction. The current local JWT
+and Offline admin session restore were physically checked; future provider changes need their
+own device evidence. See `AUTH_ADMIN_IMPLEMENTATION.md` and `ANDROID_PRODUCTION_DEPLOYMENT.md`.

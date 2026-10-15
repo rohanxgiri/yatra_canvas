@@ -170,8 +170,9 @@ or route contract is changed by this UI slice.
 `[IMPLEMENTED]` `lib/main.dart` starts the traveller application and `lib/main_admin.dart`
 starts a separate admin shell. Screens call small `http` service classes using the base URL in
 `lib/config/api_config.dart`. Models are local Dart value objects. Navigation and state are
-primarily widget-local, with the session-only presentation store described above;
-there is no router package or durable client persistence layer.
+primarily widget-local, with the session-only presentation store described above. Prepared city
+packs and local trip drafts persist in SQLite, and native authentication markers and sessions use
+secure storage. There is no router package.
 
 `[IMPLEMENTED]` The trip-building screens share a `TripDraft`. After Preferences, `TripService`
 posts the existing city/date/arrival/purpose/preference values to the backend, retains the
@@ -196,9 +197,11 @@ field loses focus. Selecting a different destination clears the previous city's 
 fields, and Place Discovery disables route optimization when the current in-memory draft has no
 coordinate-backed start.
 
-`[PARTIAL]` `TripDraft` and its `trip_id` remain widget-local and in memory; they do not survive
-an app restart. Trip listing/editing and authenticated ownership are absent. The admin shell
-uses hard-coded metrics and rows and has no admin API client.
+`[PARTIAL]` The active server `TripDraft` and its `trip_id` remain widget-local and in memory.
+Server backed trip history across restart is unavailable. Offline trip drafts persist in
+identity separated SQLite files, and the history screen can restore up to 100 local records after
+restart. The separate admin shell still uses local presentation data; the regular app's online
+Admin Studio uses the protected backend API.
 
 `[IMPLEMENTED]` `flutter_map: ^8.3.2` provides an interactive OpenStreetMap tile map in
 `trip_map_screen.dart`. It renders start/place markers, day-filtered road-following
@@ -507,8 +510,9 @@ Legacy Google route client code remains but is not called by the normal Flutter 
 `[IMPLEMENTED]` Local JWT authentication, role protected admin endpoints, the web admin dashboard,
 trip get and update paths, durable place refresh coordination, and Discover request correlation
 exist. `[IMPLEMENTED]` Flutter accounts now bind online trips to verified local JWT identities.
-`[PARTIAL]` Supabase identity, complete traveller trip list/delete and history restoration,
-always on external job delivery, and deployment level observability remain open.
+`[IMPLEMENTED]` Device local trip history restores saved drafts from the current identity's SQLite
+store. `[PARTIAL]` Supabase identity, server backed traveller trip list/delete/history across
+devices, always on external job delivery, and deployment level observability remain open.
 
 ### Database and schema changes
 
@@ -678,7 +682,7 @@ Provider and endpoint metrics, alerting, centralized collection, sampling, and r
 | Concern | Current | Target |
 | --- | --- | --- |
 | Identity/authorization | `[IMPLEMENTED]` local JWT signup/login, Flutter role gate, native secure storage, `require_admin`, traveller ownership; `[PARTIAL]` production identity lifecycle | Supabase identity, reset delivery and session revocation infrastructure |
-| Trip lifecycle | `[IMPLEMENTED]` authenticated create/read/edit and offline persistence; `[PARTIAL]` account history UI and list/delete | complete account trip lifecycle |
+| Trip lifecycle | `[IMPLEMENTED]` authenticated create/read/edit, identity separated offline persistence, and device local history restoration; `[PARTIAL]` server backed history/list/delete | complete account trip lifecycle |
 | Place acquisition | `[IMPLEMENTED]` durable background Audiala/Geoapify/OSM refresh plus local FSQ importer; `[PARTIAL]` external delivery/deletion lifecycle | reviewed extract ingestion, always-on workers, and optional Wikimedia enrichment |
 | Routing | `[IMPLEMENTED]` pairwise matrix estimates, constraint-aware optimizer; real road geometry via openrouteservice/OSRM | provider-neutral openrouteservice directions/matrix and multi-day planning |
 | Map | `[IMPLEMENTED]` FlutterMap with OpenStreetMap tiles, markers, and real road-route PolylineLayer | explicit renderer/tiles decision with attribution and offline policy |

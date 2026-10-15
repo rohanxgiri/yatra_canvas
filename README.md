@@ -9,12 +9,14 @@ geometry, weather assistance, JWT protected administration APIs, POI moderation,
 dashboard.
 
 `[IMPLEMENTED]` Local backend JWT accounts, Flutter role routing and authenticated online trip ownership are available.
+`[IMPLEMENTED]` An explicit Offline admin mode opens a viewer on this device for installed city pack data. It has no JWT and no access to server admin features.
 `[IMPLEMENTED]` Guest planning is the default after onboarding. Home, Explore, online trips and
 prepared offline city packs require no account or token. Admin operations remain role protected.
 `[PARTIAL]` Guest history presentation is session-only; native offline records persist on the
 device, and online guest records share the legacy guest namespace without cross-device history UI.
-`[PARTIAL]` Supabase Auth integration, traveller account history across restart, an
-ordered migration runner, and always on background job delivery remain incomplete.
+`[IMPLEMENTED]` Native trip history restores device-local drafts after restart.
+`[PARTIAL]` Server-backed traveller history, Supabase Auth, password reset delivery, an ordered
+migration runner, and always on background job delivery remain incomplete.
 
 For the evidence backed project state, start with [Project context](docs/PROJECT_CONTEXT.md).
 
@@ -166,7 +168,8 @@ The backend URL is selected as follows:
 | Flutter web | `http://localhost:8000` |
 | iOS simulator | `http://localhost:8000` |
 | Windows, macOS, or Linux desktop | `http://localhost:8000` |
-| Physical device | No automatic host discovery. Pass your computer's LAN address |
+| Physical device, debug/profile | No automatic host discovery. Pass your computer's LAN address |
+| Regular Android release APK | `https://yatra-canvas.onrender.com` |
 
 For a physical device, bind the API to the local network and pass the host address to Flutter:
 
@@ -185,6 +188,30 @@ flutter run -d chrome
 flutter run -d windows
 flutter run -d <device-id> --dart-define=API_BASE_URL=http://YOUR_HOST:8000
 ```
+
+### Build and install an Android release for internal testing
+
+On Windows, build the regular APK with its hosted backend URL:
+
+```powershell
+.\tools\build_android_release.ps1
+```
+
+The script runs package resolution, analysis and Flutter tests, then writes
+`build/app/outputs/flutter-apk/app-regular-release.apk`. It uses the Render URL by default;
+`-ApiBaseUrl` accepts another HTTPS origin. The release uses a development signing key and is
+for internal testing, not store distribution.
+
+With one authorized Android device connected by USB debugging, install and open it while keeping
+existing app data:
+
+```powershell
+.\tools\install_android_release.ps1
+```
+
+USB is only needed by this install helper. After installation the app connects directly to Render
+over the phone's Wi-Fi or mobile data. The release, network checks, known limits and phone evidence
+are documented in [Android production deployment](docs/ANDROID_PRODUCTION_DEPLOYMENT.md).
 
 ## Run the admin experiences
 
@@ -218,6 +245,11 @@ flutter run --flavor admin -t lib/main_admin.dart
 
 `[PARTIAL]` This Flutter shell is not the operational web dashboard and still contains local
 presentation data. Use the FastAPI served web dashboard for the implemented admin API workflow.
+
+`[IMPLEMENTED]` In the regular app, Offline admin sign in opens a read only view of installed city
+packs, searchable places and bundled photos without contacting the backend. User management,
+moderation and publishing still require an online administrator session. See the
+[offline admin specification](docs/specs/0002-offline-admin-login.md).
 
 ## Development checks
 
@@ -266,6 +298,7 @@ proposing changes to the delivery plan or architecture.
 | [Roadmap](docs/ROADMAP.md) | Delivery status and acceptance criteria |
 | [Decisions](docs/DECISIONS.md) | Accepted architecture decisions |
 | [Agent workflow](docs/AGENT_WORKFLOW.md) | How to use the project local workflow skills |
+| [Android deployment](docs/ANDROID_PRODUCTION_DEPLOYMENT.md) | Release APK configuration, phone installation, acceptance evidence, and limits |
 | [Backend guide](backend/README.md) | Backend details, APIs, providers, and import commands |
 | [Offline city pack architecture](docs/OFFLINE_CITY_PACK_ARCHITECTURE.md) | Pack ownership, local runtime behavior, and repair integrity |
 | [City-data developer loop](docs/CITY_DATA_DEV_LOOP.md) | Cross-repository export, curation, repair, sync, and acceptance commands |

@@ -1,13 +1,14 @@
 # YatraCanvas project context
 
-Last reviewed: 2026-09-27
-Last verified against repository: 2026-09-27
+Last reviewed: 2026-10-15
+Last verified against repository: 2026-10-15
 
 `[IMPLEMENTED]` The 2026-10-14 Android delivery defaults release clients to the hosted Render
 backend, preserves explicit/development configuration and local Jaipur planning, adds bounded
-GET retries and reproducible build/install scripts, and reopens persisted local trips through
-the existing history screen. `[PARTIAL]` Remote history and newer deployed auth/admin endpoint
-parity remain open. See [deployment and measured validation](ANDROID_PRODUCTION_DEPLOYMENT.md).
+GET retries and reproducible build/install scripts, reopens persisted local trips through the
+existing history screen, and provides a device only Offline admin viewer for installed city pack
+data. `[PARTIAL]` Server backed history and newer deployed auth/admin endpoint parity remain open.
+See [deployment and measured validation](ANDROID_PRODUCTION_DEPLOYMENT.md).
 
 `[IMPLEMENTED]` The cache/persistence repair aligns opening-hour updates, canonical city identity,
 provider city provenance, shared coverage decisions, failed-refresh backoff, and recommendation
@@ -76,8 +77,8 @@ YatraCanvas is an intelligent travel-planning application designed for Indian de
   - Responsive Web Admin Dashboard served by FastAPI at `/admin` (HTML5, Vanilla CSS, reactive Vanilla JS).
 
 - **What is partial / not yet implemented:**
-  - `[IMPLEMENTED]` Flutter login/signup, central role gate, native secure sessions, and online trip ownership use local backend JWT accounts. `[PARTIAL]` Supabase identity, password reset email delivery, and authenticated trip history across restart remain open;
-  - Account-level multi-trip history: presentation snapshots in `YatraSession` remain memory only; native offline trips use account separated SQLite files. No traveller server trip-list endpoint or account history restoration UI has been added;
+  - `[IMPLEMENTED]` Flutter login/signup, central role gate, native secure sessions, and online trip ownership use local backend JWT accounts. `[PARTIAL]` Supabase identity, password reset email delivery, and server backed trip history remain open;
+  - `[IMPLEMENTED]` Native local trips use identity separated SQLite files, and the history screen restores up to 100 device records after restart. `[PARTIAL]` `YatraSession` presentation snapshots remain memory only; no traveller server trip-list endpoint or cross-device history is available;
   - Versioned migration runner: Database uses `SQLModel.metadata.create_all` plus manual `.sql` scripts; no Alembic runner is configured.
 
 ---
@@ -274,8 +275,12 @@ Home/Explore visual files are unchanged.
 four-screen onboarding before Home. Completing or skipping requires no credentials.
 The final account link is optional and can be dismissed. Restored sessions skip the introduction;
 traveller logout returns to guest Home. The dedicated admin entry still requires sign-in.
-`[PARTIAL]` Saved/history presentation snapshots remain session-only. Native guest trip records
-persist locally; no cross-device guest history or automatic history restoration is claimed.
+`[IMPLEMENTED]` Offline admin sign in opens a read only viewer for installed city pack data,
+searchable places and bundled photos. It makes no authentication request, stores no password or
+JWT, and cannot use server admin operations. The local session restore was checked on a Galaxy S23.
+`[PARTIAL]` `YatraSession` presentation snapshots remain session-only. Device local trip records
+appear in Trip history and can be restored after restart; remote server history and cross-device
+guest/account history remain unavailable.
 
 `[IMPLEMENTED]` Admin has responsive Overview, City Quality, Trips, Users and Operations navigation,
 backend review overlays, audited SQL mutations and read only operational inspection.
